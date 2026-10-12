@@ -226,8 +226,8 @@ function WashPage() {
                   placeholder="Hyundai i20 · KA01AB1234"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid gap-1.5 min-w-0">
                   <Label htmlFor="wash-date">Date</Label>
                   <Input
                     id="wash-date"

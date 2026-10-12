@@ -185,17 +185,29 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  html {
+    overflow-x: clip;
+    max-width: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    max-width: 100%;
+  }
+  img, svg, video, canvas {
+    max-width: 100%;
+    height: auto;
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     letter-spacing: -0.03em;
     font-weight: 650;
+    overflow-wrap: break-word;
   }
   ::selection { background: color-mix(in oklab, var(--brand) 35%, transparent); }
 }
@@ -305,6 +317,7 @@
 @utility aurora {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
   &::before {
     content: "";
     position: absolute;

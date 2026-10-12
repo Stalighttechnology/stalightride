@@ -106,24 +106,24 @@ function Account() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="aurora relative">
+      <main className="aurora relative overflow-hidden">
         <div className="relative mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
           {/* Identity */}
-          <section className="glow-border glass-strong rise p-6 sm:p-8">
+          <section className="glow-border glass-strong rise p-5 sm:p-8">
             <div className="flex items-center gap-4">
-              <Avatar className="h-20 w-20 shrink-0 ring-2 ring-brand/40">
+              <Avatar className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 ring-2 ring-brand/40">
                 <AvatarImage src={profile?.avatar_url ?? user?.user_metadata?.avatar_url} alt={name} />
                 <AvatarFallback className="bg-muted text-xl font-semibold">{initial}</AvatarFallback>
               </Avatar>
-              <div className="min-w-0">
-                <h1 className="truncate font-display text-2xl font-bold">{name}</h1>
-                <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate font-display text-xl sm:text-2xl font-bold">{name}</h1>
+                <p className="truncate text-xs sm:text-sm text-muted-foreground">{user?.email}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="gap-1 rounded-full border-border/70 bg-card/50">
+                  <Badge variant="outline" className="gap-1 rounded-full border-border/70 bg-card/50 text-xs">
                     <verification.icon className={`h-3.5 w-3.5 ${verification.tint}`} aria-hidden />
                     {verification.label}
                   </Badge>
-                  <Badge variant="outline" className="gap-1 rounded-full border-border/70 bg-card/50">
+                  <Badge variant="outline" className="gap-1 rounded-full border-border/70 bg-card/50 text-xs">
                     <Crown className={`h-3.5 w-3.5 ${tier.tint}`} aria-hidden />
                     {tier.name}
                   </Badge>
@@ -132,11 +132,11 @@ function Account() {
             </div>
 
             {/* Wallet */}
-            <div className="glass mt-6 flex items-center justify-between gap-4 p-5">
+            <div className="glass mt-6 flex items-center justify-between gap-4 p-4 sm:p-5">
               <div className="min-w-0">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">Wallet balance</div>
                 {stats ? (
-                  <div className="font-display text-3xl font-bold">{currency(stats.balance)}</div>
+                  <div className="font-display text-2xl sm:text-3xl font-bold">{currency(stats.balance)}</div>
                 ) : (
                   <Skeleton className="mt-1 h-8 w-28" />
                 )}
@@ -147,19 +147,19 @@ function Account() {
             </div>
 
             {/* Stats */}
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
               {[
                 { label: "Trips", value: stats?.trips },
                 { label: "Active", value: stats?.active },
                 { label: "Saved", value: stats?.saved },
               ].map((s) => (
-                <div key={s.label} className="glass px-4 py-3 text-center">
+                <div key={s.label} className="glass min-w-0 px-2 sm:px-4 py-2.5 sm:py-3 text-center">
                   {stats ? (
-                    <div className="font-display text-2xl font-bold">{s.value}</div>
+                    <div className="font-display text-xl sm:text-2xl font-bold">{s.value}</div>
                   ) : (
                     <Skeleton className="mx-auto h-7 w-8" />
                   )}
-                  <div className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
+                  <div className="mt-0.5 truncate text-[10px] sm:text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -168,18 +168,18 @@ function Account() {
           {/* Quick actions */}
           <section className="mt-6">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Quick actions</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {quick.map((q, i) => (
                 <Link
                   key={q.to}
                   to={q.to as any}
-                  className="glass lift flex flex-col items-center gap-2 p-4 text-center text-xs font-medium"
+                  className="glass lift flex flex-col items-center gap-1.5 sm:gap-2 p-2.5 sm:p-4 text-center text-xs font-medium min-w-0"
                   style={{ animation: `sy-rise 520ms ${i * 60}ms both` }}
                 >
-                  <span className="glass grid h-10 w-10 place-items-center rounded-xl">
-                    <q.icon className={`h-4.5 w-4.5 ${q.tint}`} aria-hidden />
+                  <span className="glass grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-xl shrink-0">
+                    <q.icon className={`h-4 w-4 sm:h-4.5 sm:w-4.5 ${q.tint}`} aria-hidden />
                   </span>
-                  {q.label}
+                  <span className="truncate w-full">{q.label}</span>
                 </Link>
               ))}
             </div>

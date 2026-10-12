@@ -431,12 +431,12 @@ function VehicleCard({
             </span>
           </div>
 
-          <div className="mt-4 flex items-end justify-between border-t border-border pt-3">
-            <div>
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-2 border-t border-border pt-3">
+            <div className="min-w-0">
               <div className="font-display text-lg font-bold leading-none">{currency(v.price_daily)}</div>
-              <div className="text-[11px] text-muted-foreground">per day{v.price_hourly ? ` · ${currency(v.price_hourly)}/hr` : ""}</div>
+              <div className="truncate text-[11px] text-muted-foreground">per day{v.price_hourly ? ` · ${currency(v.price_hourly)}/hr` : ""}</div>
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand">
+            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand">
               <CalendarDays className="h-3.5 w-3.5" />Book
             </span>
           </div>

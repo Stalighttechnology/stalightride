@@ -99,7 +99,7 @@ function Index() {
                   className="h-14 rounded-2xl border-border/70 bg-card/60 pl-11 text-base backdrop-blur-xl"
                 />
               </div>
-              <Button type="submit" size="lg" className="btn-gradient h-14 gap-2 rounded-2xl px-7 text-base">
+              <Button type="submit" size="lg" className="btn-gradient h-14 shrink-0 gap-2 rounded-2xl px-7 text-base">
                 Find a ride <ArrowRight className="h-4 w-4" />
               </Button>
             </form>
@@ -118,17 +118,17 @@ function Index() {
               ))}
             </div>
 
-            <dl className="mt-11 grid max-w-lg grid-cols-3 gap-2.5 text-left sm:gap-4">
+            <dl className="mt-11 grid max-w-lg grid-cols-3 gap-2 text-left sm:gap-4">
               {[
                 { k: "QR", v: "Pickup & return" },
                 { k: "GPS", v: "Active-trip sharing" },
                 { k: "Wallet", v: "Booking payments" },
               ].map((s) => (
-                <div key={s.v} className="glass px-3 py-2.5 sm:px-4 sm:py-3">
-                  <dt className="flex items-center gap-1 font-display text-xl font-bold text-foreground sm:text-2xl">
+                <div key={s.v} className="glass min-w-0 px-2.5 py-2 sm:px-4 sm:py-3">
+                  <dt className="flex items-center gap-1 font-display text-lg font-bold text-foreground sm:text-2xl">
                     {s.k}
                   </dt>
-                  <dd className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{s.v}</dd>
+                  <dd className="mt-0.5 truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{s.v}</dd>
                 </div>
               ))}
             </dl>

@@ -342,7 +342,7 @@ function VehiclePage() {
                     Trip schedule
                   </div>
                   <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/60">
-                    <div className="grid grid-cols-2 divide-x divide-border/70">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={CalendarDays} label="Pickup date">
                         <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
                       </SlotField>
@@ -350,7 +350,7 @@ function VehiclePage() {
                         <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} min={start || new Date().toISOString().slice(0, 10)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
                       </SlotField>
                     </div>
-                    <div className="grid grid-cols-2 divide-x divide-border/70">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={Clock} label="Pickup time">
                         <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
                       </SlotField>
@@ -455,11 +455,11 @@ function VehiclePage() {
 
 function SlotField({ icon: Icon, label, children }: { icon: any; label: string; children: React.ReactNode }) {
   return (
-    <div className="px-3 py-2.5 transition-colors focus-within:bg-brand/5">
+    <div className="min-w-0 px-3 py-2.5 transition-colors focus-within:bg-brand/5">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-        <Icon className="h-3 w-3 text-brand" />{label}
+        <Icon className="h-3 w-3 shrink-0 text-brand" />{label}
       </div>
-      <div className="mt-0.5">{children}</div>
+      <div className="mt-0.5 min-w-0">{children}</div>
     </div>
   );
 }

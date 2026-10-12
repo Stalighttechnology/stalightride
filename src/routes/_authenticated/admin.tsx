@@ -39,13 +39,13 @@ function AdminPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="font-display text-3xl font-semibold">Admin verification</h1>
         <Tabs defaultValue="vehicles" className="mt-6">
-          <TabsList className="flex w-full flex-wrap justify-start">
-            <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
-            <TabsTrigger value="hosts">Hosts (KYC)</TabsTrigger>
-            <TabsTrigger value="drivers">Drivers</TabsTrigger>
-            <TabsTrigger value="licences">Driving licences</TabsTrigger>
-            <TabsTrigger value="washes">Vehicle wash</TabsTrigger>
-            <TabsTrigger value="disputes">Disputes</TabsTrigger>
+          <TabsList className="flex w-full flex-wrap justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted">
+            <TabsTrigger value="vehicles" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Vehicles</TabsTrigger>
+            <TabsTrigger value="hosts" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Hosts (KYC)</TabsTrigger>
+            <TabsTrigger value="drivers" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Drivers</TabsTrigger>
+            <TabsTrigger value="licences" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Driving licences</TabsTrigger>
+            <TabsTrigger value="washes" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Vehicle wash</TabsTrigger>
+            <TabsTrigger value="disputes" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Disputes</TabsTrigger>
           </TabsList>
           <TabsContent value="vehicles"><VehicleQueue /></TabsContent>
           <TabsContent value="hosts"><HostQueue /></TabsContent>

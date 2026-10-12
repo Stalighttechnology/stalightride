@@ -32,16 +32,16 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
-      <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SidebarTrigger className="-ml-1 shrink-0 md:hidden" aria-label="Open navigation" />
-          <Link to="/" className="flex min-w-0 items-center gap-2 md:hidden">
-            <img src={synchooMark} alt="Synchoo" width={32} height={32} className="h-8 w-8 shrink-0 object-contain" />
-            <span className="truncate font-display text-base font-bold tracking-tight text-foreground">Synchoo</span>
+          <Link to="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2 md:hidden">
+            <img src={synchooMark} alt="Synchoo" width={32} height={32} className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 object-contain" />
+            <span className="truncate font-display text-sm sm:text-base font-bold tracking-tight text-foreground">Synchoo</span>
           </Link>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <CitySelector />
           <NotificationBell />
           <ThemeToggle className="hidden sm:inline-flex" />
@@ -77,7 +77,7 @@ export function SiteHeader() {
           ) : (
             <>
               <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><Link to="/auth">Sign in</Link></Button>
-              <Button asChild size="sm" className="rounded-full bg-brand text-brand-foreground hover:bg-brand/90"><Link to="/auth" search={{ mode: "signup" } as any}>Get started</Link></Button>
+              <Button asChild size="sm" className="h-8 sm:h-9 px-2.5 sm:px-4 text-xs sm:text-sm rounded-full bg-brand text-brand-foreground hover:bg-brand/90"><Link to="/auth" search={{ mode: "signup" } as any}>Get started</Link></Button>
             </>
           )}
         </div>

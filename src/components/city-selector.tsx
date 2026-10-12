@@ -45,7 +45,7 @@ export function CitySelector({ className }: { className?: string }) {
         <Button
           variant="outline"
           size="sm"
-          className={cn("h-9 gap-1.5 rounded-full pl-2.5 pr-2", className)}
+          className={cn("h-8 sm:h-9 gap-1.5 rounded-full px-2 sm:pl-2.5 sm:pr-2", className)}
           aria-label="Select your city"
         >
           <MapPin className="h-4 w-4 text-brand" />
