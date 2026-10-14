@@ -9,6 +9,14 @@
 
 const CALLBACK = "__synchooGmapsReady";
 
+// Handle Google Maps authorization failure gracefully
+if (typeof window !== "undefined") {
+  (window as any).gm_authFailure = () => {
+    console.warn("[Google Maps] API key authorization failed or domain restricted. Falling back to alternative map provider.");
+    window.dispatchEvent(new CustomEvent("gmaps:auth_failure"));
+  };
+}
+
 export function mapsBrowserKey(): string | undefined {
   return import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
 }
