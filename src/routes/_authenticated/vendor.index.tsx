@@ -15,7 +15,8 @@ import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { HostAnalytics } from "@/components/host-analytics";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { toast } from "sonner";
-import { Plus, Car, DollarSign, Calendar, ShieldCheck, ScanLine } from "lucide-react";
+import { Plus, Car, DollarSign, Calendar, ShieldCheck, ScanLine, Star } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 
 export const Route = createFileRoute("/_authenticated/vendor/")({ component: VendorDashboard });
@@ -25,6 +26,8 @@ function VendorDashboard() {
   const [vendor, setVendor] = useState<any>(null);
   const [vehicles, setVehicles] = useState<any[] | null>(null);
   const [bookings, setBookings] = useState<any[] | null>(null);
+  const [payouts, setPayouts] = useState<any[] | null>(null);
+  const [vendorReviews, setVendorReviews] = useState<any[] | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,6 +43,27 @@ function VendorDashboard() {
     setVehicles(vhs ?? []);
     setBookings(bks ?? []);
     if (vend) { setBusinessName(vend.business_name); setBio(vend.bio ?? ""); }
+
+    // Payouts
+    const { data: pts } = await supabase
+      .from("payouts")
+      .select("*")
+      .eq("vendor_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setPayouts(pts ?? []);
+
+    // Reviews for all vendor vehicles
+    const vehicleIds = (vhs ?? []).map((v: any) => v.id);
+    if (vehicleIds.length > 0) {
+      const { data: rvs } = await supabase
+        .from("reviews")
+        .select("*, vehicles(title)")
+        .in("vehicle_id", vehicleIds);
+      setVendorReviews(rvs ?? []);
+    } else {
+      setVendorReviews([]);
+    }
   };
   useEffect(() => { load(); }, [user?.id]);
 
@@ -130,40 +154,100 @@ function VendorDashboard() {
           )}
         </div>
 
+        <div className="mt-8">
+          <Tabs defaultValue="vehicles">
+            <TabsList>
+              <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsTrigger value="payouts">Payouts</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            </TabsList>
 
+            <TabsContent value="vehicles">
+              <section className="mt-4">
+                {!vehicles && <div className="grid gap-3 sm:grid-cols-2">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>}
+                {vehicles && vehicles.length === 0 && <p className="mt-4 text-muted-foreground">No vehicles yet.</p>}
+                {vehicles && vehicles.length > 0 && (
+                  <VehiclesGrid vehicles={vehicles} />
+                )}
+              </section>
+            </TabsContent>
 
+            <TabsContent value="activity">
+              <section className="mt-4">
+                {!bookings || bookings.length === 0 ? (
+                  <p className="mt-4 text-muted-foreground">No bookings yet.</p>
+                ) : (
+                  <ul className="mt-4 divide-y divide-border rounded-2xl border border-border/60 bg-card">
+                    {bookings.map((b) => (
+                      <li key={b.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{b.vehicles?.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-semibold">{currency(b.total_price)}</p>
+                          <Badge variant="outline" className="mt-1">{b.status}</Badge>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </TabsContent>
 
-        <section className="mt-8">
-          <h2 className="font-display text-xl font-semibold">Your vehicles</h2>
-          {!vehicles && <div className="mt-4 grid gap-3 sm:grid-cols-2">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>}
-          {vehicles && vehicles.length === 0 && <p className="mt-4 text-muted-foreground">No vehicles yet.</p>}
-          {vehicles && vehicles.length > 0 && (
-            <VehiclesGrid vehicles={vehicles} />
-          )}
-        </section>
+            <TabsContent value="payouts">
+              <section className="mt-4">
+                {payouts === null && <Skeleton className="h-32 rounded-2xl" />}
+                {payouts !== null && payouts.length === 0 && (
+                  <p className="mt-4 text-muted-foreground">No payouts yet. Earnings are credited after each trip.</p>
+                )}
+                {payouts !== null && payouts.length > 0 && (
+                  <ul className="divide-y divide-border rounded-2xl border border-border/60 bg-card">
+                    {payouts.map((p) => (
+                      <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">{currency(p.amount)}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <Badge variant="outline">{p.status}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </TabsContent>
 
-        <section className="mt-10">
-          <h2 className="font-display text-xl font-semibold">Recent booking activity</h2>
-          {!bookings || bookings.length === 0 ? (
-            <p className="mt-4 text-muted-foreground">No bookings yet.</p>
-          ) : (
-            <ul className="mt-4 divide-y divide-border rounded-2xl border border-border/60 bg-card">
-              {bookings.map((b) => (
-                <li key={b.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{b.vehicles?.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold">{currency(b.total_price)}</p>
-                    <Badge variant="outline" className="mt-1">{b.status}</Badge>
-                  </div>
-                </li>
-
-              ))}
-            </ul>
-          )}
-        </section>
+            <TabsContent value="reviews">
+              <section className="mt-4">
+                {vendorReviews === null && <Skeleton className="h-32 rounded-2xl" />}
+                {vendorReviews !== null && vendorReviews.length === 0 && (
+                  <p className="mt-4 text-muted-foreground">No reviews yet.</p>
+                )}
+                {vendorReviews !== null && vendorReviews.length > 0 && (
+                  <ul className="grid gap-3">
+                    {vendorReviews.map((r) => (
+                      <Card key={r.id}><CardContent className="p-4">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">{(r.vehicles as any)?.title}</p>
+                        <div className="flex items-center gap-1 mb-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+                            />
+                          ))}
+                          <span className="ml-1 text-sm font-medium">{r.rating}</span>
+                        </div>
+                        {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
+                        <p className="mt-1 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
+                      </CardContent></Card>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
