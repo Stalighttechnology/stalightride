@@ -51,6 +51,9 @@ function VehiclePage() {
   const [notes, setNotes] = useState("");
   const [booking, setBooking] = useState(false);
   const [wished, setWished] = useState(false);
+  const [coupon, setCoupon] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [couponApplied, setCouponApplied] = useState(false);
 
 
   useEffect(() => {
@@ -101,7 +104,9 @@ function VehiclePage() {
     priceWeekly: v.price_weekly,
   }) : calculateRentalPrice({ startDate: "", endDate: "", pickupTime: "", dropoffTime: "" }), [dropoffTime, end, pickupTime, start, v]);
   const subtotal = priceBreakdown.subtotal;
-  const total = subtotal + (v ? Number(v.security_deposit) : 0);
+  const gst = Math.round(subtotal * 0.18);
+  const serviceFee = Math.round(subtotal * 0.05);
+  const total = subtotal + gst + serviceFee - discount + (v ? Number(v.security_deposit) : 0);
 
   const dlOk = myProfile?.dl_status === "approved";
   const isOwner = user?.id === v?.vendor_id;
@@ -129,7 +134,8 @@ function VehiclePage() {
         status: "pending",
         qr_code: qrPayload,
         notes: notes || null,
-      });
+        ...(discount > 0 ? { coupon_discount: discount } : {}),
+      } as any);
       if (error) throw error;
       toast.success("Booking requested! The host will confirm shortly.");
       navigate({ to: "/bookings" });
@@ -146,6 +152,23 @@ function VehiclePage() {
     } else {
       await supabase.from("wishlists").insert({ user_id: user.id, vehicle_id: id });
       setWished(true);
+    }
+  };
+
+  const applyCoupon = async () => {
+    if (!coupon.trim()) return;
+    try {
+      const { data, error } = await supabase.rpc("validate_coupon" as any, { _code: coupon.trim().toUpperCase(), _amount: subtotal });
+      if (error) throw error;
+      if (data && (data as any).discount > 0) {
+        setDiscount((data as any).discount);
+        setCouponApplied(true);
+        toast.success("Coupon applied!");
+      } else {
+        toast.error("Invalid or expired coupon");
+      }
+    } catch {
+      toast.error("Invalid or expired coupon");
     }
   };
 
@@ -394,6 +417,14 @@ function VehiclePage() {
                           <Row label={line.label} value={currency(line.value)} />
                         </div>
                       ))}
+                      <Row label="GST (18%)" value={currency(gst)} />
+                      <Row label="Platform fee (5%)" value={currency(serviceFee)} />
+                      {couponApplied && discount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Coupon discount</span>
+                          <span className="text-green-600 font-medium">-{currency(discount)}</span>
+                        </div>
+                      )}
                       <Row label="Refundable deposit" value={currency(v.security_deposit)} />
                     </div>
                     <div className="mt-3 flex items-baseline justify-between border-t border-border/70 pt-3">
@@ -419,6 +450,24 @@ function VehiclePage() {
                   </div>
                 )}
 
+                <div className="flex gap-2">
+                  <Input
+                    value={coupon}
+                    onChange={(e) => setCoupon(e.target.value)}
+                    placeholder="Coupon code"
+                    className="h-10 rounded-2xl bg-card/60 text-sm uppercase"
+                    disabled={couponApplied}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={applyCoupon}
+                    disabled={couponApplied || !coupon.trim()}
+                    className="h-10 shrink-0 rounded-2xl"
+                  >
+                    Apply
+                  </Button>
+                </div>
                 <Button
                   onClick={book}
                   disabled={booking || !start || !end || (!!user && !dlOk)}

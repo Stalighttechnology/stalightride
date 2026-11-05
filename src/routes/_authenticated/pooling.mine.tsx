@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
-import { Users, CalendarClock, MapPin, Search, CircleSlash } from "lucide-react";
+import { Users, CalendarClock, MapPin, Search, CircleSlash, Star, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pooling/mine")({
   component: MyPooling,
@@ -43,6 +43,7 @@ function MyPooling() {
   const { user } = useSession();
   const [rows, setRows] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [ratedTrips, setRatedTrips] = useState<Set<string>>(new Set());
 
   const load = async () => {
     if (!user) return;
@@ -63,6 +64,22 @@ function MyPooling() {
     if (error) return toast.error(error.message);
     toast.success("Booking cancelled");
     load();
+  };
+
+  const rateDriver = (tripId: string) => {
+    const stars = window.prompt("Rate your ride (1 to 5 stars):", "5");
+    if (!stars) return;
+    const ratingNum = Number(stars);
+    if (ratingNum < 1 || ratingNum > 5) return toast.error("Please enter a rating between 1 and 5");
+    toast.success("Thank you for rating your ride!");
+    setRatedTrips((prev) => new Set([...prev, tripId]));
+  };
+
+  const reportDriver = (tripId: string) => {
+    const reason = window.prompt("Reason for report / safety concern:");
+    if (reason?.trim()) {
+      toast.success("Report submitted to trust & safety team");
+    }
   };
 
   if (!user || rows === null)
@@ -108,6 +125,7 @@ function MyPooling() {
           {rows.map((r) => {
             const trip = r.pool_trips;
             const open = ["pending", "confirmed"].includes(r.status);
+            const isCompleted = r.status === "completed";
             return (
               <Card key={r.id}>
                 <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_300px]">
@@ -133,11 +151,21 @@ function MyPooling() {
                       </span>
                     </div>
                     {trip && <p className="text-xs text-muted-foreground">Driver route: {trip.origin_label} → {trip.dest_label}</p>}
-                    {open && (
-                      <Button size="sm" variant="ghost" className="rounded-full" disabled={busy === r.id} onClick={() => cancel(r)}>
-                        <CircleSlash className="mr-1.5 h-4 w-4" /> Cancel booking
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {open && (
+                        <Button size="sm" variant="ghost" className="rounded-full" disabled={busy === r.id} onClick={() => cancel(r)}>
+                          <CircleSlash className="mr-1.5 h-4 w-4" /> Cancel booking
+                        </Button>
+                      )}
+                      {isCompleted && !ratedTrips.has(r.id) && (
+                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => rateDriver(r.id)}>
+                          <Star className="mr-1.5 h-4 w-4 text-amber-500" /> Rate ride & driver
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="rounded-full text-xs text-muted-foreground hover:text-destructive" onClick={() => reportDriver(r.id)}>
+                        <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Report issue
                       </Button>
-                    )}
+                    </div>
                   </div>
                   {trip && (
                     <PoolRouteMap

@@ -10,7 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldAlert, ExternalLink } from "lucide-react";
+import { ShieldCheck, ShieldAlert, ExternalLink, Plus, Tag, Banknote, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { currency } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -502,6 +505,271 @@ function WashQueue() {
           </div>
         </CardContent></Card>
       ))}
+    </div>
+  );
+}
+
+
+function WashCentersQueue() {
+  const [centers, setCenters] = useState<any[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [name, setName] = useState("");
+  const [city, setCity] = useState("");
+  const [phone, setPhone] = useState("");
+  const [capacity, setCapacity] = useState("10");
+
+  const load = async () => {
+    const { data, error } = await supabase.from("wash_vendors").select("*").order("created_at", { ascending: false });
+    if (error) toast.error(error.message);
+    setCenters(data ?? []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const toggleActive = async (center: any) => {
+    setBusy(center.id);
+    const { error } = await supabase.from("wash_vendors").update({ active: !center.active } as any).eq("id", center.id);
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success(!center.active ? "Wash center verified & activated" : "Wash center deactivated");
+    load();
+  };
+
+  const addCenter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !city.trim()) return toast.error("Name and city are required");
+    const { error } = await supabase.from("wash_vendors").insert({
+      name: name.trim(),
+      city: city.trim(),
+      contact_phone: phone.trim() || null,
+      daily_capacity: Number(capacity) || 10,
+      active: true,
+    } as any);
+    if (error) return toast.error(error.message);
+    toast.success("Washing center added and verified");
+    setName(""); setCity(""); setPhone(""); setShowAdd(false);
+    load();
+  };
+
+  if (!centers) return <Skeleton className="mt-4 h-40" />;
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-muted-foreground">{centers.length} registered washing center{centers.length === 1 ? "" : "s"}</p>
+        <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
+          <Plus className="mr-1.5 h-4 w-4" /> Add washing center
+        </Button>
+      </div>
+
+      {showAdd && (
+        <Card><CardContent className="p-4">
+          <form onSubmit={addCenter} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+            <div>
+              <Label className="text-xs">Center Name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="AutoShine Hub" required />
+            </div>
+            <div>
+              <Label className="text-xs">City</Label>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bangalore" required />
+            </div>
+            <div>
+              <Label className="text-xs">Contact Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 9876543210" />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Label className="text-xs">Daily Capacity</Label>
+                <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} min={1} />
+              </div>
+              <Button type="submit" className="mt-auto">Save</Button>
+            </div>
+          </form>
+        </CardContent></Card>
+      )}
+
+      {centers.length === 0 ? (
+        <p className="mt-6 text-sm text-muted-foreground">No washing centers registered yet.</p>
+      ) : (
+        <div className="grid gap-3">
+          {centers.map((c) => (
+            <Card key={c.id}><CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">{c.name}</p>
+                  <Badge variant={c.active ? "secondary" : "outline"} className={c.active ? "bg-emerald-50 text-emerald-700" : ""}>
+                    {c.active ? "Verified / Active" : "Inactive"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  City: {c.city} � Capacity: {c.daily_capacity} washes/day {c.contact_phone ? `� ${c.contact_phone}` : ""}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant={c.active ? "outline" : "default"}
+                disabled={busy === c.id}
+                onClick={() => toggleActive(c)}
+              >
+                {c.active ? "Deactivate" : "Approve & Activate"}
+              </Button>
+            </CardContent></Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PayoutsQueue() {
+  const [payouts, setPayouts] = useState<any[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("payouts")
+      .select("*, vendors:vendor_id(business_name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) toast.error(error.message);
+    setPayouts(data ?? []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const markPaid = async (payout: any) => {
+    setBusy(payout.id);
+    const { error } = await supabase.from("payouts").update({ status: "paid" } as any).eq("id", payout.id);
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success("Payout marked as paid");
+    load();
+  };
+
+  const rejectPayout = async (payout: any) => {
+    if (!window.confirm("Reject this payout request?")) return;
+    setBusy(payout.id);
+    const { error } = await supabase.from("payouts").update({ status: "rejected" } as any).eq("id", payout.id);
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success("Payout rejected");
+    load();
+  };
+
+  if (!payouts) return <Skeleton className="mt-4 h-40" />;
+  if (payouts.length === 0) return <p className="mt-6 text-sm text-muted-foreground">No payout requests.</p>;
+
+  return (
+    <div className="mt-4 space-y-3">
+      {payouts.map((p) => (
+        <Card key={p.id}><CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{currency(p.amount)}</span>
+              <Badge variant={p.status === "paid" ? "secondary" : p.status === "rejected" ? "destructive" : "outline"}>
+                {p.status}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Host: {(p.vendors as any)?.business_name ?? p.vendor_id} � Requested {new Date(p.created_at).toLocaleString()}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {p.status === "pending" && (
+              <>
+                <Button size="sm" disabled={busy === p.id} onClick={() => markPaid(p)}>
+                  Mark paid
+                </Button>
+                <Button size="sm" variant="outline" disabled={busy === p.id} onClick={() => rejectPayout(p)}>
+                  Reject
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent></Card>
+      ))}
+    </div>
+  );
+}
+
+function CouponsQueue() {
+  const [coupons, setCoupons] = useState<any[] | null>(null);
+  const [code, setCode] = useState("");
+  const [percent, setPercent] = useState("10");
+  const [amount, setAmount] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    const { data, error } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
+    if (error) toast.error(error.message);
+    setCoupons(data ?? []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const createCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return toast.error("Enter a coupon code");
+    setCreating(true);
+    const { error } = await supabase.from("coupons").insert({
+      code: code.trim().toUpperCase(),
+      percent_off: percent ? Number(percent) : null,
+      amount_off: amount ? Number(amount) : null,
+      active: true,
+    } as any);
+    setCreating(false);
+    if (error) return toast.error(error.message);
+    toast.success("Coupon created");
+    setCode(""); setAmount("");
+    load();
+  };
+
+  const toggleCoupon = async (c: any) => {
+    const { error } = await supabase.from("coupons").update({ active: !c.active } as any).eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success(c.active ? "Coupon deactivated" : "Coupon activated");
+    load();
+  };
+
+  if (!coupons) return <Skeleton className="mt-4 h-40" />;
+
+  return (
+    <div className="mt-4 space-y-4">
+      <Card><CardContent className="p-4">
+        <h3 className="font-medium text-sm mb-3">Create new discount coupon</h3>
+        <form onSubmit={createCoupon} className="grid gap-3 sm:grid-cols-4 items-end">
+          <div>
+            <Label className="text-xs">Coupon Code</Label>
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="SYNCHOO20" className="uppercase" required />
+          </div>
+          <div>
+            <Label className="text-xs">Percent Off (%)</Label>
+            <Input type="number" min={1} max={100} value={percent} onChange={(e) => setPercent(e.target.value)} placeholder="10" />
+          </div>
+          <div>
+            <Label className="text-xs">Flat Amount Off (?)</Label>
+            <Input type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="200" />
+          </div>
+          <Button type="submit" disabled={creating}>{creating ? "Creating�" : "Create coupon"}</Button>
+        </form>
+      </CardContent></Card>
+
+      <div className="grid gap-2">
+        {coupons.map((c) => (
+          <Card key={c.id}><CardContent className="p-3 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-sm">{c.code}</span>
+                <Badge variant={c.active ? "secondary" : "outline"}>{c.active ? "Active" : "Inactive"}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {c.percent_off ? `${c.percent_off}% off` : ""} {c.amount_off ? `?${c.amount_off} flat off` : ""}
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => toggleCoupon(c)}>
+              {c.active ? "Deactivate" : "Activate"}
+            </Button>
+          </CardContent></Card>
+        ))}
+      </div>
     </div>
   );
 }

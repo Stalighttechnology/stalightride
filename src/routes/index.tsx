@@ -61,10 +61,21 @@ const CATS = [
 function Index() {
   const navigate = useNavigate();
   const [city, setCity] = useState("");
+  const [service, setService] = useState<"rental"|"driver"|"wash">("rental");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTime2, setPickupTime2] = useState("10:00");
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState("10:00");
 
   const search = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/browse", search: { city: city || undefined } as any });
+    if (service === "rental") {
+      navigate({ to: "/browse", search: { city: city || undefined, start: pickupDate || undefined, end: returnDate || undefined } as any });
+    } else if (service === "driver") {
+      navigate({ to: "/drivers", search: { city: city || undefined } as any });
+    } else {
+      navigate({ to: "/wash" });
+    }
   };
 
   return (
