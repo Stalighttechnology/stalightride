@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { VehicleMap } from "@/components/vehicle-map";
+import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { toast } from "sonner";
 import {
   Star, MapPin, Users, Fuel, Cog, Gauge, Heart, ShieldCheck,
@@ -49,6 +50,7 @@ function VehiclePage() {
   const [pickupTime, setPickupTime] = useState("10:00");
   const [dropoffTime, setDropoffTime] = useState("10:00");
   const [notes, setNotes] = useState("");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [booking, setBooking] = useState(false);
   const [wished, setWished] = useState(false);
 
@@ -101,7 +103,6 @@ function VehiclePage() {
     priceWeekly: v.price_weekly,
   }) : calculateRentalPrice({ startDate: "", endDate: "", pickupTime: "", dropoffTime: "" }), [dropoffTime, end, pickupTime, start, v]);
   const subtotal = priceBreakdown.subtotal;
-  const total = subtotal + (v ? Number(v.security_deposit) : 0);
 
   const dlOk = myProfile?.dl_status === "approved";
   const isOwner = user?.id === v?.vendor_id;
@@ -125,7 +126,9 @@ function VehiclePage() {
         dropoff_time: dropoffTime,
         base_price: subtotal,
         security_deposit: v.security_deposit,
-        total_price: total,
+        // Money columns are recalculated by the database (tg_price_booking).
+        total_price: subtotal + Number(v.security_deposit),
+        coupon_code: coupon?.code ?? null,
         status: "pending",
         qr_code: qrPayload,
         notes: notes || null,
@@ -394,11 +397,12 @@ function VehiclePage() {
                           <Row label={line.label} value={currency(line.value)} />
                         </div>
                       ))}
-                      <Row label="Refundable deposit" value={currency(v.security_deposit)} />
                     </div>
-                    <div className="mt-3 flex items-baseline justify-between border-t border-border/70 pt-3">
-                      <span className="text-sm font-medium">Total payable</span>
-                      <span className="font-display text-xl font-bold">{currency(total)}</span>
+                    <div className="mt-1.5">
+                      <ChargeLines base={subtotal} deposit={Number(v.security_deposit)} coupon={coupon} />
+                    </div>
+                    <div className="mt-3">
+                      <CouponField value={coupon} onChange={setCoupon} />
                     </div>
                   </div>
                 ) : (

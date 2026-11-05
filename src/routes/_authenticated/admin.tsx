@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
 import { ShieldCheck, ShieldAlert, ExternalLink } from "lucide-react";
+import { CouponManager, GrantCreditForm, PlatformSettingsForm, WithdrawalQueue } from "@/components/admin/money-tabs";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -37,7 +38,7 @@ function AdminPage() {
     <div className="min-h-screen">
       <SiteHeader />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="font-display text-3xl font-semibold">Admin verification</h1>
+        <h1 className="font-display text-3xl font-semibold">Admin</h1>
         <Tabs defaultValue="vehicles" className="mt-6">
           <TabsList className="flex w-full flex-wrap justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted">
             <TabsTrigger value="vehicles" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Vehicles</TabsTrigger>
@@ -46,6 +47,10 @@ function AdminPage() {
             <TabsTrigger value="licences" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Driving licences</TabsTrigger>
             <TabsTrigger value="washes" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Vehicle wash</TabsTrigger>
             <TabsTrigger value="disputes" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Disputes</TabsTrigger>
+            <TabsTrigger value="payouts" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Payouts</TabsTrigger>
+            <TabsTrigger value="coupons" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Coupons</TabsTrigger>
+            <TabsTrigger value="credits" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Promo credit</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Fees & settings</TabsTrigger>
           </TabsList>
           <TabsContent value="vehicles"><VehicleQueue /></TabsContent>
           <TabsContent value="hosts"><HostQueue /></TabsContent>
@@ -53,8 +58,10 @@ function AdminPage() {
           <TabsContent value="licences"><LicenceQueue /></TabsContent>
           <TabsContent value="washes"><WashQueue /></TabsContent>
           <TabsContent value="disputes"><DisputeQueue /></TabsContent>
-
-
+          <TabsContent value="payouts"><WithdrawalQueue /></TabsContent>
+          <TabsContent value="coupons"><CouponManager /></TabsContent>
+          <TabsContent value="credits"><GrantCreditForm /></TabsContent>
+          <TabsContent value="settings"><PlatformSettingsForm /></TabsContent>
         </Tabs>
 
       </div>

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { createWalletTopupOrder, verifyWalletTopup } from "@/lib/wallet.functions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { PayoutsCard } from "@/components/payouts-card";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
@@ -34,8 +35,16 @@ const KIND_LABEL: Record<string, string> = {
   booking_payment: "Ride payment",
   booking_earning: "Ride earning",
   refund: "Refund",
-  payout: "Payout",
+  payout: "Withdrawal",
+  payout_reversal: "Withdrawal returned",
   adjustment: "Adjustment",
+  promo_credit: "Promo credit",
+  driver_payment: "Driver hire payment",
+  driver_earning: "Driver earning",
+  driver_refund: "Driver hire refund",
+  driver_refund_reversal: "Driver refund reversal",
+  wash_payment: "Wash payment",
+  wash_refund: "Wash refund",
 };
 
 function WalletPage() {
@@ -140,6 +149,8 @@ function WalletPage() {
             </Button>
           ))}
         </div>
+
+        {user && <PayoutsCard userId={user.id} onChanged={load} />}
 
         <Card className="mt-8">
           <CardHeader>

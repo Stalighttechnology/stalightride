@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
+import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { useSelectedCity } from "@/components/city-selector";
 import { toast } from "sonner";
 import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock } from "lucide-react";
@@ -56,6 +57,7 @@ function WashPage() {
   const [services, setServices] = useState<any[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [form, setForm] = useState({
     city: "",
     address: "",
@@ -112,7 +114,9 @@ function WashPage() {
       slot_date: form.slot_date,
       slot_time: form.slot_time,
       notes: form.notes.trim() || null,
+      // Money columns are recalculated by the database (tg_price_wash_booking).
       price: service.price,
+      coupon_code: coupon?.code ?? null,
     } as any);
     setSaving(false);
     if (error) return toast.error(error.message);
@@ -264,6 +268,14 @@ function WashPage() {
                 />
               </div>
             </div>
+
+            {service && (
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between"><span>{service.name}</span><span className="tabular-nums">{currency(service.price)}</span></div>
+                <div className="mt-1.5"><ChargeLines base={Number(service.price)} coupon={coupon} /></div>
+                <div className="mt-3"><CouponField value={coupon} onChange={setCoupon} /></div>
+              </div>
+            )}
 
             <div className="mt-4 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
               <MapPin className="mb-1 h-3.5 w-3.5" />

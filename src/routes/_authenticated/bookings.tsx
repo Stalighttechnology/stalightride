@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
+import { refundFraction, round2 } from "@/lib/charges";
 import { getHandoverGate, formatWhen } from "@/lib/trip-window";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSession } from "@/hooks/use-session";
@@ -47,7 +48,32 @@ function Bookings() {
   useEffect(() => { load(); }, [user?.id]);
 
   type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled" | "completed";
+  const cancel = async (b: any) => {
+    // Preview mirrors public.cancel_booking; the database computes the real refund.
+    const byHost = b.vendor_id === user?.id;
+    let message = "Cancel this booking?";
+    if (b.payment_status === "paid") {
+      const startsAt = new Date(`${b.start_date}T${(b.pickup_time ?? "10:00").slice(0, 5)}:00+05:30`);
+      const pct = refundFraction((startsAt.getTime() - Date.now()) / 3_600_000, byHost);
+      const deposit = Number(b.security_deposit ?? 0);
+      const refund = round2(deposit + (Number(b.total_price) - deposit) * pct);
+      message = byHost
+        ? `Cancel this booking? The rider gets a full refund of ${currency(Number(b.total_price))}.`
+        : `Cancel this booking? You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
+    }
+    if (!window.confirm(message)) return;
+    const { data, error } = await supabase.rpc("cancel_booking", { _booking_id: b.id });
+    if (error) return toast.error(error.message);
+    const refund = Number((data as any)?.refund ?? 0);
+    toast.success(refund > 0 ? `Booking cancelled · ${currency(refund)} refunded to wallet` : "Booking cancelled");
+    load();
+  };
+
   const setStatus = async (id: string, status: BookingStatus) => {
+    if (status === "cancelled") {
+      const b = [...(asCustomer ?? []), ...(asVendor ?? [])].find((x) => x.id === id);
+      if (b) return cancel(b);
+    }
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Booking ${status}`);
@@ -290,6 +316,12 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                     </div>
                   )}
 
+                  {role === "vendor" && b.payment_status === "paid" && !b.earning_credited_at && Number(b.provider_earning) > 0 && (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Pending earning <span className="font-medium text-foreground">{currency(Number(b.provider_earning))}</span> (after commission) — released to your wallet when the trip is completed.
+                    </p>
+                  )}
+
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {role === "vendor" && b.status === "pending" && (
                       <>
@@ -297,8 +329,10 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                         <Button size="sm" variant="outline" className="rounded-full" onClick={() => onAction(b.id, "rejected")}>Decline</Button>
                       </>
                     )}
-                    {role === "customer" && (b.status === "pending" || (b.status === "confirmed" && b.payment_status !== "paid")) && (
-                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => onAction(b.id, "cancelled")}>Cancel</Button>
+                    {(b.status === "pending" || b.status === "confirmed") && !b.pickup_checked_at && (role === "customer" || b.status === "confirmed") && (
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => onAction(b.id, "cancelled")}>
+                        {role === "vendor" ? "Cancel & refund" : "Cancel"}
+                      </Button>
                     )}
                     {b.status === "confirmed" && b.payment_status === "paid" && role === "vendor" && b.return_checked_at && b.return_odometer != null && (
                       <Button size="sm" variant="outline" className="rounded-full" onClick={() => onAction(b.id, "completed")}>Mark completed</Button>

@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { calculateDriverPrice, type DriverRateType } from "@/lib/driver-pricing";
+import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { toast } from "sonner";
 import { Star, MapPin, BadgeCheck, Clock, ShieldCheck, Languages, Car } from "lucide-react";
 
@@ -104,6 +105,8 @@ function DriverProfile() {
     [rateType, startDate, endDate, startTime, endTime, driver],
   );
 
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+
   const hire = async () => {
     if (!user) return navigate({ to: "/auth" });
     if (price.error || price.subtotal <= 0) return toast.error(price.error ?? "Choose a valid duration");
@@ -120,7 +123,9 @@ function DriverProfile() {
       days: price.days,
       pickup_address: pickupAddress || null,
       notes: notes || null,
+      // Money columns are recalculated by the database (tg_price_driver_booking).
       total_price: price.subtotal,
+      coupon_code: coupon?.code ?? null,
     } as any);
     setSubmitting(false);
     if (error) return toast.error(error.message);
@@ -284,9 +289,8 @@ function DriverProfile() {
                         <span>{l.label}</span><span>{currency(l.value)}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between border-t border-border pt-1 font-semibold">
-                      <span>Total</span><span>{currency(price.subtotal)}</span>
-                    </div>
+                    <ChargeLines base={price.subtotal} coupon={coupon} totalLabel="Total" />
+                    <div className="pt-2"><CouponField value={coupon} onChange={setCoupon} /></div>
                   </>
                 )}
               </div>
