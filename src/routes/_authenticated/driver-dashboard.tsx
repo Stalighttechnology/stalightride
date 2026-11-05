@@ -17,6 +17,7 @@ import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { ShieldCheck, ShieldAlert, Clock, Upload, IndianRupee, CalendarCheck, Star } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/driver-dashboard")({
   component: DriverDashboard,
@@ -32,11 +33,15 @@ export const Route = createFileRoute("/_authenticated/driver-dashboard")({
   }),
 });
 
+const TRIP_TYPE_OPTIONS = ["outstation", "airport", "corporate", "events"] as const;
+
 const emptyDriver = {
   full_name: "", phone: "", city: "", bio: "", experience_years: 0,
   languages: [] as string[], vehicle_types: [] as string[], photo_url: "",
   hourly_rate: 0, daily_rate: 0, dl_number: "", dl_expiry: "",
   dl_front_url: null as string | null, dl_back_url: null as string | null, id_document_url: null as string | null,
+  trip_types: [] as string[],
+  service_area: "",
 };
 
 function DriverDashboard() {
@@ -44,19 +49,22 @@ function DriverDashboard() {
   const [driver, setDriver] = useState<any>(null);
   const [form, setForm] = useState<any>(emptyDriver);
   const [hires, setHires] = useState<any[] | null>(null);
+  const [ratings, setRatings] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const load = async () => {
     if (!user) return;
-    const [{ data: d }, { data: h }] = await Promise.all([
+    const [{ data: d }, { data: h }, { data: r }] = await Promise.all([
       supabase.from("drivers").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("driver_bookings").select("*").eq("driver_id", user.id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("driver_reviews").select("*").eq("driver_id", user.id),
     ]);
     setDriver(d ?? null);
-    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "" });
+    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: (d as any).trip_types ?? [], service_area: (d as any).service_area ?? "" });
     else setForm({ ...emptyDriver, full_name: user.user_metadata?.full_name ?? "" });
     setHires(h ?? []);
+    setRatings(r ?? []);
     setLoaded(true);
   };
   useEffect(() => { load(); }, [user?.id]);
@@ -108,6 +116,8 @@ function DriverDashboard() {
       dl_front_url: form.dl_front_url,
       dl_back_url: form.dl_back_url,
       id_document_url: form.id_document_url,
+      trip_types: Array.isArray(form.trip_types) ? form.trip_types : [],
+      service_area: form.service_area || null,
     };
     const { error } = await supabase.from("drivers").upsert(payload as any);
     setSaving(false);
@@ -148,6 +158,16 @@ function DriverDashboard() {
   const vs = driver?.verification_status ?? "none";
   const earnings = (hires ?? []).filter((h) => h.payment_status === "paid").reduce((s, h) => s + Number(h.total_price), 0);
   const locked = vs === "pending";
+
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingHires = (hires ?? []).filter((h) => h.status === "confirmed" && h.start_date >= today);
+  const historyHires = (hires ?? []).filter((h) => h.status === "completed" || h.status === "cancelled");
+
+  const toggleTripType = (type: string) => {
+    const current: string[] = Array.isArray(form.trip_types) ? form.trip_types : [];
+    const updated = current.includes(type) ? current.filter((t: string) => t !== type) : [...current, type];
+    setForm({ ...form, trip_types: updated });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -203,7 +223,7 @@ function DriverDashboard() {
 
 
         <Card><CardContent className="p-6">
-          <h2 className="font-display text-lg font-semibold">Driver profile & verification</h2>
+          <h2 className="font-display text-lg font-semibold">Driver profile &amp; verification</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             Changing your licence or ID documents sends your profile back for admin review.
           </p>
@@ -230,6 +250,32 @@ function DriverDashboard() {
               <div><Label>Vehicle types you drive</Label><Input value={Array.isArray(form.vehicle_types) ? form.vehicle_types.join(", ") : form.vehicle_types} onChange={(e) => setForm({ ...form, vehicle_types: e.target.value })} placeholder="Hatchback, Sedan, SUV" /></div>
             </div>
 
+            <div>
+              <Label>Trip types</Label>
+              <div className="mt-2 flex flex-wrap gap-4">
+                {TRIP_TYPE_OPTIONS.map((type) => (
+                  <label key={type} className="flex cursor-pointer items-center gap-2 text-sm capitalize">
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(form.trip_types) && form.trip_types.includes(type)}
+                      onChange={() => toggleTripType(type)}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label>Service area (e.g. Bangalore + 100 km)</Label>
+              <Input
+                value={form.service_area ?? ""}
+                onChange={(e) => setForm({ ...form, service_area: e.target.value })}
+                placeholder="Bangalore + 100 km"
+              />
+            </div>
+
             <div><Label>About you</Label><Textarea rows={3} value={form.bio ?? ""} onChange={(e) => setForm({ ...form, bio: e.target.value })} placeholder="Experience, routes you know well, driving style…" /></div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -254,43 +300,121 @@ function DriverDashboard() {
         <section>
           <h2 className="font-display text-xl font-semibold">Hire requests</h2>
           {!hires && <Skeleton className="mt-4 h-32 rounded-2xl" />}
-          {hires && hires.length === 0 && <p className="mt-3 text-sm text-muted-foreground">No hire requests yet.</p>}
-          <ul className="mt-4 grid gap-3">
-            {(hires ?? []).map((h) => (
-              <Card key={h.id}><CardContent className="p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
-                    </p>
-                    {h.pickup_address && <p className="text-xs text-muted-foreground">📍 {h.pickup_address}</p>}
-                    {h.notes && <p className="mt-1 text-sm">{h.notes}</p>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{h.status}</Badge>
-                    {h.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
-                    {h.payment_status === "refunded" && <Badge variant="outline" className="border-emerald-300 text-emerald-700">Refunded</Badge>}
-                    {h.payment_status === "partially_refunded" && <Badge variant="outline" className="border-amber-300 text-amber-700">Partly refunded</Badge>}
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {h.status === "pending" && (
-                    <>
+          {hires !== null && (
+            <Tabs defaultValue="upcoming" className="mt-4">
+              <TabsList>
+                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+                <TabsTrigger value="ratings">Ratings</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="upcoming">
+                {upcomingHires.length === 0 && <p className="mt-3 text-sm text-muted-foreground">No upcoming confirmed hires.</p>}
+                <ul className="mt-4 grid gap-3">
+                  {upcomingHires.map((h) => (
+                    <Card key={h.id}><CardContent className="p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
+                          </p>
+                          {h.pickup_address && <p className="text-xs text-muted-foreground">📍 {h.pickup_address}</p>}
+                          {h.notes && <p className="mt-1 text-sm">{h.notes}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{h.status}</Badge>
+                          {h.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {h.status === "confirmed" && h.payment_status === "paid" && (
+                          <Button size="sm" variant="outline" onClick={() => decide(h.id, "completed")}>Mark completed</Button>
+                        )}
+                        {h.status === "confirmed" && (
+                          <Button size="sm" variant="ghost" onClick={() => cancelHire(h)}>Cancel hire</Button>
+                        )}
+                      </div>
+                    </CardContent></Card>
+                  ))}
+                </ul>
+              </TabsContent>
+
+              <TabsContent value="history">
+                {historyHires.length === 0 && <p className="mt-3 text-sm text-muted-foreground">No completed or cancelled hires yet.</p>}
+                <ul className="mt-4 grid gap-3">
+                  {historyHires.map((h) => (
+                    <Card key={h.id}><CardContent className="p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium">{currency(h.total_price)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""}
+                          </p>
+                          {h.notes && <p className="mt-1 text-sm">{h.notes}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={h.status === "completed" ? "secondary" : "destructive"}>{h.status}</Badge>
+                          {h.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
+                          {h.payment_status === "refunded" && <Badge variant="outline" className="border-emerald-300 text-emerald-700">Refunded</Badge>}
+                          {h.payment_status === "partially_refunded" && <Badge variant="outline" className="border-amber-300 text-amber-700">Partly refunded</Badge>}
+                        </div>
+                      </div>
+                    </CardContent></Card>
+                  ))}
+                </ul>
+              </TabsContent>
+
+              <TabsContent value="ratings">
+                {ratings.length === 0 && <p className="mt-3 text-sm text-muted-foreground">No ratings yet.</p>}
+                <ul className="mt-4 grid gap-3">
+                  {ratings.map((r) => (
+                    <Card key={r.id}><CardContent className="p-4">
+                      <div className="flex items-center gap-1 mb-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+                          />
+                        ))}
+                        <span className="ml-1 text-sm font-medium">{r.rating}</span>
+                      </div>
+                      {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
+                      <p className="mt-1 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
+                    </CardContent></Card>
+                  ))}
+                </ul>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {/* Pending hires (not yet confirmed) shown outside tabs for quick action */}
+          {hires !== null && (hires ?? []).filter((h) => h.status === "pending").length > 0 && (
+            <div className="mt-6">
+              <h3 className="font-medium text-sm mb-3">Pending requests</h3>
+              <ul className="grid gap-3">
+                {(hires ?? []).filter((h) => h.status === "pending").map((h) => (
+                  <Card key={h.id}><CardContent className="p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
+                        </p>
+                        {h.pickup_address && <p className="text-xs text-muted-foreground">📍 {h.pickup_address}</p>}
+                        {h.notes && <p className="mt-1 text-sm">{h.notes}</p>}
+                      </div>
+                      <Badge variant="outline">{h.status}</Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <Button size="sm" onClick={() => decide(h.id, "confirmed")}>Accept</Button>
                       <Button size="sm" variant="outline" onClick={() => decide(h.id, "rejected")}>Decline</Button>
-                    </>
-                  )}
-                  {h.status === "confirmed" && h.payment_status === "paid" && (
-                    <Button size="sm" variant="outline" onClick={() => decide(h.id, "completed")}>Mark completed</Button>
-                  )}
-                  {h.status === "confirmed" && (
-                    <Button size="sm" variant="ghost" onClick={() => cancelHire(h)}>Cancel hire</Button>
-                  )}
-                </div>
-              </CardContent></Card>
-            ))}
-          </ul>
+                    </div>
+                  </CardContent></Card>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
     </div>
