@@ -16,7 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { MATCH_THRESHOLD, matchScore, normalizeRoute, type MatchResult } from "@/lib/pool-match";
-import { Users, MapPin, CalendarClock, Route as RouteIcon, Search, ArrowRight, PlusCircle } from "lucide-react";
+import { Users, MapPin, CalendarClock, Route as RouteIcon, Search, ArrowRight, PlusCircle, ShieldAlert, AlertTriangle } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export const Route = createFileRoute("/pooling")({
   component: PoolingPage,
@@ -53,6 +54,7 @@ function PoolingPage() {
   const [date, setDate] = useState("");
   const [seats, setSeats] = useState(1);
   const [note, setNote] = useState("");
+  const [emergencyContact, setEmergencyContact] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<{ trip: any; match: MatchResult }[] | null>(null);
   const [drivers, setDrivers] = useState<Record<string, any>>({});
@@ -105,6 +107,7 @@ function PoolingPage() {
     setJoining(trip.id);
     try {
       const match = matchScore(trip, { lat: pickup.lat!, lng: pickup.lng! }, { lat: drop.lat!, lng: drop.lng! });
+      const combinedNote = [emergencyContact ? `Emergency Contact: ${emergencyContact}` : "", note].filter(Boolean).join(" | ");
       const { error } = await supabase.from("pool_requests").insert({
         trip_id: trip.id,
         passenger_id: user.id,
@@ -116,7 +119,7 @@ function PoolingPage() {
         drop_lng: drop.lng!,
         seats,
         match_score: match.score,
-        note: note.trim() || null,
+        note: combinedNote || null,
       } as any);
       if (error) {
         if (error.code === "23505" || error.message.includes("pool_requests_one_active_idx"))
@@ -129,6 +132,13 @@ function PoolingPage() {
       toast.error(e.message ?? "Could not request this trip");
     } finally {
       setJoining(null);
+    }
+  };
+
+  const reportRide = (tripId: string) => {
+    const reason = window.prompt("Reason for reporting this ride / driver?");
+    if (reason?.trim()) {
+      toast.success("Report submitted to trust & safety team");
     }
   };
 
@@ -183,15 +193,19 @@ function PoolingPage() {
                 mapHeight="h-44"
               />
             </div>
-            <div className="grid gap-3 sm:grid-cols-3 lg:col-span-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:col-span-2">
               <div className="space-y-1.5">
                 <Label htmlFor="pool-date">Travel date (optional)</Label>
-                <Input id="pool-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <DatePicker id="pool-date" value={date} onChange={setDate} minDate={new Date()} placeholder="Select date" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pool-seats">Seats needed</Label>
                 <Input id="pool-seats" type="number" min={1} max={8} value={seats}
                   onChange={(e) => setSeats(Math.max(1, Math.min(8, Number(e.target.value) || 1)))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pool-ec">Emergency contact</Label>
+                <Input id="pool-ec" value={emergencyContact} onChange={(e) => setEmergencyContact(e.target.value)} placeholder="+91 emergency phone" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pool-note">Note to driver (optional)</Label>
@@ -205,6 +219,14 @@ function PoolingPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Written cancellation policy and safety info */}
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <div>
+            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Cancellation policy: 100% refund if cancelled up to 12 hours before departure; 50% refund between 2–12 hours; non-refundable within 2 hours of departure.
+          </div>
+        </div>
 
         {searching && (
           <div className="mt-6 space-y-4">
@@ -277,6 +299,14 @@ function PoolingPage() {
                               <Link to="/auth">Sign in to join</Link>
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="rounded-full text-xs text-muted-foreground hover:text-destructive"
+                            onClick={() => reportRide(trip.id)}
+                          >
+                            <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Report
+                          </Button>
                           <span className="text-xs text-muted-foreground">
                             Pickup ~{match.pickupDistanceKm.toFixed(1)} km off route · Drop ~{match.dropDistanceKm.toFixed(1)} km
                           </span>

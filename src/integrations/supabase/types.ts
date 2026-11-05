@@ -516,6 +516,8 @@ export type Database = {
       }
       drivers: {
         Row: {
+          service_area: string | null
+          trip_types: string[]
           avg_rating: number
           bio: string | null
           city: string
@@ -542,6 +544,8 @@ export type Database = {
           verified_at: string | null
         }
         Insert: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city: string
@@ -568,6 +572,8 @@ export type Database = {
           verified_at?: string | null
         }
         Update: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city?: string
@@ -909,6 +915,8 @@ export type Database = {
       }
       public_drivers: {
         Row: {
+          service_area: string | null
+          trip_types: string[]
           avg_rating: number
           bio: string | null
           city: string
@@ -925,6 +933,8 @@ export type Database = {
           vehicle_types: string[]
         }
         Insert: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city: string
@@ -941,6 +951,8 @@ export type Database = {
           vehicle_types?: string[]
         }
         Update: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city?: string
@@ -1523,6 +1535,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wash_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          rating: number
+          wash_booking_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating: number
+          wash_booking_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating?: number
+          wash_booking_id?: string
+        }
+        Relationships: []
       }
       wash_services: {
         Row: {

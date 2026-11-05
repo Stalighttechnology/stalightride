@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { haversineKm } from "@/lib/pool-match";
 import { Route as RouteIcon, Users, Trash2, Plus, ArrowLeft } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 
 export const Route = createFileRoute("/_authenticated/pooling/new")({
   component: NewPoolTrip,
@@ -44,7 +46,9 @@ function NewPoolTrip() {
   const [dest, setDest] = useState<Point>({ lat: null, lng: null });
   const [destLabel, setDestLabel] = useState("");
   const [stops, setStops] = useState<Stop[]>([]);
-  const [departAt, setDepartAt] = useState("");
+  const [departDate, setDepartDate] = useState("");
+  const [departTime, setDepartTime] = useState("10:00");
+  const departAt = departDate ? `${departDate}T${departTime}` : "";
   const [vehicleLabel, setVehicleLabel] = useState("");
   const [seats, setSeats] = useState(3);
   const [fare, setFare] = useState(0);
@@ -175,9 +179,12 @@ function NewPoolTrip() {
 
           <Card>
             <CardContent className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="depart">Departure</Label>
-                <Input id="depart" type="datetime-local" min={minDateTime()} value={departAt} onChange={(e) => setDepartAt(e.target.value)} />
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="depart">Departure date & time</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <DatePicker value={departDate} onChange={setDepartDate} minDate={new Date()} placeholder="Departure date" />
+                  <TimePicker value={departTime} onChange={setDepartTime} placeholder="Departure time" />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="vehicle">Vehicle</Label>

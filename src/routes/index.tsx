@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   ShieldCheck,
   MapPin,
@@ -12,17 +14,11 @@ import {
   Droplets,
   Wallet,
   Navigation,
-  ReceiptText,
-  MessageSquare,
-  BadgeCheck,
-  CircleAlert,
   QrCode,
-  
 } from "lucide-react";
 import { useState } from "react";
 import { CategoryIcon } from "@/components/category-icon";
 import { HeroIllustration } from "@/components/hero-illustration";
-import { HomeActivity } from "@/components/home-activity";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -61,10 +57,28 @@ const CATS = [
 function Index() {
   const navigate = useNavigate();
   const [city, setCity] = useState("");
+  const [service, setService] = useState<"rental" | "driver" | "wash">("rental");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTime, setPickupTime] = useState("10:00");
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState("10:00");
 
   const search = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/browse", search: { city: city || undefined } as any });
+    if (service === "rental") {
+      navigate({
+        to: "/browse",
+        search: {
+          city: city || undefined,
+          start: pickupDate || undefined,
+          end: returnDate || undefined,
+        } as any,
+      });
+    } else if (service === "driver") {
+      navigate({ to: "/drivers", search: { city: city || undefined } as any });
+    } else {
+      navigate({ to: "/wash" });
+    }
   };
 
   return (
@@ -87,22 +101,124 @@ function Index() {
               unlocked with a QR scan, tracked in real time.
             </p>
 
-            <form onSubmit={search} className="mt-9 flex w-full max-w-lg flex-col gap-3 sm:flex-row">
-              <label htmlFor="hero-city" className="sr-only">City</label>
-              <div className="relative flex-1">
-                <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="hero-city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Where are you riding?"
-                  className="h-14 rounded-2xl border-border/70 bg-card/60 pl-11 text-base backdrop-blur-xl"
-                />
+            {/* Service selector + Shadcn Date/Time Search Form */}
+            <div className="mt-8 flex w-full max-w-xl flex-col gap-3 rounded-3xl border border-border/80 bg-card/75 p-3.5 shadow-xl backdrop-blur-xl">
+              <div className="flex gap-1.5 rounded-2xl bg-muted/70 p-1">
+                <button
+                  type="button"
+                  onClick={() => setService("rental")}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                    service === "rental"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Car className="h-4 w-4" /> Vehicle Rental
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setService("driver")}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                    service === "driver"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <UserRound className="h-4 w-4" /> Hire Driver
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setService("wash")}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                    service === "wash"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Droplets className="h-4 w-4" /> Doorstep Wash
+                </button>
               </div>
-              <Button type="submit" size="lg" className="btn-gradient h-14 shrink-0 gap-2 rounded-2xl px-7 text-base">
-                Find a ride <ArrowRight className="h-4 w-4" />
-              </Button>
-            </form>
+
+              <form onSubmit={search} className="flex flex-col gap-2.5">
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="hero-city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder={
+                      service === "rental"
+                        ? "Where are you riding? (e.g. Bangalore, Mumbai)"
+                        : service === "driver"
+                        ? "City where you need a driver"
+                        : "City for doorstep wash"
+                    }
+                    className="h-11 rounded-xl border-border/70 bg-background/90 pl-10 text-sm"
+                  />
+                </div>
+
+                {service === "rental" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-muted-foreground">Pickup</label>
+                      <div className="grid grid-cols-[1.4fr_1fr] gap-1.5">
+                        <DatePicker
+                          value={pickupDate}
+                          onChange={setPickupDate}
+                          minDate={new Date()}
+                          placeholder="Pickup date"
+                        />
+                        <TimePicker
+                          value={pickupTime}
+                          onChange={setPickupTime}
+                          placeholder="Time"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-muted-foreground">Return</label>
+                      <div className="grid grid-cols-[1.4fr_1fr] gap-1.5">
+                        <DatePicker
+                          value={returnDate}
+                          onChange={setReturnDate}
+                          minDate={pickupDate || new Date()}
+                          placeholder="Return date"
+                        />
+                        <TimePicker
+                          value={returnTime}
+                          onChange={setReturnTime}
+                          placeholder="Time"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {service === "driver" && (
+                  <div className="space-y-1 text-xs">
+                    <label className="text-[11px] font-medium text-muted-foreground">When do you need the driver?</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <DatePicker
+                        value={pickupDate}
+                        onChange={setPickupDate}
+                        minDate={new Date()}
+                        placeholder="Reporting date"
+                      />
+                      <TimePicker
+                        value={pickupTime}
+                        onChange={setPickupTime}
+                        placeholder="Reporting time"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <Button type="submit" size="lg" className="btn-gradient mt-1 h-12 gap-2 rounded-xl text-sm font-semibold">
+                  {service === "rental" ? "Find a ride" : service === "driver" ? "Find drivers" : "Book wash slot"}{" "}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </form>
+            </div>
 
             <div className="mt-7 flex flex-wrap gap-2">
               {CATS.map((c) => (
@@ -132,7 +248,6 @@ function Index() {
                 </div>
               ))}
             </dl>
-
           </div>
 
           <div className="relative">
@@ -178,78 +293,13 @@ function Index() {
                 <div className="glass grid h-12 w-12 place-items-center rounded-xl">
                   <s.icon className={`h-5 w-5 ${s.tint}`} aria-hidden />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold">{s.title}</h3>
-                <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-                <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-brand">
-                  {s.cta} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ————— Your bookings ————— */}
-      <HomeActivity />
-
-      {/* ————— Trip experience ————— */}
-      <section className="cv-auto relative py-16 sm:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-10 max-w-2xl">
-            <h2 className="font-display text-3xl font-bold sm:text-4xl">Built for every step of the trip</h2>
-            <p className="mt-3 text-base text-muted-foreground">From pickup checks to bills — nothing left to paperwork.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: QrCode, title: "QR check-in & check-out", body: "Scan at pickup and return to confirm the handover instantly.", tint: "text-brand" },
-              { icon: BadgeCheck, title: "Fuel & damage inspection", body: "Log fuel level, odometer and photos of any damage, both ways.", tint: "text-cyan" },
-              { icon: Navigation, title: "Live GPS tracking", body: "Share your live location during a trip with turn-by-turn directions.", tint: "text-emerald" },
-              { icon: MessageSquare, title: "In-trip chat", body: "Message your host with photos — unlocked once a booking exists.", tint: "text-violet" },
-              { icon: CircleAlert, title: "Disputes & damage claims", body: "Raise an issue with evidence; our team resolves it end to end.", tint: "text-ember" },
-              { icon: ReceiptText, title: "Invoices & refunds", body: "Printable GST-style bill for every paid booking, refunds to the rupee.", tint: "text-silver" },
-            ].map((f) => (
-              <div key={f.title} className="glass lift p-6">
-                <div className="glass grid h-11 w-11 place-items-center rounded-xl">
-                  <f.icon className={`h-5 w-5 ${f.tint}`} aria-hidden />
+                <div className="mt-5 flex-1">
+                  <h3 className="font-display text-lg font-semibold">{s.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
                 </div>
-                <h3 className="mt-4 text-base font-semibold">{f.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ————— Categories ————— */}
-      <section className="cv-auto relative py-16 sm:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mb-10 flex items-end justify-between gap-4">
-            <div>
-              <h2 className="font-display text-3xl font-bold sm:text-4xl">Choose your ride</h2>
-              <p className="mt-3 text-base text-muted-foreground">Every vehicle verified, insured, and ready to roll.</p>
-            </div>
-            <Link to="/browse" className="hidden text-sm font-medium text-brand hover:opacity-80 sm:inline-flex">
-              See all →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {CATS.map((c) => (
-              <Link
-                key={c.key}
-                to="/browse"
-                search={{ category: c.key } as any}
-                className="glass lift group relative flex flex-col items-start justify-between overflow-hidden p-4 sm:p-5"
-              >
-                <div
-                  className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-brand/20 blur-xl transition-transform duration-500 group-hover:scale-150"
-                  aria-hidden
-                />
-                <CategoryIcon name={c.key} className="relative h-9 w-9 text-foreground sm:h-10 sm:w-10" />
-                <div className="relative mt-8 sm:mt-10">
-                  <div className="text-sm font-semibold sm:text-base">{c.label}</div>
-                  <div className="text-xs text-muted-foreground">{c.desc}</div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  {s.cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                 </div>
-
               </Link>
             ))}
           </div>
@@ -332,8 +382,6 @@ function Index() {
           </div>
         </div>
       </section>
-
-
     </div>
   );
 }

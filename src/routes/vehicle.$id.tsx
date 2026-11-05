@@ -20,6 +20,8 @@ import {
   Clock, CalendarDays, CircleAlert, Loader2, ArrowRight, QrCode, Navigation, ImageOff, MessageSquareQuote,
 } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 
 export const Route = createFileRoute("/vehicle/$id")({
   component: VehiclePage,
@@ -132,7 +134,7 @@ function VehiclePage() {
         status: "pending",
         qr_code: qrPayload,
         notes: notes || null,
-      });
+      } as any);
       if (error) throw error;
       toast.success("Booking requested! The host will confirm shortly.");
       navigate({ to: "/bookings" });
@@ -151,6 +153,7 @@ function VehiclePage() {
       setWished(true);
     }
   };
+
 
   if (!v) return (
     <div className="min-h-screen bg-background"><SiteHeader />

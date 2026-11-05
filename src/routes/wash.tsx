@@ -16,6 +16,8 @@ import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charg
 import { useSelectedCity } from "@/components/city-selector";
 import { toast } from "sonner";
 import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 
 export const Route = createFileRoute("/wash")({
   component: WashPage,

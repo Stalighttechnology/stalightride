@@ -15,8 +15,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { calculateDriverPrice, type DriverRateType } from "@/lib/driver-pricing";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { toast } from "sonner";
-import { Star, MapPin, BadgeCheck, Clock, ShieldCheck, Languages, Car } from "lucide-react";
+import { Star, MapPin, BadgeCheck, Clock, ShieldCheck, Languages, Car, Compass, Route as RouteIcon } from "lucide-react";
 
 export const Route = createFileRoute("/driver/$id")({
   component: DriverProfile,
@@ -34,6 +36,14 @@ export const Route = createFileRoute("/driver/$id")({
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const TRIP_TYPES = [
+  { id: "city", label: "City run" },
+  { id: "outstation", label: "Outstation" },
+  { id: "airport", label: "Airport transfer" },
+  { id: "corporate", label: "Corporate" },
+  { id: "events", label: "Events / Wedding" },
+];
+
 function DriverProfile() {
   const { id } = Route.useParams();
   const { user } = useSession();
@@ -42,6 +52,7 @@ function DriverProfile() {
   const [driver, setDriver] = useState<any | null | undefined>(undefined);
   const [reviews, setReviews] = useState<any[] | null>(null);
   const [rateType, setRateType] = useState<DriverRateType>("daily");
+  const [tripType, setTripType] = useState("city");
   const [startDate, setStartDate] = useState(today());
   const [endDate, setEndDate] = useState(today());
   const [startTime, setStartTime] = useState("09:00");
@@ -86,7 +97,6 @@ function DriverProfile() {
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-
   useEffect(() => {
     if (rateType === "hourly") setEndDate(startDate);
   }, [rateType, startDate]);
@@ -111,6 +121,7 @@ function DriverProfile() {
     if (!user) return navigate({ to: "/auth" });
     if (price.error || price.subtotal <= 0) return toast.error(price.error ?? "Choose a valid duration");
     setSubmitting(true);
+    const combinedNotes = `[Trip: ${tripType.toUpperCase()}] ${notes ? notes : ""}`.trim();
     const { error } = await supabase.from("driver_bookings").insert({
       driver_id: id,
       customer_id: user.id,
@@ -122,7 +133,7 @@ function DriverProfile() {
       hours: price.hours,
       days: price.days,
       pickup_address: pickupAddress || null,
-      notes: notes || null,
+      notes: combinedNotes || null,
       // Money columns are recalculated by the database (tg_price_driver_booking).
       total_price: price.subtotal,
       coupon_code: coupon?.code ?? null,
@@ -154,7 +165,6 @@ function DriverProfile() {
     );
   }
 
-
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -176,7 +186,6 @@ function DriverProfile() {
                     <Badge variant="outline" className="gap-1.5 border-emerald-500/40 text-emerald-600">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Available for hire
                     </Badge>
-
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{driver.city}</span>
@@ -194,6 +203,12 @@ function DriverProfile() {
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <InfoRow icon={Languages} label="Languages" value={(driver.languages ?? []).join(", ") || "—"} />
                 <InfoRow icon={Car} label="Drives" value={(driver.vehicle_types ?? []).join(", ") || "—"} />
+                {driver.service_area && (
+                  <InfoRow icon={Compass} label="Service area" value={driver.service_area} />
+                )}
+                {Array.isArray(driver.trip_types) && driver.trip_types.length > 0 && (
+                  <InfoRow icon={RouteIcon} label="Trip types" value={driver.trip_types.join(", ")} />
+                )}
               </div>
 
               <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
@@ -251,22 +266,40 @@ function DriverProfile() {
               </Tabs>
 
               <div className="mt-4 space-y-3">
+                <div>
+                  <Label className="text-xs">Trip type</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {TRIP_TYPES.map((t) => (
+                      <Button
+                        key={t.id}
+                        type="button"
+                        size="sm"
+                        variant={tripType === t.id ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        onClick={() => setTripType(t.id)}
+                      >
+                        {t.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">Start date</Label>
-                    <Input type="date" min={today()} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                    <DatePicker value={startDate} onChange={setStartDate} minDate={new Date()} placeholder="Select date" />
                   </div>
                   <div>
                     <Label className="text-xs">End date</Label>
-                    <Input type="date" min={startDate} value={rateType === "hourly" ? startDate : endDate} disabled={rateType === "hourly"} onChange={(e) => setEndDate(e.target.value)} />
+                    <DatePicker value={rateType === "hourly" ? startDate : endDate} onChange={setEndDate} minDate={startDate || new Date()} disabled={rateType === "hourly"} placeholder="Select date" />
                   </div>
                   <div>
                     <Label className="text-xs">Start time</Label>
-                    <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                    <TimePicker value={startTime} onChange={setStartTime} placeholder="Select time" />
                   </div>
                   <div>
                     <Label className="text-xs">End time</Label>
-                    <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                    <TimePicker value={endTime} onChange={setEndTime} placeholder="Select time" />
                   </div>
                 </div>
                 <div>

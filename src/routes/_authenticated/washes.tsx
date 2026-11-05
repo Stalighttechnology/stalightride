@@ -8,9 +8,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
-import { CreditCard, Wallet as WalletIcon, Droplets, ReceiptText } from "lucide-react";
+import {
+  CreditCard,
+  Wallet as WalletIcon,
+  Droplets,
+  ReceiptText,
+  Camera,
+  Star,
+  CheckCircle2,
+  CircleDot,
+} from "lucide-react";
 import { createWashRazorpayOrder, verifyWashRazorpayPayment } from "@/lib/wash-payments.functions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
@@ -37,12 +47,102 @@ function refundPercent(b: any) {
   return 0;
 }
 
+/** Status pipeline steps */
+const WASH_STEPS = [
+  { key: "pending", label: "Requested" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "assigned", label: "Cleaner assigned" },
+  { key: "on_the_way", label: "On the way" },
+  { key: "started", label: "Started" },
+  { key: "completed", label: "Completed" },
+];
+
+function WashStepper({ status }: { status: string }) {
+  const stepIndex = WASH_STEPS.findIndex((s) => s.key === status);
+  const activeIndex = stepIndex === -1 ? 0 : stepIndex;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1">
+      {WASH_STEPS.map((step, i) => {
+        const done = i < activeIndex;
+        const active = i === activeIndex;
+        return (
+          <div key={step.key} className="flex items-center gap-1">
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold
+                ${done ? "bg-emerald-600 text-white" : active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+            >
+              {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : active ? <CircleDot className="h-3.5 w-3.5" /> : i + 1}
+            </span>
+            <span className={`text-[11px] ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              {step.label}
+            </span>
+            {i < WASH_STEPS.length - 1 && <span className="mx-1 text-muted-foreground/40">›</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatusBadge({ s }: { s: string }) {
-  if (s === "confirmed") return <Badge className="bg-emerald-600 text-white">Approved</Badge>;
+  if (s === "confirmed") return <Badge className="bg-emerald-600 text-white">Confirmed</Badge>;
+  if (s === "assigned") return <Badge className="bg-blue-600 text-white">Cleaner assigned</Badge>;
+  if (s === "on_the_way") return <Badge className="bg-cyan-600 text-white">On the way</Badge>;
+  if (s === "started") return <Badge className="bg-orange-500 text-white">In progress</Badge>;
   if (s === "rejected") return <Badge variant="destructive">Rejected</Badge>;
   if (s === "cancelled") return <Badge variant="outline">Cancelled</Badge>;
   if (s === "completed") return <Badge variant="secondary">Completed</Badge>;
   return <Badge variant="outline">Awaiting approval</Badge>;
+}
+
+/** Star rating picker */
+function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} type="button" onClick={() => onChange(n)} aria-label={`${n} star`}>
+          <Star className={`h-5 w-5 ${n <= value ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Wash review form shown after completion */
+function WashReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => void }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    setSubmitting(true);
+    const { error } = await (supabase as any).from("wash_reviews").insert({
+      wash_booking_id: bookingId,
+      rating,
+      comment: comment.trim() || null,
+    });
+    setSubmitting(false);
+    if (error) return toast.error(error.message ?? "Could not save review");
+    toast.success("Thanks for your review!");
+    onDone();
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border border-border bg-muted/40 p-3">
+      <p className="text-sm font-medium">Rate the wash service</p>
+      <StarPicker value={rating} onChange={setRating} />
+      <Textarea
+        className="mt-2"
+        rows={2}
+        placeholder="How was the cleaning quality?"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+      />
+      <Button size="sm" className="mt-2" onClick={submit} disabled={submitting}>
+        {submitting ? "Posting…" : "Post review"}
+      </Button>
+    </div>
+  );
 }
 
 function WashesPage() {
@@ -50,6 +150,7 @@ function WashesPage() {
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
   const createOrder = useServerFn(createWashRazorpayOrder);
   const verifyPayment = useServerFn(verifyWashRazorpayPayment);
 
@@ -111,7 +212,7 @@ function WashesPage() {
         currency: order.currency,
         orderId: order.orderId,
         name: "Synchoo",
-        description: `Vehicle wash — ${b.wash_services?.name ?? ""}`,
+        description: b.wash_services?.name ?? "Vehicle wash",
         prefill: { email: user.email ?? undefined, name: user.user_metadata?.full_name ?? undefined },
         onSuccess: async (resp) => {
           try {
@@ -134,36 +235,27 @@ function WashesPage() {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-semibold">My vehicle washes</h1>
-            <p className="text-sm text-muted-foreground">Slot requests, approvals and payments.</p>
+            <h1 className="font-display text-3xl font-semibold">My washes</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Track your doorstep wash slots and reviews.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/wallet"
-              className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              <WalletIcon className="h-4 w-4" />
-              {wallet === null ? "…" : currency(wallet)}
-            </Link>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/wash">Book a wash</Link>
-            </Button>
-          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/wash">Book a wash</Link>
+          </Button>
         </div>
 
         {!items && (
           <div className="mt-6 grid gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 rounded-2xl" />
+              <Skeleton key={i} className="h-40 rounded-2xl" />
             ))}
           </div>
         )}
 
         {items && items.length === 0 && (
-          <div className="mt-6 rounded-2xl border border-border bg-card p-10 text-center">
+          <div className="mt-10 rounded-2xl border border-border bg-card p-10 text-center">
             <Droplets className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 font-medium">No wash bookings yet</p>
             <Button asChild className="mt-4">
@@ -176,6 +268,7 @@ function WashesPage() {
           {(items ?? []).map((b) => {
             const canPay = b.status === "confirmed" && b.payment_status !== "paid";
             const canCancel = b.status === "pending" || b.status === "confirmed";
+            const canReview = b.status === "completed" && !reviewedIds.has(b.id);
             return (
               <Card key={b.id}>
                 <CardContent className="p-4">
@@ -201,6 +294,11 @@ function WashesPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Status stepper */}
+                  {b.status !== "cancelled" && b.status !== "rejected" && (
+                    <WashStepper status={b.status} />
+                  )}
 
                   <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
                     <div>📍 {b.address}, {b.city}</div>
@@ -255,6 +353,14 @@ function WashesPage() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Wash review */}
+                  {canReview && (
+                    <WashReviewForm
+                      bookingId={b.id}
+                      onDone={() => setReviewedIds((prev) => new Set([...prev, b.id]))}
+                    />
+                  )}
                 </CardContent>
               </Card>
             );
