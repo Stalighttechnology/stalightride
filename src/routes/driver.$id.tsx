@@ -14,6 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { calculateDriverPrice, type DriverRateType } from "@/lib/driver-pricing";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { toast } from "sonner";
 import { Star, MapPin, BadgeCheck, Clock, ShieldCheck, Languages, Car, Compass, Route as RouteIcon } from "lucide-react";
 
@@ -21,9 +23,9 @@ export const Route = createFileRoute("/driver/$id")({
   component: DriverProfile,
   head: () => ({
     meta: [
-      { title: "Driver profile — Hire a verified driver | Synchoo" },
+      { title: "Driver profile â€” Hire a verified driver | Synchoo" },
       { name: "description", content: "View a verified Synchoo driver's experience, languages, rating and rates, then book them by the hour or day." },
-      { property: "og:title", content: "Driver profile — Hire a verified driver | Synchoo" },
+      { property: "og:title", content: "Driver profile â€” Hire a verified driver | Synchoo" },
       { property: "og:description", content: "View a verified Synchoo driver's experience, languages, rating and rates, then book them." },
       { property: "og:type", content: "profile" },
       { name: "twitter:card", content: "summary" },
@@ -133,7 +135,7 @@ function DriverProfile() {
     } as any);
     setSubmitting(false);
     if (error) return toast.error(error.message);
-    toast.success("Request sent — you'll pay once the driver accepts");
+    toast.success("Request sent â€” you'll pay once the driver accepts");
     navigate({ to: "/hires" });
   };
 
@@ -194,8 +196,8 @@ function DriverProfile() {
               {driver.bio && <p className="mt-4 whitespace-pre-line text-sm">{driver.bio}</p>}
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <InfoRow icon={Languages} label="Languages" value={(driver.languages ?? []).join(", ") || "—"} />
-                <InfoRow icon={Car} label="Drives" value={(driver.vehicle_types ?? []).join(", ") || "—"} />
+                <InfoRow icon={Languages} label="Languages" value={(driver.languages ?? []).join(", ") || "â€”"} />
+                <InfoRow icon={Car} label="Drives" value={(driver.vehicle_types ?? []).join(", ") || "â€”"} />
                 {driver.service_area && (
                   <InfoRow icon={Compass} label="Service area" value={driver.service_area} />
                 )}
@@ -280,19 +282,19 @@ function DriverProfile() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">Start date</Label>
-                    <Input type="date" min={today()} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                    <DatePicker value={startDate} onChange={setStartDate} minDate={new Date()} placeholder="Select date" />
                   </div>
                   <div>
                     <Label className="text-xs">End date</Label>
-                    <Input type="date" min={startDate} value={rateType === "hourly" ? startDate : endDate} disabled={rateType === "hourly"} onChange={(e) => setEndDate(e.target.value)} />
+                    <DatePicker value={rateType === "hourly" ? startDate : endDate} onChange={setEndDate} minDate={startDate || new Date()} disabled={rateType === "hourly"} placeholder="Select date" />
                   </div>
                   <div>
                     <Label className="text-xs">Start time</Label>
-                    <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                    <TimePicker value={startTime} onChange={setStartTime} placeholder="Select time" />
                   </div>
                   <div>
                     <Label className="text-xs">End time</Label>
-                    <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                    <TimePicker value={endTime} onChange={setEndTime} placeholder="Select time" />
                   </div>
                 </div>
                 <div>
@@ -301,7 +303,7 @@ function DriverProfile() {
                 </div>
                 <div>
                   <Label className="text-xs">Notes (optional)</Label>
-                  <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Trip details, vehicle type, luggage…" />
+                  <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Trip details, vehicle type, luggageâ€¦" />
                 </div>
               </div>
 
@@ -323,7 +325,7 @@ function DriverProfile() {
               </div>
 
               <Button className="mt-4 w-full" disabled={submitting || !!price.error} onClick={hire}>
-                {!user ? "Sign in to hire" : submitting ? "Sending request…" : "Request this driver"}
+                {!user ? "Sign in to hire" : submitting ? "Sending requestâ€¦" : "Request this driver"}
               </Button>
               <p className="mt-2 text-center text-xs text-muted-foreground">
                 No charge until the driver accepts your request.

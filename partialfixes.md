@@ -21,6 +21,7 @@ This document tracks all features identified in the gap analysis as partially im
 | 11 | **Pooling Safety (Emergency Contact & Policy)** | ✅ Completed | Added emergency contact field, written cancellation policy notice, passenger ride ratings, and report user trigger in `src/routes/pooling.tsx` and `src/routes/_authenticated/pooling.mine.tsx`. |
 | 12 | **Admin & Washing Center Verification** | ✅ Completed | Added Washing Center (`wash_vendors`) verification queue, Payouts approval queue, and Coupon management queue in `src/routes/_authenticated/admin.tsx`. |
 | 13 | **Visual Style (Light-first Look)** | ✅ Completed | Switched default theme script in `src/routes/__root.tsx` to clean light-first look (`rs-theme \|\| 'light'`) with neutral white card surfaces in `src/styles.css`. |
+| 14 | **Shadcn UI Date & Time Pickers** | ✅ Completed | Created reusable `DatePicker` and `TimePicker` components wrapping Shadcn UI `Calendar` (`react-day-picker`) and `Popover`, replacing raw HTML date/time inputs across all forms. |
 
 ---
 
@@ -104,6 +105,20 @@ This document tracks all features identified in the gap analysis as partially im
   - Default theme script set to `light` mode on initial visit (`localStorage.getItem('rs-theme') || 'light'`).
   - Dark mode remains fully functional and toggleable via theme switch.
   - Clean neutral white and soft grey surfaces configured in CSS theme variables.
+
+### 11. Shadcn UI Date & Time Pickers
+- **Components Created:** `src/components/ui/date-picker.tsx`, `src/components/ui/time-picker.tsx`
+- **Forms Upgraded:**
+  - `src/routes/index.tsx` (Hero search pickup/return date & time)
+  - `src/routes/vehicle.$id.tsx` (Vehicle rental trip schedule date & time pickers)
+  - `src/routes/driver.$id.tsx` (Driver hire start & end date & time pickers)
+  - `src/routes/wash.tsx` (Doorstep wash slot date & custom time slot picker)
+  - `src/routes/pooling.tsx` (Carpooling search travel date picker)
+  - `src/routes/_authenticated/pooling.new.tsx` (Offer ride departure date & time pickers)
+- **What was added:**
+  - Accessible Shadcn UI `Calendar` in a `Popover` with formatted dates (`PPP`), ISO string compatibility (`yyyy-MM-dd`), and `minDate` support.
+  - Interactive `TimePicker` with quick preset chips (e.g. 08:00, 10:00, 14:00, 18:00), 12-hour/24-hour hour & minute selectors, and AM/PM toggle.
+
 
 ---
 *Generated: 2026-11-05*
