@@ -22,6 +22,14 @@ This document tracks all features identified in the gap analysis as partially im
 | 12 | **Admin & Washing Center Verification** | ✅ Completed | Added Washing Center (`wash_vendors`) verification queue, Payouts approval queue, and Coupon management queue in `src/routes/_authenticated/admin.tsx`. |
 | 13 | **Visual Style (Light-first Look)** | ✅ Completed | Switched default theme script in `src/routes/__root.tsx` to clean light-first look (`rs-theme \|\| 'light'`) with neutral white card surfaces in `src/styles.css`. |
 | 14 | **Shadcn UI Date & Time Pickers** | ✅ Completed | Created reusable `DatePicker` and `TimePicker` components wrapping Shadcn UI `Calendar` (`react-day-picker`) and `Popover`, replacing raw HTML date/time inputs across all forms. |
+| 15 | **Roles: Vehicle Cleaner & Washing Center** | ✅ Completed | Built dedicated onboarding and live management dashboards for Vehicle Cleaners (`cleaner-dashboard.tsx`) and Washing Centers (`wash-center-dashboard.tsx`) with staff management, packages, today's schedule, and payouts. |
+| 16 | **Super Admin Suite** | ✅ Completed | Built 9 comprehensive administrative consoles integrated into `admin.tsx`: Customer Management, Master Bookings Monitor, City & Category Management, Commission & Revenue Analytics, Payment & Refund Ledger, Review Moderation, Broadcast Notifications, Support Tickets, and Platform Settings. |
+| 17 | **Trip & Safety Center Suite** | ✅ Completed | Built complete Safety Center (`safety.tsx`) and in-trip assistance (`trip-safety-extension.tsx` in `bookings.$id.trip.tsx`) with Police 112 SOS, 24/7 hotline, emergency contacts, roadside breakdown assistance, pre-pickup document checklist, and incident reporting. |
+| 18 | **Trip Extension Request** | ✅ Completed | Added flexible in-trip extension modal (+3h, +6h, +12h, +24h) calculating live fees and notifying host. |
+| 19 | **Synchoo VIP Membership** | ✅ Completed | Built VIP Membership portal (`membership.tsx`) with Synchoo Plus & Black VIP tiers offering 0% convenience fees, 15% discounts, free monthly washes, and 2h cancellation. |
+| 20 | **Corporate Accounts** | ✅ Completed | Built Enterprise portal (`corporate.tsx`) with business verification, GSTIN input tax credit, employee team roster management, and monthly spend limits. |
+| 21 | **Referrals & Loyalty Rewards** | ✅ Completed | Built Refer & Earn program (`referrals.tsx`) with ₹500 credits & WhatsApp sharing, and Synchoo Points rewards program (`rewards.tsx`) with a redemption catalog. |
+| 22 | **Host Vehicle Maintenance Hub** | ✅ Completed | Built vehicle health & maintenance tracker (`vendor-maintenance.tsx` in `vendor.index.tsx`) with service reminders, PUC/insurance expiry countdown badges, and repair expense tracking. |
 
 ---
 
@@ -118,6 +126,88 @@ This document tracks all features identified in the gap analysis as partially im
 - **What was added:**
   - Accessible Shadcn UI `Calendar` in a `Popover` with formatted dates (`PPP`), ISO string compatibility (`yyyy-MM-dd`), and `minDate` support.
   - Interactive `TimePicker` with quick preset chips (e.g. 08:00, 10:00, 14:00, 18:00), 12-hour/24-hour hour & minute selectors, and AM/PM toggle.
+
+### 12. Roles: Vehicle Cleaner & Washing Center
+- **Files Created:**
+  - `src/routes/_authenticated/cleaner-dashboard.tsx`
+  - `src/routes/_authenticated/wash-center-dashboard.tsx`
+- **Navigation Updated:** `src/components/site-header.tsx`, `src/components/app-sidebar.tsx`
+- **What was added:**
+  - **Vehicle Cleaner Dashboard**:
+    - Cleaner onboarding and verification profile (phone, city, neighborhood coverage, equipment notes).
+    - Online/Offline availability toggle with real-time indicator.
+    - Assigned & active jobs queue with navigation shortcuts and photo completion triggers.
+    - Available doorstep wash requests in city with one-click job acceptance.
+    - Today's appointment schedule timeline.
+    - Earnings summary with platform commission deduction (15%) and withdrawable payout button.
+  - **Washing Center Dashboard**:
+    - Auto spa and washing center onboarding (facility name, address, contact phone/email, daily bay capacity, opening/closing hours).
+    - Custom service packages menu (name, price, duration, vehicle category).
+    - Staff & technician team management (name, phone, role, active status).
+    - Live bookings queue with status updates (`Confirmed` -> `Completed`).
+    - Center revenue analytics with platform fee deduction and payout request tool.
+
+### 13. Super Admin Features Suite
+- **Files Created:**
+  - `src/components/admin/customers-tab.tsx`
+  - `src/components/admin/bookings-monitor-tab.tsx`
+  - `src/components/admin/cities-categories-tab.tsx`
+  - `src/components/admin/revenue-commissions-tab.tsx`
+  - `src/components/admin/payments-refunds-tab.tsx`
+  - `src/components/admin/review-moderation-tab.tsx`
+  - `src/components/admin/broadcasts-tab.tsx`
+  - `src/components/admin/support-tickets-tab.tsx`
+  - `src/components/admin/platform-settings-tab.tsx`
+- **File Updated:** `src/routes/_authenticated/admin.tsx`
+- **What was added:**
+  - **Customer Management**: User profile lookup, search by name/email/phone/city, verification status badge, and one-click licence verification/revocation.
+  - **Master Booking Monitor**: Unified live feed across Rentals, Driver Hires, Doorstep Washes, and Carpooling with status and service filters.
+  - **City & Category Management**: Operational city deployment toggles, local surge multipliers, vehicle category minimum deposit rules and window hours.
+  - **Commission & Revenue Analytics**: Configurable platform fee rates (Rental 10%, Driver 10%, Wash 15%, Pooling 5%), gross volume (GMV), net revenue, provider payouts, and vertical distribution chart.
+  - **Payments & Refunds Ledger**: Real-time wallet ledger and administrative instant customer wallet refund tool with dispute reasons.
+  - **Review Moderation**: Aggregated review queue with one-click report dismissal or removal of abusive reviews.
+  - **Broadcast Announcements**: In-app notification dispatcher targeting all users, hosts, drivers, or cleaners.
+  - **Support Helpdesk**: Ticket management queue with urgency badges, status progression, and direct resolution replies.
+  - **Platform Settings**: Maintenance mode switch, instant confirm default, GST rate %, 24/7 emergency SOS hotline phone, advance driver notice hours, and wallet limits.
+
+### 14. Trip Journey Safety & In-Trip Extension
+- **Files:** `src/components/trip-safety-extension.tsx`, `src/routes/_authenticated/bookings.$id.trip.tsx`
+- **What was added:**
+  - One-click Emergency SOS modal with direct links to Police (112), Ambulance (108), 24/7 Synchoo Command Desk (`+91 80 4567 8900`), and WhatsApp live GPS broadcast.
+  - In-trip Extension Request modal (+3h, +6h, +12h, +24h) computing additional rental charges and submitting notice to host.
+  - Pre-pickup Document Checklist banner checking Driving Licence, Government ID, Deposit, and ISI Helmet.
+
+### 15. Safety Center
+- **File:** `src/routes/safety.tsx`
+- **Navigation:** Added to `src/components/site-header.tsx` and `src/components/app-sidebar.tsx`
+- **What was added:**
+  - 24/7 Safety Command Center with direct emergency calling.
+  - Roadside Breakdown Assistance dispatcher (flat tyre, battery jumpstart, flatbed towing).
+  - Official Incident and Collision Reporting form with claims notification.
+  - Lost & Found item recovery form.
+  - Insurance Coverage guide detailing ₹50L third-party liability and ₹3,000 max customer damage cap.
+  - Trusted Emergency Contacts manager with live trip tracking alert integration.
+
+### 16. Synchoo VIP Membership
+- **File:** `src/routes/membership.tsx`
+- **What was added:**
+  - Membership tiers: Free, Synchoo Plus (₹499/mo), and Synchoo Black VIP (₹1,499/mo).
+  - Monthly vs Annual billing switch with 20% savings.
+  - 0% convenience fees, 15% vehicle rental discounts, complimentary monthly doorstep washes, and zero security deposit privilege.
+
+### 17. Corporate Accounts
+- **File:** `src/routes/corporate.tsx`
+- **What was added:**
+  - Business onboarding with GSTIN validation for Input Tax Credit.
+  - Employee travel group manager with custom monthly spend allowances.
+  - Consolidated monthly GST invoices and real-time enterprise expense dashboard.
+
+### 18. Referrals, Loyalty Rewards & Host Vehicle Maintenance
+- **Files:**
+  - `src/routes/_authenticated/referrals.tsx` (Refer & Earn ₹500 program with WhatsApp and copy link)
+  - `src/routes/_authenticated/rewards.tsx` (Synchoo Points meter and voucher catalog)
+  - `src/components/vendor-maintenance.tsx` (Host vehicle health, service due countdowns, document expiries, and repair expense tracking)
+- **File Updated:** `src/routes/_authenticated/vendor.index.tsx`
 
 
 ---

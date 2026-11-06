@@ -18,6 +18,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { submitInspection } from "@/lib/trip-inspection.functions";
 import { LiveTracker } from "@/components/live-tracker";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { TripSafetyExtension } from "@/components/trip-safety-extension";
 
 export const Route = createFileRoute("/_authenticated/bookings/$id/trip")({ component: TripInspection });
 
@@ -123,6 +124,8 @@ function TripInspection() {
         </div>
 
         <div className="grid gap-6">
+          <TripSafetyExtension booking={b} role={role} onExtensionSubmitted={load} />
+
           {tripActive && (
             <Card>
               <CardContent className="p-6">

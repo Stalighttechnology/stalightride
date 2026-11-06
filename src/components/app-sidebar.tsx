@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Car, UserRound, CalendarDays, Heart, Wallet as WalletIcon, LayoutDashboard,
   ShieldCheck, CarFront as Steering, Home, User as UserIcon, LogOut, LogIn, Droplets, ScanLine, BadgeIndianRupee, Users, LifeBuoy,
+  Sparkles, Building2, ShieldAlert, Crown, Briefcase, Gift, Award,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -22,6 +23,9 @@ const exploreItems: Item[] = [
   { to: "/pooling", label: "Car pooling", icon: Users },
   { to: "/drivers", label: "Hire a driver", icon: UserRound },
   { to: "/wash", label: "Vehicle wash", icon: Droplets },
+  { to: "/corporate", label: "Corporate travel", icon: Briefcase },
+  { to: "/safety", label: "Safety center", icon: ShieldAlert },
+  { to: "/membership", label: "Membership", icon: Crown },
 ];
 
 const accountItems: Item[] = [
@@ -31,6 +35,8 @@ const accountItems: Item[] = [
   { to: "/hires", label: "My drivers", icon: UserRound },
   { to: "/washes", label: "My washes", icon: Droplets },
   { to: "/wallet", label: "Wallet", icon: WalletIcon },
+  { to: "/rewards", label: "Synchoo Points", icon: Award },
+  { to: "/referrals", label: "Refer & earn", icon: Gift },
   { to: "/wishlist", label: "Saved", icon: Heart },
   { to: "/profile", label: "Profile", icon: UserIcon },
 ];
@@ -39,6 +45,8 @@ const earnItems: Item[] = [
   { to: "/earn", label: "Earning options", icon: BadgeIndianRupee },
   { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
   { to: "/driver-dashboard", label: "Driver dashboard", icon: Steering },
+  { to: "/cleaner-dashboard", label: "Cleaner dashboard", icon: Sparkles },
+  { to: "/wash-center-dashboard", label: "Washing center", icon: Building2 },
   { to: "/pooling/driver", label: "Pooling trips", icon: Users },
   { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];
@@ -104,7 +112,7 @@ export function AppSidebar() {
       <SidebarContent>
         {renderGroup("Explore", exploreItems)}
         {user && renderGroup("Your account", accountItems)}
-        {renderGroup("Earn with us", user ? earnItems : earnItems.slice(0, 1))}
+        {renderGroup("Earn with us", earnItems)}
         {user && isAdmin && renderGroup("Admin", [{ to: "/admin", label: "Admin panel", icon: ShieldCheck }])}
         {renderGroup("Help & privacy", [
           { to: "/help", label: "User manual", icon: LifeBuoy },

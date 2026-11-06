@@ -14,23 +14,30 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as CorporateRouteImport } from './routes/corporate'
 import { Route as DataDeletionRouteImport } from './routes/data-deletion'
 import { Route as DriversRouteImport } from './routes/drivers'
 import { Route as EarnRouteImport } from './routes/earn'
 import { Route as HelpRouteImport } from './routes/help'
+import { Route as MembershipRouteImport } from './routes/membership'
 import { Route as PitchRouteImport } from './routes/pitch'
 import { Route as PoolingRouteImport } from './routes/pooling'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as SafetyRouteImport } from './routes/safety'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WashRouteImport } from './routes/wash'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
+import { Route as AuthenticatedCleanerDashboardRouteImport } from './routes/_authenticated/cleaner-dashboard'
 import { Route as AuthenticatedDriverDashboardRouteImport } from './routes/_authenticated/driver-dashboard'
 import { Route as AuthenticatedHiresRouteImport } from './routes/_authenticated/hires'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
+import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
 import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
+import { Route as AuthenticatedWashCenterDashboardRouteImport } from './routes/_authenticated/wash-center-dashboard'
 import { Route as AuthenticatedWashesRouteImport } from './routes/_authenticated/washes'
 import { Route as AuthenticatedWishlistRouteImport } from './routes/_authenticated/wishlist'
 import { Route as DriverIdRouteImport } from './routes/driver.$id'
@@ -71,6 +78,11 @@ const CookiesRoute = CookiesRouteImport.update({
   path: '/cookies',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CorporateRoute = CorporateRouteImport.update({
+  id: '/corporate',
+  path: '/corporate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DataDeletionRoute = DataDeletionRouteImport.update({
   id: '/data-deletion',
   path: '/data-deletion',
@@ -91,6 +103,11 @@ const HelpRoute = HelpRouteImport.update({
   path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MembershipRoute = MembershipRouteImport.update({
+  id: '/membership',
+  path: '/membership',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PitchRoute = PitchRouteImport.update({
   id: '/pitch',
   path: '/pitch',
@@ -104,6 +121,11 @@ const PoolingRoute = PoolingRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SafetyRoute = SafetyRouteImport.update({
+  id: '/safety',
+  path: '/safety',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -131,6 +153,12 @@ const AuthenticatedBookingsRoute = AuthenticatedBookingsRouteImport.update({
   path: '/bookings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCleanerDashboardRoute =
+  AuthenticatedCleanerDashboardRouteImport.update({
+    id: '/cleaner-dashboard',
+    path: '/cleaner-dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDriverDashboardRoute =
   AuthenticatedDriverDashboardRouteImport.update({
     id: '/driver-dashboard',
@@ -147,6 +175,16 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedReferralsRoute = AuthenticatedReferralsRouteImport.update({
+  id: '/referrals',
+  path: '/referrals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRewardsRoute = AuthenticatedRewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedScanRoute = AuthenticatedScanRouteImport.update({
   id: '/scan',
   path: '/scan',
@@ -157,6 +195,12 @@ const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
   path: '/wallet',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWashCenterDashboardRoute =
+  AuthenticatedWashCenterDashboardRouteImport.update({
+    id: '/wash-center-dashboard',
+    path: '/wash-center-dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedWashesRoute = AuthenticatedWashesRouteImport.update({
   id: '/washes',
   path: '/washes',
@@ -246,23 +290,30 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/browse': typeof BrowseRoute
   '/cookies': typeof CookiesRoute
+  '/corporate': typeof CorporateRoute
   '/data-deletion': typeof DataDeletionRoute
   '/drivers': typeof DriversRoute
   '/earn': typeof EarnRoute
   '/help': typeof HelpRoute
+  '/membership': typeof MembershipRoute
   '/pitch': typeof PitchRoute
   '/pooling': typeof PoolingRoute
   '/privacy': typeof PrivacyRoute
+  '/safety': typeof SafetyRoute
   '/terms': typeof TermsRoute
   '/wash': typeof WashRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/bookings': typeof AuthenticatedBookingsRouteWithChildren
+  '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/referrals': typeof AuthenticatedReferralsRoute
+  '/rewards': typeof AuthenticatedRewardsRoute
   '/scan': typeof AuthenticatedScanRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/washes': typeof AuthenticatedWashesRoute
   '/wishlist': typeof AuthenticatedWishlistRoute
   '/driver/$id': typeof DriverIdRoute
@@ -284,23 +335,30 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/browse': typeof BrowseRoute
   '/cookies': typeof CookiesRoute
+  '/corporate': typeof CorporateRoute
   '/data-deletion': typeof DataDeletionRoute
   '/drivers': typeof DriversRoute
   '/earn': typeof EarnRoute
   '/help': typeof HelpRoute
+  '/membership': typeof MembershipRoute
   '/pitch': typeof PitchRoute
   '/pooling': typeof PoolingRoute
   '/privacy': typeof PrivacyRoute
+  '/safety': typeof SafetyRoute
   '/terms': typeof TermsRoute
   '/wash': typeof WashRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/bookings': typeof AuthenticatedBookingsRouteWithChildren
+  '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/referrals': typeof AuthenticatedReferralsRoute
+  '/rewards': typeof AuthenticatedRewardsRoute
   '/scan': typeof AuthenticatedScanRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/washes': typeof AuthenticatedWashesRoute
   '/wishlist': typeof AuthenticatedWishlistRoute
   '/driver/$id': typeof DriverIdRoute
@@ -324,23 +382,30 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/browse': typeof BrowseRoute
   '/cookies': typeof CookiesRoute
+  '/corporate': typeof CorporateRoute
   '/data-deletion': typeof DataDeletionRoute
   '/drivers': typeof DriversRoute
   '/earn': typeof EarnRoute
   '/help': typeof HelpRoute
+  '/membership': typeof MembershipRoute
   '/pitch': typeof PitchRoute
   '/pooling': typeof PoolingRoute
   '/privacy': typeof PrivacyRoute
+  '/safety': typeof SafetyRoute
   '/terms': typeof TermsRoute
   '/wash': typeof WashRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRouteWithChildren
+  '/_authenticated/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/_authenticated/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/_authenticated/hires': typeof AuthenticatedHiresRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
+  '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
   '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/_authenticated/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/_authenticated/washes': typeof AuthenticatedWashesRoute
   '/_authenticated/wishlist': typeof AuthenticatedWishlistRoute
   '/driver/$id': typeof DriverIdRoute
@@ -364,23 +429,30 @@ export interface FileRouteTypes {
     | '/auth'
     | '/browse'
     | '/cookies'
+    | '/corporate'
     | '/data-deletion'
     | '/drivers'
     | '/earn'
     | '/help'
+    | '/membership'
     | '/pitch'
     | '/pooling'
     | '/privacy'
+    | '/safety'
     | '/terms'
     | '/wash'
     | '/account'
     | '/admin'
     | '/bookings'
+    | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
     | '/profile'
+    | '/referrals'
+    | '/rewards'
     | '/scan'
     | '/wallet'
+    | '/wash-center-dashboard'
     | '/washes'
     | '/wishlist'
     | '/driver/$id'
@@ -402,23 +474,30 @@ export interface FileRouteTypes {
     | '/auth'
     | '/browse'
     | '/cookies'
+    | '/corporate'
     | '/data-deletion'
     | '/drivers'
     | '/earn'
     | '/help'
+    | '/membership'
     | '/pitch'
     | '/pooling'
     | '/privacy'
+    | '/safety'
     | '/terms'
     | '/wash'
     | '/account'
     | '/admin'
     | '/bookings'
+    | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
     | '/profile'
+    | '/referrals'
+    | '/rewards'
     | '/scan'
     | '/wallet'
+    | '/wash-center-dashboard'
     | '/washes'
     | '/wishlist'
     | '/driver/$id'
@@ -441,23 +520,30 @@ export interface FileRouteTypes {
     | '/auth'
     | '/browse'
     | '/cookies'
+    | '/corporate'
     | '/data-deletion'
     | '/drivers'
     | '/earn'
     | '/help'
+    | '/membership'
     | '/pitch'
     | '/pooling'
     | '/privacy'
+    | '/safety'
     | '/terms'
     | '/wash'
     | '/_authenticated/account'
     | '/_authenticated/admin'
     | '/_authenticated/bookings'
+    | '/_authenticated/cleaner-dashboard'
     | '/_authenticated/driver-dashboard'
     | '/_authenticated/hires'
     | '/_authenticated/profile'
+    | '/_authenticated/referrals'
+    | '/_authenticated/rewards'
     | '/_authenticated/scan'
     | '/_authenticated/wallet'
+    | '/_authenticated/wash-center-dashboard'
     | '/_authenticated/washes'
     | '/_authenticated/wishlist'
     | '/driver/$id'
@@ -481,13 +567,16 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BrowseRoute: typeof BrowseRoute
   CookiesRoute: typeof CookiesRoute
+  CorporateRoute: typeof CorporateRoute
   DataDeletionRoute: typeof DataDeletionRoute
   DriversRoute: typeof DriversRoute
   EarnRoute: typeof EarnRoute
   HelpRoute: typeof HelpRoute
+  MembershipRoute: typeof MembershipRoute
   PitchRoute: typeof PitchRoute
   PoolingRoute: typeof PoolingRoute
   PrivacyRoute: typeof PrivacyRoute
+  SafetyRoute: typeof SafetyRoute
   TermsRoute: typeof TermsRoute
   WashRoute: typeof WashRoute
   DriverIdRoute: typeof DriverIdRoute
@@ -533,6 +622,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CookiesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/corporate': {
+      id: '/corporate'
+      path: '/corporate'
+      fullPath: '/corporate'
+      preLoaderRoute: typeof CorporateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/data-deletion': {
       id: '/data-deletion'
       path: '/data-deletion'
@@ -561,6 +657,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/membership': {
+      id: '/membership'
+      path: '/membership'
+      fullPath: '/membership'
+      preLoaderRoute: typeof MembershipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pitch': {
       id: '/pitch'
       path: '/pitch'
@@ -580,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/safety': {
+      id: '/safety'
+      path: '/safety'
+      fullPath: '/safety'
+      preLoaderRoute: typeof SafetyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -617,6 +727,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBookingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/cleaner-dashboard': {
+      id: '/_authenticated/cleaner-dashboard'
+      path: '/cleaner-dashboard'
+      fullPath: '/cleaner-dashboard'
+      preLoaderRoute: typeof AuthenticatedCleanerDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/driver-dashboard': {
       id: '/_authenticated/driver-dashboard'
       path: '/driver-dashboard'
@@ -638,6 +755,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/referrals': {
+      id: '/_authenticated/referrals'
+      path: '/referrals'
+      fullPath: '/referrals'
+      preLoaderRoute: typeof AuthenticatedReferralsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rewards': {
+      id: '/_authenticated/rewards'
+      path: '/rewards'
+      fullPath: '/rewards'
+      preLoaderRoute: typeof AuthenticatedRewardsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/scan': {
       id: '/_authenticated/scan'
       path: '/scan'
@@ -650,6 +781,13 @@ declare module '@tanstack/react-router' {
       path: '/wallet'
       fullPath: '/wallet'
       preLoaderRoute: typeof AuthenticatedWalletRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wash-center-dashboard': {
+      id: '/_authenticated/wash-center-dashboard'
+      path: '/wash-center-dashboard'
+      fullPath: '/wash-center-dashboard'
+      preLoaderRoute: typeof AuthenticatedWashCenterDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/washes': {
@@ -779,11 +917,15 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRouteWithChildren
+  AuthenticatedCleanerDashboardRoute: typeof AuthenticatedCleanerDashboardRoute
   AuthenticatedDriverDashboardRoute: typeof AuthenticatedDriverDashboardRoute
   AuthenticatedHiresRoute: typeof AuthenticatedHiresRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
+  AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
+  AuthenticatedWashCenterDashboardRoute: typeof AuthenticatedWashCenterDashboardRoute
   AuthenticatedWashesRoute: typeof AuthenticatedWashesRoute
   AuthenticatedWishlistRoute: typeof AuthenticatedWishlistRoute
   AuthenticatedMessagesBookingIdRoute: typeof AuthenticatedMessagesBookingIdRoute
@@ -799,11 +941,15 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRouteWithChildren,
+  AuthenticatedCleanerDashboardRoute: AuthenticatedCleanerDashboardRoute,
   AuthenticatedDriverDashboardRoute: AuthenticatedDriverDashboardRoute,
   AuthenticatedHiresRoute: AuthenticatedHiresRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
+  AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
   AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
+  AuthenticatedWashCenterDashboardRoute: AuthenticatedWashCenterDashboardRoute,
   AuthenticatedWashesRoute: AuthenticatedWashesRoute,
   AuthenticatedWishlistRoute: AuthenticatedWishlistRoute,
   AuthenticatedMessagesBookingIdRoute: AuthenticatedMessagesBookingIdRoute,
@@ -824,13 +970,16 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BrowseRoute: BrowseRoute,
   CookiesRoute: CookiesRoute,
+  CorporateRoute: CorporateRoute,
   DataDeletionRoute: DataDeletionRoute,
   DriversRoute: DriversRoute,
   EarnRoute: EarnRoute,
   HelpRoute: HelpRoute,
+  MembershipRoute: MembershipRoute,
   PitchRoute: PitchRoute,
   PoolingRoute: PoolingRoute,
   PrivacyRoute: PrivacyRoute,
+  SafetyRoute: SafetyRoute,
   TermsRoute: TermsRoute,
   WashRoute: WashRoute,
   DriverIdRoute: DriverIdRoute,
