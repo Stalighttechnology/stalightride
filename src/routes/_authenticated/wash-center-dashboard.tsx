@@ -647,3 +647,4 @@ export function WashCenterDashboard() {
     </div>
   );
 }
+

@@ -24,6 +24,12 @@ This document tracks all features identified in the gap analysis as partially im
 | 14 | **Shadcn UI Date & Time Pickers** | ✅ Completed | Created reusable `DatePicker` and `TimePicker` components wrapping Shadcn UI `Calendar` (`react-day-picker`) and `Popover`, replacing raw HTML date/time inputs across all forms. |
 | 15 | **Roles: Vehicle Cleaner & Washing Center** | ✅ Completed | Built dedicated onboarding and live management dashboards for Vehicle Cleaners (`cleaner-dashboard.tsx`) and Washing Centers (`wash-center-dashboard.tsx`) with staff management, packages, today's schedule, and payouts. |
 | 16 | **Super Admin Suite** | ✅ Completed | Built 9 comprehensive administrative consoles integrated into `admin.tsx`: Customer Management, Master Bookings Monitor, City & Category Management, Commission & Revenue Analytics, Payment & Refund Ledger, Review Moderation, Broadcast Notifications, Support Tickets, and Platform Settings. |
+| 17 | **Trip & Safety Center Suite** | ✅ Completed | Built complete Safety Center (`safety.tsx`) and in-trip assistance (`trip-safety-extension.tsx` in `bookings.$id.trip.tsx`) with Police 112 SOS, 24/7 hotline, emergency contacts, roadside breakdown assistance, pre-pickup document checklist, and incident reporting. |
+| 18 | **Trip Extension Request** | ✅ Completed | Added flexible in-trip extension modal (+3h, +6h, +12h, +24h) calculating live fees and notifying host. |
+| 19 | **Synchoo VIP Membership** | ✅ Completed | Built VIP Membership portal (`membership.tsx`) with Synchoo Plus & Black VIP tiers offering 0% convenience fees, 15% discounts, free monthly washes, and 2h cancellation. |
+| 20 | **Corporate Accounts** | ✅ Completed | Built Enterprise portal (`corporate.tsx`) with business verification, GSTIN input tax credit, employee team roster management, and monthly spend limits. |
+| 21 | **Referrals & Loyalty Rewards** | ✅ Completed | Built Refer & Earn program (`referrals.tsx`) with ₹500 credits & WhatsApp sharing, and Synchoo Points rewards program (`rewards.tsx`) with a redemption catalog. |
+| 22 | **Host Vehicle Maintenance Hub** | ✅ Completed | Built vehicle health & maintenance tracker (`vendor-maintenance.tsx` in `vendor.index.tsx`) with service reminders, PUC/insurance expiry countdown badges, and repair expense tracking. |
 
 ---
 
@@ -163,6 +169,45 @@ This document tracks all features identified in the gap analysis as partially im
   - **Broadcast Announcements**: In-app notification dispatcher targeting all users, hosts, drivers, or cleaners.
   - **Support Helpdesk**: Ticket management queue with urgency badges, status progression, and direct resolution replies.
   - **Platform Settings**: Maintenance mode switch, instant confirm default, GST rate %, 24/7 emergency SOS hotline phone, advance driver notice hours, and wallet limits.
+
+### 14. Trip Journey Safety & In-Trip Extension
+- **Files:** `src/components/trip-safety-extension.tsx`, `src/routes/_authenticated/bookings.$id.trip.tsx`
+- **What was added:**
+  - One-click Emergency SOS modal with direct links to Police (112), Ambulance (108), 24/7 Synchoo Command Desk (`+91 80 4567 8900`), and WhatsApp live GPS broadcast.
+  - In-trip Extension Request modal (+3h, +6h, +12h, +24h) computing additional rental charges and submitting notice to host.
+  - Pre-pickup Document Checklist banner checking Driving Licence, Government ID, Deposit, and ISI Helmet.
+
+### 15. Safety Center
+- **File:** `src/routes/safety.tsx`
+- **Navigation:** Added to `src/components/site-header.tsx` and `src/components/app-sidebar.tsx`
+- **What was added:**
+  - 24/7 Safety Command Center with direct emergency calling.
+  - Roadside Breakdown Assistance dispatcher (flat tyre, battery jumpstart, flatbed towing).
+  - Official Incident and Collision Reporting form with claims notification.
+  - Lost & Found item recovery form.
+  - Insurance Coverage guide detailing ₹50L third-party liability and ₹3,000 max customer damage cap.
+  - Trusted Emergency Contacts manager with live trip tracking alert integration.
+
+### 16. Synchoo VIP Membership
+- **File:** `src/routes/membership.tsx`
+- **What was added:**
+  - Membership tiers: Free, Synchoo Plus (₹499/mo), and Synchoo Black VIP (₹1,499/mo).
+  - Monthly vs Annual billing switch with 20% savings.
+  - 0% convenience fees, 15% vehicle rental discounts, complimentary monthly doorstep washes, and zero security deposit privilege.
+
+### 17. Corporate Accounts
+- **File:** `src/routes/corporate.tsx`
+- **What was added:**
+  - Business onboarding with GSTIN validation for Input Tax Credit.
+  - Employee travel group manager with custom monthly spend allowances.
+  - Consolidated monthly GST invoices and real-time enterprise expense dashboard.
+
+### 18. Referrals, Loyalty Rewards & Host Vehicle Maintenance
+- **Files:**
+  - `src/routes/_authenticated/referrals.tsx` (Refer & Earn ₹500 program with WhatsApp and copy link)
+  - `src/routes/_authenticated/rewards.tsx` (Synchoo Points meter and voucher catalog)
+  - `src/components/vendor-maintenance.tsx` (Host vehicle health, service due countdowns, document expiries, and repair expense tracking)
+- **File Updated:** `src/routes/_authenticated/vendor.index.tsx`
 
 
 ---

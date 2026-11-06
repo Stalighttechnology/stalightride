@@ -17,6 +17,7 @@ import { AvailabilityCalendar } from "@/components/availability-calendar";
 import { toast } from "sonner";
 import { Plus, Car, DollarSign, Calendar, ShieldCheck, ScanLine, Star } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { VendorMaintenanceTab } from "@/components/vendor-maintenance";
 
 
 export const Route = createFileRoute("/_authenticated/vendor/")({ component: VendorDashboard });
@@ -161,6 +162,7 @@ function VendorDashboard() {
               <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="payouts">Payouts</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
+              <TabsTrigger value="maintenance">Maintenance & Health</TabsTrigger>
             </TabsList>
 
             <TabsContent value="vehicles">
@@ -244,6 +246,12 @@ function VendorDashboard() {
                     ))}
                   </ul>
                 )}
+              </section>
+            </TabsContent>
+
+            <TabsContent value="maintenance">
+              <section className="mt-4">
+                <VendorMaintenanceTab vehicles={vehicles ?? []} />
               </section>
             </TabsContent>
           </Tabs>
