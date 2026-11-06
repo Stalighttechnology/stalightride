@@ -3,7 +3,7 @@ import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Heart, CalendarDays, LayoutDashboard, LogOut, User as UserIcon, ShieldCheck, Wallet as WalletIcon, UserRound, CarFront as Steering } from "lucide-react";
+import { Heart, CalendarDays, LayoutDashboard, LogOut, User as UserIcon, ShieldCheck, Wallet as WalletIcon, UserRound, CarFront as Steering, Sparkles, Building2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
@@ -67,6 +67,8 @@ export function SiteHeader() {
                 <DropdownMenuItem asChild><Link to="/hires"><UserRound className="mr-2 h-4 w-4" />My drivers</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/vendor"><LayoutDashboard className="mr-2 h-4 w-4" />Host dashboard</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/driver-dashboard"><Steering className="mr-2 h-4 w-4" />Driver dashboard</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/cleaner-dashboard"><Sparkles className="mr-2 h-4 w-4" />Cleaner dashboard</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/wash-center-dashboard"><Building2 className="mr-2 h-4 w-4" />Washing center</Link></DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild><Link to="/admin"><ShieldCheck className="mr-2 h-4 w-4" />Admin panel</Link></DropdownMenuItem>
                 )}

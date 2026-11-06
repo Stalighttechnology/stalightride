@@ -14,6 +14,15 @@ import { ShieldCheck, ShieldAlert, ExternalLink, Plus, Tag, Banknote, Sparkles }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { currency } from "@/lib/format";
+import { CustomersTab } from "@/components/admin/customers-tab";
+import { BookingsMonitorTab } from "@/components/admin/bookings-monitor-tab";
+import { CitiesCategoriesTab } from "@/components/admin/cities-categories-tab";
+import { RevenueCommissionsTab } from "@/components/admin/revenue-commissions-tab";
+import { PaymentsRefundsTab } from "@/components/admin/payments-refunds-tab";
+import { ReviewModerationTab } from "@/components/admin/review-moderation-tab";
+import { BroadcastsTab } from "@/components/admin/broadcasts-tab";
+import { SupportTicketsTab } from "@/components/admin/support-tickets-tab";
+import { PlatformSettingsTab } from "@/components/admin/platform-settings-tab";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -40,24 +49,60 @@ function AdminPage() {
     <div className="min-h-screen">
       <SiteHeader />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="font-display text-3xl font-semibold">Admin verification</h1>
-        <Tabs defaultValue="vehicles" className="mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div>
+            <h1 className="font-display text-3xl font-semibold">Super Admin Console</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Platform-wide verifications, customer management, booking monitoring, financial reports, and system settings.
+            </p>
+          </div>
+        </div>
+
+        <Tabs defaultValue="vehicles" className="space-y-4">
           <TabsList className="flex w-full flex-wrap justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted">
-            <TabsTrigger value="vehicles" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Vehicles</TabsTrigger>
-            <TabsTrigger value="hosts" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Hosts (KYC)</TabsTrigger>
-            <TabsTrigger value="drivers" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Drivers</TabsTrigger>
-            <TabsTrigger value="licences" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Driving licences</TabsTrigger>
-            <TabsTrigger value="washes" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Vehicle wash</TabsTrigger>
-            <TabsTrigger value="disputes" className="text-xs sm:text-sm px-2.5 sm:px-3 py-1.5">Disputes</TabsTrigger>
+            {/* Verification Queues */}
+            <TabsTrigger value="vehicles" className="text-xs px-2.5 py-1.5">Vehicles</TabsTrigger>
+            <TabsTrigger value="hosts" className="text-xs px-2.5 py-1.5">Hosts (KYC)</TabsTrigger>
+            <TabsTrigger value="drivers" className="text-xs px-2.5 py-1.5">Drivers</TabsTrigger>
+            <TabsTrigger value="licences" className="text-xs px-2.5 py-1.5">Licences</TabsTrigger>
+            <TabsTrigger value="wash-centers" className="text-xs px-2.5 py-1.5">Wash Centers</TabsTrigger>
+            <TabsTrigger value="washes" className="text-xs px-2.5 py-1.5">Wash Orders</TabsTrigger>
+            <TabsTrigger value="disputes" className="text-xs px-2.5 py-1.5">Disputes</TabsTrigger>
+
+            {/* Super Admin Management */}
+            <TabsTrigger value="customers" className="text-xs px-2.5 py-1.5 font-medium">Customers</TabsTrigger>
+            <TabsTrigger value="bookings" className="text-xs px-2.5 py-1.5 font-medium">Bookings Monitor</TabsTrigger>
+            <TabsTrigger value="payouts" className="text-xs px-2.5 py-1.5 font-medium">Payouts</TabsTrigger>
+            <TabsTrigger value="revenue" className="text-xs px-2.5 py-1.5 font-medium">Revenue & Fees</TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs px-2.5 py-1.5 font-medium">Payments & Refunds</TabsTrigger>
+            <TabsTrigger value="cities" className="text-xs px-2.5 py-1.5 font-medium">Cities & Categories</TabsTrigger>
+            <TabsTrigger value="coupons" className="text-xs px-2.5 py-1.5 font-medium">Coupons</TabsTrigger>
+            <TabsTrigger value="moderation" className="text-xs px-2.5 py-1.5 font-medium">Reviews</TabsTrigger>
+            <TabsTrigger value="broadcasts" className="text-xs px-2.5 py-1.5 font-medium">Broadcasts</TabsTrigger>
+            <TabsTrigger value="support" className="text-xs px-2.5 py-1.5 font-medium">Support Tickets</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs px-2.5 py-1.5 font-medium">Settings</TabsTrigger>
           </TabsList>
+
           <TabsContent value="vehicles"><VehicleQueue /></TabsContent>
           <TabsContent value="hosts"><HostQueue /></TabsContent>
           <TabsContent value="drivers"><DriverQueue /></TabsContent>
           <TabsContent value="licences"><LicenceQueue /></TabsContent>
+          <TabsContent value="wash-centers"><WashCentersQueue /></TabsContent>
           <TabsContent value="washes"><WashQueue /></TabsContent>
           <TabsContent value="disputes"><DisputeQueue /></TabsContent>
 
-
+          {/* Super Admin Content Panels */}
+          <TabsContent value="customers"><CustomersTab /></TabsContent>
+          <TabsContent value="bookings"><BookingsMonitorTab /></TabsContent>
+          <TabsContent value="payouts"><PayoutsQueue /></TabsContent>
+          <TabsContent value="revenue"><RevenueCommissionsTab /></TabsContent>
+          <TabsContent value="payments"><PaymentsRefundsTab /></TabsContent>
+          <TabsContent value="cities"><CitiesCategoriesTab /></TabsContent>
+          <TabsContent value="coupons"><CouponsQueue /></TabsContent>
+          <TabsContent value="moderation"><ReviewModerationTab /></TabsContent>
+          <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
+          <TabsContent value="support"><SupportTicketsTab /></TabsContent>
+          <TabsContent value="settings"><PlatformSettingsTab /></TabsContent>
         </Tabs>
 
       </div>

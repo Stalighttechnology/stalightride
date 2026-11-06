@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Car, UserRound, CalendarDays, Heart, Wallet as WalletIcon, LayoutDashboard,
   ShieldCheck, CarFront as Steering, Home, User as UserIcon, LogOut, LogIn, Droplets, ScanLine, BadgeIndianRupee, Users, LifeBuoy,
+  Sparkles, Building2,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -39,6 +40,8 @@ const earnItems: Item[] = [
   { to: "/earn", label: "Earning options", icon: BadgeIndianRupee },
   { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
   { to: "/driver-dashboard", label: "Driver dashboard", icon: Steering },
+  { to: "/cleaner-dashboard", label: "Cleaner dashboard", icon: Sparkles },
+  { to: "/wash-center-dashboard", label: "Washing center", icon: Building2 },
   { to: "/pooling/driver", label: "Pooling trips", icon: Users },
   { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];

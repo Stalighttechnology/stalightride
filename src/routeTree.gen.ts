@@ -26,11 +26,13 @@ import { Route as WashRouteImport } from './routes/wash'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
+import { Route as AuthenticatedCleanerDashboardRouteImport } from './routes/_authenticated/cleaner-dashboard'
 import { Route as AuthenticatedDriverDashboardRouteImport } from './routes/_authenticated/driver-dashboard'
 import { Route as AuthenticatedHiresRouteImport } from './routes/_authenticated/hires'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
+import { Route as AuthenticatedWashCenterDashboardRouteImport } from './routes/_authenticated/wash-center-dashboard'
 import { Route as AuthenticatedWashesRouteImport } from './routes/_authenticated/washes'
 import { Route as AuthenticatedWishlistRouteImport } from './routes/_authenticated/wishlist'
 import { Route as DriverIdRouteImport } from './routes/driver.$id'
@@ -131,6 +133,12 @@ const AuthenticatedBookingsRoute = AuthenticatedBookingsRouteImport.update({
   path: '/bookings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCleanerDashboardRoute =
+  AuthenticatedCleanerDashboardRouteImport.update({
+    id: '/cleaner-dashboard',
+    path: '/cleaner-dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDriverDashboardRoute =
   AuthenticatedDriverDashboardRouteImport.update({
     id: '/driver-dashboard',
@@ -157,6 +165,12 @@ const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
   path: '/wallet',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWashCenterDashboardRoute =
+  AuthenticatedWashCenterDashboardRouteImport.update({
+    id: '/wash-center-dashboard',
+    path: '/wash-center-dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedWashesRoute = AuthenticatedWashesRouteImport.update({
   id: '/washes',
   path: '/washes',
@@ -258,11 +272,13 @@ export interface FileRoutesByFullPath {
   '/account': typeof AuthenticatedAccountRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/bookings': typeof AuthenticatedBookingsRouteWithChildren
+  '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/scan': typeof AuthenticatedScanRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/washes': typeof AuthenticatedWashesRoute
   '/wishlist': typeof AuthenticatedWishlistRoute
   '/driver/$id': typeof DriverIdRoute
@@ -296,11 +312,13 @@ export interface FileRoutesByTo {
   '/account': typeof AuthenticatedAccountRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/bookings': typeof AuthenticatedBookingsRouteWithChildren
+  '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/scan': typeof AuthenticatedScanRoute
   '/wallet': typeof AuthenticatedWalletRoute
+  '/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/washes': typeof AuthenticatedWashesRoute
   '/wishlist': typeof AuthenticatedWishlistRoute
   '/driver/$id': typeof DriverIdRoute
@@ -336,11 +354,13 @@ export interface FileRoutesById {
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/bookings': typeof AuthenticatedBookingsRouteWithChildren
+  '/_authenticated/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/_authenticated/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/_authenticated/hires': typeof AuthenticatedHiresRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
+  '/_authenticated/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/_authenticated/washes': typeof AuthenticatedWashesRoute
   '/_authenticated/wishlist': typeof AuthenticatedWishlistRoute
   '/driver/$id': typeof DriverIdRoute
@@ -376,11 +396,13 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin'
     | '/bookings'
+    | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
     | '/profile'
     | '/scan'
     | '/wallet'
+    | '/wash-center-dashboard'
     | '/washes'
     | '/wishlist'
     | '/driver/$id'
@@ -414,11 +436,13 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin'
     | '/bookings'
+    | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
     | '/profile'
     | '/scan'
     | '/wallet'
+    | '/wash-center-dashboard'
     | '/washes'
     | '/wishlist'
     | '/driver/$id'
@@ -453,11 +477,13 @@ export interface FileRouteTypes {
     | '/_authenticated/account'
     | '/_authenticated/admin'
     | '/_authenticated/bookings'
+    | '/_authenticated/cleaner-dashboard'
     | '/_authenticated/driver-dashboard'
     | '/_authenticated/hires'
     | '/_authenticated/profile'
     | '/_authenticated/scan'
     | '/_authenticated/wallet'
+    | '/_authenticated/wash-center-dashboard'
     | '/_authenticated/washes'
     | '/_authenticated/wishlist'
     | '/driver/$id'
@@ -617,6 +643,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBookingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/cleaner-dashboard': {
+      id: '/_authenticated/cleaner-dashboard'
+      path: '/cleaner-dashboard'
+      fullPath: '/cleaner-dashboard'
+      preLoaderRoute: typeof AuthenticatedCleanerDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/driver-dashboard': {
       id: '/_authenticated/driver-dashboard'
       path: '/driver-dashboard'
@@ -650,6 +683,13 @@ declare module '@tanstack/react-router' {
       path: '/wallet'
       fullPath: '/wallet'
       preLoaderRoute: typeof AuthenticatedWalletRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wash-center-dashboard': {
+      id: '/_authenticated/wash-center-dashboard'
+      path: '/wash-center-dashboard'
+      fullPath: '/wash-center-dashboard'
+      preLoaderRoute: typeof AuthenticatedWashCenterDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/washes': {
@@ -779,11 +819,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRouteWithChildren
+  AuthenticatedCleanerDashboardRoute: typeof AuthenticatedCleanerDashboardRoute
   AuthenticatedDriverDashboardRoute: typeof AuthenticatedDriverDashboardRoute
   AuthenticatedHiresRoute: typeof AuthenticatedHiresRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
+  AuthenticatedWashCenterDashboardRoute: typeof AuthenticatedWashCenterDashboardRoute
   AuthenticatedWashesRoute: typeof AuthenticatedWashesRoute
   AuthenticatedWishlistRoute: typeof AuthenticatedWishlistRoute
   AuthenticatedMessagesBookingIdRoute: typeof AuthenticatedMessagesBookingIdRoute
@@ -799,11 +841,13 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBookingsRoute: AuthenticatedBookingsRouteWithChildren,
+  AuthenticatedCleanerDashboardRoute: AuthenticatedCleanerDashboardRoute,
   AuthenticatedDriverDashboardRoute: AuthenticatedDriverDashboardRoute,
   AuthenticatedHiresRoute: AuthenticatedHiresRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
+  AuthenticatedWashCenterDashboardRoute: AuthenticatedWashCenterDashboardRoute,
   AuthenticatedWashesRoute: AuthenticatedWashesRoute,
   AuthenticatedWishlistRoute: AuthenticatedWishlistRoute,
   AuthenticatedMessagesBookingIdRoute: AuthenticatedMessagesBookingIdRoute,
