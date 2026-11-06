@@ -294,3 +294,4 @@ export function VendorMaintenanceTab({ vehicles }: { vehicles: any[] }) {
     </div>
   );
 }
+

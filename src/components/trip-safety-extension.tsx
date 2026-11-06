@@ -284,3 +284,4 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
     </div>
   );
 }
+

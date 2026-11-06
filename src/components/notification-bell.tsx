@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Bell, CheckCheck, Calendar, AlertTriangle, Banknote } from "lucide-react";
+import { Bell, CheckCheck, Calendar, AlertTriangle, Banknote, BellRing } from "lucide-react";
+import { toast } from "sonner";
 
 type Notification = {
   id: string;
@@ -38,6 +39,34 @@ export function NotificationBell({ className }: { className?: string }) {
   const [items, setItems] = useState<Notification[]>([]);
   const [smartItems, setSmartItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPushEnabled(Notification.permission === "granted");
+    }
+  }, []);
+
+  const requestBrowserPush = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return toast.info("Browser push notifications are not supported by this browser.");
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") {
+      setPushEnabled(true);
+      toast.success("Push notifications enabled! You will receive live booking and trip alerts.");
+      try {
+        new Notification("Synchoo Alerts Active", {
+          body: "You will receive timely reminders for upcoming trips and vehicle handovers.",
+          icon: "/favicon.ico",
+        });
+      } catch (err) {
+        // Ignored
+      }
+    } else {
+      toast.error("Push notification permission was denied.");
+    }
+  };
 
   /* ── Load DB notifications ── */
   useEffect(() => {
@@ -234,6 +263,18 @@ export function NotificationBell({ className }: { className?: string }) {
               </div>
             );
           })}
+        </div>
+        <div className="border-t border-border px-4 py-2.5 bg-muted/30 flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground flex items-center gap-1.5">
+            <BellRing className="h-3 w-3 text-brand" /> Desktop Alerts
+          </span>
+          <button
+            type="button"
+            onClick={requestBrowserPush}
+            className="text-brand font-medium hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            {pushEnabled ? "Active ✓" : "Enable Push"}
+          </button>
         </div>
       </PopoverContent>
     </Popover>
