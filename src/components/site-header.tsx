@@ -3,7 +3,7 @@ import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Heart, CalendarDays, LayoutDashboard, LogOut, User as UserIcon, ShieldCheck, Wallet as WalletIcon, UserRound, CarFront as Steering, Sparkles, Building2, ShieldAlert, Crown, Gift, Award } from "lucide-react";
+import { Heart, CalendarDays, LayoutDashboard, LogOut, User as UserIcon, ShieldCheck, Wallet as WalletIcon, UserRound, CarFront as Steering, Sparkles, Building2, ShieldAlert, Crown, Gift, Award, Briefcase } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
@@ -42,6 +42,12 @@ export function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex text-xs font-medium gap-1.5 text-muted-foreground hover:text-foreground">
+            <Link to="/corporate">
+              <Briefcase className="h-3.5 w-3.5 text-blue-500" />
+              <span>Corporate</span>
+            </Link>
+          </Button>
           <CitySelector />
           <NotificationBell />
           <ThemeToggle className="hidden sm:inline-flex" />
@@ -73,6 +79,7 @@ export function SiteHeader() {
                 <DropdownMenuItem asChild><Link to="/driver-dashboard"><Steering className="mr-2 h-4 w-4" />Driver dashboard</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/cleaner-dashboard"><Sparkles className="mr-2 h-4 w-4" />Cleaner dashboard</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/wash-center-dashboard"><Building2 className="mr-2 h-4 w-4" />Washing center</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/corporate"><Briefcase className="mr-2 h-4 w-4 text-blue-500" />Corporate accounts</Link></DropdownMenuItem>
                 {isAdmin && (
                   <DropdownMenuItem asChild><Link to="/admin"><ShieldCheck className="mr-2 h-4 w-4" />Admin panel</Link></DropdownMenuItem>
                 )}

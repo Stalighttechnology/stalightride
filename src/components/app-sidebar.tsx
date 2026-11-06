@@ -23,6 +23,7 @@ const exploreItems: Item[] = [
   { to: "/pooling", label: "Car pooling", icon: Users },
   { to: "/drivers", label: "Hire a driver", icon: UserRound },
   { to: "/wash", label: "Vehicle wash", icon: Droplets },
+  { to: "/corporate", label: "Corporate travel", icon: Briefcase },
   { to: "/safety", label: "Safety center", icon: ShieldAlert },
   { to: "/membership", label: "Membership", icon: Crown },
 ];
@@ -46,7 +47,6 @@ const earnItems: Item[] = [
   { to: "/driver-dashboard", label: "Driver dashboard", icon: Steering },
   { to: "/cleaner-dashboard", label: "Cleaner dashboard", icon: Sparkles },
   { to: "/wash-center-dashboard", label: "Washing center", icon: Building2 },
-  { to: "/corporate", label: "Corporate travel", icon: Briefcase },
   { to: "/pooling/driver", label: "Pooling trips", icon: Users },
   { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];
