@@ -24,6 +24,9 @@ import {
   Trash2,
   Car,
   HeartHandshake,
+  HelpCircle,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 
 export const Route = createFileRoute("/safety")({
@@ -164,18 +167,65 @@ export function SafetyCenterPage() {
           </div>
         </div>
 
-        {/* Safety Navigation Tabs */}
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-          <Tabs defaultValue="breakdown" className="space-y-6">
-            <TabsList className="bg-muted p-1 flex-wrap h-auto">
-              <TabsTrigger value="breakdown">Roadside & Breakdown</TabsTrigger>
-              <TabsTrigger value="incident">Report Incident / Accident</TabsTrigger>
-              <TabsTrigger value="lost">Lost & Found</TabsTrigger>
-              <TabsTrigger value="insurance">Insurance Coverage</TabsTrigger>
-              <TabsTrigger value="contacts">Trusted Emergency Contacts</TabsTrigger>
-            </TabsList>
+        {/* Safety Navigation Sidebar & Content */}
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          <Tabs defaultValue="breakdown" className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <aside className="lg:col-span-1 space-y-4">
+              <div className="sticky top-20 space-y-4">
+                <Card className="p-4 border-red-500/20 bg-red-500/5">
+                  <div className="flex items-center gap-2 font-semibold text-sm text-red-600">
+                    <ShieldAlert className="h-4 w-4" /> 24/7 Safety Command
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Live telemetry, accident response, and roadside recovery nationwide.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="w-full mt-3 text-xs"
+                    onClick={() => window.open("tel:112", "_self")}
+                  >
+                    <PhoneCall className="mr-1.5 h-3.5 w-3.5" /> Emergency SOS (112)
+                  </Button>
+                </Card>
 
-            {/* Tab 1: Roadside & Breakdown */}
+                <TabsList className="flex flex-row lg:flex-col w-full h-auto bg-transparent p-0 gap-1.5 overflow-x-auto pb-2 lg:pb-0 justify-start">
+                  <TabsTrigger
+                    value="breakdown"
+                    className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"
+                  >
+                    <Wrench className="mr-2 h-4 w-4 shrink-0" /> Roadside & Breakdown
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="incident"
+                    className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"
+                  >
+                    <AlertTriangle className="mr-2 h-4 w-4 shrink-0" /> Report Incident / Accident
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="lost"
+                    className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"
+                  >
+                    <HelpCircle className="mr-2 h-4 w-4 shrink-0" /> Lost & Found
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="insurance"
+                    className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"
+                  >
+                    <ShieldCheck className="mr-2 h-4 w-4 shrink-0" /> Insurance Coverage
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="contacts"
+                    className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"
+                  >
+                    <Users className="mr-2 h-4 w-4 shrink-0" /> Emergency Contacts
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            </aside>
+
+            <div className="lg:col-span-3">
+              {/* Tab 1: Roadside & Breakdown */}
             <TabsContent value="breakdown" className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Card className="p-4">
@@ -425,6 +475,7 @@ export function SafetyCenterPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+            </div>
           </Tabs>
         </div>
       </main>

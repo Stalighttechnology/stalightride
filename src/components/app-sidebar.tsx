@@ -112,7 +112,7 @@ export function AppSidebar() {
       <SidebarContent>
         {renderGroup("Explore", exploreItems)}
         {user && renderGroup("Your account", accountItems)}
-        {renderGroup("Earn with us", user ? earnItems : earnItems.slice(0, 1))}
+        {renderGroup("Earn with us", earnItems)}
         {user && isAdmin && renderGroup("Admin", [{ to: "/admin", label: "Admin panel", icon: ShieldCheck }])}
         {renderGroup("Help & privacy", [
           { to: "/help", label: "User manual", icon: LifeBuoy },
