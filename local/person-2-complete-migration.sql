@@ -362,6 +362,22 @@ CREATE TABLE IF NOT EXISTS public.cleaners (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Defensive column additions in case cleaners table pre-existed
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS full_name text;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS city text NOT NULL DEFAULT 'Bangalore';
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS service_area text;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS bio text;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS experience_years integer NOT NULL DEFAULT 1;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS available boolean NOT NULL DEFAULT true;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS verification_status verification_status NOT NULL DEFAULT 'pending';
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS rejection_reason text;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS services text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS avg_rating numeric NOT NULL DEFAULT 0;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS review_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.cleaners ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 GRANT SELECT, INSERT, UPDATE ON public.cleaners TO authenticated;
 GRANT ALL ON public.cleaners TO service_role;
 ALTER TABLE public.cleaners ENABLE ROW LEVEL SECURITY;
@@ -397,6 +413,23 @@ CREATE TABLE IF NOT EXISTS public.wash_centers (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Defensive column additions in case wash_centers table pre-existed
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS city text NOT NULL DEFAULT 'Bangalore';
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS address text;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS contact_phone text;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS contact_email text;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS daily_capacity integer NOT NULL DEFAULT 15;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS opening_time text NOT NULL DEFAULT '08:00';
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS closing_time text NOT NULL DEFAULT '20:00';
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS verification_status verification_status NOT NULL DEFAULT 'pending';
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS rejection_reason text;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS avg_rating numeric NOT NULL DEFAULT 0;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS review_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.wash_centers ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
 GRANT SELECT, INSERT, UPDATE ON public.wash_centers TO authenticated;
 GRANT ALL ON public.wash_centers TO service_role;
 ALTER TABLE public.wash_centers ENABLE ROW LEVEL SECURITY;
@@ -413,42 +446,116 @@ CREATE POLICY "Wash centers manage own profile" ON public.wash_centers
   WITH CHECK (id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
 
 -- 4. Wash Center Staff table
+-- Drop any legacy policies referencing vendor_id or center_id before altering columns
+DO $$
+DECLARE
+  pol record;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'wash_center_staff') THEN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'wash_center_staff' LOOP
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.wash_center_staff', pol.policyname);
+    END LOOP;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.wash_center_staff (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  center_id uuid NOT NULL REFERENCES public.wash_centers(id) ON DELETE CASCADE,
-  name text NOT NULL,
+  center_id uuid REFERENCES public.wash_centers(id) ON DELETE CASCADE,
+  name text NOT NULL DEFAULT '',
   phone text,
   role text NOT NULL DEFAULT 'Cleaner',
   active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Handle pre-existing tables that had legacy vendor_id instead of center_id
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_staff' AND column_name = 'vendor_id')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_staff' AND column_name = 'center_id') THEN
+    ALTER TABLE public.wash_center_staff RENAME COLUMN vendor_id TO center_id;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_staff' AND column_name = 'center_id') THEN
+    ALTER TABLE public.wash_center_staff ADD COLUMN center_id uuid REFERENCES public.wash_centers(id) ON DELETE CASCADE;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_staff' AND column_name = 'vendor_id')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_staff' AND column_name = 'center_id') THEN
+    UPDATE public.wash_center_staff SET center_id = COALESCE(center_id, vendor_id);
+  END IF;
+END $$;
+
+ALTER TABLE public.wash_center_staff ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
+ALTER TABLE public.wash_center_staff ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE public.wash_center_staff ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'Cleaner';
+ALTER TABLE public.wash_center_staff ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;
+ALTER TABLE public.wash_center_staff ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wash_center_staff TO authenticated;
 GRANT ALL ON public.wash_center_staff TO service_role;
 ALTER TABLE public.wash_center_staff ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Centers manage own staff" ON public.wash_center_staff;
+DROP POLICY IF EXISTS "Vendors manage own staff" ON public.wash_center_staff;
 CREATE POLICY "Centers manage own staff" ON public.wash_center_staff
   FOR ALL TO authenticated
   USING (center_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))
   WITH CHECK (center_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
 
 -- 5. Wash Center Packages table
+-- Drop any legacy policies referencing vendor_id or center_id before altering columns
+DO $$
+DECLARE
+  pol record;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'wash_center_packages') THEN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'wash_center_packages' LOOP
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.wash_center_packages', pol.policyname);
+    END LOOP;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.wash_center_packages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  center_id uuid NOT NULL REFERENCES public.wash_centers(id) ON DELETE CASCADE,
-  name text NOT NULL,
+  center_id uuid REFERENCES public.wash_centers(id) ON DELETE CASCADE,
+  name text NOT NULL DEFAULT '',
   category text NOT NULL DEFAULT 'car',
-  price numeric NOT NULL CHECK (price >= 0),
+  price numeric NOT NULL DEFAULT 0 CHECK (price >= 0),
   duration integer NOT NULL DEFAULT 45,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Handle pre-existing tables that had legacy vendor_id instead of center_id
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_packages' AND column_name = 'vendor_id')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_packages' AND column_name = 'center_id') THEN
+    ALTER TABLE public.wash_center_packages RENAME COLUMN vendor_id TO center_id;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_packages' AND column_name = 'center_id') THEN
+    ALTER TABLE public.wash_center_packages ADD COLUMN center_id uuid REFERENCES public.wash_centers(id) ON DELETE CASCADE;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_packages' AND column_name = 'vendor_id')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_center_packages' AND column_name = 'center_id') THEN
+    UPDATE public.wash_center_packages SET center_id = COALESCE(center_id, vendor_id);
+  END IF;
+END $$;
+
+ALTER TABLE public.wash_center_packages ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
+ALTER TABLE public.wash_center_packages ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'car';
+ALTER TABLE public.wash_center_packages ADD COLUMN IF NOT EXISTS price numeric NOT NULL DEFAULT 0;
+ALTER TABLE public.wash_center_packages ADD COLUMN IF NOT EXISTS duration integer NOT NULL DEFAULT 45;
+ALTER TABLE public.wash_center_packages ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wash_center_packages TO authenticated;
 GRANT ALL ON public.wash_center_packages TO service_role;
 ALTER TABLE public.wash_center_packages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Centers manage own packages" ON public.wash_center_packages;
+DROP POLICY IF EXISTS "Vendors manage own packages" ON public.wash_center_packages;
 CREATE POLICY "Centers manage own packages" ON public.wash_center_packages
   FOR ALL TO authenticated
   USING (center_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))
@@ -678,6 +785,27 @@ CREATE TABLE IF NOT EXISTS public.wash_reviews (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Defensive column migration if wash_reviews pre-existed
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_reviews' AND column_name = 'booking_id')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_reviews' AND column_name = 'wash_booking_id') THEN
+    ALTER TABLE public.wash_reviews RENAME COLUMN booking_id TO wash_booking_id;
+  END IF;
+END $$;
+
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS wash_booking_id uuid REFERENCES public.wash_bookings(id) ON DELETE CASCADE;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS customer_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS cleaner_id uuid REFERENCES public.cleaners(id) ON DELETE SET NULL;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS center_id uuid REFERENCES public.wash_centers(id) ON DELETE SET NULL;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS vendor_id uuid REFERENCES public.wash_vendors(id) ON DELETE SET NULL;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS rating integer;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS comment text;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS response text;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS response_at timestamptz;
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE public.wash_reviews ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.wash_reviews TO authenticated;
 GRANT SELECT ON public.wash_reviews TO anon;
