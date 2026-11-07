@@ -316,7 +316,7 @@ describe("withdrawals", () => {
     const { be, customer } = earningHost();
     be.wallet.topup(customer, 5000);
     expect(() => be.requestWithdrawal(customer, 1000, "upi", upi)).toThrow(
-      /Only hosts and drivers/,
+      /Only hosts, drivers, cleaners and washing centers/,
     );
   });
 });

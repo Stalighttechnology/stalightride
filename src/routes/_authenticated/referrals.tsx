@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ComingSoonBanner, comingSoon } from "@/components/coming-soon";
 import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
@@ -58,6 +59,8 @@ export function ReferralsPage() {
   ]);
 
   const copyToClipboard = () => {
+    comingSoon();
+    return;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     toast.success("Referral link copied to clipboard!");
@@ -65,6 +68,8 @@ export function ReferralsPage() {
   };
 
   const shareViaWhatsApp = () => {
+    comingSoon();
+    return;
     const text = `Join Synchoo for self-drive car rentals, driver hire, and doorstep washes! Use my link to get ₹500 OFF your first trip: ${referralLink}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -83,6 +88,7 @@ export function ReferralsPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-6">
+        <ComingSoonBanner feature="Refer & Earn" />
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
