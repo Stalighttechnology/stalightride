@@ -29,6 +29,8 @@ import {
   UserCheck,
   Car,
   Play,
+  AlertCircle,
+  Edit,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
@@ -42,6 +44,7 @@ export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
 });
 
 interface CleanerProfile {
+  id: string;
   full_name: string;
   phone: string;
   city: string;
@@ -49,7 +52,8 @@ interface CleanerProfile {
   bio: string;
   experience_years: number;
   available: boolean;
-  status: "pending" | "approved" | "rejected";
+  verification_status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
   services: string[];
 }
 
@@ -60,6 +64,7 @@ export function CleanerDashboard() {
   const [profile, setProfile] = useState<CleanerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Form state for onboarding/profile edit
   const [fullName, setFullName] = useState("");
@@ -75,53 +80,63 @@ export function CleanerDashboard() {
   const [availableRequests, setAvailableRequests] = useState<any[]>([]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
-  const storageKey = user ? `cleaner_profile_${user.id}` : null;
-
   useEffect(() => {
     if (!user) return;
     setLoading(true);
 
-    // 1. Try local cache / metadata
-    let existingProfile: CleanerProfile | null = null;
-    if (storageKey) {
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) existingProfile = JSON.parse(raw);
-      } catch (err) {
-        console.error("Failed to load cleaner profile from cache", err);
+    const loadData = async () => {
+      // 1. Load cleaner profile from database
+      const { data: cleanerData, error: cleanerErr } = await supabase
+        .from("cleaners")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cleanerErr) {
+        console.error("Failed to load cleaner profile from db", cleanerErr);
       }
-    }
 
-    if (!existingProfile && user.user_metadata?.cleaner_profile) {
-      existingProfile = user.user_metadata.cleaner_profile;
-    }
+      if (cleanerData) {
+        const loaded: CleanerProfile = {
+          id: cleanerData.id,
+          full_name: cleanerData.full_name,
+          phone: cleanerData.phone || "",
+          city: cleanerData.city || "Bangalore",
+          service_area: cleanerData.service_area || "",
+          bio: cleanerData.bio || "",
+          experience_years: cleanerData.experience_years || 1,
+          available: cleanerData.available ?? true,
+          verification_status: cleanerData.verification_status,
+          rejection_reason: cleanerData.rejection_reason,
+          services: cleanerData.services && cleanerData.services.length > 0 ? cleanerData.services : DEFAULT_SERVICES,
+        };
+        setProfile(loaded);
+        setFullName(loaded.full_name);
+        setPhone(loaded.phone);
+        setCity(loaded.city);
+        setServiceArea(loaded.service_area);
+        setBio(loaded.bio);
+        setExperience(String(loaded.experience_years));
+        setSelectedServices(loaded.services);
+      } else {
+        setFullName(user.user_metadata?.full_name || "");
+        setPhone(user.phone || "");
+      }
 
-    if (existingProfile) {
-      setProfile(existingProfile);
-      setFullName(existingProfile.full_name);
-      setPhone(existingProfile.phone);
-      setCity(existingProfile.city || "Bangalore");
-      setServiceArea(existingProfile.service_area || "");
-      setBio(existingProfile.bio || "");
-      setExperience(String(existingProfile.experience_years || 2));
-      setSelectedServices(existingProfile.services || DEFAULT_SERVICES);
-    } else {
-      setFullName(user.user_metadata?.full_name || "");
-      setPhone(user.phone || "");
-    }
+      // 2. Load wash bookings
+      const { data: bData } = await supabase
+        .from("wash_bookings")
+        .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-    // 2. Load wash bookings
-    supabase
-      .from("wash_bookings")
-      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-      .order("created_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        const all = data || [];
-        setAssignedJobs(all.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
-        setAvailableRequests(all.filter((b) => b.status === "pending" || b.progress === "requested"));
-        setLoading(false);
-      });
+      const all = bData || [];
+      setAssignedJobs(all.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
+      setAvailableRequests(all.filter((b) => b.status === "pending" || b.progress === "requested"));
+      setLoading(false);
+    };
+
+    loadData();
   }, [user?.id]);
 
   const saveProfile = async (e: React.FormEvent) => {
@@ -129,38 +144,52 @@ export function CleanerDashboard() {
     if (!user) return;
     setSaving(true);
 
-    const newProfile: CleanerProfile = {
+    const cleanerPayload = {
+      id: user.id,
       full_name: fullName.trim() || user.email?.split("@")[0] || "Cleaner Partner",
-      phone: phone.trim(),
-      city: city.trim(),
-      service_area: serviceArea.trim(),
-      bio: bio.trim(),
+      phone: phone.trim() || null,
+      city: city.trim() || "Bangalore",
+      service_area: serviceArea.trim() || null,
+      bio: bio.trim() || null,
       experience_years: Number(experience) || 1,
       available: profile?.available ?? true,
-      status: profile?.status ?? "approved",
+      verification_status: profile?.verification_status ?? ("pending" as const),
       services: selectedServices,
     };
 
-    if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(newProfile));
+    const { error } = await supabase.from("cleaners").upsert(cleanerPayload);
+    setSaving(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
     }
 
-    await supabase.auth.updateUser({
-      data: { cleaner_profile: newProfile },
-    });
+    const updatedProfile: CleanerProfile = {
+      ...cleanerPayload,
+      phone: cleanerPayload.phone || "",
+      service_area: cleanerPayload.service_area || "",
+      bio: cleanerPayload.bio || "",
+      rejection_reason: profile?.rejection_reason || null,
+    };
 
-    setProfile(newProfile);
-    setSaving(false);
-    toast.success("Cleaner profile saved successfully!");
+    setProfile(updatedProfile);
+    setIsEditing(false);
+    toast.success(
+      updatedProfile.verification_status === "approved"
+        ? "Cleaner profile saved successfully!"
+        : "Application submitted! Awaiting admin verification."
+    );
   };
 
   const toggleAvailability = async (checked: boolean) => {
-    if (!profile) return;
-    const updated = { ...profile, available: checked };
-    setProfile(updated);
-    if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
+    if (!profile || !user) return;
+    const { error } = await supabase.from("cleaners").update({ available: checked }).eq("id", user.id);
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    setProfile({ ...profile, available: checked });
     toast.success(checked ? "You are now ONLINE for doorstep wash jobs" : "You are now OFFLINE");
   };
 
@@ -249,28 +278,39 @@ export function CleanerDashboard() {
     );
   }
 
-  // Not yet registered screen
-  if (!profile) {
+  // Registration or Editing screen
+  if (!profile || isEditing) {
     return (
       <div className="min-h-screen bg-background">
         <SiteHeader />
         <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand">
-              <Sparkles className="h-6 w-6" />
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="font-display text-2xl font-bold tracking-tight">
+                  {profile ? "Edit Cleaner Profile" : "Become a Vehicle Cleaner Partner"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {profile
+                    ? "Update your service coverage, contact info, and experience."
+                    : "Join Synchoo’s verified doorstep washing team. Accept appointments, track schedules, and earn weekly."}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight">Become a Vehicle Cleaner Partner</h1>
-              <p className="text-sm text-muted-foreground">
-                Join Synchoo’s verified doorstep washing team. Accept appointments, track schedules, and earn weekly.
-              </p>
-            </div>
+            {profile && (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+                Cancel
+              </Button>
+            )}
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Cleaner Registration & Verification</CardTitle>
-              <CardDescription>Enter your contact details and service coverage to activate your dashboard.</CardDescription>
+              <CardDescription>Enter your contact details and service coverage to submit for review.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveProfile} className="space-y-4">
@@ -320,9 +360,118 @@ export function CleanerDashboard() {
                 </div>
 
                 <Button type="submit" disabled={saving} className="w-full">
-                  {saving ? "Activating cleaner profile..." : "Register & Start Taking Jobs"}
+                  {saving ? "Saving cleaner profile..." : profile ? "Update Profile" : "Register & Submit for Verification"}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Awaiting Verification screen (RL-01)
+  if (profile.verification_status === "pending") {
+    return (
+      <div className="min-h-screen bg-background">
+        <SiteHeader />
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-2xl font-bold tracking-tight">Application Under Review</h1>
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  Awaiting Verification
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Thank you for applying, {profile.full_name}! Your cleaner partner profile is awaiting verification.
+              </p>
+            </div>
+          </div>
+
+          <Card className="border-amber-500/30">
+            <CardHeader className="bg-amber-500/5 pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                Awaiting Admin Verification
+              </CardTitle>
+              <CardDescription>
+                Our operations team reviews partner applications within 24 hours. Once approved by an administrator, your doorstep wash job board will be unlocked immediately.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <div className="rounded-xl border border-border p-4 space-y-3 bg-muted/30">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Cleaner Name</span>
+                  <span className="font-semibold">{profile.full_name}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Phone</span>
+                  <span>{profile.phone || "Not specified"}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Operating City</span>
+                  <Badge variant="secondary">{profile.city}</Badge>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Service Coverage</span>
+                  <span className="max-w-[280px] truncate text-right text-xs">{profile.service_area || "Citywide"}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Experience</span>
+                  <span>{profile.experience_years} year(s)</span>
+                </div>
+                {profile.bio && (
+                  <div className="pt-2 border-t border-border/60 text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">Equipment / Bio:</p>
+                    <p className="italic">{profile.bio}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="w-full" onClick={() => setIsEditing(true)}>
+                  <Edit className="mr-1.5 h-4 w-4" /> Edit Application Details
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Rejected screen
+  if (profile.verification_status === "rejected") {
+    return (
+      <div className="min-h-screen bg-background">
+        <SiteHeader />
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <Card className="border-red-500/30">
+            <CardHeader className="bg-red-500/5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-600">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-red-700 dark:text-red-400">Application Not Approved</CardTitle>
+                  <CardDescription>
+                    {profile.rejection_reason || "Your cleaner profile could not be verified with the current details."}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Please review your contact number, operating coverage area, and equipment experience, then submit an updated application.
+              </p>
+              <Button onClick={() => setIsEditing(true)} className="w-full">
+                Update & Re-submit Profile
+              </Button>
             </CardContent>
           </Card>
         </div>

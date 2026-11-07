@@ -29,6 +29,8 @@ import {
   Sparkles,
   Camera,
   Car,
+  AlertCircle,
+  Edit,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/wash-center-dashboard")({
@@ -52,10 +54,13 @@ interface CenterProfile {
   opening_time: string;
   closing_time: string;
   active: boolean;
+  verification_status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
 }
 
 interface ServicePackage {
   id: string;
+  center_id: string;
   name: string;
   category: string;
   price: number;
@@ -64,6 +69,7 @@ interface ServicePackage {
 
 interface StaffMember {
   id: string;
+  center_id: string;
   name: string;
   phone: string;
   role: string;
@@ -75,6 +81,7 @@ export function WashCenterDashboard() {
   const [center, setCenter] = useState<CenterProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Center form state
   const [centerName, setCenterName] = useState("");
@@ -87,20 +94,12 @@ export function WashCenterDashboard() {
   const [closingTime, setClosingTime] = useState("20:00");
 
   // Packages & Staff state
-  const [packages, setPackages] = useState<ServicePackage[]>([
-    { id: "1", name: "Express Exterior Foam Wash", category: "car", price: 399, duration: 40 },
-    { id: "2", name: "Complete Interior Detailing + Vacuum", category: "car", price: 899, duration: 90 },
-    { id: "3", name: "Premium Ceramic Coat & Shine", category: "car", price: 1999, duration: 120 },
-    { id: "4", name: "Superbike Deep Foam Wash", category: "bike", price: 299, duration: 30 },
-  ]);
+  const [packages, setPackages] = useState<ServicePackage[]>([]);
   const [newPkgName, setNewPkgName] = useState("");
   const [newPkgPrice, setNewPkgPrice] = useState("");
   const [newPkgDuration, setNewPkgDuration] = useState("45");
 
-  const [staff, setStaff] = useState<StaffMember[]>([
-    { id: "s1", name: "Ramesh Kumar", phone: "+91 98801 23456", role: "Lead Washer", active: true },
-    { id: "s2", name: "Sunil Gowda", phone: "+91 97412 34567", role: "Interior Detailer", active: true },
-  ]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffPhone, setNewStaffPhone] = useState("");
   const [newStaffRole, setNewStaffRole] = useState("Detailer");
@@ -108,65 +107,95 @@ export function WashCenterDashboard() {
   // Center wash bookings
   const [centerBookings, setCenterBookings] = useState<any[]>([]);
 
-  const centerStorageKey = user ? `wash_center_${user.id}` : null;
-
   useEffect(() => {
     if (!user) return;
     setLoading(true);
 
-    // 1. Try to load from database first (matching by email/phone or stored metadata)
-    supabase
-      .from("wash_vendors")
-      .select("*")
-      .or(`contact_email.eq.${user.email},id.eq.${user.id}`)
-      .maybeSingle()
-      .then(async ({ data: vendorData }) => {
-        let loadedProfile: CenterProfile | null = null;
-        if (vendorData) {
-          loadedProfile = {
-            id: vendorData.id,
-            name: vendorData.name,
-            city: vendorData.city,
-            address: vendorData.notes || "Auto Spa Bay 1",
-            contact_phone: vendorData.contact_phone || "",
-            contact_email: vendorData.contact_email || user.email || "",
-            daily_capacity: vendorData.daily_capacity || 15,
-            opening_time: "08:00",
-            closing_time: "20:00",
-            active: vendorData.active ?? true,
-          };
-        } else if (centerStorageKey) {
-          try {
-            const raw = localStorage.getItem(centerStorageKey);
-            if (raw) loadedProfile = JSON.parse(raw);
-          } catch (e) {
-            console.error("Local center load err", e);
-          }
+    const loadData = async () => {
+      // 1. Fetch center profile from database
+      const { data: centerData, error: centerErr } = await supabase
+        .from("wash_centers")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (centerErr) {
+        console.error("Failed to load wash center profile from db", centerErr);
+      }
+
+      if (centerData) {
+        const loaded: CenterProfile = {
+          id: centerData.id,
+          name: centerData.name,
+          city: centerData.city || "Bangalore",
+          address: centerData.address || "",
+          contact_phone: centerData.contact_phone || "",
+          contact_email: centerData.contact_email || user.email || "",
+          daily_capacity: centerData.daily_capacity || 15,
+          opening_time: centerData.opening_time || "08:00",
+          closing_time: centerData.closing_time || "20:00",
+          active: centerData.active ?? false,
+          verification_status: centerData.verification_status,
+          rejection_reason: centerData.rejection_reason,
+        };
+        setCenter(loaded);
+        setCenterName(loaded.name);
+        setCity(loaded.city);
+        setAddress(loaded.address);
+        setPhone(loaded.contact_phone);
+        setEmail(loaded.contact_email);
+        setCapacity(String(loaded.daily_capacity));
+        setOpeningTime(loaded.opening_time);
+        setClosingTime(loaded.closing_time);
+
+        // Load packages
+        const { data: pkgData } = await supabase
+          .from("wash_center_packages")
+          .select("*")
+          .eq("center_id", user.id)
+          .order("created_at", { ascending: true });
+        if (pkgData) {
+          setPackages(pkgData.map((p) => ({
+            id: p.id,
+            center_id: p.center_id,
+            name: p.name,
+            category: p.category,
+            price: Number(p.price),
+            duration: p.duration,
+          })));
         }
 
-        if (loadedProfile) {
-          setCenter(loadedProfile);
-          setCenterName(loadedProfile.name);
-          setCity(loadedProfile.city);
-          setAddress(loadedProfile.address);
-          setPhone(loadedProfile.contact_phone);
-          setEmail(loadedProfile.contact_email);
-          setCapacity(String(loadedProfile.daily_capacity));
-          setOpeningTime(loadedProfile.opening_time);
-          setClosingTime(loadedProfile.closing_time);
-        } else {
-          setEmail(user.email || "");
+        // Load staff
+        const { data: stData } = await supabase
+          .from("wash_center_staff")
+          .select("*")
+          .eq("center_id", user.id)
+          .order("created_at", { ascending: true });
+        if (stData) {
+          setStaff(stData.map((s) => ({
+            id: s.id,
+            center_id: s.center_id,
+            name: s.name,
+            phone: s.phone || "",
+            role: s.role,
+            active: s.active,
+          })));
         }
+      } else {
+        setEmail(user.email || "");
+      }
 
-        // Load wash bookings
-        const { data: bData } = await supabase
-          .from("wash_bookings")
-          .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-          .order("created_at", { ascending: false })
-          .limit(50);
-        setCenterBookings(bData || []);
-        setLoading(false);
-      });
+      // Load wash bookings
+      const { data: bData } = await supabase
+        .from("wash_bookings")
+        .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setCenterBookings(bData || []);
+      setLoading(false);
+    };
+
+    loadData();
   }, [user?.id]);
 
   const saveCenterProfile = async (e: React.FormEvent) => {
@@ -174,84 +203,113 @@ export function WashCenterDashboard() {
     if (!user) return;
     setSaving(true);
 
-    const centerId = center?.id || user.id;
-    const payload = {
-      id: centerId,
+    const centerPayload = {
+      id: user.id,
       name: centerName.trim(),
-      city: city.trim(),
+      city: city.trim() || "Bangalore",
+      address: address.trim() || null,
       contact_phone: phone.trim() || null,
       contact_email: email.trim() || null,
       daily_capacity: Number(capacity) || 15,
-      notes: address.trim(),
-      active: true,
+      opening_time: openingTime || "08:00",
+      closing_time: closingTime || "20:00",
+      active: center?.active ?? false,
+      verification_status: center?.verification_status ?? ("pending" as const),
     };
 
-    // Save to wash_vendors table
-    const { error } = await supabase.from("wash_vendors").upsert(payload as any);
+    const { error } = await supabase.from("wash_centers").upsert(centerPayload);
+    setSaving(false);
+
     if (error) {
       toast.error(error.message);
+      return;
     }
 
-    const fullProfile: CenterProfile = {
-      id: centerId,
-      name: centerName.trim(),
-      city: city.trim(),
-      address: address.trim(),
-      contact_phone: phone.trim(),
-      contact_email: email.trim(),
-      daily_capacity: Number(capacity) || 15,
-      opening_time: openingTime,
-      closing_time: closingTime,
-      active: true,
+    const updatedProfile: CenterProfile = {
+      ...centerPayload,
+      address: centerPayload.address || "",
+      contact_phone: centerPayload.contact_phone || "",
+      contact_email: centerPayload.contact_email || "",
+      rejection_reason: center?.rejection_reason || null,
     };
 
-    if (centerStorageKey) {
-      localStorage.setItem(centerStorageKey, JSON.stringify(fullProfile));
-    }
-
-    setCenter(fullProfile);
-    setSaving(false);
-    toast.success("Washing center profile updated successfully!");
+    setCenter(updatedProfile);
+    setIsEditing(false);
+    toast.success(
+      updatedProfile.verification_status === "approved"
+        ? "Washing center profile updated successfully!"
+        : "Center registered! Awaiting admin verification."
+    );
   };
 
-  const addPackage = (e: React.FormEvent) => {
+  const addPackage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!newPkgName.trim() || !newPkgPrice) return toast.error("Provide package title and price");
-    const pkg: ServicePackage = {
-      id: String(Date.now()),
+
+    const payload = {
+      center_id: user.id,
       name: newPkgName.trim(),
       category: "car",
       price: Number(newPkgPrice),
       duration: Number(newPkgDuration) || 45,
     };
-    setPackages([...packages, pkg]);
+
+    const { data, error } = await supabase.from("wash_center_packages").insert(payload).select().single();
+    if (error) return toast.error(error.message);
+
+    setPackages([...packages, {
+      id: data.id,
+      center_id: data.center_id,
+      name: data.name,
+      category: data.category,
+      price: Number(data.price),
+      duration: data.duration,
+    }]);
     setNewPkgName("");
     setNewPkgPrice("");
     toast.success("Service package added!");
   };
 
-  const deletePackage = (id: string) => {
+  const deletePackage = async (id: string) => {
+    const { error } = await supabase.from("wash_center_packages").delete().eq("id", id);
+    if (error) return toast.error(error.message);
     setPackages(packages.filter((p) => p.id !== id));
     toast.success("Service package removed");
   };
 
-  const addStaff = (e: React.FormEvent) => {
+  const addStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     if (!newStaffName.trim() || !newStaffPhone.trim()) return toast.error("Provide staff name and phone");
-    const member: StaffMember = {
-      id: String(Date.now()),
+
+    const payload = {
+      center_id: user.id,
       name: newStaffName.trim(),
       phone: newStaffPhone.trim(),
-      role: newStaffRole,
+      role: newStaffRole || "Detailer",
       active: true,
     };
-    setStaff([...staff, member]);
+
+    const { data, error } = await supabase.from("wash_center_staff").insert(payload).select().single();
+    if (error) return toast.error(error.message);
+
+    setStaff([...staff, {
+      id: data.id,
+      center_id: data.center_id,
+      name: data.name,
+      phone: data.phone || "",
+      role: data.role,
+      active: data.active,
+    }]);
     setNewStaffName("");
     setNewStaffPhone("");
     toast.success("Staff member added!");
   };
 
-  const removeStaff = (id: string) => {
+  const removeStaff = async (id: string) => {
+    const { error } = await supabase.from("wash_center_staff").delete().eq("id", id);
+    if (error) return toast.error(error.message);
     setStaff(staff.filter((s) => s.id !== id));
     toast.success("Staff member removed");
   };
@@ -283,28 +341,39 @@ export function WashCenterDashboard() {
     );
   }
 
-  // Onboarding screen if not registered
-  if (!center) {
+  // Onboarding or Editing screen
+  if (!center || isEditing) {
     return (
       <div className="min-h-screen bg-background">
         <SiteHeader />
         <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand">
-              <Building2 className="h-6 w-6" />
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="font-display text-2xl font-bold tracking-tight">
+                  {center ? "Edit Washing Center Profile" : "Register Your Washing Center / Auto Spa"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {center
+                    ? "Update facility details, bay capacity, and working hours."
+                    : "Partner with Synchoo to receive daily wash appointments, manage bays, and grow your local automotive business."}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight">Register Your Washing Center / Auto Spa</h1>
-              <p className="text-sm text-muted-foreground">
-                Partner with Synchoo to receive daily wash appointments, manage bays, and grow your local automotive business.
-              </p>
-            </div>
+            {center && (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+                Cancel
+              </Button>
+            )}
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Center Profile & Operating Details</CardTitle>
-              <CardDescription>Setup your business listing and bay capacity to start accepting bookings.</CardDescription>
+              <CardDescription>Setup your business listing and bay capacity to submit for verification.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveCenterProfile} className="space-y-4">
@@ -351,9 +420,110 @@ export function WashCenterDashboard() {
                 </div>
 
                 <Button type="submit" disabled={saving} className="w-full">
-                  {saving ? "Registering center..." : "Register Center & Open Dashboard"}
+                  {saving ? "Saving center profile..." : center ? "Update Center Profile" : "Register Center & Submit for Verification"}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Awaiting Verification screen
+  if (center.verification_status === "pending") {
+    return (
+      <div className="min-h-screen bg-background">
+        <SiteHeader />
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-2xl font-bold tracking-tight">{center.name}</h1>
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                  Awaiting Verification
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Your washing center registration is under review by the Synchoo admin team.
+              </p>
+            </div>
+          </div>
+
+          <Card className="border-amber-500/30">
+            <CardHeader className="bg-amber-500/5 pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                Awaiting Facility Verification
+              </CardTitle>
+              <CardDescription>
+                Once approved, your auto spa will be activated on the Synchoo washing network, and you will be able to manage booking queues, service packages, and staff technicians.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <div className="rounded-xl border border-border p-4 space-y-3 bg-muted/30">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Center Name</span>
+                  <span className="font-semibold">{center.name}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">City & Address</span>
+                  <span className="text-right text-xs max-w-[260px] truncate">{center.address}, {center.city}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Contact</span>
+                  <span>{center.contact_phone || center.contact_email || "Not specified"}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Bay Capacity</span>
+                  <span>{center.daily_capacity} cars / day</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Operating Hours</span>
+                  <span>{center.opening_time} – {center.closing_time}</span>
+                </div>
+              </div>
+
+              <Button variant="outline" className="w-full" onClick={() => setIsEditing(true)}>
+                <Edit className="mr-1.5 h-4 w-4" /> Edit Facility Profile
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Application Rejected screen
+  if (center.verification_status === "rejected") {
+    return (
+      <div className="min-h-screen bg-background">
+        <SiteHeader />
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <Card className="border-red-500/30">
+            <CardHeader className="bg-red-500/5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-600">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-red-700 dark:text-red-400">Application Rejected</CardTitle>
+                  <CardDescription>
+                    {center.rejection_reason || "Your washing center could not be verified with the current information."}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Please verify your address, contact phone, and operating capacity, then re-submit your profile for administrator review.
+              </p>
+              <Button onClick={() => setIsEditing(true)} className="w-full">
+                Update & Re-submit Profile
+              </Button>
             </CardContent>
           </Card>
         </div>

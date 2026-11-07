@@ -160,3 +160,138 @@ describe("refund tier boundaries", () => {
     expect(refundPercent(start, new Date("2026-08-21T00:00:00Z"))).toBe(0);
   });
 });
+
+describe("roles, cleaner onboarding and wash centers (RL-01, RL-02, RL-03)", () => {
+  test("RL-01: User signs up as cleaner -> cleaners row created as pending, awaiting verification", () => {
+    const { be, customer } = setup();
+    const cleanerUser = be.registerCustomer();
+
+    const cleaner = be.registerCleaner({
+      id: cleanerUser,
+      full_name: "Santosh Cleaner",
+      phone: "+91 98888 77777",
+      city: "Bangalore",
+      service_area: "Koramangala, HSR Layout",
+      experience_years: 3,
+      available: true,
+      services: ["Doorstep Car Wash", "Interior Detailing"],
+    });
+
+    expect(cleaner.verification_status).toBe("pending");
+    expect(cleaner.rejection_reason).toBeNull();
+    // Cleaner does not yet have cleaner app_role
+    expect(be.hasRole(cleanerUser, "cleaner")).toBe(false);
+
+    // Profile is retrieved directly from database store
+    const stored = be.getCleaner(cleanerUser);
+    expect(stored).toBeDefined();
+    expect(stored?.verification_status).toBe("pending");
+  });
+
+  test("RL-02: Admin approves cleaner -> cleaner sees job board, profile persists without localStorage", () => {
+    const { be, admin, customer } = setup();
+    const cleanerUser = be.registerCustomer();
+
+    be.registerCleaner({
+      id: cleanerUser,
+      full_name: "Ravi Detailing Pro",
+      phone: "+91 97777 66666",
+      city: "Bangalore",
+      experience_years: 4,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+
+    // Stranger cannot verify cleaner
+    expect(() => be.verifyCleaner(customer, cleanerUser, "approved")).toThrow(/Only admins/);
+
+    // Admin approves
+    const verified = be.verifyCleaner(admin, cleanerUser, "approved");
+    expect(verified.verification_status).toBe("approved");
+    expect(be.hasRole(cleanerUser, "cleaner")).toBe(true);
+
+    // Cleaner profile persists in DB and is loaded without localStorage
+    const persistentCleaner = be.getCleaner(cleanerUser);
+    expect(persistentCleaner?.verification_status).toBe("approved");
+    expect(persistentCleaner?.full_name).toBe("Ravi Detailing Pro");
+
+    // Admin can also reject with reason
+    const anotherCleaner = be.registerCustomer();
+    be.registerCleaner({
+      id: anotherCleaner,
+      full_name: "Unverified Person",
+      city: "Bangalore",
+      experience_years: 0,
+      available: true,
+      services: [],
+    });
+    const rejected = be.verifyCleaner(admin, anotherCleaner, "rejected", "Invalid contact number and zero experience");
+    expect(rejected.verification_status).toBe("rejected");
+    expect(rejected.rejection_reason).toBe("Invalid contact number and zero experience");
+    expect(be.hasRole(anotherCleaner, "cleaner")).toBe(false);
+  });
+
+  test("RL-03: Wash center adds staff and packages, then logs in on another device -> data is identical", () => {
+    const { be, admin } = setup();
+    const centerUser = be.registerCustomer();
+
+    // 1. Center registers
+    const center = be.registerWashCenter({
+      id: centerUser,
+      name: "AutoShine Prime Spa",
+      city: "Bangalore",
+      address: "100ft Road, Indiranagar",
+      contact_phone: "+91 91234 56789",
+      contact_email: "autoshine@synchoo.com",
+      daily_capacity: 20,
+    });
+    expect(center.verification_status).toBe("pending");
+    expect(center.active).toBe(false);
+
+    // Admin approves center
+    be.verifyWashCenter(admin, centerUser, "approved");
+    expect(be.getWashCenter(centerUser)?.verification_status).toBe("approved");
+    expect(be.getWashCenter(centerUser)?.active).toBe(true);
+    expect(be.hasRole(centerUser, "wash_center")).toBe(true);
+
+    // 2. Wash center adds staff
+    const s1 = be.addWashCenterStaff(centerUser, {
+      name: "Ramesh Kumar",
+      phone: "+91 98801 23456",
+      role: "Lead Washer",
+      active: true,
+    });
+    const s2 = be.addWashCenterStaff(centerUser, {
+      name: "Sunil Gowda",
+      phone: "+91 97412 34567",
+      role: "Detailer",
+      active: true,
+    });
+
+    // 3. Wash center adds packages
+    const p1 = be.addWashCenterPackage(centerUser, {
+      name: "Express Exterior Foam Wash",
+      category: "car",
+      price: 399,
+      duration: 40,
+    });
+    const p2 = be.addWashCenterPackage(centerUser, {
+      name: "Superbike Deep Foam Wash",
+      category: "bike",
+      price: 299,
+      duration: 30,
+    });
+
+    // 4. Simulate login on another device: query database directly by center_id
+    const device2Staff = be.getWashCenterStaff(centerUser);
+    const device2Packages = be.getWashCenterPackages(centerUser);
+    const device2Profile = be.getWashCenter(centerUser);
+
+    expect(device2Profile?.name).toBe("AutoShine Prime Spa");
+    expect(device2Staff).toHaveLength(2);
+    expect(device2Staff.map((s) => s.name)).toEqual(["Ramesh Kumar", "Sunil Gowda"]);
+    expect(device2Packages).toHaveLength(2);
+    expect(device2Packages.map((p) => p.name)).toEqual(["Express Exterior Foam Wash", "Superbike Deep Foam Wash"]);
+    expect(device2Packages.map((p) => p.price)).toEqual([399, 299]);
+  });
+});

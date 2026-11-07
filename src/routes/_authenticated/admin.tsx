@@ -65,6 +65,7 @@ function AdminPage() {
             <TabsTrigger value="hosts" className="text-xs px-2.5 py-1.5">Hosts (KYC)</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs px-2.5 py-1.5">Drivers</TabsTrigger>
             <TabsTrigger value="licences" className="text-xs px-2.5 py-1.5">Licences</TabsTrigger>
+            <TabsTrigger value="cleaners" className="text-xs px-2.5 py-1.5">Cleaners</TabsTrigger>
             <TabsTrigger value="wash-centers" className="text-xs px-2.5 py-1.5">Wash Centers</TabsTrigger>
             <TabsTrigger value="washes" className="text-xs px-2.5 py-1.5">Wash Orders</TabsTrigger>
             <TabsTrigger value="disputes" className="text-xs px-2.5 py-1.5">Disputes</TabsTrigger>
@@ -87,6 +88,7 @@ function AdminPage() {
           <TabsContent value="hosts"><HostQueue /></TabsContent>
           <TabsContent value="drivers"><DriverQueue /></TabsContent>
           <TabsContent value="licences"><LicenceQueue /></TabsContent>
+          <TabsContent value="cleaners"><CleanersQueue /></TabsContent>
           <TabsContent value="wash-centers"><WashCentersQueue /></TabsContent>
           <TabsContent value="washes"><WashQueue /></TabsContent>
           <TabsContent value="disputes"><DisputeQueue /></TabsContent>
@@ -555,6 +557,88 @@ function WashQueue() {
 }
 
 
+function CleanersQueue() {
+  const [items, setItems] = useState<any[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("cleaners")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) toast.error(error.message);
+    setItems((data as any) ?? []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const decide = async (id: string, decision: "approved" | "rejected") => {
+    let reason: string | null = null;
+    if (decision === "rejected") {
+      reason = window.prompt("Rejection reason?") || null;
+      if (!reason) return;
+    }
+    setBusy(id);
+    const { error } = await supabase.rpc("verify_cleaner", {
+      _cleaner_id: id,
+      _decision: decision,
+      _rejection_reason: reason,
+    });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Cleaner application ${decision}`);
+    load();
+  };
+
+  if (!items) return <Skeleton className="mt-4 h-40" />;
+  if (items.length === 0) return <p className="mt-6 text-sm text-muted-foreground">No cleaner partner applications yet.</p>;
+
+  return (
+    <div className="mt-4 space-y-3">
+      {items.map((c) => (
+        <Card key={c.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{c.full_name}</p>
+                  <StatusBadge status={c.verification_status} />
+                  <Badge variant={c.available ? "secondary" : "outline"} className={c.available ? "bg-emerald-50 text-emerald-700" : ""}>
+                    {c.available ? "Online" : "Offline"}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {c.city} · {c.experience_years} yrs exp · Area: {c.service_area || "Citywide"} {c.phone ? `· ${c.phone}` : ""}
+                </p>
+                {c.bio && (
+                  <p className="text-xs text-muted-foreground mt-1 italic">
+                    "{c.bio}"
+                  </p>
+                )}
+                {c.rejection_reason && (
+                  <p className="text-xs text-red-500 mt-1">Rejection reason: {c.rejection_reason}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {c.verification_status !== "approved" && (
+                  <Button size="sm" disabled={busy === c.id} onClick={() => decide(c.id, "approved")}>
+                    <ShieldCheck className="mr-1 h-3 w-3" /> Approve
+                  </Button>
+                )}
+                {c.verification_status !== "rejected" && (
+                  <Button size="sm" variant="outline" disabled={busy === c.id} onClick={() => decide(c.id, "rejected")}>
+                    Reject
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function WashCentersQueue() {
   const [centers, setCenters] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -565,11 +649,40 @@ function WashCentersQueue() {
   const [capacity, setCapacity] = useState("10");
 
   const load = async () => {
+    // 1. Check wash_centers first
+    const { data: wcData } = await supabase
+      .from("wash_centers")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (wcData && wcData.length > 0) {
+      setCenters(wcData);
+      return;
+    }
+
     const { data, error } = await supabase.from("wash_vendors").select("*").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setCenters(data ?? []);
   };
   useEffect(() => { load(); }, []);
+
+  const decideCenter = async (id: string, decision: "approved" | "rejected") => {
+    let reason: string | null = null;
+    if (decision === "rejected") {
+      reason = window.prompt("Rejection reason?") || null;
+      if (!reason) return;
+    }
+    setBusy(id);
+    const { error } = await supabase.rpc("verify_wash_center", {
+      _center_id: id,
+      _decision: decision,
+      _rejection_reason: reason,
+    });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success(`Wash center application ${decision}`);
+    load();
+  };
 
   const toggleActive = async (center: any) => {
     setBusy(center.id);
@@ -642,22 +755,46 @@ function WashCentersQueue() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-sm">{c.name}</p>
-                  <Badge variant={c.active ? "secondary" : "outline"} className={c.active ? "bg-emerald-50 text-emerald-700" : ""}>
-                    {c.active ? "Verified / Active" : "Inactive"}
-                  </Badge>
+                  {c.verification_status ? (
+                    <StatusBadge status={c.verification_status} />
+                  ) : (
+                    <Badge variant={c.active ? "secondary" : "outline"} className={c.active ? "bg-emerald-50 text-emerald-700" : ""}>
+                      {c.active ? "Verified / Active" : "Inactive"}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  City: {c.city} � Capacity: {c.daily_capacity} washes/day {c.contact_phone ? `� ${c.contact_phone}` : ""}
+                  City: {c.city} · Capacity: {c.daily_capacity} washes/day {c.contact_phone ? `· ${c.contact_phone}` : ""}
                 </p>
+                {c.rejection_reason && (
+                  <p className="text-xs text-red-500 mt-1">Rejection reason: {c.rejection_reason}</p>
+                )}
               </div>
-              <Button
-                size="sm"
-                variant={c.active ? "outline" : "default"}
-                disabled={busy === c.id}
-                onClick={() => toggleActive(c)}
-              >
-                {c.active ? "Deactivate" : "Approve & Activate"}
-              </Button>
+              <div className="flex gap-2">
+                {c.verification_status ? (
+                  <>
+                    {c.verification_status !== "approved" && (
+                      <Button size="sm" disabled={busy === c.id} onClick={() => decideCenter(c.id, "approved")}>
+                        <ShieldCheck className="mr-1 h-3 w-3" /> Approve
+                      </Button>
+                    )}
+                    {c.verification_status !== "rejected" && (
+                      <Button size="sm" variant="outline" disabled={busy === c.id} onClick={() => decideCenter(c.id, "rejected")}>
+                        Reject
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={c.active ? "outline" : "default"}
+                    disabled={busy === c.id}
+                    onClick={() => toggleActive(c)}
+                  >
+                    {c.active ? "Deactivate" : "Approve & Activate"}
+                  </Button>
+                )}
+              </div>
             </CardContent></Card>
           ))}
         </div>

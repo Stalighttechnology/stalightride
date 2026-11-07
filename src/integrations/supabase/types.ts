@@ -215,6 +215,60 @@ export type Database = {
           },
         ]
       }
+      cleaners: {
+        Row: {
+          available: boolean
+          avg_rating: number
+          bio: string | null
+          city: string
+          created_at: string
+          experience_years: number
+          full_name: string
+          id: string
+          phone: string | null
+          rejection_reason: string | null
+          review_count: number
+          service_area: string | null
+          services: string[]
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
+        }
+        Insert: {
+          available?: boolean
+          avg_rating?: number
+          bio?: string | null
+          city?: string
+          created_at?: string
+          experience_years?: number
+          full_name: string
+          id: string
+          phone?: string | null
+          rejection_reason?: string | null
+          review_count?: number
+          service_area?: string | null
+          services?: string[]
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Update: {
+          available?: boolean
+          avg_rating?: number
+          bio?: string | null
+          city?: string
+          created_at?: string
+          experience_years?: number
+          full_name?: string
+          id?: string
+          phone?: string | null
+          rejection_reason?: string | null
+          review_count?: number
+          service_area?: string | null
+          services?: string[]
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           active: boolean
@@ -1440,6 +1494,133 @@ export type Database = {
           },
         ]
       }
+      wash_centers: {
+        Row: {
+          active: boolean
+          address: string | null
+          city: string
+          closing_time: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          daily_capacity: number
+          id: string
+          name: string
+          opening_time: string
+          rejection_reason: string | null
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          city?: string
+          closing_time?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          daily_capacity?: number
+          id: string
+          name: string
+          opening_time?: string
+          rejection_reason?: string | null
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          city?: string
+          closing_time?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          daily_capacity?: number
+          id?: string
+          name?: string
+          opening_time?: string
+          rejection_reason?: string | null
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Relationships: []
+      }
+      wash_center_packages: {
+        Row: {
+          category: string
+          center_id: string
+          created_at: string
+          duration: number
+          id: string
+          name: string
+          price: number
+        }
+        Insert: {
+          category?: string
+          center_id: string
+          created_at?: string
+          duration?: number
+          id?: string
+          name: string
+          price: number
+        }
+        Update: {
+          category?: string
+          center_id?: string
+          created_at?: string
+          duration?: number
+          id?: string
+          name?: string
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_center_packages_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "wash_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wash_center_staff: {
+        Row: {
+          active: boolean
+          center_id: string
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          role: string
+        }
+        Insert: {
+          active?: boolean
+          center_id: string
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          role?: string
+        }
+        Update: {
+          active?: boolean
+          center_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_center_staff_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "wash_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wash_services: {
         Row: {
           active: boolean
@@ -1624,6 +1805,22 @@ export type Database = {
         }
         Returns: number
       }
+      verify_cleaner: {
+        Args: {
+          _cleaner_id: string
+          _decision: string
+          _rejection_reason?: string | null
+        }
+        Returns: undefined
+      }
+      verify_wash_center: {
+        Args: {
+          _center_id: string
+          _decision: string
+          _rejection_reason?: string | null
+        }
+        Returns: undefined
+      }
       wallet_pay_booking: { Args: { _booking_id: string }; Returns: number }
       wallet_pay_driver_booking: {
         Args: { _driver_booking_id: string }
@@ -1635,7 +1832,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "customer" | "vendor" | "admin"
+      app_role: "customer" | "vendor" | "admin" | "cleaner" | "wash_center"
       booking_status:
         | "pending"
         | "confirmed"
@@ -1785,7 +1982,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "vendor", "admin"],
+      app_role: ["customer", "vendor", "admin", "cleaner", "wash_center"],
       booking_status: [
         "pending",
         "confirmed",

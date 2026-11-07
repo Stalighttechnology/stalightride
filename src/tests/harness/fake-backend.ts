@@ -59,6 +59,53 @@ export type Driver = {
   service_area?: string;
 };
 
+export type Cleaner = {
+  id: string;
+  full_name: string;
+  phone?: string;
+  city: string;
+  service_area?: string;
+  bio?: string;
+  experience_years: number;
+  available: boolean;
+  verification_status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
+  services: string[];
+};
+
+export type WashCenter = {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  daily_capacity: number;
+  opening_time?: string;
+  closing_time?: string;
+  active: boolean;
+  verification_status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
+};
+
+export type WashCenterStaff = {
+  id: string;
+  center_id: string;
+  name: string;
+  phone?: string;
+  role: string;
+  active: boolean;
+};
+
+export type WashCenterPackage = {
+  id: string;
+  center_id: string;
+  name: string;
+  category: string;
+  price: number;
+  duration: number;
+};
+
 export type DriverBooking = {
   id: string;
   driver_id: string;
@@ -144,6 +191,20 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
   const trips = new Map<string, PoolTrip>();
   const poolRequests = new Map<string, PoolRequest>();
   const washes = new Map<string, WashBooking>();
+  const cleaners = new Map<string, Cleaner>();
+  const washCenters = new Map<string, WashCenter>();
+  const washCenterStaff = new Map<string, WashCenterStaff>();
+  const washCenterPackages = new Map<string, WashCenterPackage>();
+  const userRoles = new Map<string, Set<string>>();
+
+  const assignRole = (userId: string, role: string) => {
+    let r = userRoles.get(userId);
+    if (!r) {
+      r = new Set();
+      userRoles.set(userId, r);
+    }
+    r.add(role);
+  };
   const wallets = new Map<string, number>();
   const walletTxns: WalletTxn[] = [];
   const notifications: { user_id: string; title: string }[] = [];
@@ -594,6 +655,85 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       w.refund_amount = refund;
       w.status = "cancelled";
       return { wash: w, refund, percent: pct };
+    },
+
+    /* ---------- roles, cleaners & wash centers (Task 2.4) ---------- */
+    registerCleaner(profile: Omit<Cleaner, "verification_status">) {
+      const cleaner: Cleaner = {
+        ...profile,
+        verification_status: "pending",
+        rejection_reason: null,
+      };
+      cleaners.set(profile.id, cleaner);
+      return cleaner;
+    },
+    getCleaner(id: string) {
+      return cleaners.get(id);
+    },
+    verifyCleaner(actor: string, cleanerId: string, decision: "approved" | "rejected", reason?: string) {
+      if (!admins.has(actor)) throw new RuleError("Only admins can verify cleaners");
+      const c = cleaners.get(cleanerId);
+      if (!c) throw new RuleError("Cleaner not found");
+      c.verification_status = decision;
+      c.rejection_reason = decision === "rejected" ? reason || "Rejected by admin" : null;
+      if (decision === "approved") {
+        assignRole(cleanerId, "cleaner");
+      }
+      return c;
+    },
+    registerWashCenter(profile: Omit<WashCenter, "verification_status" | "active">) {
+      const center: WashCenter = {
+        ...profile,
+        active: false,
+        verification_status: "pending",
+        rejection_reason: null,
+      };
+      washCenters.set(profile.id, center);
+      return center;
+    },
+    getWashCenter(id: string) {
+      return washCenters.get(id);
+    },
+    verifyWashCenter(actor: string, centerId: string, decision: "approved" | "rejected", reason?: string) {
+      if (!admins.has(actor)) throw new RuleError("Only admins can verify wash centers");
+      const c = washCenters.get(centerId);
+      if (!c) throw new RuleError("Wash center not found");
+      c.verification_status = decision;
+      c.active = decision === "approved";
+      c.rejection_reason = decision === "rejected" ? reason || "Rejected by admin" : null;
+      if (decision === "approved") {
+        assignRole(centerId, "wash_center");
+      }
+      return c;
+    },
+    addWashCenterStaff(centerId: string, staffMember: Omit<WashCenterStaff, "id" | "center_id">) {
+      const sId = id("wc_staff");
+      const st: WashCenterStaff = {
+        id: sId,
+        center_id: centerId,
+        ...staffMember,
+      };
+      washCenterStaff.set(sId, st);
+      return st;
+    },
+    getWashCenterStaff(centerId: string) {
+      return Array.from(washCenterStaff.values()).filter((s) => s.center_id === centerId);
+    },
+    addWashCenterPackage(centerId: string, pkg: Omit<WashCenterPackage, "id" | "center_id">) {
+      const pId = id("wc_pkg");
+      const p: WashCenterPackage = {
+        id: pId,
+        center_id: centerId,
+        ...pkg,
+      };
+      washCenterPackages.set(pId, p);
+      return p;
+    },
+    getWashCenterPackages(centerId: string) {
+      return Array.from(washCenterPackages.values()).filter((p) => p.center_id === centerId);
+    },
+    hasRole(userId: string, role: string) {
+      return userRoles.get(userId)?.has(role) ?? false;
     },
   };
 }
