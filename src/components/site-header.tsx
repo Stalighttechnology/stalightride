@@ -42,12 +42,6 @@ export function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex text-xs font-medium gap-1.5 text-muted-foreground hover:text-foreground">
-            <Link to="/corporate">
-              <Briefcase className="h-3.5 w-3.5 text-blue-500" />
-              <span>Corporate</span>
-            </Link>
-          </Button>
           <CitySelector />
           <NotificationBell />
           <ThemeToggle className="hidden sm:inline-flex" />
