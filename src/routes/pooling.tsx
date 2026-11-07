@@ -224,7 +224,7 @@ function PoolingPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
-            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Cancellation policy: 100% refund if cancelled up to 12 hours before departure; 50% refund between 2â€“12 hours; non-refundable within 2 hours of departure.
+            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Fares are settled directly with the driver (Cash or UPI). Riders can cancel their booking anytime before departure with no cancellation fees; seats are automatically returned to the pool for other travelers.
           </div>
         </div>
 

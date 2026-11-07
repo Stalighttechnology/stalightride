@@ -157,3 +157,4 @@ CREATE TRIGGER trg_recompute_wash_rating
   AFTER INSERT OR UPDATE OR DELETE ON public.wash_reviews
   FOR EACH ROW
   EXECUTE FUNCTION public.recompute_wash_rating();
+

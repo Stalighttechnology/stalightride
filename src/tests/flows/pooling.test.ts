@@ -139,3 +139,18 @@ describe("trip lifecycle", () => {
     expect(() => be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 95 })).toThrow(/no longer open/);
   });
 });
+
+describe("PS-01: pooling cancellation and settlement policy", () => {
+  test("PS-01: pooling bookings have no in-app refund promises and return seats freely on cancellation", () => {
+    const { be, driver, trip, p1 } = setup(3);
+    const balanceBefore = be.wallet.balance(p1);
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 2, match_score: 95 });
+    be.poolDecide(driver, r.id, "confirmed");
+
+    // Passenger cancels: seats are immediately restored with no in-app wallet charges/refunds
+    const res = be.cancelPoolRequest(p1, r.id);
+    expect(res.request.status).toBe("cancelled");
+    expect(res.trip.seats_available).toBe(3);
+    expect(be.wallet.balance(p1)).toBe(balanceBefore);
+  });
+});
