@@ -787,6 +787,9 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          referral_code: string | null
+          referral_rewarded: boolean | null
+          referred_by: string | null
           updated_at: string
         }
         Insert: {
@@ -803,6 +806,9 @@ export type Database = {
           full_name?: string | null
           id: string
           phone?: string | null
+          referral_code?: string | null
+          referral_rewarded?: boolean | null
+          referred_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -819,6 +825,9 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          referral_code?: string | null
+          referral_rewarded?: boolean | null
+          referred_by?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1521,10 +1530,397 @@ export type Database = {
         ]
       }
     }
+      category_rules: {
+        Row: {
+          advance_notice_hours: number
+          category: string
+          created_at: string
+          id: string
+          min_deposit: number
+          min_window_hours: number
+          updated_at: string
+        }
+        Insert: {
+          advance_notice_hours?: number
+          category: string
+          created_at?: string
+          id?: string
+          min_deposit?: number
+          min_window_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          advance_notice_hours?: number
+          category?: string
+          created_at?: string
+          id?: string
+          min_deposit?: number
+          min_window_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cities: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          state: string
+          surge_multiplier: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          state?: string
+          surge_multiplier?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          state?: string
+          surge_multiplier?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      incidents: {
+        Row: {
+          admin_notes: string | null
+          booking_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          item_name: string | null
+          lat: number | null
+          lng: number | null
+          location_text: string | null
+          reporter_id: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          booking_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_name?: string | null
+          lat?: number | null
+          lng?: number | null
+          location_text?: string | null
+          reporter_id: string
+          status?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          booking_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_name?: string | null
+          lat?: number | null
+          lng?: number | null
+          location_text?: string | null
+          reporter_id?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      platform_settings: {
+        Row: {
+          commission_driver_pct: number
+          commission_pct: number
+          commission_pool_pct: number
+          commission_rental_pct: number
+          commission_wash_pct: number
+          gst_pct: number
+          id: number
+          instant_confirm_default: boolean
+          maintenance_mode: boolean
+          max_wallet_topup: number
+          min_driver_advance_hours: number
+          min_withdrawal: number
+          service_fee_pct: number
+          sos_phone: string
+          updated_at: string
+        }
+        Insert: {
+          commission_driver_pct?: number
+          commission_pct?: number
+          commission_pool_pct?: number
+          commission_rental_pct?: number
+          commission_wash_pct?: number
+          gst_pct?: number
+          id?: number
+          instant_confirm_default?: boolean
+          maintenance_mode?: boolean
+          max_wallet_topup?: number
+          min_driver_advance_hours?: number
+          min_withdrawal?: number
+          service_fee_pct?: number
+          sos_phone?: string
+          updated_at?: string
+        }
+        Update: {
+          commission_driver_pct?: number
+          commission_pct?: number
+          commission_pool_pct?: number
+          commission_rental_pct?: number
+          commission_wash_pct?: number
+          gst_pct?: number
+          id?: number
+          instant_confirm_default?: boolean
+          maintenance_mode?: boolean
+          max_wallet_topup?: number
+          min_driver_advance_hours?: number
+          min_withdrawal?: number
+          service_fee_pct?: number
+          sos_phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_tickets: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          priority: string
+          resolution: string | null
+          status: string
+          subject: string
+          ticket_no: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          id?: string
+          priority?: string
+          resolution?: string | null
+          status?: string
+          subject: string
+          ticket_no: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          priority?: string
+          resolution?: string | null
+          status?: string
+          subject?: string
+          ticket_no?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ticket_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin: boolean
+          message: string
+          sender_id: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          message: string
+          sender_id: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          message?: string
+          sender_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      trusted_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          relationship: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          relationship?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          relationship?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          reason: string
+          reported_user_id: string | null
+          reporter_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          target_id: string | null
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          reported_user_id?: string | null
+          reporter_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          target_id?: string | null
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          reported_user_id?: string | null
+          reporter_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vehicle_maintenance: {
+        Row: {
+          cost: number
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          odometer: number | null
+          service_type: string
+          vehicle_id: string
+          vendor_id: string
+          workshop: string | null
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          odometer?: number | null
+          service_type: string
+          vehicle_id: string
+          vendor_id: string
+          workshop?: string | null
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          odometer?: number | null
+          service_type?: string
+          vehicle_id?: string
+          vendor_id?: string
+          workshop?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_maintenance_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      admin_remove_review: {
+        Args: {
+          _review_id: string
+        }
+        Returns: undefined
+      }
+      admin_dismiss_review_report: {
+        Args: {
+          _review_id: string
+        }
+        Returns: undefined
+      }
+      admin_revenue_aggregates: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      generate_scheduled_reminders: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+
       admin_decide_wash_booking: {
         Args: {
           _decision: string

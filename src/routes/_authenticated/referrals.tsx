@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,6 @@ import {
   Users,
   IndianRupee,
   Sparkles,
-  ArrowRight,
-  Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/referrals")({
@@ -40,15 +39,53 @@ interface ReferralEvent {
 
 export function ReferralsPage() {
   const { user } = useSession();
-  const referralCode = (user?.id ? `SYN-${user.id.slice(0, 6).toUpperCase()}` : "SYN-RIDE500");
+  const [referralCode, setReferralCode] = useState(
+    user?.id ? `SYN-${user.id.slice(0, 6).toUpperCase()}` : "SYN-RIDE500"
+  );
+  const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<ReferralEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const referralLink = `https://synchoo.in/join?ref=${referralCode}`;
 
-  const [copied, setCopied] = useState(false);
-  const [history, setHistory] = useState<ReferralEvent[]>([
-    { id: "1", friendName: "Karthik Rajan", status: "First Trip Completed", earnedAmount: 500, date: "3 days ago" },
-    { id: "2", friendName: "Sneha Nair", status: "First Trip Completed", earnedAmount: 500, date: "1 week ago" },
-    { id: "3", friendName: "Manish Joshi", status: "Joined", earnedAmount: 0, date: "Yesterday" },
-  ]);
+  useEffect(() => {
+    if (!user) return;
+
+    (async () => {
+      // 1. Load user's referral code
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("referral_code")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.referral_code) {
+        setReferralCode(profile.referral_code);
+      }
+
+      // 2. Load friends referred by this user
+      const { data: friends } = await supabase
+        .from("profiles")
+        .select("id, full_name, created_at, referral_rewarded")
+        .eq("referred_by", user.id)
+        .order("created_at", { ascending: false });
+
+      if (friends && friends.length > 0) {
+        setHistory(
+          friends.map((f) => ({
+            id: f.id,
+            friendName: f.full_name || "Friend",
+            status: f.referral_rewarded ? "First Trip Completed" : "Joined",
+            earnedAmount: f.referral_rewarded ? 500 : 0,
+            date: new Date(f.created_at).toLocaleDateString(),
+          }))
+        );
+      } else {
+        setHistory([]);
+      }
+      setLoading(false);
+    })();
+  }, [user?.id]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralLink);
@@ -79,7 +116,7 @@ export function ReferralsPage() {
               Give ₹500, Get ₹500 Every Time a Friend Rides
             </h1>
             <p className="text-sm text-muted-foreground">
-              Share your link with colleagues and friends. They receive ₹500 welcome discount on their first vehicle booking or carpool, and you receive ₹500 instantly in your Synchoo wallet.
+              Share your link with colleagues and friends. They receive ₹500 welcome discount on their first vehicle booking, and you receive ₹500 instantly in your Synchoo wallet.
             </p>
           </div>
         </div>
@@ -88,86 +125,95 @@ export function ReferralsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Your Exclusive Referral Link</CardTitle>
-            <CardDescription>Share via WhatsApp or copy your unique referral link.</CardDescription>
+            <CardDescription>Friends who register with this link automatically get ₹500 applied at checkout.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex-1 min-w-[240px] relative">
-                <Input value={referralLink} readOnly className="font-mono text-xs pr-20 bg-muted" />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={copyToClipboard}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
-                >
-                  <Copy className="mr-1 h-3.5 w-3.5" /> {copied ? "Copied" : "Copy"}
-                </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Input value={referralLink} readOnly className="font-mono text-xs pr-10 bg-muted/40" />
               </div>
-
-              <Button onClick={shareViaWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                <Share2 className="mr-1.5 h-4 w-4" /> Share on WhatsApp
+              <Button onClick={copyToClipboard} variant="outline" className="text-xs">
+                {copied ? <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+                {copied ? "Copied!" : "Copy Link"}
+              </Button>
+              <Button onClick={shareViaWhatsApp} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share on WhatsApp
               </Button>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Referral code:</span>
-              <span className="font-mono font-bold text-foreground bg-muted px-2 py-0.5 rounded-md">{referralCode}</span>
+            <div className="flex items-center gap-2 pt-2">
+              <span className="text-xs text-muted-foreground">Your Referral Code:</span>
+              <Badge variant="secondary" className="font-mono font-bold text-xs">
+                {referralCode}
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Total Friends Invited</p>
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <Card className="p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <Users className="h-4 w-4 text-brand" /> Total Friends Invited
+            </div>
             <p className="font-display text-2xl font-bold mt-1 text-foreground">{history.length}</p>
           </Card>
-          <Card className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Completed Trips</p>
+
+          <Card className="p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Trips Completed
+            </div>
             <p className="font-display text-2xl font-bold mt-1 text-emerald-600">
               {history.filter((h) => h.status === "First Trip Completed").length}
             </p>
           </Card>
-          <Card className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Wallet Credits Earned</p>
+
+          <Card className="p-4 col-span-2 sm:col-span-1">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <IndianRupee className="h-4 w-4 text-brand" /> Total Bonus Earned
+            </div>
             <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(totalEarned)}</p>
           </Card>
         </div>
 
-        {/* Referral Activity Log */}
+        {/* History */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-brand" /> Referral Activity & Status
+              <Sparkles className="h-4 w-4 text-amber-500" /> Referral Activity & Rewards
             </CardTitle>
-            <CardDescription>Track when your friends sign up and complete their first trip.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {history.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-border last:border-none text-xs">
-                  <div>
-                    <p className="font-semibold text-sm">{item.friendName}</p>
-                    <p className="text-muted-foreground">{item.date}</p>
+            {history.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No friends have joined using your link yet. Share your code to start earning!
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {history.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between border-b border-border pb-3 last:border-0 last:pb-0">
+                    <div>
+                      <p className="font-semibold text-xs text-foreground">{item.friendName}</p>
+                      <p className="text-[11px] text-muted-foreground">Joined: {item.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge
+                        variant={item.status === "First Trip Completed" ? "secondary" : "outline"}
+                        className={item.status === "First Trip Completed" ? "bg-emerald-50 text-emerald-700" : ""}
+                      >
+                        {item.status}
+                      </Badge>
+                      {item.earnedAmount > 0 && (
+                        <p className="text-xs font-bold text-emerald-600 mt-0.5">+{currency(item.earnedAmount)}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <Badge
-                      variant={item.status === "First Trip Completed" ? "secondary" : "outline"}
-                      className={item.status === "First Trip Completed" ? "bg-emerald-50 text-emerald-700" : ""}
-                    >
-                      {item.status}
-                    </Badge>
-                    {item.earnedAmount > 0 && (
-                      <p className="font-semibold text-emerald-600 mt-0.5">+{currency(item.earnedAmount)}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-

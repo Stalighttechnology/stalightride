@@ -79,12 +79,7 @@ export function RewardsPage() {
   const [redeemed, setRedeemed] = useState<string[]>([]);
 
   const handleRedeem = (voucher: RewardVoucher) => {
-    if (pointsBalance < voucher.pointsCost) {
-      return toast.error(`Insufficient points. You need ${voucher.pointsCost - pointsBalance} more points.`);
-    }
-    setPointsBalance(pointsBalance - voucher.pointsCost);
-    setRedeemed([...redeemed, voucher.id]);
-    toast.success(`Redeemed ${voucher.title}! Check your email for your coupon code.`);
+    toast.success(`Registered interest for "${voucher.title}"! Points redemption will be available upon full launch.`);
   };
 
   return (
@@ -96,9 +91,14 @@ export function RewardsPage() {
         <div className="relative overflow-hidden rounded-3xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 via-background to-brand/10 p-6 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-2">
-              <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40">
-                <Sparkles className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Loyalty Club
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40">
+                  <Sparkles className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Loyalty Club
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  Coming Soon Preview
+                </Badge>
+              </div>
               <h1 className="font-display text-3xl font-bold tracking-tight">Your Rewards Points</h1>
               <p className="text-xs text-muted-foreground">
                 Earn 5% in points on all completed self-drive trips, driver hires, and doorstep washes. 1 Point = ₹1.

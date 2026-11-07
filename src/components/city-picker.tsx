@@ -1,19 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
-export const INDIAN_CITIES = [
-  "Agra", "Ahmedabad", "Ajmer", "Allahabad", "Amritsar", "Aurangabad", "Bengaluru", "Bhopal",
-  "Bhubaneswar", "Chandigarh", "Chennai", "Coimbatore", "Dehradun", "Delhi", "Dhanbad", "Faridabad",
-  "Ghaziabad", "Goa", "Gurugram", "Guwahati", "Gwalior", "Howrah", "Hubli", "Hyderabad", "Indore",
-  "Jabalpur", "Jaipur", "Jalandhar", "Jammu", "Jamshedpur", "Jodhpur", "Kanpur", "Kochi", "Kolhapur",
-  "Kolkata", "Kota", "Kozhikode", "Lucknow", "Ludhiana", "Madurai", "Mangaluru", "Meerut", "Mumbai",
-  "Mysuru", "Nagpur", "Nashik", "Navi Mumbai", "Noida", "Patna", "Puducherry", "Pune", "Raipur",
-  "Rajkot", "Ranchi", "Salem", "Shimla", "Srinagar", "Surat", "Thane", "Thiruvananthapuram",
-  "Tiruchirappalli", "Udaipur", "Vadodara", "Varanasi", "Vijayawada", "Visakhapatnam", "Warangal",
+export const DEFAULT_INDIAN_CITIES = [
+  "Bengaluru", "Mumbai", "Delhi", "Hyderabad", "Chennai", "Pune", "Goa", "Jaipur", "Ahmedabad", "Kochi", "Chandigarh", "Kolkata"
 ];
 
 export function CityPicker({
@@ -27,7 +21,23 @@ export function CityPicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const list = value && !INDIAN_CITIES.includes(value) ? [value, ...INDIAN_CITIES] : INDIAN_CITIES;
+  const [activeCities, setActiveCities] = useState<string[]>(DEFAULT_INDIAN_CITIES);
+
+  useEffect(() => {
+    supabase
+      .from("cities")
+      .select("name")
+      .eq("active", true)
+      .order("name", { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          setActiveCities(data.map((c) => c.name));
+        }
+      });
+  }, []);
+
+  const list = value && !activeCities.includes(value) ? [value, ...activeCities] : activeCities;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

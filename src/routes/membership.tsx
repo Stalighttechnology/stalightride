@@ -96,8 +96,7 @@ export function MembershipPage() {
       toast.info("You are currently on Synchoo Standard.");
       return;
     }
-    setActivePlan(plan.id);
-    toast.success(`Welcome to ${plan.name}! Your membership perks are now active.`);
+    toast.success(`Registered for ${plan.name} Early Access Waitlist! We will notify you when VIP subscriptions launch.`);
   };
 
   return (
@@ -106,9 +105,14 @@ export function MembershipPage() {
 
       <main className="flex-1 py-12 px-4 sm:px-6">
         <div className="mx-auto max-w-5xl text-center space-y-4">
-          <Badge variant="outline" className="border-amber-300 text-amber-600 bg-amber-50 dark:bg-amber-950/40">
-            <Crown className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Club Privileges
-          </Badge>
+          <div className="flex items-center justify-center gap-2">
+            <Badge variant="outline" className="border-amber-300 text-amber-600 bg-amber-50 dark:bg-amber-950/40">
+              <Crown className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Club Privileges
+            </Badge>
+            <Badge variant="secondary" className="text-xs">
+              Coming Soon · Early Access
+            </Badge>
+          </div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight">
             Unlock Unlimited Savings With Synchoo Membership
           </h1>
