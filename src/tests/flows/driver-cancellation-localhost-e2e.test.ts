@@ -15,7 +15,7 @@ describe("M9: Driver hire cancellation localhost and acceptance tests (DC-01 to 
       customer_id: customer,
       driver_id: driver.id,
       start_date: startDate,
-      end_date: startDate,
+      end_date: "2026-08-21",
       start_time: startTime,
       end_time: "18:00:00",
       total_price: totalPrice,
@@ -96,7 +96,7 @@ describe("M9: Driver hire cancellation localhost and acceptance tests (DC-01 to 
     expect(res.percent).toBe(50);
     expect(res.refund).toBe(1500); // 50% of 3000
     expect(res.booking.status).toBe("cancelled");
-    expect(res.booking.payment_status).toBe("refunded");
+    expect(res.booking.payment_status).toBe("partially_refunded");
     expect(res.booking.refund_amount).toBe(1500);
 
     // Verify customer wallet was credited 50% (₹1,500)

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
+import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { useSelectedCity } from "@/components/city-selector";
 import { toast } from "sonner";
 import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock } from "lucide-react";
@@ -22,13 +23,13 @@ export const Route = createFileRoute("/wash")({
   component: WashPage,
   head: () => ({
     meta: [
-      { title: "Vehicle wash & detailing at your doorstep â€” Synchoo" },
+      { title: "Vehicle wash & detailing at your doorstep — Synchoo" },
       {
         name: "description",
         content:
           "Book a doorstep bike, scooter, car or EV wash slot in minutes. Our team confirms a washer partner for your slot, then you pay by wallet or card.",
       },
-      { property: "og:title", content: "Vehicle wash & detailing â€” Synchoo" },
+      { property: "og:title", content: "Vehicle wash & detailing — Synchoo" },
       { property: "og:description", content: "Doorstep vehicle wash slots, confirmed by our team before you pay." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -58,6 +59,7 @@ function WashPage() {
   const [services, setServices] = useState<any[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [form, setForm] = useState({
     city: "",
     address: "",
@@ -114,11 +116,13 @@ function WashPage() {
       slot_date: form.slot_date,
       slot_time: form.slot_time,
       notes: form.notes.trim() || null,
+      // Money columns are recalculated by the database (tg_price_wash_booking).
       price: service.price,
+      coupon_code: coupon?.code ?? null,
     } as any);
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Slot requested â€” our team will confirm a washer partner shortly");
+    toast.success("Slot requested — our team will confirm a washer partner shortly");
     navigate({ to: "/washes" });
   };
 
@@ -134,7 +138,7 @@ function WashPage() {
           </Badge>
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">Vehicle wash & detailing</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Pick a package and a slot. Our team assigns a verified washer partner and confirms availability â€” you only pay
+            Pick a package and a slot. Our team assigns a verified washer partner and confirms availability — you only pay
             after the slot is approved.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -201,7 +205,7 @@ function WashPage() {
           <CardContent className="p-5">
             <h2 className="font-display text-lg font-semibold">Book your slot</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {service ? `${service.name} Â· ${currency(service.price)}` : "Select a package to continue"}
+              {service ? `${service.name} · ${currency(service.price)}` : "Select a package to continue"}
             </p>
 
             <div className="mt-4 grid gap-3">
@@ -225,7 +229,7 @@ function WashPage() {
                   id="wash-vehicle"
                   value={form.vehicle_label}
                   onChange={(e) => setForm({ ...form, vehicle_label: e.target.value })}
-                  placeholder="Hyundai i20 Â· KA01AB1234"
+                  placeholder="Hyundai i20 · KA01AB1234"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -267,15 +271,23 @@ function WashPage() {
               </div>
             </div>
 
+            {service && (
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between"><span>{service.name}</span><span className="tabular-nums">{currency(service.price)}</span></div>
+                <div className="mt-1.5"><ChargeLines base={Number(service.price)} coupon={coupon} /></div>
+                <div className="mt-3"><CouponField value={coupon} onChange={setCoupon} /></div>
+              </div>
+            )}
+
             <div className="mt-4 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
               <MapPin className="mb-1 h-3.5 w-3.5" />
               No payment now. Once our team confirms a washer partner for your slot, pay from your wallet or by card on the
-              â€œMy washesâ€ page.
+              “My washes” page.
             </div>
 
             {user ? (
               <Button className="mt-4 w-full" disabled={saving || !service} onClick={submit}>
-                {saving ? "Requestingâ€¦" : "Request this slot"}
+                {saving ? "Requesting…" : "Request this slot"}
               </Button>
             ) : (
               <Button asChild className="mt-4 w-full">

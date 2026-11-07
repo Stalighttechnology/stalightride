@@ -248,12 +248,12 @@ describe("M10: Driver dashboard localhost and acceptance tests (DD-01 to DD-04)"
   test("DD-04: Total-earnings card equals the sum of paid and completed hires", () => {
     const { be, customer, driver } = setupDriver();
 
-    // 1. Confirmed and paid hire (₹3,000) -> counted in earnings
+    // 1. Confirmed and paid hire (₹3,000 for 2 days) -> counted in earnings
     const hirePaid = be.hireDriver({
       customer_id: customer,
       driver_id: driver.id,
       start_date: "2026-08-20",
-      end_date: "2026-08-20",
+      end_date: "2026-08-21",
       total_price: 3000,
     });
     be.driverDecide(driver.id, hirePaid.id, "confirmed");

@@ -138,7 +138,7 @@ describe("host accept / decline and payment", () => {
     be.payBookingWithWallet(customer, b.id);
     expect(be.wallet.balance(customer)).toBe(0);
     expect(() => be.payBookingWithWallet(customer, b.id)).toThrow(/Already paid/);
-    expect(be.wallet.txns(customer).filter((t) => t.kind === "booking")).toHaveLength(1);
+    expect(be.wallet.txns(customer).filter((t) => t.kind === "booking_payment")).toHaveLength(1);
   });
 });
 
@@ -201,10 +201,10 @@ describe("rental cancellation refunds", () => {
       start_date: "2026-08-20",
       end_date: "2026-08-21",
       pickup_time: "12:00",
-      total_price: 2000,
+      total_price: 1, // ignored: the backend reprices to 2 days x 1200 + 2000 deposit
     });
     s.be.hostDecide(s.host, b.id, "confirmed");
-    s.be.wallet.topup(s.customer, 2000);
+    s.be.wallet.topup(s.customer, b.total_price);
     s.be.payBookingWithWallet(s.customer, b.id);
     return { ...s, b };
   };
@@ -213,26 +213,30 @@ describe("rental cancellation refunds", () => {
     const { be, customer, b } = paid();
     be.setNow("2026-08-18T12:00:00Z");
     const { refund, percent } = be.cancelBooking(customer, b.id);
+    expect(b.total_price).toBe(4400);
     expect(percent).toBe(100);
-    expect(refund).toBe(2000);
-    expect(be.wallet.balance(customer)).toBe(2000);
+    expect(refund).toBe(4400);
+    expect(be.wallet.balance(customer)).toBe(4400);
   });
 
   test("half refund between 2 and 24 hours", () => {
-    const { be, customer, b } = paid();
+    const { be, customer, host, b } = paid();
     be.setNow("2026-08-20T02:00:00Z");
     const { refund, percent } = be.cancelBooking(customer, b.id);
     expect(percent).toBe(50);
-    expect(refund).toBe(1000);
+    // deposit back in full + half of the 2400 rent; the host keeps the other half
+    expect(refund).toBe(3200);
+    expect(be.wallet.balance(host)).toBe(1200);
   });
 
-  test("no refund inside 2 hours", () => {
-    const { be, customer, b } = paid();
+  test("inside 2 hours only the deposit comes back", () => {
+    const { be, customer, host, b } = paid();
     be.setNow("2026-08-20T11:00:00Z");
     const { refund, percent } = be.cancelBooking(customer, b.id);
     expect(percent).toBe(0);
-    expect(refund).toBe(0);
-    expect(be.wallet.balance(customer)).toBe(0);
+    expect(refund).toBe(2000);
+    expect(be.wallet.balance(customer)).toBe(2000);
+    expect(be.wallet.balance(host)).toBe(2400);
   });
 
   test("unpaid cancellation refunds nothing and cannot be repeated", () => {

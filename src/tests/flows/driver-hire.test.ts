@@ -267,8 +267,8 @@ describe("driver hire cancellation refunds", () => {
       customer_id: customer,
       driver_id: driver.id,
       start_date: "2026-08-20",
-      end_date: "2026-08-20",
-      total_price: 3000,
+      end_date: "2026-08-21",
+      total_price: 1, // ignored: repriced to 2 days x 1500
     });
     be.driverDecide(driver.id, b.id, "confirmed");
     be.wallet.topup(customer, 3000);
@@ -284,12 +284,13 @@ describe("driver hire cancellation refunds", () => {
   });
 
   test("half refund inside 24h", () => {
-    const { be, customer, b } = paid();
+    const { be, customer, driver, b } = paid();
     be.setNow("2026-08-19T06:00:00Z");
     const res = be.cancelDriverBooking(customer, b.id);
     expect(res.percent).toBe(50);
     expect(res.refund).toBe(1500);
-    expect(res.booking.payment_status).toBe("refunded");
+    expect(res.booking.payment_status).toBe("partially_refunded");
+    expect(be.wallet.balance(driver.id)).toBe(1500);
   });
 
   test("no refund inside 2h and no double cancellation", () => {

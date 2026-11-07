@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { VehicleMap } from "@/components/vehicle-map";
+import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { toast } from "sonner";
 import {
   Star, MapPin, Users, Fuel, Cog, Gauge, Heart, ShieldCheck,
@@ -26,9 +27,9 @@ export const Route = createFileRoute("/vehicle/$id")({
   component: VehiclePage,
   head: () => ({
     meta: [
-      { title: "Vehicle rental details â€” Synchoo" },
+      { title: "Vehicle rental details — Synchoo" },
       { name: "description", content: "View verified vehicle details, pricing, pickup location, reviews, and secure booking options on Synchoo." },
-      { property: "og:title", content: "Vehicle rental details â€” Synchoo" },
+      { property: "og:title", content: "Vehicle rental details — Synchoo" },
       { property: "og:description", content: "Check vehicle photos, verified host details, exact pickup map, and rental rates before booking." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -51,11 +52,9 @@ function VehiclePage() {
   const [pickupTime, setPickupTime] = useState("10:00");
   const [dropoffTime, setDropoffTime] = useState("10:00");
   const [notes, setNotes] = useState("");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [booking, setBooking] = useState(false);
   const [wished, setWished] = useState(false);
-  const [coupon, setCoupon] = useState("");
-  const [discount, setDiscount] = useState(0);
-  const [couponApplied, setCouponApplied] = useState(false);
 
 
   useEffect(() => {
@@ -106,9 +105,6 @@ function VehiclePage() {
     priceWeekly: v.price_weekly,
   }) : calculateRentalPrice({ startDate: "", endDate: "", pickupTime: "", dropoffTime: "" }), [dropoffTime, end, pickupTime, start, v]);
   const subtotal = priceBreakdown.subtotal;
-  const gst = Math.round(subtotal * 0.18);
-  const serviceFee = Math.round(subtotal * 0.05);
-  const total = subtotal + gst + serviceFee - discount + (v ? Number(v.security_deposit) : 0);
 
   const dlOk = myProfile?.dl_status === "approved";
   const isOwner = user?.id === v?.vendor_id;
@@ -132,11 +128,12 @@ function VehiclePage() {
         dropoff_time: dropoffTime,
         base_price: subtotal,
         security_deposit: v.security_deposit,
-        total_price: total,
+        // Money columns are recalculated by the database (tg_price_booking).
+        total_price: subtotal + Number(v.security_deposit),
+        coupon_code: coupon?.code ?? null,
         status: "pending",
         qr_code: qrPayload,
         notes: notes || null,
-        ...(discount > 0 ? { coupon_discount: discount } : {}),
       } as any);
       if (error) throw error;
       toast.success("Booking requested! The host will confirm shortly.");
@@ -157,22 +154,6 @@ function VehiclePage() {
     }
   };
 
-  const applyCoupon = async () => {
-    if (!coupon.trim()) return;
-    try {
-      const { data, error } = await supabase.rpc("validate_coupon" as any, { _code: coupon.trim().toUpperCase(), _amount: subtotal });
-      if (error) throw error;
-      if (data && (data as any).discount > 0) {
-        setDiscount((data as any).discount);
-        setCouponApplied(true);
-        toast.success("Coupon applied!");
-      } else {
-        toast.error("Invalid or expired coupon");
-      }
-    } catch {
-      toast.error("Invalid or expired coupon");
-    }
-  };
 
   if (!v) return (
     <div className="min-h-screen bg-background"><SiteHeader />
@@ -208,11 +189,11 @@ function VehiclePage() {
           <div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />{v.city}
-              <span>Â·</span>
+              <span>·</span>
               <Star className="h-3.5 w-3.5 fill-foreground text-foreground" />{Number(v.avg_rating).toFixed(1)} ({v.review_count})
             </div>
             <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
-            <p className="text-sm text-muted-foreground">{v.brand} {v.model} Â· {v.year}</p>
+            <p className="text-sm text-muted-foreground">{v.brand} {v.model} · {v.year}</p>
           </div>
           <Button variant="outline" size="sm" onClick={toggleWish}>
             <Heart className={`mr-2 h-4 w-4 ${wished ? "fill-foreground text-foreground" : ""}`} />
@@ -224,7 +205,7 @@ function VehiclePage() {
           <div className={`mb-4 rounded-lg border p-3 text-sm ${v.verification_status === "rejected" ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
             {v.verification_status === "rejected"
               ? <>Listing rejected: {v.rejection_reason ?? "Please update your documents."}</>
-              : "Listing under verification â€” it will be visible to renters once approved."}
+              : "Listing under verification — it will be visible to renters once approved."}
           </div>
         )}
 
@@ -272,8 +253,8 @@ function VehiclePage() {
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Spec icon={Cog} label="Transmission" value={v.transmission} />
               <Spec icon={Fuel} label="Fuel" value={v.fuel} />
-              <Spec icon={Users} label="Seats" value={v.seats ?? "â€”"} />
-              <Spec icon={Gauge} label="Mileage" value={v.mileage_kmpl ? `${v.mileage_kmpl} kmpl` : "â€”"} />
+              <Spec icon={Users} label="Seats" value={v.seats ?? "—"} />
+              <Spec icon={Gauge} label="Mileage" value={v.mileage_kmpl ? `${v.mileage_kmpl} kmpl` : "—"} />
             </div>
 
             <section className="mt-6 rounded-2xl border border-border bg-card p-6">
@@ -400,7 +381,7 @@ function VehiclePage() {
                     rows={2}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Pickup landmark, delivery request, anything elseâ€¦"
+                    placeholder="Pickup landmark, delivery request, anything else…"
                     className="resize-none rounded-2xl bg-card/60 text-sm"
                   />
                 </div>
@@ -419,19 +400,12 @@ function VehiclePage() {
                           <Row label={line.label} value={currency(line.value)} />
                         </div>
                       ))}
-                      <Row label="GST (18%)" value={currency(gst)} />
-                      <Row label="Platform fee (5%)" value={currency(serviceFee)} />
-                      {couponApplied && discount > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Coupon discount</span>
-                          <span className="text-green-600 font-medium">-{currency(discount)}</span>
-                        </div>
-                      )}
-                      <Row label="Refundable deposit" value={currency(v.security_deposit)} />
                     </div>
-                    <div className="mt-3 flex items-baseline justify-between border-t border-border/70 pt-3">
-                      <span className="text-sm font-medium">Total payable</span>
-                      <span className="font-display text-xl font-bold">{currency(total)}</span>
+                    <div className="mt-1.5">
+                      <ChargeLines base={subtotal} deposit={Number(v.security_deposit)} coupon={coupon} />
+                    </div>
+                    <div className="mt-3">
+                      <CouponField value={coupon} onChange={setCoupon} />
                     </div>
                   </div>
                 ) : (
@@ -452,31 +426,13 @@ function VehiclePage() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <Input
-                    value={coupon}
-                    onChange={(e) => setCoupon(e.target.value)}
-                    placeholder="Coupon code"
-                    className="h-10 rounded-2xl bg-card/60 text-sm uppercase"
-                    disabled={couponApplied}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={applyCoupon}
-                    disabled={couponApplied || !coupon.trim()}
-                    className="h-10 shrink-0 rounded-2xl"
-                  >
-                    Apply
-                  </Button>
-                </div>
                 <Button
                   onClick={book}
                   disabled={booking || !start || !end || (!!user && !dlOk)}
                   className="btn-gradient group h-12 w-full rounded-2xl text-base"
                 >
                   {booking ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending requestâ€¦</>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending request…</>
                   ) : user ? (
                     dlOk
                       ? <>Request to book<ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" /></>
@@ -586,9 +542,9 @@ function ReviewItem({ r, isOwner, userId, onChange }: { r: any; isOwner: boolean
         <div className="mt-2">
           {editing || !r.vendor_response ? (
             <div className="space-y-2">
-              <Textarea rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply as the hostâ€¦" />
+              <Textarea rows={2} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply as the host…" />
               <div className="flex gap-2">
-                <Button size="sm" onClick={submitReply} disabled={saving}>{saving ? "Postingâ€¦" : "Post reply"}</Button>
+                <Button size="sm" onClick={submitReply} disabled={saving}>{saving ? "Posting…" : "Post reply"}</Button>
                 {editing && <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setReply(r.vendor_response ?? ""); }}>Cancel</Button>}
               </div>
             </div>
@@ -654,9 +610,9 @@ function WriteReviewBox({ vehicleId, userId, reviews, onCreated }: { vehicleId: 
           </button>
         ))}
       </div>
-      <Textarea rows={3} className="mt-2" placeholder="Share how the ride wentâ€¦" value={comment} onChange={(e) => setComment(e.target.value)} />
+      <Textarea rows={3} className="mt-2" placeholder="Share how the ride went…" value={comment} onChange={(e) => setComment(e.target.value)} />
       <div className="mt-2 flex justify-end">
-        <Button size="sm" onClick={submit} disabled={submitting}>{submitting ? "Postingâ€¦" : "Post review"}</Button>
+        <Button size="sm" onClick={submit} disabled={submitting}>{submitting ? "Posting…" : "Post review"}</Button>
       </div>
     </div>
   );

@@ -156,14 +156,14 @@ export function NotificationBell({ className }: { className?: string }) {
         }
       }
 
-      /* 3. Payout received — payouts status changed to 'paid' in last 7 days */
+      /* 3. Payout received — withdrawals marked paid in the last 7 days */
       const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000).toISOString();
-      const { data: payouts } = await (supabase as any)
-        .from("payouts")
-        .select("id,amount,created_at")
-        .eq("vendor_id", user.id)
+      const { data: payouts } = await supabase
+        .from("withdrawals")
+        .select("id,amount,created_at:processed_at")
+        .eq("user_id", user.id)
         .eq("status", "paid")
-        .gte("created_at", sevenDaysAgo)
+        .gte("processed_at", sevenDaysAgo)
         .order("created_at", { ascending: false })
         .limit(3);
 

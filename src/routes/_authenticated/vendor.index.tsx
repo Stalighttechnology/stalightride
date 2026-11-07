@@ -161,11 +161,11 @@ function VendorDashboard() {
     setBookings(bks ?? []);
     if (vend) { setBusinessName(vend.business_name); setBio(vend.bio ?? ""); }
 
-    // Payouts
+    // Withdrawals (money phase 1 — admin-approved payouts)
     const { data: pts } = await supabase
-      .from("payouts")
+      .from("withdrawals")
       .select("*")
-      .eq("vendor_id", user.id)
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(20);
     setPayouts(pts ?? []);
@@ -209,19 +209,22 @@ function VendorDashboard() {
     kyc_status: "approved",
   };
 
-  const displayVehicles = (vehicles && vehicles.length > 0) ? vehicles : SAMPLE_VEHICLES;
-  const displayBookings = (bookings && bookings.length > 0) ? bookings : SAMPLE_BOOKINGS;
-  const displayPayouts = (payouts && payouts.length > 0) ? payouts : SAMPLE_PAYOUTS;
-  const displayReviews = (vendorReviews && vendorReviews.length > 0) ? vendorReviews : SAMPLE_REVIEWS;
+  // Sample data is only for visitors who haven't registered as a host yet;
+  // a real host with no bookings must see zeros, not fake numbers.
+  const displayVehicles = isDemo ? SAMPLE_VEHICLES : (vehicles ?? []);
+  const displayBookings = isDemo ? SAMPLE_BOOKINGS : (bookings ?? []);
+  const displayPayouts = isDemo ? SAMPLE_PAYOUTS : (payouts ?? []);
+  const displayReviews = isDemo ? SAMPLE_REVIEWS : (vendorReviews ?? []);
 
+  // Net of commission; excludes customer fees and deposits.
   const earnings = displayBookings
-    .filter((b: any) => b.payment_status === "paid" || b.status === "completed" || b.status === "confirmed")
-    .reduce((s: number, b: any) => s + Number(b.total_price), 0);
+    .filter((b: any) => b.payment_status === "paid" || b.payment_status === "partially_refunded")
+    .reduce((s: number, b: any) => s + Number(b.provider_earning ?? b.total_price ?? 0), 0);
 
   const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
     ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
-    : 4.9;
+    : isDemo ? 4.9 : 0;
 
   const sidebarNavItems = [
     { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(displayVehicles.length) },
@@ -523,19 +526,27 @@ function VendorDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-brand" /> Host Payout Transfers
+                      <Wallet className="h-4 w-4 text-brand" /> Withdrawals
                     </CardTitle>
-                    <CardDescription>Earnings are credited directly to your registered bank account after check-out</CardDescription>
+                    <CardDescription>
+                      Earnings are credited to your wallet when each trip completes. Withdraw them from the{" "}
+                      <Link to="/wallet" className="underline">Wallet</Link>.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
+                    {displayPayouts.length === 0 && <p className="text-sm text-muted-foreground">No withdrawals yet.</p>}
                     <ul className="divide-y divide-border">
                       {displayPayouts.map((p: any) => (
                         <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-emerald-600">{currency(p.amount)}</p>
-                            <p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(p.created_at).toLocaleDateString()}
+                              {p.method && ` · ${p.method === "upi" ? p.upi_id : "Bank transfer"}`}
+                              {p.reference && ` · Ref ${p.reference}`}
+                            </p>
                           </div>
-                          <Badge variant="outline" className="text-[10px]">{p.status}</Badge>
+                          <Badge variant={p.status === "paid" ? "secondary" : p.status === "rejected" ? "destructive" : "outline"} className="text-[10px]">{p.status}</Badge>
                         </li>
                       ))}
                     </ul>

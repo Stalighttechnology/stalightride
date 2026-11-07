@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,10 +34,37 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
   const [selectedHours, setSelectedHours] = useState<number>(6);
   const [extensionNote, setExtensionNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [ext, setExt] = useState<Tables<"booking_extensions"> | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // Approximate hourly rate from total or vehicle
-  const hourlyRate = Math.max(100, Math.round(Number(booking.total_price || 1200) / 24));
-  const estimatedCost = selectedHours * hourlyRate;
+  const tripActive =
+    !!booking.pickup_checked_at && !booking.return_checked_at &&
+    booking.status === "confirmed" && booking.payment_status === "paid";
+  const openExt = ext && (ext.status === "pending" || ext.status === "accepted") ? ext : null;
+
+  const loadExtension = async () => {
+    const { data } = await supabase
+      .from("booking_extensions")
+      .select("*")
+      .eq("booking_id", booking.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setExt(data);
+  };
+
+  useEffect(() => { loadExtension(); }, [booking.id, booking.end_date, booking.dropoff_time]);
+
+  // All extension actions are server RPCs: price, availability and the wallet debit are decided there.
+  const runExtensionAction = async (fn: () => PromiseLike<{ error: { message: string } | null }>, done: string) => {
+    setBusy(true);
+    const { error } = await fn();
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(done);
+    await loadExtension();
+    onExtensionSubmitted?.();
+  };
 
   const handleTriggerSOS = (kind: "police" | "synchoo" | "ambulance" | "breakdown") => {
     if (navigator.geolocation) {
@@ -66,13 +95,17 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
   const handleRequestExtension = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // Simulate extension request submitted to host
-    setTimeout(() => {
-      setSubmitting(false);
-      setExtendOpen(false);
-      toast.success(`Trip extension request (+${selectedHours}h for ${currency(estimatedCost)}) sent to host!`);
-      if (onExtensionSubmitted) onExtensionSubmitted();
-    }, 500);
+    const { error } = await supabase.rpc("request_booking_extension", {
+      _booking_id: booking.id,
+      _hours: selectedHours,
+      _note: extensionNote.trim() || undefined,
+    });
+    setSubmitting(false);
+    if (error) return toast.error(error.message);
+    setExtendOpen(false);
+    setExtensionNote("");
+    toast.success(`Extension request (+${selectedHours}h) sent to your host`);
+    await loadExtension();
   };
 
   return (
@@ -92,7 +125,7 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {role === "customer" && (
+          {role === "customer" && tripActive && !openExt && (
             <Button
               size="sm"
               variant="outline"
@@ -113,6 +146,51 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
           </Button>
         </div>
       </div>
+
+      {openExt && (role === "customer" || role === "vendor") && (
+        <Card className="border-brand/30">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="min-w-0 text-sm">
+              <p className="font-semibold">
+                Trip extension +{openExt.hours}h{" "}
+                <Badge variant={openExt.status === "accepted" ? "secondary" : "outline"} className="ml-1 text-[10px]">
+                  {openExt.status === "pending" ? "Waiting for host" : "Accepted, awaiting payment"}
+                </Badge>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                New return {new Date(`${openExt.new_end_date}T${openExt.new_dropoff_time}`).toLocaleString()} ·{" "}
+                {currency(openExt.extra_total)} incl. fees{openExt.note ? ` · "${openExt.note}"` : ""}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {role === "vendor" && openExt.status === "pending" && (
+                <>
+                  <Button size="sm" disabled={busy}
+                    onClick={() => runExtensionAction(() => supabase.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: true }), "Extension accepted")}>
+                    Accept
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={busy}
+                    onClick={() => runExtensionAction(() => supabase.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: false }), "Extension declined")}>
+                    Decline
+                  </Button>
+                </>
+              )}
+              {role === "customer" && openExt.status === "accepted" && (
+                <Button size="sm" disabled={busy}
+                  onClick={() => runExtensionAction(() => supabase.rpc("wallet_pay_extension", { _extension_id: openExt.id }), "Paid. Your trip is extended")}>
+                  Pay {currency(openExt.extra_total)} from wallet
+                </Button>
+              )}
+              {role === "customer" && (
+                <Button size="sm" variant="ghost" disabled={busy}
+                  onClick={() => runExtensionAction(() => supabase.rpc("cancel_booking_extension", { _extension_id: openExt.id }), "Extension request withdrawn")}>
+                  Withdraw
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pre-pickup Document Checklist (if pickup has not taken place yet) */}
       {!booking.pickup_odometer && (
@@ -254,16 +332,17 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
                 <span className="text-muted-foreground">Additional Time:</span>
                 <span className="font-semibold">+{selectedHours} Hours</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Estimated Extension Fee:</span>
-                <span className="font-semibold text-brand">{currency(estimatedCost)}</span>
-              </div>
+              <p className="text-muted-foreground">
+                The price is calculated from this vehicle's rates, plus fees. You'll see the exact amount once
+                the host accepts, and pay from your wallet.
+              </p>
             </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs">Reason / Note for Host (Optional)</Label>
               <Textarea
                 rows={2}
+                maxLength={500}
                 value={extensionNote}
                 onChange={(e) => setExtensionNote(e.target.value)}
                 placeholder="Running late due to expressway traffic..."
