@@ -306,3 +306,4 @@ describe("M12: Car pooling localhost integration and acceptance tests (PL-01 to 
     ).toThrow(/This trip has already departed/i);
   });
 });
+
