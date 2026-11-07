@@ -331,6 +331,7 @@ export type Database = {
           start_time: string
           status: Database["public"]["Enums"]["booking_status"]
           total_price: number
+          trip_type: string | null
           updated_at: string
         }
         Insert: {
@@ -359,6 +360,7 @@ export type Database = {
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
           total_price: number
+          trip_type?: string | null
           updated_at?: string
         }
         Update: {
@@ -387,6 +389,7 @@ export type Database = {
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
           total_price?: number
+          trip_type?: string | null
           updated_at?: string
         }
         Relationships: [

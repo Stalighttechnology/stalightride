@@ -1361,6 +1361,7 @@ CREATE TABLE public.driver_bookings (
   hours NUMERIC NOT NULL DEFAULT 0,
   days INTEGER NOT NULL DEFAULT 1,
   pickup_address TEXT,
+  trip_type TEXT,
   notes TEXT,
   total_price NUMERIC NOT NULL,
   status booking_status NOT NULL DEFAULT 'pending',

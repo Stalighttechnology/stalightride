@@ -191,6 +191,7 @@ function HiresPage() {
                   <div>📅 {b.start_date}{b.end_date !== b.start_date ? ` → ${b.end_date}` : ""}</div>
                   <div>🕒 {String(b.start_time).slice(0, 5)} → {String(b.end_time).slice(0, 5)}</div>
                   <div>🧾 {b.rate_type === "hourly" ? `${b.hours} hour(s)` : `${b.days} day(s)`}</div>
+                  {b.trip_type && <div>🚗 <span className="capitalize">{b.trip_type}</span> trip</div>}
                   {b.pickup_address && <div>📍 {b.pickup_address}</div>}
                 </div>
                 <p className="mt-1 text-sm">Total: <span className="font-semibold">{currency(b.total_price)}</span></p>

@@ -315,7 +315,10 @@ function DriverDashboard() {
                     <Card key={h.id}><CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                            {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                           </p>
@@ -347,7 +350,10 @@ function DriverDashboard() {
                     <Card key={h.id}><CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{currency(h.total_price)}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{currency(h.total_price)}</p>
+                            {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""}
                           </p>
@@ -397,7 +403,10 @@ function DriverDashboard() {
                   <Card key={h.id}><CardContent className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                         </p>

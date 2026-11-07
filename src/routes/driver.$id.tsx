@@ -119,11 +119,11 @@ function DriverProfile() {
     if (!user) return navigate({ to: "/auth" });
     if (price.error || price.subtotal <= 0) return toast.error(price.error ?? "Choose a valid duration");
     setSubmitting(true);
-    const combinedNotes = `[Trip: ${tripType.toUpperCase()}] ${notes ? notes : ""}`.trim();
     const { error } = await supabase.from("driver_bookings").insert({
       driver_id: id,
       customer_id: user.id,
       rate_type: rateType,
+      trip_type: tripType,
       start_date: startDate,
       end_date: rateType === "hourly" ? startDate : endDate,
       start_time: startTime,
@@ -131,12 +131,12 @@ function DriverProfile() {
       hours: price.hours,
       days: price.days,
       pickup_address: pickupAddress || null,
-      notes: combinedNotes || null,
+      notes: notes.trim() || null,
       total_price: price.subtotal,
     });
     setSubmitting(false);
     if (error) return toast.error(error.message);
-    toast.success("Request sent â€” you'll pay once the driver accepts");
+    toast.success("Request sent — you'll pay once the driver accepts");
     navigate({ to: "/hires" });
   };
 

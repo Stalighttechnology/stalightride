@@ -206,3 +206,40 @@ describe("driver hire cancellation refunds", () => {
     expect(() => be.cancelDriverBooking(stranger, b.id)).toThrow(/Not your hire/);
   });
 });
+
+describe("driver trip types and service area (Task 2.2)", () => {
+  test("DH-11: hiring a driver stores trip_type in its own column on the booking", () => {
+    const { be, admin, customer, driver } = setup();
+    be.verifyDriver(admin, driver.id, "approved");
+    const b = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+      trip_type: "airport",
+    });
+    expect(b.trip_type).toBe("airport");
+  });
+
+  test("DO-03: filtering drivers by trip type returns only drivers supporting it", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const admin = be.registerAdmin();
+
+    const d1 = be.enrollDriver(200, 1500, ["airport", "outstation"], "Bengaluru + 100 km");
+    const d2 = be.enrollDriver(250, 1800, ["corporate", "events"], "Electronic City");
+    const d3 = be.enrollDriver(220, 1600, ["outstation"], "Whitefield");
+
+    be.verifyDriver(admin, d1.id, "approved");
+    be.verifyDriver(admin, d2.id, "approved");
+    be.verifyDriver(admin, d3.id, "approved");
+
+    const airportDrivers = be.searchDrivers({ trip_type: "Airport" });
+    expect(airportDrivers.map((d) => d.id)).toEqual([d1.id]);
+
+    const outstationDrivers = be.searchDrivers({ trip_type: "outstation" });
+    expect(outstationDrivers.map((d) => d.id)).toEqual([d1.id, d3.id]);
+
+    const areaDrivers = be.searchDrivers({ service_area: "Electronic City" });
+    expect(areaDrivers.map((d) => d.id)).toEqual([d2.id]);
+  });
+});

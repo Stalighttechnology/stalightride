@@ -55,6 +55,8 @@ export type Driver = {
   daily_rate: number;
   status: "draft" | "active" | "paused";
   verification_status: "pending" | "approved" | "rejected";
+  trip_types?: string[];
+  service_area?: string;
 };
 
 export type DriverBooking = {
@@ -67,6 +69,7 @@ export type DriverBooking = {
   status: BookingStatus;
   payment_status: PaymentStatus;
   refund_amount: number;
+  trip_type?: string;
 };
 
 export type PoolTrip = {
@@ -314,13 +317,15 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
 
     /* ---------- driver hire ---------- */
-    enrollDriver(hourly = 200, daily = 1500) {
+    enrollDriver(hourly = 200, daily = 1500, trip_types: string[] = [], service_area?: string) {
       const d: Driver = {
         id: id("drv"),
         hourly_rate: hourly,
         daily_rate: daily,
         status: "active",
         verification_status: "pending",
+        trip_types,
+        service_area,
       };
       drivers.set(d.id, d);
       return d;
@@ -330,10 +335,22 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       drivers.get(driver_id)!.verification_status = decision;
       return drivers.get(driver_id)!;
     },
-    searchDrivers() {
-      return [...drivers.values()].filter((d) => d.status === "active" && d.verification_status === "approved");
+    searchDrivers(filters?: { trip_type?: string; service_area?: string }) {
+      return [...drivers.values()].filter((d) => {
+        if (d.status !== "active" || d.verification_status !== "approved") return false;
+        if (filters?.trip_type) {
+          const req = filters.trip_type.toLowerCase();
+          const has = (d.trip_types ?? []).some((t) => t.toLowerCase() === req);
+          if (!has) return false;
+        }
+        if (filters?.service_area) {
+          const req = filters.service_area.toLowerCase();
+          if (!d.service_area || !d.service_area.toLowerCase().includes(req)) return false;
+        }
+        return true;
+      });
     },
-    hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; total_price?: number }) {
+    hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; total_price?: number; trip_type?: string }) {
       const d = drivers.get(args.driver_id);
       if (!d || d.verification_status !== "approved" || d.status !== "active")
         throw new RuleError("This driver is not available");
@@ -354,6 +371,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         status: "pending",
         payment_status: "unpaid",
         refund_amount: 0,
+        trip_type: args.trip_type,
       };
       driverBookings.set(b.id, b);
       notify(d.id, "New driver hire request");
