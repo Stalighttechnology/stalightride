@@ -15,8 +15,14 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'wash_reviews') THEN
+    DROP POLICY IF EXISTS "Customers review their completed washes" ON public.wash_reviews;
+    DROP POLICY IF EXISTS "Customers write reviews for completed washes" ON public.wash_reviews;
+  END IF;
+END $$;
+
 ALTER TABLE public.wash_bookings
-  ALTER COLUMN status TYPE text,
   ADD COLUMN IF NOT EXISTS progress public.wash_status NOT NULL DEFAULT 'requested',
   ADD COLUMN IF NOT EXISTS before_photos text[] NOT NULL DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS after_photos text[] NOT NULL DEFAULT '{}',
