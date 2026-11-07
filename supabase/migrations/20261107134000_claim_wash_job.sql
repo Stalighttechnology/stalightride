@@ -115,3 +115,4 @@ CREATE POLICY "Wash bookings access policy" ON public.wash_bookings
       )
     )
   );
+

@@ -1498,6 +1498,7 @@ export type Database = {
         Row: {
           active: boolean
           address: string | null
+          avg_rating: number
           city: string
           closing_time: string
           contact_email: string | null
@@ -1508,12 +1509,14 @@ export type Database = {
           name: string
           opening_time: string
           rejection_reason: string | null
+          review_count: number
           updated_at: string
           verification_status: Database["public"]["Enums"]["verification_status"]
         }
         Insert: {
           active?: boolean
           address?: string | null
+          avg_rating?: number
           city?: string
           closing_time?: string
           contact_email?: string | null
@@ -1524,12 +1527,14 @@ export type Database = {
           name: string
           opening_time?: string
           rejection_reason?: string | null
+          review_count?: number
           updated_at?: string
           verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Update: {
           active?: boolean
           address?: string | null
+          avg_rating?: number
           city?: string
           closing_time?: string
           contact_email?: string | null
@@ -1540,6 +1545,7 @@ export type Database = {
           name?: string
           opening_time?: string
           rejection_reason?: string | null
+          review_count?: number
           updated_at?: string
           verification_status?: Database["public"]["Enums"]["verification_status"]
         }
@@ -1698,6 +1704,87 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      wash_reviews: {
+        Row: {
+          center_id: string | null
+          cleaner_id: string | null
+          comment: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          rating: number
+          response: string | null
+          response_at: string | null
+          updated_at: string
+          vendor_id: string | null
+          wash_booking_id: string
+        }
+        Insert: {
+          center_id?: string | null
+          cleaner_id?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating: number
+          response?: string | null
+          response_at?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+          wash_booking_id: string
+        }
+        Update: {
+          center_id?: string | null
+          cleaner_id?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating?: number
+          response?: string | null
+          response_at?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+          wash_booking_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_reviews_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "wash_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_cleaner_id_fkey"
+            columns: ["cleaner_id"]
+            isOneToOne: false
+            referencedRelation: "cleaners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "wash_vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_wash_booking_id_fkey"
+            columns: ["wash_booking_id"]
+            isOneToOne: true
+            referencedRelation: "wash_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wishlists: {
         Row: {

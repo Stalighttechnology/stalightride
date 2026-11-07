@@ -55,6 +55,8 @@ interface CleanerProfile {
   verification_status: "pending" | "approved" | "rejected";
   rejection_reason?: string | null;
   services: string[];
+  avg_rating: number;
+  review_count: number;
 }
 
 const DEFAULT_SERVICES = ["Doorstep Car Wash", "Bike Wash", "Interior Detailing", "Foam Wash & Wax"];
@@ -109,6 +111,8 @@ export function CleanerDashboard() {
           verification_status: cleanerData.verification_status,
           rejection_reason: cleanerData.rejection_reason,
           services: cleanerData.services && cleanerData.services.length > 0 ? cleanerData.services : DEFAULT_SERVICES,
+          avg_rating: Number(cleanerData.avg_rating) || 0,
+          review_count: cleanerData.review_count || 0,
         };
         setProfile(loaded);
         setFullName(loaded.full_name);
@@ -208,6 +212,8 @@ export function CleanerDashboard() {
       service_area: cleanerPayload.service_area || "",
       bio: cleanerPayload.bio || "",
       rejection_reason: profile?.rejection_reason || null,
+      avg_rating: profile?.avg_rating || 0,
+      review_count: profile?.review_count || 0,
     };
 
     setProfile(updatedProfile);
@@ -572,7 +578,9 @@ export function CleanerDashboard() {
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
               <span className="text-xs">Rating</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">4.9 / 5.0</p>
+            <p className="font-display text-2xl font-bold mt-1 text-foreground">
+              {Number(profile.avg_rating) > 0 ? `${Number(profile.avg_rating).toFixed(1)} / 5.0` : "New"}
+            </p>
           </Card>
         </div>
 

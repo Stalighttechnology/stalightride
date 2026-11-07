@@ -56,6 +56,8 @@ interface CenterProfile {
   active: boolean;
   verification_status: "pending" | "approved" | "rejected";
   rejection_reason?: string | null;
+  avg_rating: number;
+  review_count: number;
 }
 
 interface ServicePackage {
@@ -137,6 +139,8 @@ export function WashCenterDashboard() {
           active: centerData.active ?? false,
           verification_status: centerData.verification_status,
           rejection_reason: centerData.rejection_reason,
+          avg_rating: Number(centerData.avg_rating) || 0,
+          review_count: centerData.review_count || 0,
         };
         setCenter(loaded);
         setCenterName(loaded.name);
@@ -231,6 +235,8 @@ export function WashCenterDashboard() {
       contact_phone: centerPayload.contact_phone || "",
       contact_email: centerPayload.contact_email || "",
       rejection_reason: center?.rejection_reason || null,
+      avg_rating: center?.avg_rating || 0,
+      review_count: center?.review_count || 0,
     };
 
     setCenter(updatedProfile);
@@ -598,7 +604,9 @@ export function WashCenterDashboard() {
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
               <span className="text-xs">Rating Score</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">4.8 / 5.0</p>
+            <p className="font-display text-2xl font-bold mt-1 text-foreground">
+              {Number(center.avg_rating) > 0 ? `${Number(center.avg_rating).toFixed(1)} / 5.0` : "New"}
+            </p>
           </Card>
         </div>
 

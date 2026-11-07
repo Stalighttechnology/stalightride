@@ -71,6 +71,8 @@ export type Cleaner = {
   verification_status: "pending" | "approved" | "rejected";
   rejection_reason?: string | null;
   services: string[];
+  avg_rating: number;
+  review_count: number;
 };
 
 export type WashCenter = {
@@ -86,6 +88,19 @@ export type WashCenter = {
   active: boolean;
   verification_status: "pending" | "approved" | "rejected";
   rejection_reason?: string | null;
+  avg_rating: number;
+  review_count: number;
+};
+
+export type WashReview = {
+  id: string;
+  wash_booking_id: string;
+  customer_id: string;
+  cleaner_id?: string | null;
+  center_id?: string | null;
+  vendor_id?: string | null;
+  rating: number;
+  comment?: string | null;
 };
 
 export type WashCenterStaff = {
@@ -196,6 +211,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
   const washCenters = new Map<string, WashCenter>();
   const washCenterStaff = new Map<string, WashCenterStaff>();
   const washCenterPackages = new Map<string, WashCenterPackage>();
+  const washReviews = new Map<string, WashReview>();
   const userRoles = new Map<string, Set<string>>();
 
   const assignRole = (userId: string, role: string) => {
@@ -710,9 +726,11 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
 
     /* ---------- roles, cleaners & wash centers (Task 2.4) ---------- */
-    registerCleaner(profile: Omit<Cleaner, "verification_status">) {
+    registerCleaner(profile: Omit<Cleaner, "verification_status" | "avg_rating" | "review_count"> & { avg_rating?: number; review_count?: number }) {
       const cleaner: Cleaner = {
         ...profile,
+        avg_rating: profile.avg_rating ?? 0,
+        review_count: profile.review_count ?? 0,
         verification_status: "pending",
         rejection_reason: null,
       };
@@ -733,10 +751,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       }
       return c;
     },
-    registerWashCenter(profile: Omit<WashCenter, "verification_status" | "active">) {
+    registerWashCenter(profile: Omit<WashCenter, "verification_status" | "active" | "avg_rating" | "review_count"> & { avg_rating?: number; review_count?: number }) {
       const center: WashCenter = {
         ...profile,
         active: false,
+        avg_rating: profile.avg_rating ?? 0,
+        review_count: profile.review_count ?? 0,
         verification_status: "pending",
         rejection_reason: null,
       };
@@ -786,6 +806,62 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
     hasRole(userId: string, role: string) {
       return userRoles.get(userId)?.has(role) ?? false;
+    },
+
+    /* ---------- wash reviews (Task 2.6) ---------- */
+    reviewWash(customer_id: string, wash_booking_id: string, rating: number, comment?: string) {
+      const w = washes.get(wash_booking_id);
+      if (!w) throw new RuleError("Wash booking not found");
+      if (w.customer_id !== customer_id) throw new RuleError("Only the booking customer can write a review");
+      if (w.status !== "completed" && w.progress !== "completed") {
+        throw new RuleError("Only completed wash bookings can be reviewed");
+      }
+      if (washReviews.has(wash_booking_id)) {
+        throw new RuleError("Wash booking has already been reviewed");
+      }
+      if (rating < 1 || rating > 5) {
+        throw new RuleError("Rating must be between 1 and 5");
+      }
+
+      const cleaner_id = w.assigned_cleaner_id || null;
+      const center_id = w.assigned_vendor_id || null;
+
+      const rev: WashReview = {
+        id: id("wash_rev"),
+        wash_booking_id,
+        customer_id,
+        cleaner_id,
+        center_id,
+        rating,
+        comment: comment || null,
+      };
+      washReviews.set(wash_booking_id, rev);
+
+      // Trigger simulation: keep cleaner or center average rating up to date (WR-01)
+      if (cleaner_id) {
+        const cleaner = cleaners.get(cleaner_id);
+        if (cleaner) {
+          const revs = Array.from(washReviews.values()).filter((r) => r.cleaner_id === cleaner_id);
+          cleaner.review_count = revs.length;
+          const sum = revs.reduce((acc, curr) => acc + curr.rating, 0);
+          cleaner.avg_rating = Number((sum / revs.length).toFixed(2));
+        }
+      }
+
+      if (center_id) {
+        const center = washCenters.get(center_id);
+        if (center) {
+          const revs = Array.from(washReviews.values()).filter((r) => r.center_id === center_id);
+          center.review_count = revs.length;
+          const sum = revs.reduce((acc, curr) => acc + curr.rating, 0);
+          center.avg_rating = Number((sum / revs.length).toFixed(2));
+        }
+      }
+
+      return rev;
+    },
+    getWashReview(wash_booking_id: string) {
+      return washReviews.get(wash_booking_id);
     },
   };
 }

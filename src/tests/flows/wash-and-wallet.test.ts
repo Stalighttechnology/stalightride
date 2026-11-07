@@ -381,3 +381,117 @@ describe("cleaner job board & atomic job claim (CJ-01, CJ-02)", () => {
     expect(() => be.claimWashJob(mumbaiId, unconfirmed.id)).toThrow(/Only confirmed wash jobs can be claimed/);
   });
 });
+
+describe("wash reviews & rating trigger (WR-01, WR-02)", () => {
+  test("WR-01: Customer reviews a completed wash -> saved and provider average rating updates", () => {
+    const { be, admin, customer } = setup();
+
+    // 1. Setup cleaner
+    const cleanerId = be.registerCustomer();
+    be.registerCleaner({
+      id: cleanerId,
+      full_name: "Expert Cleaner",
+      city: "Bangalore",
+      experience_years: 3,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+    be.verifyCleaner(admin, cleanerId, "approved");
+    expect(be.getCleaner(cleanerId)?.avg_rating).toBe(0);
+    expect(be.getCleaner(cleanerId)?.review_count).toBe(0);
+
+    // First completed wash
+    const w1 = be.createConfirmedWash(customer, "2026-08-21", "Bangalore", 499);
+    be.claimWashJob(cleanerId, w1.id);
+    be.advanceWashStatus(cleanerId, w1.id, "on_the_way");
+    be.advanceWashStatus(cleanerId, w1.id, "started");
+    be.advanceWashStatus(cleanerId, w1.id, "completed", ["https://example.com/clean.jpg"]);
+
+    // Customer reviews first wash: 5 stars
+    const rev1 = be.reviewWash(customer, w1.id, 5, "Sparkling clean, punctual and professional!");
+    expect(rev1.rating).toBe(5);
+    expect(rev1.cleaner_id).toBe(cleanerId);
+
+    // Cleaner average rating updated
+    expect(be.getCleaner(cleanerId)?.avg_rating).toBe(5);
+    expect(be.getCleaner(cleanerId)?.review_count).toBe(1);
+
+    // Second completed wash by a second customer
+    const customer2 = be.registerCustomer();
+    const w2 = be.createConfirmedWash(customer2, "2026-08-22", "Bangalore", 499);
+    be.claimWashJob(cleanerId, w2.id);
+    be.advanceWashStatus(cleanerId, w2.id, "on_the_way");
+    be.advanceWashStatus(cleanerId, w2.id, "started");
+    be.advanceWashStatus(cleanerId, w2.id, "completed", ["https://example.com/clean2.jpg"]);
+
+    // Customer 2 reviews second wash: 4 stars
+    be.reviewWash(customer2, w2.id, 4, "Good job, minor spot on rim.");
+
+    // Cleaner average rating updated to (5 + 4) / 2 = 4.5
+    expect(be.getCleaner(cleanerId)?.avg_rating).toBe(4.5);
+    expect(be.getCleaner(cleanerId)?.review_count).toBe(2);
+
+    // 2. Setup wash center
+    const centerId = be.registerCustomer();
+    be.registerWashCenter({
+      id: centerId,
+      name: "AutoShine Express Bay",
+      city: "Bangalore",
+      daily_capacity: 15,
+    });
+    be.verifyWashCenter(admin, centerId, "approved");
+
+    const w3 = be.bookWash(customer, "2026-08-23", 699, "Bangalore");
+    be.adminDecideWash(admin, w3.id, "confirmed", centerId);
+    be.wallet.topup(customer, 699);
+    be.payWashWithWallet(customer, w3.id);
+    be.advanceWashStatus(centerId, w3.id, "on_the_way");
+    be.advanceWashStatus(centerId, w3.id, "started");
+    be.advanceWashStatus(centerId, w3.id, "completed", ["https://example.com/center_clean.jpg"]);
+
+    // Customer reviews wash center: 4 stars
+    be.reviewWash(customer, w3.id, 4, "Fast bay turnaround and great foam wash");
+    expect(be.getWashCenter(centerId)?.avg_rating).toBe(4);
+    expect(be.getWashCenter(centerId)?.review_count).toBe(1);
+  });
+
+  test("WR-02: Review an uncompleted wash, or review the same wash twice -> rejected", () => {
+    const { be, admin, customer } = setup();
+
+    const cleanerId = be.registerCustomer();
+    be.registerCleaner({
+      id: cleanerId,
+      full_name: "Pro Cleaner",
+      city: "Bangalore",
+      experience_years: 2,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+    be.verifyCleaner(admin, cleanerId, "approved");
+
+    const w = be.createConfirmedWash(customer, "2026-08-21", "Bangalore", 499);
+    be.claimWashJob(cleanerId, w.id);
+
+    // Try reviewing before completion (currently in "assigned" progress)
+    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(/Only completed wash bookings can be reviewed/);
+
+    be.advanceWashStatus(cleanerId, w.id, "on_the_way");
+    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(/Only completed wash bookings can be reviewed/);
+
+    be.advanceWashStatus(cleanerId, w.id, "started");
+    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(/Only completed wash bookings can be reviewed/);
+
+    // Complete the wash
+    be.advanceWashStatus(cleanerId, w.id, "completed", ["https://example.com/proof.jpg"]);
+
+    // Stranger tries to review customer's wash
+    const stranger = be.registerCustomer();
+    expect(() => be.reviewWash(stranger, w.id, 5)).toThrow(/Only the booking customer can write a review/);
+
+    // Customer reviews successfully
+    be.reviewWash(customer, w.id, 5, "Great experience!");
+
+    // Customer tries to review the same wash twice -> rejected (one per completed wash)
+    expect(() => be.reviewWash(customer, w.id, 4, "Trying to review again")).toThrow(/already been reviewed/);
+  });
+});
