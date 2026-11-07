@@ -142,6 +142,8 @@ export type DriverBooking = {
   customer_id: string;
   start_date: string;
   end_date: string;
+  start_time?: string;
+  end_time?: string;
   total_price: number;
   status: BookingStatus;
   payment_status: PaymentStatus;
@@ -518,7 +520,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       d.status = status;
       return d;
     },
-    hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; total_price?: number; trip_type?: string }) {
+    hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; start_time?: string; end_time?: string; total_price?: number; trip_type?: string }) {
       const d = drivers.get(args.driver_id);
       if (!d || d.verification_status !== "approved" || d.status !== "active")
         throw new RuleError("This driver is not available");
@@ -535,6 +537,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         customer_id: args.customer_id,
         start_date: args.start_date,
         end_date: args.end_date,
+        start_time: args.start_time,
+        end_time: args.end_time,
         total_price: args.total_price ?? d.daily_rate,
         status: "pending",
         payment_status: "unpaid",
@@ -587,7 +591,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         pct = 100;
         refund = b.payment_status === "paid" ? b.total_price : 0;
       } else {
-        pct = refundPercent(new Date(`${b.start_date}T00:00:00Z`), clock.now);
+        const timePart = b.start_time ? (b.start_time.length === 5 ? `${b.start_time}:00` : b.start_time.slice(0, 8)) : "00:00:00";
+        pct = refundPercent(new Date(`${b.start_date}T${timePart}Z`), clock.now);
         refund = b.payment_status === "paid" ? Math.round((b.total_price * pct) / 100) : 0;
       }
       if (refund > 0) {
