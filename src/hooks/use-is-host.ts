@@ -45,3 +45,4 @@ export function useIsHost() {
 
   return isHost;
 }
+
