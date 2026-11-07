@@ -1765,6 +1765,13 @@ export type Database = {
         Args: { _reason?: string; _wash_booking_id: string }
         Returns: Json
       }
+      claim_wash_job: {
+        Args: {
+          _wash_booking_id?: string
+          id?: string
+        }
+        Returns: Json
+      }
       delete_my_account_data: { Args: never; Returns: Json }
       has_pool_request_on_trip: { Args: { _trip_id: string }; Returns: boolean }
       has_role: {

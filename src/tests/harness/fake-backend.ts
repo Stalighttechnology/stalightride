@@ -152,6 +152,7 @@ export type WashBooking = {
   id: string;
   customer_id: string;
   slot_date: string;
+  city?: string;
   price: number;
   status: string;
   progress?: WashStatus;
@@ -566,11 +567,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
 
     /* ---------- vehicle wash ---------- */
-    bookWash(customer_id: string, slot_date: string, price = 499) {
+    bookWash(customer_id: string, slot_date: string, price = 499, city = "Bangalore") {
       const w: WashBooking = {
         id: id("wash"),
         customer_id,
         slot_date,
+        city,
         price,
         status: "pending",
         progress: "requested",
@@ -582,6 +584,56 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         refund_amount: 0,
       };
       washes.set(w.id, w);
+      return w;
+    },
+    createConfirmedWash(customer_id: string, slot_date: string, city = "Bangalore", price = 499) {
+      const w: WashBooking = {
+        id: id("wash"),
+        customer_id,
+        slot_date,
+        city,
+        price,
+        status: "confirmed",
+        progress: "confirmed",
+        before_photos: [],
+        after_photos: [],
+        payment_status: "paid",
+        assigned_vendor_id: null,
+        assigned_cleaner_id: null,
+        refund_amount: 0,
+      };
+      washes.set(w.id, w);
+      return w;
+    },
+    claimWashJob(cleaner_id: string, wash_id: string) {
+      const cleaner = cleaners.get(cleaner_id);
+      if (!cleaner) throw new RuleError("Cleaner profile not found");
+      if (cleaner.verification_status !== "approved") {
+        throw new RuleError("Only verified cleaners can claim jobs");
+      }
+
+      const w = washes.get(wash_id);
+      if (!w) throw new RuleError("Wash booking not found");
+
+      if (w.assigned_cleaner_id || w.assigned_vendor_id) {
+        throw new RuleError("This wash job is already assigned");
+      }
+
+      if (w.status !== "confirmed" && w.progress !== "confirmed") {
+        throw new RuleError("Only confirmed wash jobs can be claimed");
+      }
+
+      const cleanerCity = (cleaner.city || "Bangalore").trim().toLowerCase();
+      const jobCity = (w.city || "Bangalore").trim().toLowerCase();
+      if (cleanerCity !== jobCity) {
+        throw new RuleError(`Cleaner cannot claim jobs outside their operating city (cleaner city: ${cleaner.city}, job city: ${w.city})`);
+      }
+
+      // Atomic claim
+      w.assigned_cleaner_id = cleaner_id;
+      w.progress = "assigned";
+      w.status = "confirmed";
+      notify(w.customer_id, "Cleaner Assigned to Your Wash");
       return w;
     },
     adminDecideWash(actor: string, wash_id: string, decision: "confirmed" | "rejected", vendor_id?: string) {

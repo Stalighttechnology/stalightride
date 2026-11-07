@@ -124,20 +124,57 @@ export function CleanerDashboard() {
       }
 
       // 2. Load wash bookings
-      const { data: bData } = await supabase
-        .from("wash_bookings")
-        .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      const all = bData || [];
-      setAssignedJobs(all.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
-      setAvailableRequests(all.filter((b) => b.status === "pending" || b.progress === "requested"));
+      await refreshBookings(cleanerData?.city || "Bangalore");
       setLoading(false);
     };
 
     loadData();
   }, [user?.id]);
+
+  const refreshBookings = async (cleanerCity?: string) => {
+    const city = cleanerCity || profile?.city;
+    const { data: bData } = await supabase
+      .from("wash_bookings")
+      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    const all = bData || [];
+    setAssignedJobs(
+      all.filter(
+        (b) =>
+          b.assigned_cleaner_id === user?.id &&
+          ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)
+      )
+    );
+    // Unassigned confirmed wash jobs in the cleaner's operating city (CJ-01, CJ-02)
+    setAvailableRequests(
+      all.filter(
+        (b) =>
+          !b.assigned_cleaner_id &&
+          !b.assigned_vendor_id &&
+          (b.status === "confirmed" || b.progress === "confirmed") &&
+          (!city || b.city?.trim().toLowerCase() === city.trim().toLowerCase())
+      )
+    );
+  };
+
+  const claimJob = async (jobId: string) => {
+    if (!user) return;
+    setActiveJobId(jobId);
+    const { error } = await supabase.rpc("claim_wash_job", {
+      _wash_booking_id: jobId,
+    });
+    setActiveJobId(null);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Wash job claimed successfully! Added to your assigned queue.");
+    await refreshBookings();
+  };
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,17 +258,7 @@ export function CleanerDashboard() {
       completed: "Wash completed with proof photos! Payout queued.",
     };
     toast.success(msgs[nextStatus] || "Job status updated!");
-    
-    // Refresh bookings
-    const { data } = await supabase
-      .from("wash_bookings")
-      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (data) {
-      setAssignedJobs(data.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
-      setAvailableRequests(data.filter((b) => b.status === "pending" || b.progress === "requested"));
-    }
+    await refreshBookings();
   };
 
   const updateJobStatus = async (jobId: string, nextStatus: "confirmed" | "completed", note?: string) => {
@@ -254,16 +281,7 @@ export function CleanerDashboard() {
     }
 
     toast.success(nextStatus === "completed" ? "Wash marked as completed! Payout queued." : "Job status updated!");
-    // Refresh bookings
-    const { data } = await supabase
-      .from("wash_bookings")
-      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (data) {
-      setAssignedJobs(data.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
-      setAvailableRequests(data.filter((b) => b.status === "pending" || b.progress === "requested"));
-    }
+    await refreshBookings();
   };
 
   if (loading) {
@@ -658,9 +676,9 @@ export function CleanerDashboard() {
                     <Button
                       size="sm"
                       disabled={activeJobId === req.id}
-                      onClick={() => updateJobStatus(req.id, "confirmed", `Cleaner assigned: ${profile.full_name}`)}
+                      onClick={() => claimJob(req.id)}
                     >
-                      Accept Job
+                      {activeJobId === req.id ? "Claiming..." : "Claim Job"}
                     </Button>
                   </div>
                 </Card>

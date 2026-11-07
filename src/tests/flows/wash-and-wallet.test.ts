@@ -295,3 +295,89 @@ describe("roles, cleaner onboarding and wash centers (RL-01, RL-02, RL-03)", () 
     expect(device2Packages.map((p) => p.price)).toEqual([399, 299]);
   });
 });
+
+describe("cleaner job board & atomic job claim (CJ-01, CJ-02)", () => {
+  test("CJ-01: Two cleaners claim the same job at once -> exactly one succeeds", () => {
+    const { be, admin, customer } = setup();
+
+    // Register & approve cleaner 1 (Bangalore)
+    const c1 = be.registerCustomer();
+    be.registerCleaner({
+      id: c1,
+      full_name: "Cleaner Alpha",
+      city: "Bangalore",
+      experience_years: 2,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+    be.verifyCleaner(admin, c1, "approved");
+
+    // Register & approve cleaner 2 (Bangalore)
+    const c2 = be.registerCustomer();
+    be.registerCleaner({
+      id: c2,
+      full_name: "Cleaner Beta",
+      city: "Bangalore",
+      experience_years: 3,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+    be.verifyCleaner(admin, c2, "approved");
+
+    // Unassigned confirmed wash job in Bangalore
+    const job = be.createConfirmedWash(customer, "2026-08-22", "Bangalore", 499);
+    expect(job.status).toBe("confirmed");
+    expect(job.assigned_cleaner_id).toBeNull();
+
+    // Cleaner 1 claims the job -> succeeds
+    const claimed = be.claimWashJob(c1, job.id);
+    expect(claimed.assigned_cleaner_id).toBe(c1);
+    expect(claimed.progress).toBe("assigned");
+
+    // Cleaner 2 tries to claim the same job -> rejected (already assigned)
+    expect(() => be.claimWashJob(c2, job.id)).toThrow(/already assigned/);
+
+    // Cleaner 1 can now move it forward in pipeline
+    be.advanceWashStatus(c1, job.id, "on_the_way");
+    expect(job.progress).toBe("on_the_way");
+  });
+
+  test("CJ-02: Unverified cleaner, or a cleaner from another city, claims a job -> rejected", () => {
+    const { be, admin, customer } = setup();
+
+    // Unverified cleaner
+    const unverifiedId = be.registerCustomer();
+    be.registerCleaner({
+      id: unverifiedId,
+      full_name: "Unverified Worker",
+      city: "Bangalore",
+      experience_years: 1,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+
+    const job = be.createConfirmedWash(customer, "2026-08-22", "Bangalore", 499);
+
+    // Unverified cleaner claim is rejected
+    expect(() => be.claimWashJob(unverifiedId, job.id)).toThrow(/Only verified cleaners/);
+
+    // Verified cleaner from Mumbai tries to claim job in Bangalore
+    const mumbaiId = be.registerCustomer();
+    be.registerCleaner({
+      id: mumbaiId,
+      full_name: "Mumbai Cleaner",
+      city: "Mumbai",
+      experience_years: 2,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+    be.verifyCleaner(admin, mumbaiId, "approved");
+
+    // Rejected due to different city
+    expect(() => be.claimWashJob(mumbaiId, job.id)).toThrow(/outside their operating city/);
+
+    // Cannot claim unconfirmed job
+    const unconfirmed = be.bookWash(customer, "2026-08-23", 499, "Mumbai");
+    expect(() => be.claimWashJob(mumbaiId, unconfirmed.id)).toThrow(/Only confirmed wash jobs can be claimed/);
+  });
+});
