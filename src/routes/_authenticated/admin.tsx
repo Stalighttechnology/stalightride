@@ -671,13 +671,36 @@ function PayoutsQueue() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    const { data, error } = await supabase
+    const { data: rawPayouts, error } = await supabase
       .from("payouts")
-      .select("*, vendors:vendor_id(business_name)")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
-    if (error) toast.error(error.message);
-    setPayouts(data ?? []);
+
+    if (error) {
+      console.warn("Could not load payouts:", error.message);
+      setPayouts([]);
+      return;
+    }
+
+    const vendorIds = Array.from(new Set((rawPayouts ?? []).map((p: any) => p.vendor_id).filter(Boolean)));
+    const vendorMap: Record<string, string> = {};
+    if (vendorIds.length > 0) {
+      const { data: vends } = await supabase
+        .from("public_vendors" as any)
+        .select("id, business_name")
+        .in("id", vendorIds);
+      (vends ?? []).forEach((v: any) => {
+        vendorMap[v.id] = v.business_name;
+      });
+    }
+
+    setPayouts(
+      (rawPayouts ?? []).map((p: any) => ({
+        ...p,
+        vendors: { business_name: vendorMap[p.vendor_id] ?? p.vendor_id },
+      }))
+    );
   };
   useEffect(() => { load(); }, []);
 
@@ -745,7 +768,14 @@ function CouponsQueue() {
 
   const load = async () => {
     const { data, error } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
+    if (error) {
+      console.warn("Coupons load:", error.message);
+      if (!error.message.includes("permission denied")) {
+        toast.error(error.message);
+      }
+      setCoupons([]);
+      return;
+    }
     setCoupons(data ?? []);
   };
   useEffect(() => { load(); }, []);
