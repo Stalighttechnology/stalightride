@@ -18,7 +18,7 @@ if (typeof window !== "undefined") {
 }
 
 export function mapsBrowserKey(): string | undefined {
-  return import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+  return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
 }
 
 export function loadGoogleMaps(): Promise<void> {

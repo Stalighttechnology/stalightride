@@ -94,8 +94,8 @@ function Help() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-        <header className="max-w-2xl">
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+        <header className="max-w-2xl mb-8">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Help centre</p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Synchoo user manual
@@ -106,27 +106,71 @@ function Help() {
           </p>
         </header>
 
-        {/* Modules */}
-        <section className="mt-10" aria-labelledby="modules">
-          <h2 id="modules" className="font-display text-xl font-semibold">What's inside Synchoo</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {MODULES.map((m) => (
-              <Card key={m.title} className="glass">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <m.icon className="h-4 w-4 text-brand" aria-hidden /> {m.title}
-                  </CardTitle>
-                  <CardDescription>{m.desc}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="ghost" size="sm" className="px-0 text-brand hover:bg-transparent">
-                    <Link to={m.to}>Open</Link>
-                  </Button>
-                </CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Quick Jump Sidebar */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-20 space-y-4">
+              <Card className="p-4 bg-muted/40 border-border">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Guide Sections
+                </p>
+                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 text-xs font-medium">
+                  {[
+                    { label: "1. Getting started", href: "#start", icon: ShieldCheck },
+                    { label: "2. Vehicle rentals", href: "#rental", icon: Car },
+                    { label: "3. Driver hire", href: "#drivers", icon: UserRound },
+                    { label: "4. Car pooling", href: "#pooling", icon: Users },
+                    { label: "5. Vehicle wash", href: "#wash", icon: Droplets },
+                    { label: "6. Wallet & refunds", href: "#wallet", icon: Wallet },
+                    { label: "7. Rules & lifecycles", href: "#rules", icon: Star },
+                    { label: "8. Troubleshooting", href: "#trouble", icon: LifeBuoy },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0 text-brand" />
+                        <span>{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </nav>
               </Card>
-            ))}
-          </div>
-        </section>
+
+              <Card className="hidden lg:block p-3.5 text-xs text-muted-foreground bg-brand/5 border-brand/20">
+                <p className="font-semibold text-foreground mb-1">Need human support?</p>
+                Email our 24/7 care team at{" "}
+                <span className="font-mono text-foreground font-medium">care@synchoo.com</span>
+              </Card>
+            </div>
+          </aside>
+
+          {/* Main Manual Content */}
+          <div className="lg:col-span-3 space-y-12">
+            {/* Modules */}
+            <section aria-labelledby="modules">
+              <h2 id="modules" className="font-display text-xl font-semibold">What's inside Synchoo</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {MODULES.map((m) => (
+                  <Card key={m.title} className="glass">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <m.icon className="h-4 w-4 text-brand" aria-hidden /> {m.title}
+                      </CardTitle>
+                      <CardDescription>{m.desc}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button asChild variant="ghost" size="sm" className="px-0 text-brand hover:bg-transparent">
+                        <Link to={m.to}>Open</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
 
         {/* Getting started */}
         <section className="mt-12" aria-labelledby="start">
@@ -362,6 +406,8 @@ function Help() {
           <Button asChild variant="outline"><Link to="/bookings"><ReceiptText className="mr-2 h-4 w-4" />My trips & bills</Link></Button>
           <Button asChild variant="outline"><Link to="/data-deletion">Privacy & data controls</Link></Button>
         </section>
+          </div>
+        </div>
       </main>
 
     </div>

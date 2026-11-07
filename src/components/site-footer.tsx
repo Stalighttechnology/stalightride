@@ -8,6 +8,7 @@ const GROUPS: { title: string; links: { label: string; to: string }[] }[] = [
       { label: "Hire a driver", to: "/drivers" },
       { label: "Car pooling", to: "/pooling" },
       { label: "Vehicle wash", to: "/wash" },
+      { label: "Corporate travel", to: "/corporate" },
     ],
   },
   {
@@ -16,12 +17,17 @@ const GROUPS: { title: string; links: { label: string; to: string }[] }[] = [
       { label: "Earn with Synchoo", to: "/earn" },
       { label: "Host dashboard", to: "/vendor" },
       { label: "Driver dashboard", to: "/driver-dashboard" },
+      { label: "Cleaner dashboard", to: "/cleaner-dashboard" },
+      { label: "Washing center", to: "/wash-center-dashboard" },
       { label: "Wallet", to: "/wallet" },
     ],
   },
   {
     title: "Company",
     links: [
+      { label: "Corporate accounts", to: "/corporate" },
+      { label: "Safety Center", to: "/safety" },
+      { label: "Membership", to: "/membership" },
       { label: "Pitch & proposal", to: "/pitch" },
       { label: "User manual", to: "/help" },
       { label: "Account", to: "/account" },
