@@ -57,6 +57,9 @@ export type Driver = {
   verification_status: "pending" | "approved" | "rejected";
   trip_types?: string[];
   service_area?: string;
+  bio?: string;
+  languages?: string[];
+  city?: string;
 };
 
 export type Cleaner = {
@@ -455,6 +458,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       if (!admins.has(actor)) throw new RuleError("Only admins can verify drivers");
       drivers.get(driver_id)!.verification_status = decision;
       return drivers.get(driver_id)!;
+    },
+    saveDriverProfile(driver_id: string, updates: Partial<Driver>) {
+      const d = drivers.get(driver_id);
+      if (!d) throw new RuleError("Driver not found");
+      Object.assign(d, updates);
+      return d;
     },
     searchDrivers(filters?: { trip_type?: string; service_area?: string }) {
       return [...drivers.values()].filter((d) => {

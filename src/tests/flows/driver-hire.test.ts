@@ -242,4 +242,25 @@ describe("driver trip types and service area (Task 2.2)", () => {
     const areaDrivers = be.searchDrivers({ service_area: "Electronic City" });
     expect(areaDrivers.map((d) => d.id)).toEqual([d2.id]);
   });
+
+  test("DO-01: new driver saves profile with trip types and service area", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const driver = be.enrollDriver(250, 2000, ["airport", "outstation"], "Bengaluru + 100 km");
+    expect(driver.verification_status).toBe("pending");
+    expect(driver.trip_types).toEqual(["airport", "outstation"]);
+    expect(driver.service_area).toBe("Bengaluru + 100 km");
+  });
+
+  test("DO-02: existing driver edits their bio only with no errors and preserves trip types", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const driver = be.enrollDriver(250, 2000, ["airport", "outstation"], "Bengaluru + 100 km");
+
+    const updated = be.saveDriverProfile(driver.id, {
+      bio: "10+ years commercial driving experience across South India.",
+    });
+
+    expect(updated.bio).toBe("10+ years commercial driving experience across South India.");
+    expect(updated.trip_types).toEqual(["airport", "outstation"]);
+    expect(updated.service_area).toBe("Bengaluru + 100 km");
+  });
 });

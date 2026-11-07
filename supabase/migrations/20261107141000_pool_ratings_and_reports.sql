@@ -155,3 +155,4 @@ CREATE POLICY "Admins can delete user reports"
   ON public.user_reports FOR DELETE
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
