@@ -151,6 +151,33 @@ export type PoolRequest = {
   seats: number;
   match_score: number;
   status: BookingStatus;
+  emergency_contact?: string | null;
+};
+
+export type PoolRating = {
+  id: string;
+  trip_id: string;
+  request_id?: string | null;
+  rater_id: string;
+  ratee_id: string;
+  role: "passenger_to_driver" | "driver_to_passenger";
+  rating: number;
+  comment?: string | null;
+  created_at: string;
+};
+
+export type UserReport = {
+  id: string;
+  reporter_id: string;
+  reported_user_id?: string | null;
+  target_type: string;
+  target_id?: string | null;
+  reason: string;
+  details?: string | null;
+  status: "pending" | "investigating" | "resolved" | "dismissed";
+  admin_notes?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
 };
 
 export type WashStatus =
@@ -212,6 +239,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
   const washCenterStaff = new Map<string, WashCenterStaff>();
   const washCenterPackages = new Map<string, WashCenterPackage>();
   const washReviews = new Map<string, WashReview>();
+  const poolRatings = new Map<string, PoolRating>();
+  const userReports = new Map<string, UserReport>();
   const userRoles = new Map<string, Set<string>>();
 
   const assignRole = (userId: string, role: string) => {
@@ -253,7 +282,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     setNow: (d: string | Date) => (clock.now = new Date(d)),
     wallet,
     notifications,
-    tables: { vehicles, bookings, drivers, driverBookings, trips, poolRequests, washes },
+    tables: { vehicles, bookings, drivers, driverBookings, trips, poolRequests, washes, poolRatings, userReports },
 
     /* ---------- accounts ---------- */
     registerCustomer(dl: "none" | "pending" | "approved" | "rejected" = "approved") {
@@ -523,7 +552,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       void seats;
       return t;
     },
-    requestSeat(args: { passenger_id: string; trip_id: string; seats: number; match_score: number }) {
+    requestSeat(args: { passenger_id: string; trip_id: string; seats: number; match_score: number; emergency_contact?: string | null }) {
       const t = trips.get(args.trip_id);
       if (!t) throw new RuleError("Trip not found");
       if (t.status !== "scheduled") throw new RuleError("This trip is no longer open");
@@ -542,6 +571,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         seats: args.seats,
         match_score: args.match_score,
         status: "pending",
+        emergency_contact: args.emergency_contact || null,
       };
       poolRequests.set(r.id, r);
       notify(t.driver_id, "New pooling request");
@@ -580,6 +610,104 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         if (status === "cancelled") r.status = "cancelled";
       }
       return t;
+    },
+
+    /* ---------- pooling ratings and reports (Task 2.8) ---------- */
+    ratePoolTrip(
+      rater_id: string,
+      args: {
+        trip_id: string;
+        request_id?: string;
+        ratee_id: string;
+        role: "passenger_to_driver" | "driver_to_passenger";
+        rating: number;
+        comment?: string;
+      },
+    ) {
+      const t = trips.get(args.trip_id);
+      if (!t) throw new RuleError("Trip not found");
+      if (t.status !== "completed") {
+        throw new RuleError(`Ratings can only be submitted for completed trips (trip status is ${t.status})`);
+      }
+      if (args.rating < 1 || args.rating > 5) throw new RuleError("Rating must be between 1 and 5");
+      if (rater_id === args.ratee_id) throw new RuleError("Cannot rate yourself");
+
+      if (args.role === "passenger_to_driver") {
+        if (args.ratee_id !== t.driver_id) throw new RuleError("Ratee must be the trip driver");
+        const isPassenger = [...poolRequests.values()].some(
+          (r) => r.trip_id === t.id && r.passenger_id === rater_id && ["confirmed", "completed"].includes(r.status),
+        );
+        if (!isPassenger) throw new RuleError("Rater is not a confirmed passenger on this trip");
+      } else if (args.role === "driver_to_passenger") {
+        if (rater_id !== t.driver_id) throw new RuleError("Rater must be the trip driver");
+        const isPassenger = [...poolRequests.values()].some(
+          (r) => r.trip_id === t.id && r.passenger_id === args.ratee_id && ["confirmed", "completed"].includes(r.status),
+        );
+        if (!isPassenger) throw new RuleError("Ratee is not a confirmed passenger on this trip");
+      }
+
+      // Unique rating per party per trip
+      const dupe = [...poolRatings.values()].some(
+        (r) => r.trip_id === t.id && r.rater_id === rater_id && r.ratee_id === args.ratee_id,
+      );
+      if (dupe) throw new RuleError("You have already submitted a rating for this trip and participant");
+
+      const ratingRow: PoolRating = {
+        id: id("prate"),
+        trip_id: t.id,
+        request_id: args.request_id || null,
+        rater_id,
+        ratee_id: args.ratee_id,
+        role: args.role,
+        rating: args.rating,
+        comment: args.comment || null,
+        created_at: clock.now.toISOString(),
+      };
+      poolRatings.set(ratingRow.id, ratingRow);
+      return ratingRow;
+    },
+
+    reportUser(
+      reporter_id: string,
+      args: {
+        reported_user_id?: string | null;
+        target_type: string;
+        target_id?: string | null;
+        reason: string;
+        details?: string | null;
+      },
+    ) {
+      if (!args.reason?.trim()) throw new RuleError("Report reason is required");
+      const rep: UserReport = {
+        id: id("urep"),
+        reporter_id,
+        reported_user_id: args.reported_user_id || null,
+        target_type: args.target_type,
+        target_id: args.target_id || null,
+        reason: args.reason.trim(),
+        details: args.details?.trim() || null,
+        status: "pending",
+        admin_notes: null,
+        resolved_at: null,
+        created_at: clock.now.toISOString(),
+      };
+      userReports.set(rep.id, rep);
+      return rep;
+    },
+
+    adminDecideUserReport(
+      admin_id: string,
+      report_id: string,
+      decision: "resolved" | "dismissed",
+      admin_notes?: string,
+    ) {
+      if (!admins.has(admin_id)) throw new RuleError("Only admins can moderate user reports");
+      const rep = userReports.get(report_id);
+      if (!rep) throw new RuleError("User report not found");
+      rep.status = decision;
+      rep.admin_notes = admin_notes || null;
+      rep.resolved_at = clock.now.toISOString();
+      return rep;
     },
 
     /* ---------- vehicle wash ---------- */

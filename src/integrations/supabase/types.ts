@@ -701,6 +701,57 @@ export type Database = {
           },
         ]
       }
+      pool_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          ratee_id: string
+          rater_id: string
+          rating: number
+          request_id: string | null
+          role: string
+          trip_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ratee_id: string
+          rater_id: string
+          rating: number
+          request_id?: string | null
+          role: string
+          trip_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ratee_id?: string
+          rater_id?: string
+          rating?: number
+          request_id?: string | null
+          role?: string
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pool_ratings_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "pool_trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_ratings_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "pool_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pool_requests: {
         Row: {
           cancellation_reason: string | null
@@ -709,6 +760,7 @@ export type Database = {
           drop_label: string
           drop_lat: number
           drop_lng: number
+          emergency_contact: string | null
           fare_total: number
           id: string
           match_score: number
@@ -729,6 +781,7 @@ export type Database = {
           drop_label: string
           drop_lat: number
           drop_lng: number
+          emergency_contact?: string | null
           fare_total?: number
           id?: string
           match_score?: number
@@ -749,6 +802,7 @@ export type Database = {
           drop_label?: string
           drop_lat?: number
           drop_lng?: number
+          emergency_contact?: string | null
           fare_total?: number
           id?: string
           match_score?: number
@@ -1085,6 +1139,54 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          details: string | null
+          id: string
+          reason: string
+          reported_user_id: string | null
+          reporter_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          target_id: string | null
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason: string
+          reported_user_id?: string | null
+          reporter_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          target_id?: string | null
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason?: string
+          reported_user_id?: string | null
+          reporter_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string
+          updated_at?: string
         }
         Relationships: []
       }

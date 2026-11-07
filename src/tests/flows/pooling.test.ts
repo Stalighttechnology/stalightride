@@ -154,3 +154,123 @@ describe("PS-01: pooling cancellation and settlement policy", () => {
     expect(be.wallet.balance(p1)).toBe(balanceBefore);
   });
 });
+
+describe("pooling ratings and reports (PR-01, PR-02, Task 2.8)", () => {
+  test("PR-01: Passenger rates the driver after trip completion, blocked before completion and on duplicates", () => {
+    const { be, driver, trip, p1 } = setup(3);
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+    be.poolDecide(driver, r.id, "confirmed");
+
+    // 1. Attempt to rate while trip is still scheduled
+    expect(() =>
+      be.ratePoolTrip(p1, {
+        trip_id: trip.id,
+        request_id: r.id,
+        ratee_id: driver,
+        role: "passenger_to_driver",
+        rating: 5,
+        comment: "Great driving!",
+      }),
+    ).toThrow(/completed trips/);
+
+    // Start trip
+    be.setTripStatus(driver, trip.id, "started");
+    expect(() =>
+      be.ratePoolTrip(p1, {
+        trip_id: trip.id,
+        request_id: r.id,
+        ratee_id: driver,
+        role: "passenger_to_driver",
+        rating: 5,
+      }),
+    ).toThrow(/completed trips/);
+
+    // Complete trip
+    be.setTripStatus(driver, trip.id, "completed");
+
+    // 2. Rate driver after completion -> saved
+    const ratingRow = be.ratePoolTrip(p1, {
+      trip_id: trip.id,
+      request_id: r.id,
+      ratee_id: driver,
+      role: "passenger_to_driver",
+      rating: 5,
+      comment: "Smooth highway drive, very polite!",
+    });
+
+    expect(ratingRow.rating).toBe(5);
+    expect(ratingRow.role).toBe("passenger_to_driver");
+    expect(be.tables.poolRatings.get(ratingRow.id)).toBeDefined();
+
+    // 3. Attempt to rate second time for the same trip -> rejected
+    expect(() =>
+      be.ratePoolTrip(p1, {
+        trip_id: trip.id,
+        request_id: r.id,
+        ratee_id: driver,
+        role: "passenger_to_driver",
+        rating: 4,
+      }),
+    ).toThrow(/already submitted/);
+
+    // 4. Reverse direction: driver rates passenger -> saved once
+    const driverRating = be.ratePoolTrip(driver, {
+      trip_id: trip.id,
+      request_id: r.id,
+      ratee_id: p1,
+      role: "driver_to_passenger",
+      rating: 5,
+      comment: "On time at pickup point.",
+    });
+    expect(driverRating.role).toBe("driver_to_passenger");
+    expect(driverRating.ratee_id).toBe(p1);
+
+    // Driver rating same passenger again -> rejected
+    expect(() =>
+      be.ratePoolTrip(driver, {
+        trip_id: trip.id,
+        request_id: r.id,
+        ratee_id: p1,
+        role: "driver_to_passenger",
+        rating: 4,
+      }),
+    ).toThrow(/already submitted/);
+  });
+
+  test("PR-02: Report a ride with a reason -> user_reports row created and visible to admin moderation", () => {
+    const { be, driver, trip, p1 } = setup(3);
+    const admin = be.registerAdmin();
+
+    const r = be.requestSeat({
+      passenger_id: p1,
+      trip_id: trip.id,
+      seats: 1,
+      match_score: 92,
+      emergency_contact: "+91 9876543210",
+    });
+    expect(r.emergency_contact).toBe("+91 9876543210");
+
+    be.poolDecide(driver, r.id, "confirmed");
+
+    // Passenger reports driver / trip
+    const report = be.reportUser(p1, {
+      reported_user_id: driver,
+      target_type: "pooling_trip",
+      target_id: trip.id,
+      reason: "Reckless driving over speed limit",
+      details: "Driver was speeding at 130 km/h in monsoon weather",
+    });
+
+    expect(report.status).toBe("pending");
+    expect(report.reason).toBe("Reckless driving over speed limit");
+    expect(be.tables.userReports.get(report.id)).toBeDefined();
+
+    // Admin moderates report
+    const resolved = be.adminDecideUserReport(admin, report.id, "resolved", "Driver issued speed warning");
+    expect(resolved.status).toBe("resolved");
+    expect(resolved.admin_notes).toBe("Driver issued speed warning");
+
+    // Non-admin cannot moderate
+    expect(() => be.adminDecideUserReport(p1, report.id, "dismissed")).toThrow(/admins/);
+  });
+});

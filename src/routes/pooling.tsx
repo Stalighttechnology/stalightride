@@ -107,7 +107,6 @@ function PoolingPage() {
     setJoining(trip.id);
     try {
       const match = matchScore(trip, { lat: pickup.lat!, lng: pickup.lng! }, { lat: drop.lat!, lng: drop.lng! });
-      const combinedNote = [emergencyContact ? `Emergency Contact: ${emergencyContact}` : "", note].filter(Boolean).join(" | ");
       const { error } = await supabase.from("pool_requests").insert({
         trip_id: trip.id,
         passenger_id: user.id,
@@ -119,8 +118,9 @@ function PoolingPage() {
         drop_lng: drop.lng!,
         seats,
         match_score: match.score,
-        note: combinedNote || null,
-      } as any);
+        emergency_contact: emergencyContact.trim() || null,
+        note: note.trim() || null,
+      });
       if (error) {
         if (error.code === "23505" || error.message.includes("pool_requests_one_active_idx"))
           throw new Error("You already have an active request for this trip");
