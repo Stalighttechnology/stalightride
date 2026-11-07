@@ -144,7 +144,7 @@ function DriverDashboard() {
   const cancelHire = async (h: any) => {
     const paid = h.payment_status === "paid";
     if (!window.confirm(paid
-      ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)}, deducted from your wallet.`
+      ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
       : "Cancel this hire?")) return;
     const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id, _reason: null } as any);
     if (error) return toast.error(error.message);
@@ -156,7 +156,10 @@ function DriverDashboard() {
   if (!user || !loaded) return <div className="min-h-screen"><SiteHeader /><div className="p-8"><Skeleton className="h-64 rounded-2xl" /></div></div>;
 
   const vs = driver?.verification_status ?? "none";
-  const earnings = (hires ?? []).filter((h) => h.payment_status === "paid").reduce((s, h) => s + Number(h.total_price), 0);
+  // Net of commission; excludes customer service fee and GST.
+  const earnings = (hires ?? [])
+    .filter((h) => h.payment_status === "paid" || h.payment_status === "partially_refunded")
+    .reduce((s, h) => s + Number(h.provider_earning ?? 0), 0);
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);

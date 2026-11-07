@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Car, UserRound, CalendarDays, Heart, Wallet as WalletIcon, LayoutDashboard,
   ShieldCheck, CarFront as Steering, Home, User as UserIcon, LogOut, LogIn, Droplets, ScanLine, BadgeIndianRupee, Users, LifeBuoy,
-  Sparkles, Building2, ShieldAlert, Crown, Briefcase, Gift, Award,
+  Sparkles, Building2, ShieldAlert, Crown, Briefcase, Gift, Award, Plus,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useIsHost } from "@/hooks/use-is-host";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import synchooMark from "@/assets/synchoo-mark.png";
@@ -24,6 +25,8 @@ const exploreItems: Item[] = [
   { to: "/drivers", label: "Hire a driver", icon: UserRound },
   { to: "/wash", label: "Vehicle wash", icon: Droplets },
   { to: "/corporate", label: "Corporate travel", icon: Briefcase },
+  { to: "/rewards", label: "Synchoo Rewards", icon: Award },
+  { to: "/referrals", label: "Refer & earn", icon: Gift },
   { to: "/safety", label: "Safety center", icon: ShieldAlert },
   { to: "/membership", label: "Membership", icon: Crown },
 ];
@@ -41,9 +44,15 @@ const accountItems: Item[] = [
   { to: "/profile", label: "Profile", icon: UserIcon },
 ];
 
-const earnItems: Item[] = [
-  { to: "/earn", label: "Earning options", icon: BadgeIndianRupee },
+const hostItems: Item[] = [
   { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
+  { to: "/vendor/vehicles/new", label: "Add vehicle", icon: Plus },
+  { to: "/scan", label: "Scan QR handover", icon: ScanLine },
+];
+
+const earnItems: Item[] = [
+  { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
+  { to: "/earn", label: "Earning options", icon: BadgeIndianRupee },
   { to: "/driver-dashboard", label: "Driver dashboard", icon: Steering },
   { to: "/cleaner-dashboard", label: "Cleaner dashboard", icon: Sparkles },
   { to: "/wash-center-dashboard", label: "Washing center", icon: Building2 },
@@ -57,6 +66,7 @@ const earnItems: Item[] = [
 export function AppSidebar() {
   const { user } = useSession();
   const isAdmin = useIsAdmin();
+  const isHost = useIsHost();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
@@ -112,6 +122,7 @@ export function AppSidebar() {
       <SidebarContent>
         {renderGroup("Explore", exploreItems)}
         {user && renderGroup("Your account", accountItems)}
+        {user && isHost && renderGroup("Host console", hostItems)}
         {renderGroup("Earn with us", earnItems)}
         {user && isAdmin && renderGroup("Admin", [{ to: "/admin", label: "Admin panel", icon: ShieldCheck }])}
         {renderGroup("Help & privacy", [

@@ -254,8 +254,15 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const v = b.listVehicle(host, 2000, 1000);
       b.verifyVehicle(admin, v.id, "approved");
 
-      // 1. Paid rental booking: total 5000
-      const bk = b.createBooking({ customer_id: customer1, vehicle_id: v.id, start_date: "2026-08-16", end_date: "2026-08-18", total_price: 5000 });
+      // 1. Paid rental booking: total 5000 (2 days @ 2000 + 1000 deposit)
+      const bk = b.createBooking({
+        customer_id: customer1,
+        vehicle_id: v.id,
+        start_date: "2026-08-16",
+        end_date: "2026-08-18",
+        pickup_time: "10:00",
+        dropoff_time: "10:00",
+      });
       b.hostDecide(host, bk.id, "confirmed");
       b.wallet.topup(customer1, 10000);
       b.payBookingWithWallet(customer1, bk.id);
@@ -369,8 +376,15 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const v = b.listVehicle(host, 1000, 1000);
       b.verifyVehicle(admin, v.id, "approved");
 
-      // Friend's 1st booking
-      const bk1 = b.createBooking({ customer_id: friend, vehicle_id: v.id, start_date: "2026-08-20", end_date: "2026-08-21", total_price: 2000 });
+      // Friend's 1st booking: 1 day @ 1000 + 1000 deposit = 2000
+      const bk1 = b.createBooking({
+        customer_id: friend,
+        vehicle_id: v.id,
+        start_date: "2026-08-20",
+        end_date: "2026-08-21",
+        pickup_time: "10:00",
+        dropoff_time: "10:00",
+      });
       b.hostDecide(host, bk1.id, "confirmed");
       b.wallet.topup(friend, 5000);
       b.payBookingWithWallet(friend, bk1.id);

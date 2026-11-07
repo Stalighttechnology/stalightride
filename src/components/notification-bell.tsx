@@ -92,6 +92,7 @@ export function NotificationBell({ className }: { className?: string }) {
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [user?.id]);
 
+
   /* ── Merge & sort ── */
   const allItems = [...items].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

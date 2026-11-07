@@ -94,17 +94,7 @@ export const verifyDriverRazorpayPayment = createServerFn({ method: "POST" })
       .eq("id", booking.id);
     if (upErr) throw upErr;
 
-    // Credit the driver's wallet with the hire earning.
-    if (booking.driver_id !== booking.customer_id) {
-      const { error: walletErr } = await supabase.rpc("wallet_apply", {
-        _user_id: booking.driver_id,
-        _amount: Number(booking.total_price),
-        _kind: "driver_earning",
-        _reference: booking.id,
-        _description: "Earning from driver hire",
-      } as any);
-      if (walletErr) console.error("driver wallet credit failed", walletErr.message);
-    }
-
+    // The driver's earning (after commission) is credited when the hire is
+    // completed — see tg_money_settle_driver_booking.
     return { ok: true };
   });
