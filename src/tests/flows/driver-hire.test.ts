@@ -10,27 +10,106 @@ function setup() {
   return { be, admin, customer, driver };
 }
 
-describe("driver onboarding and verification", () => {
-  test("an unverified driver is not listed and cannot be hired", () => {
+describe("driver onboarding and verification (M7 DR-01 to DR-06)", () => {
+  test("DR-01: Create a driver profile with licence and ID uploads -> Saved as pending", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const driverId = be.registerCustomer();
+    const d = be.enrollDriver(250, 1800, ["airport", "outstation"], "Bengaluru + 50 km");
+    be.saveDriverProfile(d.id, {
+      full_name: "Ramesh Kumar",
+      phone: "+91 9876543210",
+      city: "Bengaluru",
+      dl_number: "KA05 20200001234",
+      dl_expiry: "2030-05-15",
+      dl_front_url: "verification-docs/dl_front.jpg",
+      dl_back_url: "verification-docs/dl_back.jpg",
+      id_document_url: "verification-docs/aadhaar.pdf",
+    });
+
+    expect(d.verification_status).toBe("pending");
+    expect(d.full_name).toBe("Ramesh Kumar");
+    expect(d.dl_number).toBe("KA05 20200001234");
+    expect(d.dl_front_url).toBe("verification-docs/dl_front.jpg");
+    expect(d.trip_types).toEqual(["airport", "outstation"]);
+    expect(d.service_area).toBe("Bengaluru + 50 km");
+  });
+
+  test("DR-02: Driver pending -> Look in /drivers -> Not listed and cannot be hired", () => {
     const { be, customer, driver } = setup();
     expect(driver.verification_status).toBe("pending");
     expect(be.searchDrivers()).toHaveLength(0);
+    expect(be.getPublicDriver(driver.id)).toBeNull();
     expect(() =>
       be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" }),
     ).toThrow(/not available/);
   });
 
-  test("approval lists the driver; rejection hides them again", () => {
+  test("DR-03: Driver pending -> Admin approves -> Listed. Rejecting hides the driver again with reason", () => {
     const { be, admin, driver } = setup();
+    be.saveDriverProfile(driver.id, { full_name: "Suresh Gowda", city: "Bengaluru" });
+
+    // 1. Admin approves
     be.verifyDriver(admin, driver.id, "approved");
     expect(be.searchDrivers().map((d) => d.id)).toEqual([driver.id]);
+    expect(be.getPublicDriver(driver.id)?.full_name).toBe("Suresh Gowda");
+
+    // 2. Admin rejects with reason
     be.verifyDriver(admin, driver.id, "rejected");
     expect(be.searchDrivers()).toHaveLength(0);
+    expect(be.getPublicDriver(driver.id)).toBeNull();
   });
 
-  test("non-admins cannot verify drivers", () => {
+  test("DR-04: Non-admin -> Try to verify a driver -> Blocked", () => {
     const { be, customer, driver } = setup();
     expect(() => be.verifyDriver(customer, driver.id, "approved")).toThrow(/admins/);
+  });
+
+  test("DR-05: Approved driver -> Toggle availability to paused in dashboard -> Hidden from search and offline", () => {
+    const { be, admin, driver } = setup();
+    be.verifyDriver(admin, driver.id, "approved");
+    expect(be.searchDrivers()).toHaveLength(1);
+
+    // Driver toggles status to paused
+    be.setDriverStatus(driver.id, "paused");
+    expect(be.searchDrivers()).toHaveLength(0);
+    expect(be.getPublicDriver(driver.id)).toBeNull(); // /driver/<id> returns null -> shows "This driver is currently offline"
+
+    // Toggle back to active
+    be.setDriverStatus(driver.id, "active");
+    expect(be.searchDrivers()).toHaveLength(1);
+    expect(be.getPublicDriver(driver.id)).not.toBeNull();
+  });
+
+  test("DR-06: Open /driver/<id> logged out -> Only public_drivers fields are shown (no phone, dl or id docs)", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const admin = be.registerAdmin();
+    const d = be.enrollDriver(200, 1500, ["airport"], "Bengaluru Urban");
+
+    be.saveDriverProfile(d.id, {
+      full_name: "Anand Verma",
+      phone: "+91 9988776655", // Private sensitive
+      city: "Bengaluru",
+      bio: "Safe professional chauffeur",
+      dl_number: "KA01 20180009876", // Private sensitive
+      dl_front_url: "private/dl_front.jpg", // Private sensitive
+      dl_back_url: "private/dl_back.jpg", // Private sensitive
+      id_document_url: "private/passport.jpg", // Private sensitive
+    });
+    be.verifyDriver(admin, d.id, "approved");
+
+    const pub = be.getPublicDriver(d.id);
+    expect(pub).not.toBeNull();
+    expect(pub!.full_name).toBe("Anand Verma");
+    expect(pub!.city).toBe("Bengaluru");
+    expect(pub!.trip_types).toEqual(["airport"]);
+    expect(pub!.service_area).toBe("Bengaluru Urban");
+
+    // Strictly ensure no private or sensitive columns are present in public_drivers
+    expect((pub as any).phone).toBeUndefined();
+    expect((pub as any).dl_number).toBeUndefined();
+    expect((pub as any).dl_front_url).toBeUndefined();
+    expect((pub as any).dl_back_url).toBeUndefined();
+    expect((pub as any).id_document_url).toBeUndefined();
   });
 });
 

@@ -51,6 +51,8 @@ export type Booking = {
 
 export type Driver = {
   id: string;
+  full_name?: string;
+  phone?: string;
   hourly_rate: number;
   daily_rate: number;
   status: "draft" | "active" | "paused";
@@ -59,7 +61,17 @@ export type Driver = {
   service_area?: string;
   bio?: string;
   languages?: string[];
+  vehicle_types?: string[];
+  experience_years?: number;
   city?: string;
+  photo_url?: string | null;
+  dl_number?: string;
+  dl_expiry?: string;
+  dl_front_url?: string | null;
+  dl_back_url?: string | null;
+  id_document_url?: string | null;
+  avg_rating?: number;
+  review_count?: number;
 };
 
 export type Cleaner = {
@@ -479,6 +491,32 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         }
         return true;
       });
+    },
+    getPublicDriver(id: string) {
+      const d = drivers.get(id);
+      if (!d || d.verification_status !== "approved" || d.status !== "active") return null;
+      return {
+        id: d.id,
+        full_name: d.full_name || "Driver",
+        city: d.city,
+        bio: d.bio,
+        experience_years: d.experience_years || 0,
+        languages: d.languages || [],
+        vehicle_types: d.vehicle_types || [],
+        photo_url: d.photo_url || null,
+        hourly_rate: d.hourly_rate,
+        daily_rate: d.daily_rate,
+        avg_rating: d.avg_rating || 0,
+        review_count: d.review_count || 0,
+        trip_types: d.trip_types || [],
+        service_area: d.service_area || null,
+      };
+    },
+    setDriverStatus(driver_id: string, status: "active" | "paused") {
+      const d = drivers.get(driver_id);
+      if (!d) throw new RuleError("Driver not found");
+      d.status = status;
+      return d;
     },
     hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; total_price?: number; trip_type?: string }) {
       const d = drivers.get(args.driver_id);
