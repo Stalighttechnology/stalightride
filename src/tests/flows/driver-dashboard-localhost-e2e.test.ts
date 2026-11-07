@@ -312,3 +312,4 @@ describe("M10: Driver dashboard localhost and acceptance tests (DD-01 to DD-04)"
     expect(uiEarnings).toBe(7500);
   });
 });
+

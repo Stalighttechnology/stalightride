@@ -223,6 +223,8 @@ export type WashBooking = {
   id: string;
   customer_id: string;
   slot_date: string;
+  slot_time?: string;
+  address?: string;
   city?: string;
   price: number;
   status: string;
@@ -859,11 +861,13 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
 
     /* ---------- vehicle wash ---------- */
-    bookWash(customer_id: string, slot_date: string, price = 499, city = "Bangalore") {
+    bookWash(customer_id: string, slot_date: string, price = 499, city = "Bangalore", address?: string, slot_time?: string) {
       const w: WashBooking = {
         id: id("wash"),
         customer_id,
         slot_date,
+        slot_time,
+        address,
         city,
         price,
         status: "pending",
@@ -981,16 +985,31 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
     payWashWithWallet(actor: string, wash_id: string) {
       const w = washes.get(wash_id)!;
+      if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
       if (w.status !== "confirmed") throw new RuleError("Wait for admin approval before paying");
       wallet.apply(actor, -w.price, "wash_booking");
       w.payment_status = "paid";
       return w;
     },
+    payWashWithRazorpay(actor: string, wash_id: string, payment_id: string) {
+      const w = washes.get(wash_id)!;
+      if (!w) throw new RuleError("Wash booking not found");
+      if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
+      if (w.status !== "confirmed") throw new RuleError("Wait for admin approval before paying");
+      if (w.payment_status === "paid") {
+        return { ok: true, replayed: true, wash: w };
+      }
+      w.payment_status = "paid";
+      notify(w.customer_id, `Wash payment received via Razorpay (${payment_id})`);
+      return { ok: true, replayed: false, wash: w };
+    },
     cancelWash(actor: string, wash_id: string) {
       const w = washes.get(wash_id)!;
+      if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
-      const pct = refundPercent(new Date(`${w.slot_date}T00:00:00Z`), clock.now);
+      const timePart = w.slot_time ? (w.slot_time.length === 5 ? `${w.slot_time}:00` : w.slot_time.slice(0, 8)) : "00:00:00";
+      const pct = refundPercent(new Date(`${w.slot_date}T${timePart}Z`), clock.now);
       const refund = w.payment_status === "paid" ? Math.round((w.price * pct) / 100) : 0;
       if (refund > 0) {
         wallet.apply(w.customer_id, refund, "refund");

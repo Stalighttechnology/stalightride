@@ -39,9 +39,11 @@ export const Route = createFileRoute("/_authenticated/washes")({
 });
 
 /** Refund on a customer cancellation: 100% >24h before the slot, 50% >2h, else nothing. */
-function refundPercent(b: any) {
-  const start = new Date(`${b.slot_date}T${String(b.slot_time).slice(0, 8)}`);
-  const hoursLeft = (start.getTime() - Date.now()) / 3600000;
+export function refundPercent(b: any, now: number = Date.now()) {
+  const time = b.slot_time ? String(b.slot_time).slice(0, 8) : "00:00:00";
+  const timePart = time.length === 5 ? `${time}:00` : time;
+  const start = new Date(`${b.slot_date}T${timePart}Z`);
+  const hoursLeft = (start.getTime() - now) / 3600000;
   if (hoursLeft >= 24) return 100;
   if (hoursLeft >= 2) return 50;
   return 0;
