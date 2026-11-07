@@ -61,7 +61,7 @@ function DriverDashboard() {
       supabase.from("driver_reviews").select("*").eq("driver_id", user.id),
     ]);
     setDriver(d ?? null);
-    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: (d as any).trip_types ?? [], service_area: (d as any).service_area ?? "" });
+    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: d.trip_types ?? [], service_area: d.service_area ?? "" });
     else setForm({ ...emptyDriver, full_name: user.user_metadata?.full_name ?? "" });
     setHires(h ?? []);
     setRatings(r ?? []);
@@ -119,7 +119,7 @@ function DriverDashboard() {
       trip_types: Array.isArray(form.trip_types) ? form.trip_types : [],
       service_area: form.service_area || null,
     };
-    const { error } = await supabase.from("drivers").upsert(payload as any);
+    const { error } = await supabase.from("drivers").upsert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success(driver ? "Profile updated" : "Profile submitted for verification");
@@ -128,7 +128,7 @@ function DriverDashboard() {
 
   const setStatus = async (active: boolean) => {
     if (!user) return;
-    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" } as any).eq("id", user.id);
+    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" }).eq("id", user.id);
     if (error) return toast.error(error.message);
     toast.success(active ? "You're live and bookable" : "Paused — you won't appear in search");
     load();
@@ -146,9 +146,9 @@ function DriverDashboard() {
     if (!window.confirm(paid
       ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
       : "Cancel this hire?")) return;
-    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id, _reason: null } as any);
+    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
     if (error) return toast.error(error.message);
-    const refund = Number((data as any)?.refund ?? 0);
+    const refund = Number((data as { refund?: number } | null)?.refund ?? 0);
     toast.success(refund > 0 ? `Hire cancelled — ${currency(refund)} refunded to the customer` : "Hire cancelled");
     load();
   };
@@ -158,8 +158,8 @@ function DriverDashboard() {
   const vs = driver?.verification_status ?? "none";
   // Net of commission; excludes customer service fee and GST.
   const earnings = (hires ?? [])
-    .filter((h) => h.payment_status === "paid" || h.payment_status === "partially_refunded")
-    .reduce((s, h) => s + Number(h.provider_earning ?? 0), 0);
+    .filter((h) => h.status !== "cancelled" && (h.payment_status === "paid" || h.payment_status === "partially_refunded" || h.status === "completed"))
+    .reduce((s, h) => s + Number(h.provider_earning ?? h.total_price), 0);
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -318,7 +318,10 @@ function DriverDashboard() {
                     <Card key={h.id}><CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                            {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                           </p>
@@ -350,7 +353,10 @@ function DriverDashboard() {
                     <Card key={h.id}><CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{currency(h.total_price)}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{currency(h.total_price)}</p>
+                            {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""}
                           </p>
@@ -400,7 +406,10 @@ function DriverDashboard() {
                   <Card key={h.id}><CardContent className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                         </p>

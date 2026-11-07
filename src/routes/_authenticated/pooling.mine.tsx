@@ -53,6 +53,14 @@ function MyPooling() {
       .eq("passenger_id", user.id)
       .order("created_at", { ascending: false });
     setRows(data ?? []);
+
+    const { data: userRatings } = await supabase
+      .from("pool_ratings")
+      .select("request_id")
+      .eq("rater_id", user.id);
+    if (userRatings) {
+      setRatedTrips(new Set(userRatings.map((x) => x.request_id).filter(Boolean) as string[]));
+    }
   };
   useEffect(() => { load(); }, [user?.id]);
 
@@ -66,20 +74,50 @@ function MyPooling() {
     load();
   };
 
-  const rateDriver = (tripId: string) => {
+  const rateDriver = async (r: any) => {
+    const isCompleted = r.status === "completed" || r.pool_trips?.status === "completed";
+    if (!isCompleted) {
+      return toast.error("Ratings can only be submitted after the trip is completed");
+    }
     const stars = window.prompt("Rate your ride (1 to 5 stars):", "5");
     if (!stars) return;
     const ratingNum = Number(stars);
-    if (ratingNum < 1 || ratingNum > 5) return toast.error("Please enter a rating between 1 and 5");
+    if (ratingNum < 1 || ratingNum > 5 || isNaN(ratingNum)) {
+      return toast.error("Please enter a valid rating between 1 and 5");
+    }
+    const comment = window.prompt("Optional review feedback / comment:") || "";
+    const { error } = await supabase.from("pool_ratings").insert({
+      trip_id: r.trip_id,
+      request_id: r.id,
+      rater_id: user!.id,
+      ratee_id: r.pool_trips.driver_id,
+      role: "passenger_to_driver",
+      rating: ratingNum,
+      comment: comment.trim() || null,
+    });
+    if (error) {
+      return toast.error(error.message);
+    }
     toast.success("Thank you for rating your ride!");
-    setRatedTrips((prev) => new Set([...prev, tripId]));
+    setRatedTrips((prev) => new Set([...prev, r.id]));
   };
 
-  const reportDriver = (tripId: string) => {
+  const reportDriver = async (r: any) => {
     const reason = window.prompt("Reason for report / safety concern:");
-    if (reason?.trim()) {
-      toast.success("Report submitted to trust & safety team");
+    if (!reason?.trim()) return;
+    const details = window.prompt("Additional details (optional):") || "";
+    const { error } = await supabase.from("user_reports").insert({
+      reporter_id: user!.id,
+      reported_user_id: r.pool_trips?.driver_id || null,
+      target_type: "pooling_trip",
+      target_id: r.trip_id,
+      reason: reason.trim(),
+      details: details.trim() || null,
+    });
+    if (error) {
+      return toast.error(error.message);
     }
+    toast.success("Report submitted to trust & safety moderation");
   };
 
   if (!user || rows === null)
@@ -149,6 +187,11 @@ function MyPooling() {
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 font-semibold">
                         {currency(Number(r.fare_total))} total
                       </span>
+                      {r.emergency_contact && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground">
+                          SOS contact: {r.emergency_contact}
+                        </span>
+                      )}
                     </div>
                     {trip && <p className="text-xs text-muted-foreground">Driver route: {trip.origin_label} → {trip.dest_label}</p>}
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -158,11 +201,11 @@ function MyPooling() {
                         </Button>
                       )}
                       {isCompleted && !ratedTrips.has(r.id) && (
-                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => rateDriver(r.id)}>
+                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => rateDriver(r)}>
                           <Star className="mr-1.5 h-4 w-4 text-amber-500" /> Rate ride & driver
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" className="rounded-full text-xs text-muted-foreground hover:text-destructive" onClick={() => reportDriver(r.id)}>
+                      <Button size="sm" variant="ghost" className="rounded-full text-xs text-muted-foreground hover:text-destructive" onClick={() => reportDriver(r)}>
                         <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Report issue
                       </Button>
                     </div>

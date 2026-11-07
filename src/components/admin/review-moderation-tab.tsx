@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Star, Trash2, CheckCircle2, AlertTriangle, UserX } from "lucide-react";
+import { Star, Trash2, CheckCircle2, AlertTriangle, ShieldAlert } from "lucide-react";
 
 export function ReviewModerationTab() {
-  const [activeView, setActiveView] = useState<"reviews" | "reports">("reviews");
+  const [activeSubTab, setActiveSubTab] = useState<"reviews" | "reports">("reviews");
   const [reviews, setReviews] = useState<any[] | null>(null);
-  const [userReports, setUserReports] = useState<any[] | null>(null);
+  const [reports, setReports] = useState<any[] | null>(null);
   const [filterReported, setFilterReported] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export function ReviewModerationTab() {
     setReviews(data || []);
   };
 
-  const loadUserReports = async () => {
+  const loadReports = async () => {
     const { data, error } = await supabase
       .from("user_reports")
       .select("*")
@@ -36,15 +36,15 @@ export function ReviewModerationTab() {
       .limit(60);
 
     if (error) {
-      setUserReports([]);
+      setReports([]);
       return;
     }
-    setUserReports(data || []);
+    setReports(data || []);
   };
 
   useEffect(() => {
     loadReviews();
-    loadUserReports();
+    loadReports();
   }, []);
 
   const deleteReview = async (id: string) => {
@@ -92,7 +92,7 @@ export function ReviewModerationTab() {
     );
   };
 
-  const resolveUserReport = async (id: string, decision: "action_taken" | "dismissed") => {
+  const decideUserReport = async (id: string, decision: "resolved" | "dismissed") => {
     setBusy(id);
     const { error } = await supabase
       .from("user_reports")
@@ -107,13 +107,13 @@ export function ReviewModerationTab() {
       toast.error(error.message);
       return;
     }
-    toast.success(`User report marked as ${decision === "action_taken" ? "Action Taken" : "Dismissed"}`);
-    setUserReports((prev) =>
+    toast.success(`User report marked as ${decision}`);
+    setReports((prev) =>
       prev ? prev.map((r) => (r.id === id ? { ...r, status: decision } : r)) : []
     );
   };
 
-  if (!reviews || userReports === null) return <Skeleton className="h-44 w-full mt-4" />;
+  if (!reviews || !reports) return <Skeleton className="h-44 w-full mt-4" />;
 
   const filteredReviews = filterReported
     ? reviews.filter((r) => r.reported || (r.rating && r.rating <= 2))
@@ -121,39 +121,122 @@ export function ReviewModerationTab() {
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Moderation section toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant={activeView === "reviews" ? "default" : "outline"}
-            className="text-xs h-8"
-            onClick={() => setActiveView("reviews")}
+            variant={activeSubTab === "reviews" ? "default" : "outline"}
+            className="text-xs h-8 rounded-full"
+            onClick={() => setActiveSubTab("reviews")}
           >
             Vehicle Reviews ({reviews.length})
           </Button>
           <Button
             size="sm"
-            variant={activeView === "reports" ? "default" : "outline"}
-            className="text-xs h-8"
-            onClick={() => setActiveView("reports")}
+            variant={activeSubTab === "reports" ? "default" : "outline"}
+            className="text-xs h-8 rounded-full"
+            onClick={() => setActiveSubTab("reports")}
           >
-            <UserX className="mr-1.5 h-3.5 w-3.5" /> User & Ride Reports ({userReports.length})
+            <ShieldAlert className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> User Reports ({reports.length})
           </Button>
         </div>
 
-        {activeView === "reviews" && (
-          <Button
-            size="sm"
-            variant={filterReported ? "default" : "outline"}
-            className="text-xs h-8 text-amber-600 border-amber-200"
-            onClick={() => setFilterReported(!filterReported)}
-          >
-            <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Flagged / Low Ratings
-          </Button>
+        {activeSubTab === "reviews" && (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={!filterReported ? "secondary" : "ghost"}
+              className="text-xs h-7"
+              onClick={() => setFilterReported(false)}
+            >
+              All
+            </Button>
+            <Button
+              size="sm"
+              variant={filterReported ? "secondary" : "ghost"}
+              className="text-xs h-7 text-amber-600"
+              onClick={() => setFilterReported(true)}
+            >
+              <AlertTriangle className="mr-1 h-3 w-3" /> Flagged ({reviews.filter((r) => r.reported || (r.rating && r.rating <= 2)).length})
+            </Button>
+          </div>
         )}
       </div>
 
-      {activeView === "reviews" ? (
+      {activeSubTab === "reports" ? (
+        <div className="grid gap-3">
+          {reports.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No user safety or ride reports filed.</p>
+          ) : (
+            reports.map((rep) => (
+              <Card key={rep.id}>
+                <CardContent className="p-4 flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1.5 max-w-xl">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          rep.status === "resolved"
+                            ? "default"
+                            : rep.status === "pending"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="text-[10px] capitalize"
+                      >
+                        {rep.status}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                        {(rep.target_type || "report").replace("_", " ")}
+                      </Badge>
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(rep.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <p className="text-xs font-semibold text-foreground">
+                      Reason: <span className="text-destructive font-normal">{rep.reason}</span>
+                    </p>
+
+                    {rep.details && (
+                      <p className="text-xs text-muted-foreground">
+                        Details: {rep.details}
+                      </p>
+                    )}
+
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      Reporter: {rep.reporter_id} {rep.reported_user_id ? `· Reported User: ${rep.reported_user_id}` : ""}
+                    </p>
+                  </div>
+
+                  {rep.status === "pending" && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8"
+                        disabled={busy === rep.id}
+                        onClick={() => decideUserReport(rep.id, "resolved")}
+                      >
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> Mark Resolved
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs h-8 text-muted-foreground"
+                        disabled={busy === rep.id}
+                        onClick={() => decideUserReport(rep.id, "dismissed")}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : (
         <div className="grid gap-3">
           {filteredReviews.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No reviews in this queue.</p>
@@ -216,59 +299,6 @@ export function ReviewModerationTab() {
                       <Trash2 className="mr-1 h-3 w-3" /> Remove Review
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {userReports.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No user or ride reports submitted.</p>
-          ) : (
-            userReports.map((report) => (
-              <Card key={report.id}>
-                <CardContent className="p-4 flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1.5 max-w-xl">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={report.status === "pending" ? "destructive" : "outline"} className="text-[11px]">
-                        {report.status.toUpperCase()}
-                      </Badge>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Target: {report.target_type}
-                      </span>
-                      {report.target_id && (
-                        <span className="text-xs text-muted-foreground">ID: {report.target_id.slice(0, 8)}</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-foreground font-medium">Reason: {report.reason}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Submitted: {new Date(report.created_at).toLocaleString()}
-                    </p>
-                  </div>
-
-                  {report.status === "pending" && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="text-xs h-8"
-                        disabled={busy === report.id}
-                        onClick={() => resolveUserReport(report.id, "action_taken")}
-                      >
-                        <CheckCircle2 className="mr-1 h-3 w-3" /> Action Taken
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-8"
-                        disabled={busy === report.id}
-                        onClick={() => resolveUserReport(report.id, "dismissed")}
-                      >
-                        Dismiss
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))
