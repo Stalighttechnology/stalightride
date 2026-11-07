@@ -559,21 +559,44 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       if (b.status !== "confirmed") throw new RuleError("Only accepted hires can be paid");
       if (b.payment_status === "paid") throw new RuleError("Already paid");
       wallet.apply(actor, -b.total_price, "driver_booking");
+      wallet.apply(b.driver_id, b.total_price, "driver_earning");
       b.payment_status = "paid";
+      notify(b.driver_id, "Hire payment received");
       return b;
+    },
+    payDriverBookingWithRazorpay(actor: string, booking_id: string, payment_id: string) {
+      const b = driverBookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Not your hire");
+      if (b.status !== "confirmed") throw new RuleError("Driver has not accepted this request yet");
+      if (b.payment_status === "paid") {
+        // Replay of verify payload (DH-10): already paid, do not credit driver again
+        return { ok: true, replayed: true, booking: b };
+      }
+      b.payment_status = "paid";
+      wallet.apply(b.driver_id, b.total_price, "driver_earning");
+      notify(b.driver_id, `Hire payment received via Razorpay (${payment_id})`);
+      return { ok: true, replayed: false, booking: b };
     },
     cancelDriverBooking(actor: string, booking_id: string) {
       const b = driverBookings.get(booking_id)!;
-      if (b.customer_id !== actor) throw new RuleError("Not your hire");
+      if (b.customer_id !== actor && b.driver_id !== actor) throw new RuleError("Not your hire");
       if (!["pending", "confirmed"].includes(b.status)) throw new RuleError("This hire cannot be cancelled");
-      const pct = refundPercent(new Date(`${b.start_date}T00:00:00Z`), clock.now);
-      const refund = b.payment_status === "paid" ? Math.round((b.total_price * pct) / 100) : 0;
+      let pct = 0;
+      let refund = 0;
+      if (actor === b.driver_id) {
+        pct = 100;
+        refund = b.payment_status === "paid" ? b.total_price : 0;
+      } else {
+        pct = refundPercent(new Date(`${b.start_date}T00:00:00Z`), clock.now);
+        refund = b.payment_status === "paid" ? Math.round((b.total_price * pct) / 100) : 0;
+      }
       if (refund > 0) {
         wallet.apply(b.customer_id, refund, "refund");
         b.payment_status = "refunded";
       }
       b.refund_amount = refund;
       b.status = "cancelled";
+      notify(b.customer_id, `Hire cancelled by ${actor === b.driver_id ? "driver" : "customer"}`);
       notify(b.driver_id, "Hire cancelled");
       return { booking: b, refund, percent: pct };
     },

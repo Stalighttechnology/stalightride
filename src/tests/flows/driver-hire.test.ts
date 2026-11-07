@@ -194,7 +194,7 @@ describe("driver hire accept / decline", () => {
     return s;
   };
 
-  test("driver accepts, customer pays from wallet", () => {
+  test("DH-06: driver accepts, customer pays from wallet -> driver wallet credited and notified", () => {
     const { be, customer, driver } = approved();
     const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
     expect(() => be.payDriverBookingWithWallet(customer, b.id)).toThrow(/accepted hires/);
@@ -202,10 +202,12 @@ describe("driver hire accept / decline", () => {
     be.wallet.topup(customer, 1500);
     be.payDriverBookingWithWallet(customer, b.id);
     expect(be.wallet.balance(customer)).toBe(0);
+    expect(be.wallet.balance(driver.id)).toBe(1500);
+    expect(be.notifications.some((n) => n.user_id === driver.id && /payment/i.test(n.title))).toBe(true);
     expect(() => be.payDriverBookingWithWallet(customer, b.id)).toThrow(/Already paid/);
   });
 
-  test("declining frees the slot and blocks payment", () => {
+  test("DH-07: declining frees the slot and blocks payment", () => {
     const { be, customer, driver } = approved();
     const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
     be.driverDecide(driver.id, b.id, "rejected");
@@ -215,7 +217,7 @@ describe("driver hire accept / decline", () => {
     ).toBe("pending");
   });
 
-  test("a driver cannot be double-booked on overlapping dates", () => {
+  test("DH-08: a driver cannot be double-booked on overlapping dates", () => {
     const { be, customer, driver } = approved();
     const other = be.registerCustomer();
     be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-23" });
@@ -227,12 +229,30 @@ describe("driver hire accept / decline", () => {
     ).toBe("pending");
   });
 
-  test("another driver cannot decide someone else's request", () => {
+  test("DH-09: another driver cannot decide someone else's request", () => {
     const { be, admin, customer, driver } = approved();
     const other = be.enrollDriver();
     be.verifyDriver(admin, other.id, "approved");
     const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
     expect(() => be.driverDecide(other.id, b.id, "confirmed")).toThrow(/Not your hire/);
+  });
+
+  test("DH-10: confirmed hire -> pay with Razorpay, replay verify payload -> credited once", () => {
+    const { be, customer, driver } = approved();
+    const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
+    be.driverDecide(driver.id, b.id, "confirmed");
+
+    const driverBalBefore = be.wallet.balance(driver.id);
+    const res1 = be.payDriverBookingWithRazorpay(customer, b.id, "pay_12345");
+    expect(res1.ok).toBe(true);
+    expect(res1.replayed).toBe(false);
+    expect(be.wallet.balance(driver.id)).toBe(driverBalBefore + b.total_price);
+
+    // Replay verify payload: idempotent, must NOT credit again
+    const res2 = be.payDriverBookingWithRazorpay(customer, b.id, "pay_12345");
+    expect(res2.ok).toBe(true);
+    expect(res2.replayed).toBe(true);
+    expect(be.wallet.balance(driver.id)).toBe(driverBalBefore + b.total_price);
   });
 });
 
@@ -279,10 +299,18 @@ describe("driver hire cancellation refunds", () => {
     expect(() => be.cancelDriverBooking(customer, b.id)).toThrow(/cannot be cancelled/);
   });
 
-  test("only the hiring customer can cancel", () => {
+  test("only the hiring customer or driver can cancel", () => {
     const { be, b } = paid();
     const stranger = be.registerCustomer();
     expect(() => be.cancelDriverBooking(stranger, b.id)).toThrow(/Not your hire/);
+  });
+
+  test("DC-04: driver cancels a paid hire -> customer gets 100% full refund", () => {
+    const { be, customer, driver, b } = paid();
+    const res = be.cancelDriverBooking(driver.id, b.id);
+    expect(res.percent).toBe(100);
+    expect(res.refund).toBe(3000);
+    expect(be.wallet.balance(customer)).toBe(3000);
   });
 });
 
