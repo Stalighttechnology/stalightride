@@ -319,6 +319,60 @@ export type Database = {
           },
         ]
       }
+      cleaners: {
+        Row: {
+          available: boolean
+          avg_rating: number
+          bio: string | null
+          city: string
+          created_at: string
+          experience_years: number
+          full_name: string
+          id: string
+          phone: string | null
+          rejection_reason: string | null
+          review_count: number
+          service_area: string | null
+          services: string[]
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
+        }
+        Insert: {
+          available?: boolean
+          avg_rating?: number
+          bio?: string | null
+          city?: string
+          created_at?: string
+          experience_years?: number
+          full_name: string
+          id: string
+          phone?: string | null
+          rejection_reason?: string | null
+          review_count?: number
+          service_area?: string | null
+          services?: string[]
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Update: {
+          available?: boolean
+          avg_rating?: number
+          bio?: string | null
+          city?: string
+          created_at?: string
+          experience_years?: number
+          full_name?: string
+          id?: string
+          phone?: string | null
+          rejection_reason?: string | null
+          review_count?: number
+          service_area?: string | null
+          services?: string[]
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           active: boolean
@@ -444,6 +498,7 @@ export type Database = {
           start_time: string
           status: Database["public"]["Enums"]["booking_status"]
           total_price: number
+          trip_type: string | null
           updated_at: string
         }
         Insert: {
@@ -481,6 +536,7 @@ export type Database = {
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
           total_price: number
+          trip_type?: string | null
           updated_at?: string
         }
         Update: {
@@ -518,6 +574,7 @@ export type Database = {
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
           total_price?: number
+          trip_type?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -590,8 +647,6 @@ export type Database = {
       }
       drivers: {
         Row: {
-          service_area: string | null
-          trip_types: string[]
           avg_rating: number
           bio: string | null
           city: string
@@ -611,15 +666,15 @@ export type Database = {
           photo_url: string | null
           rejection_reason: string | null
           review_count: number
+          service_area: string | null
           status: Database["public"]["Enums"]["vehicle_status"]
+          trip_types: string[]
           updated_at: string
           vehicle_types: string[]
           verification_status: Database["public"]["Enums"]["verification_status"]
           verified_at: string | null
         }
         Insert: {
-          service_area?: string | null
-          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city: string
@@ -639,15 +694,15 @@ export type Database = {
           photo_url?: string | null
           rejection_reason?: string | null
           review_count?: number
+          service_area?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
           verification_status?: Database["public"]["Enums"]["verification_status"]
           verified_at?: string | null
         }
         Update: {
-          service_area?: string | null
-          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city?: string
@@ -667,7 +722,9 @@ export type Database = {
           photo_url?: string | null
           rejection_reason?: string | null
           review_count?: number
+          service_area?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
           verification_status?: Database["public"]["Enums"]["verification_status"]
@@ -802,6 +859,57 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          ratee_id: string
+          rater_id: string
+          rating: number
+          request_id: string | null
+          role: string
+          trip_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ratee_id: string
+          rater_id: string
+          rating: number
+          request_id?: string | null
+          role: string
+          trip_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ratee_id?: string
+          rater_id?: string
+          rating?: number
+          request_id?: string | null
+          role?: string
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pool_ratings_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "pool_trips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pool_ratings_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "pool_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pool_requests: {
         Row: {
           cancellation_reason: string | null
@@ -810,6 +918,7 @@ export type Database = {
           drop_label: string
           drop_lat: number
           drop_lng: number
+          emergency_contact: string | null
           fare_total: number
           id: string
           match_score: number
@@ -830,6 +939,7 @@ export type Database = {
           drop_label: string
           drop_lat: number
           drop_lng: number
+          emergency_contact?: string | null
           fare_total?: number
           id?: string
           match_score?: number
@@ -850,6 +960,7 @@ export type Database = {
           drop_label?: string
           drop_lat?: number
           drop_lng?: number
+          emergency_contact?: string | null
           fare_total?: number
           id?: string
           match_score?: number
@@ -989,8 +1100,6 @@ export type Database = {
       }
       public_drivers: {
         Row: {
-          service_area: string | null
-          trip_types: string[]
           avg_rating: number
           bio: string | null
           city: string
@@ -1003,12 +1112,12 @@ export type Database = {
           languages: string[]
           photo_url: string | null
           review_count: number
+          service_area: string | null
+          trip_types: string[]
           updated_at: string
           vehicle_types: string[]
         }
         Insert: {
-          service_area?: string | null
-          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city: string
@@ -1021,12 +1130,12 @@ export type Database = {
           languages?: string[]
           photo_url?: string | null
           review_count?: number
+          service_area?: string | null
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
         }
         Update: {
-          service_area?: string | null
-          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city?: string
@@ -1039,6 +1148,8 @@ export type Database = {
           languages?: string[]
           photo_url?: string | null
           review_count?: number
+          service_area?: string | null
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
         }
@@ -1186,6 +1297,54 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          details: string | null
+          id: string
+          reason: string
+          reported_user_id: string | null
+          reporter_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          target_id: string | null
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason: string
+          reported_user_id?: string | null
+          reporter_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          target_id?: string | null
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason?: string
+          reported_user_id?: string | null
+          reporter_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          target_id?: string | null
+          target_type?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1478,7 +1637,10 @@ export type Database = {
           discount: number
           address: string
           admin_note: string | null
+          after_photos: string[]
+          assigned_cleaner_id: string | null
           assigned_vendor_id: string | null
+          before_photos: string[]
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -1494,6 +1656,7 @@ export type Database = {
           payment_method: string | null
           payment_status: string
           price: number
+          progress: Database["public"]["Enums"]["wash_status"]
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           refund_amount: number
@@ -1501,7 +1664,7 @@ export type Database = {
           service_id: string
           slot_date: string
           slot_time: string
-          status: Database["public"]["Enums"]["booking_status"]
+          status: string
           updated_at: string
           vehicle_id: string | null
           vehicle_label: string | null
@@ -1518,7 +1681,10 @@ export type Database = {
           discount?: number
           address: string
           admin_note?: string | null
+          after_photos?: string[]
+          assigned_cleaner_id?: string | null
           assigned_vendor_id?: string | null
+          before_photos?: string[]
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -1534,6 +1700,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string
           price: number
+          progress?: Database["public"]["Enums"]["wash_status"]
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           refund_amount?: number
@@ -1541,7 +1708,7 @@ export type Database = {
           service_id: string
           slot_date: string
           slot_time: string
-          status?: Database["public"]["Enums"]["booking_status"]
+          status?: string
           updated_at?: string
           vehicle_id?: string | null
           vehicle_label?: string | null
@@ -1558,7 +1725,10 @@ export type Database = {
           discount?: number
           address?: string
           admin_note?: string | null
+          after_photos?: string[]
+          assigned_cleaner_id?: string | null
           assigned_vendor_id?: string | null
+          before_photos?: string[]
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -1574,6 +1744,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string
           price?: number
+          progress?: Database["public"]["Enums"]["wash_status"]
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           refund_amount?: number
@@ -1581,7 +1752,7 @@ export type Database = {
           service_id?: string
           slot_date?: string
           slot_time?: string
-          status?: Database["public"]["Enums"]["booking_status"]
+          status?: string
           updated_at?: string
           vehicle_id?: string | null
           vehicle_label?: string | null
@@ -1610,32 +1781,138 @@ export type Database = {
           },
         ]
       }
-      wash_reviews: {
+      wash_centers: {
         Row: {
-          comment: string | null
+          active: boolean
+          address: string | null
+          avg_rating: number
+          city: string
+          closing_time: string
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
-          customer_id: string
+          daily_capacity: number
           id: string
-          rating: number
-          wash_booking_id: string
+          name: string
+          opening_time: string
+          rejection_reason: string | null
+          review_count: number
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
         }
         Insert: {
-          comment?: string | null
+          active?: boolean
+          address?: string | null
+          avg_rating?: number
+          city?: string
+          closing_time?: string
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
-          customer_id?: string
-          id?: string
-          rating: number
-          wash_booking_id: string
+          daily_capacity?: number
+          id: string
+          name: string
+          opening_time?: string
+          rejection_reason?: string | null
+          review_count?: number
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Update: {
-          comment?: string | null
+          active?: boolean
+          address?: string | null
+          avg_rating?: number
+          city?: string
+          closing_time?: string
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
-          customer_id?: string
+          daily_capacity?: number
           id?: string
-          rating?: number
-          wash_booking_id?: string
+          name?: string
+          opening_time?: string
+          rejection_reason?: string | null
+          review_count?: number
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Relationships: []
+      }
+      wash_center_packages: {
+        Row: {
+          category: string
+          center_id: string
+          created_at: string
+          duration: number
+          id: string
+          name: string
+          price: number
+        }
+        Insert: {
+          category?: string
+          center_id: string
+          created_at?: string
+          duration?: number
+          id?: string
+          name: string
+          price: number
+        }
+        Update: {
+          category?: string
+          center_id?: string
+          created_at?: string
+          duration?: number
+          id?: string
+          name?: string
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_center_packages_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "wash_centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wash_center_staff: {
+        Row: {
+          active: boolean
+          center_id: string
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          role: string
+        }
+        Insert: {
+          active?: boolean
+          center_id: string
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          role?: string
+        }
+        Update: {
+          active?: boolean
+          center_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_center_staff_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "wash_centers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wash_services: {
         Row: {
@@ -1714,6 +1991,87 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      wash_reviews: {
+        Row: {
+          center_id: string | null
+          cleaner_id: string | null
+          comment: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          rating: number
+          response: string | null
+          response_at: string | null
+          updated_at: string
+          vendor_id: string | null
+          wash_booking_id: string
+        }
+        Insert: {
+          center_id?: string | null
+          cleaner_id?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating: number
+          response?: string | null
+          response_at?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+          wash_booking_id: string
+        }
+        Update: {
+          center_id?: string | null
+          cleaner_id?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating?: number
+          response?: string | null
+          response_at?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+          wash_booking_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_reviews_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "wash_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_cleaner_id_fkey"
+            columns: ["cleaner_id"]
+            isOneToOne: false
+            referencedRelation: "cleaners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "wash_vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_reviews_wash_booking_id_fkey"
+            columns: ["wash_booking_id"]
+            isOneToOne: true
+            referencedRelation: "wash_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wishlists: {
         Row: {
@@ -1808,13 +2166,35 @@ export type Database = {
         Args: { _amount: number; _email: string; _note?: string }
         Returns: number
       }
+      admin_refund: {
+        Args: { _amount: number; _email: string; _reason: string }
+        Returns: number
+      }
+      advance_wash_status: {
+        Args: {
+          _next_status: string
+          _notes?: string | null
+          _photos?: string[] | null
+          _wash_booking_id: string
+        }
+        Returns: Json
+      }
       cancel_booking: {
         Args: { _booking_id: string; _reason?: string }
         Returns: Json
       }
+      cancel_booking_extension: { Args: { _extension_id: string }; Returns: undefined }
       compute_charges: {
         Args: { _base: number; _coupon?: string }
         Returns: Json
+      }
+      decide_booking_extension: {
+        Args: { _accept: boolean; _extension_id: string }
+        Returns: string
+      }
+      request_booking_extension: {
+        Args: { _booking_id: string; _hours: number; _note?: string }
+        Returns: string
       }
       request_withdrawal: {
         Args: {
@@ -1827,21 +2207,8 @@ export type Database = {
         }
         Returns: string
       }
-      withdrawable_balance: { Args: { _user?: string }; Returns: number }
-      admin_refund: {
-        Args: { _amount: number; _email: string; _reason: string }
-        Returns: number
-      }
-      cancel_booking_extension: { Args: { _extension_id: string }; Returns: undefined }
-      decide_booking_extension: {
-        Args: { _accept: boolean; _extension_id: string }
-        Returns: string
-      }
-      request_booking_extension: {
-        Args: { _booking_id: string; _hours: number; _note?: string }
-        Returns: string
-      }
       wallet_pay_extension: { Args: { _extension_id: string }; Returns: number }
+      withdrawable_balance: { Args: { _user?: string }; Returns: number }
       admin_decide_wash_booking: {
         Args: {
           _decision: string
@@ -1863,6 +2230,13 @@ export type Database = {
       }
       cancel_wash_booking: {
         Args: { _reason?: string; _wash_booking_id: string }
+        Returns: Json
+      }
+      claim_wash_job: {
+        Args: {
+          _wash_booking_id?: string
+          id?: string
+        }
         Returns: Json
       }
       delete_my_account_data: { Args: never; Returns: Json }
@@ -1905,6 +2279,22 @@ export type Database = {
         }
         Returns: number
       }
+      verify_cleaner: {
+        Args: {
+          _cleaner_id: string
+          _decision: string
+          _rejection_reason?: string | null
+        }
+        Returns: undefined
+      }
+      verify_wash_center: {
+        Args: {
+          _center_id: string
+          _decision: string
+          _rejection_reason?: string | null
+        }
+        Returns: undefined
+      }
       wallet_pay_booking: { Args: { _booking_id: string }; Returns: number }
       wallet_pay_driver_booking: {
         Args: { _driver_booking_id: string }
@@ -1916,7 +2306,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "customer" | "vendor" | "admin"
+      app_role: "customer" | "vendor" | "admin" | "cleaner" | "wash_center"
       booking_status:
         | "pending"
         | "confirmed"
@@ -1930,6 +2320,15 @@ export type Database = {
       vehicle_category: "scooter" | "bike" | "motorcycle" | "car" | "ev"
       vehicle_status: "draft" | "active" | "paused"
       verification_status: "pending" | "approved" | "rejected"
+      wash_status:
+        | "requested"
+        | "confirmed"
+        | "assigned"
+        | "on_the_way"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2057,7 +2456,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["customer", "vendor", "admin"],
+      app_role: ["customer", "vendor", "admin", "cleaner", "wash_center"],
       booking_status: [
         "pending",
         "confirmed",

@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
-import { Users, CalendarClock, MapPin, PlusCircle, Check, X, CircleSlash, Flag } from "lucide-react";
+import { Users, CalendarClock, MapPin, PlusCircle, Check, X, CircleSlash, Flag, Star, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pooling/driver")({
   component: PoolDriver,
@@ -53,6 +53,7 @@ function PoolDriver() {
   const [trips, setTrips] = useState<any[] | null>(null);
   const [requests, setRequests] = useState<Record<string, any[]>>({});
   const [profiles, setProfiles] = useState<Record<string, any>>({});
+  const [ratedRiders, setRatedRiders] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -80,6 +81,14 @@ function PoolDriver() {
       const { data: p } = await supabase.from("public_profiles").select("*").in("id", pids);
       setProfiles(Object.fromEntries((p ?? []).map((x) => [x.id, x])));
     }
+
+    const { data: driverRatings } = await supabase
+      .from("pool_ratings")
+      .select("request_id")
+      .eq("rater_id", user.id);
+    if (driverRatings) {
+      setRatedRiders(new Set(driverRatings.map((x) => x.request_id).filter(Boolean) as string[]));
+    }
   };
   useEffect(() => { load(); }, [user?.id]);
 
@@ -90,6 +99,51 @@ function PoolDriver() {
     if (error) return toast.error(error.message);
     toast.success(status === "confirmed" ? "Rider accepted — seats updated" : "Rider declined");
     load();
+  };
+
+  const ratePassenger = async (trip: any, r: any) => {
+    if (trip.status !== "completed") {
+      return toast.error("Ratings can only be submitted after the trip is marked completed");
+    }
+    const stars = window.prompt("Rate passenger (1 to 5 stars):", "5");
+    if (!stars) return;
+    const ratingNum = Number(stars);
+    if (ratingNum < 1 || ratingNum > 5 || isNaN(ratingNum)) {
+      return toast.error("Please enter a valid rating between 1 and 5");
+    }
+    const comment = window.prompt("Optional feedback / comment:") || "";
+    const { error } = await supabase.from("pool_ratings").insert({
+      trip_id: trip.id,
+      request_id: r.id,
+      rater_id: user!.id,
+      ratee_id: r.passenger_id,
+      role: "driver_to_passenger",
+      rating: ratingNum,
+      comment: comment.trim() || null,
+    });
+    if (error) {
+      return toast.error(error.message);
+    }
+    toast.success("Passenger rated successfully");
+    setRatedRiders((prev) => new Set([...prev, r.id]));
+  };
+
+  const reportPassenger = async (trip: any, r: any) => {
+    const reason = window.prompt("Reason for report / safety issue:");
+    if (!reason?.trim()) return;
+    const details = window.prompt("Additional details (optional):") || "";
+    const { error } = await supabase.from("user_reports").insert({
+      reporter_id: user!.id,
+      reported_user_id: r.passenger_id,
+      target_type: "pooling_request",
+      target_id: r.id,
+      reason: reason.trim(),
+      details: details.trim() || null,
+    });
+    if (error) {
+      return toast.error(error.message);
+    }
+    toast.success("Report submitted to trust & safety moderation");
   };
 
   const setTripStatus = async (trip: any, status: "started" | "completed" | "cancelled") => {
@@ -217,6 +271,11 @@ function PoolDriver() {
                             <p className="text-xs text-muted-foreground">
                               {r.seats} seat{r.seats > 1 ? "s" : ""} · {currency(Number(r.fare_total))} · {Number(r.match_score)}% match
                             </p>
+                            {r.emergency_contact && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground">SOS contact:</span> {r.emergency_contact}
+                              </p>
+                            )}
                             {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
                           </div>
                           <Badge variant={STATUS_TONE[r.status] as any} className="rounded-full">{LABEL[r.status]}</Badge>
@@ -227,6 +286,18 @@ function PoolDriver() {
                               </Button>
                               <Button size="sm" variant="outline" className="rounded-full" disabled={busy === r.id} onClick={() => decide(r, "rejected")}>
                                 <X className="mr-1.5 h-4 w-4" /> Reject
+                              </Button>
+                            </div>
+                          )}
+                          {trip.status === "completed" && r.status === "completed" && (
+                            <div className="flex gap-1.5">
+                              {!ratedRiders.has(r.id) && (
+                                <Button size="sm" variant="outline" className="rounded-full h-8 text-xs" onClick={() => ratePassenger(trip, r)}>
+                                  <Star className="mr-1 h-3.5 w-3.5 text-amber-500" /> Rate rider
+                                </Button>
+                              )}
+                              <Button size="sm" variant="ghost" className="rounded-full h-8 text-xs text-muted-foreground hover:text-destructive" onClick={() => reportPassenger(trip, r)}>
+                                <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Report
                               </Button>
                             </div>
                           )}

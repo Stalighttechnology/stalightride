@@ -107,7 +107,6 @@ function PoolingPage() {
     setJoining(trip.id);
     try {
       const match = matchScore(trip, { lat: pickup.lat!, lng: pickup.lng! }, { lat: drop.lat!, lng: drop.lng! });
-      const combinedNote = [emergencyContact ? `Emergency Contact: ${emergencyContact}` : "", note].filter(Boolean).join(" | ");
       const { error } = await supabase.from("pool_requests").insert({
         trip_id: trip.id,
         passenger_id: user.id,
@@ -119,8 +118,9 @@ function PoolingPage() {
         drop_lng: drop.lng!,
         seats,
         match_score: match.score,
-        note: combinedNote || null,
-      } as any);
+        emergency_contact: emergencyContact.trim() || null,
+        note: note.trim() || null,
+      });
       if (error) {
         if (error.code === "23505" || error.message.includes("pool_requests_one_active_idx"))
           throw new Error("You already have an active request for this trip");
@@ -224,7 +224,7 @@ function PoolingPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
-            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Cancellation policy: 100% refund if cancelled up to 12 hours before departure; 50% refund between 2–12 hours; non-refundable within 2 hours of departure.
+            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Fares are settled directly with the driver (Cash or UPI). Riders can cancel their booking anytime before departure with no cancellation fees; seats are automatically returned to the pool for other travelers.
           </div>
         </div>
 

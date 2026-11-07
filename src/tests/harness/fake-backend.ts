@@ -97,10 +97,89 @@ export type BookingExtension = Charges & {
 
 export type Driver = {
   id: string;
+  full_name?: string;
+  phone?: string;
   hourly_rate: number;
   daily_rate: number;
   status: "draft" | "active" | "paused";
   verification_status: "pending" | "approved" | "rejected";
+  trip_types?: string[];
+  service_area?: string;
+  bio?: string;
+  languages?: string[];
+  vehicle_types?: string[];
+  experience_years?: number;
+  city?: string;
+  photo_url?: string | null;
+  dl_number?: string;
+  dl_expiry?: string;
+  dl_front_url?: string | null;
+  dl_back_url?: string | null;
+  id_document_url?: string | null;
+  avg_rating?: number;
+  review_count?: number;
+};
+
+export type Cleaner = {
+  id: string;
+  full_name: string;
+  phone?: string;
+  city: string;
+  service_area?: string;
+  bio?: string;
+  experience_years: number;
+  available: boolean;
+  verification_status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
+  services: string[];
+  avg_rating: number;
+  review_count: number;
+};
+
+export type WashCenter = {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  daily_capacity: number;
+  opening_time?: string;
+  closing_time?: string;
+  active: boolean;
+  verification_status: "pending" | "approved" | "rejected";
+  rejection_reason?: string | null;
+  avg_rating: number;
+  review_count: number;
+};
+
+export type WashReview = {
+  id: string;
+  wash_booking_id: string;
+  customer_id: string;
+  cleaner_id?: string | null;
+  center_id?: string | null;
+  vendor_id?: string | null;
+  rating: number;
+  comment?: string | null;
+};
+
+export type WashCenterStaff = {
+  id: string;
+  center_id: string;
+  name: string;
+  phone?: string;
+  role: string;
+  active: boolean;
+};
+
+export type WashCenterPackage = {
+  id: string;
+  center_id: string;
+  name: string;
+  category: string;
+  price: number;
+  duration: number;
 };
 
 export type DriverBooking = Money & {
@@ -109,10 +188,25 @@ export type DriverBooking = Money & {
   customer_id: string;
   start_date: string;
   end_date: string;
+  start_time?: string;
+  end_time?: string;
   total_price: number;
   status: BookingStatus;
   payment_status: PaymentStatus;
   refund_amount: number;
+  trip_type?: string;
+  pickup_address?: string;
+  notes?: string;
+};
+
+export type DriverReview = {
+  id: string;
+  driver_booking_id: string;
+  driver_id: string;
+  customer_id: string;
+  rating: number;
+  comment?: string | null;
+  created_at: string;
 };
 
 export type PoolTrip = {
@@ -123,6 +217,15 @@ export type PoolTrip = {
   seats_available: number;
   fare_per_seat: number;
   status: "scheduled" | "started" | "completed" | "cancelled";
+  vehicle_label?: string;
+  origin_label?: string;
+  origin_lat?: number;
+  origin_lng?: number;
+  dest_label?: string;
+  dest_lat?: number;
+  dest_lng?: number;
+  route?: { lat: number; lng: number; label?: string }[];
+  notes?: string;
 };
 
 export type PoolRequest = {
@@ -132,16 +235,60 @@ export type PoolRequest = {
   seats: number;
   match_score: number;
   status: BookingStatus;
+  emergency_contact?: string | null;
 };
+
+export type PoolRating = {
+  id: string;
+  trip_id: string;
+  request_id?: string | null;
+  rater_id: string;
+  ratee_id: string;
+  role: "passenger_to_driver" | "driver_to_passenger";
+  rating: number;
+  comment?: string | null;
+  created_at: string;
+};
+
+export type UserReport = {
+  id: string;
+  reporter_id: string;
+  reported_user_id?: string | null;
+  target_type: string;
+  target_id?: string | null;
+  reason: string;
+  details?: string | null;
+  status: "pending" | "investigating" | "resolved" | "dismissed";
+  admin_notes?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+};
+
+export type WashStatus =
+  | "requested"
+  | "confirmed"
+  | "assigned"
+  | "on_the_way"
+  | "started"
+  | "completed"
+  | "cancelled"
+  | "rejected";
 
 export type WashBooking = Money & {
   id: string;
   customer_id: string;
   slot_date: string;
+  slot_time?: string;
+  address?: string;
+  city?: string;
   price: number;
-  status: BookingStatus;
+  status: string;
+  progress?: WashStatus;
+  before_photos?: string[];
+  after_photos?: string[];
   payment_status: PaymentStatus;
   assigned_vendor_id: string | null;
+  assigned_cleaner_id?: string | null;
   refund_amount: number;
 };
 
@@ -178,9 +325,27 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
   const bookings = new Map<string, Booking>();
   const drivers = new Map<string, Driver>();
   const driverBookings = new Map<string, DriverBooking>();
+  const driverReviews = new Map<string, DriverReview>();
   const trips = new Map<string, PoolTrip>();
   const poolRequests = new Map<string, PoolRequest>();
   const washes = new Map<string, WashBooking>();
+  const cleaners = new Map<string, Cleaner>();
+  const washCenters = new Map<string, WashCenter>();
+  const washCenterStaff = new Map<string, WashCenterStaff>();
+  const washCenterPackages = new Map<string, WashCenterPackage>();
+  const washReviews = new Map<string, WashReview>();
+  const poolRatings = new Map<string, PoolRating>();
+  const userReports = new Map<string, UserReport>();
+  const userRoles = new Map<string, Set<string>>();
+
+  const assignRole = (userId: string, role: string) => {
+    let r = userRoles.get(userId);
+    if (!r) {
+      r = new Set();
+      userRoles.set(userId, r);
+    }
+    r.add(role);
+  };
   const wallets = new Map<string, number>();
   const walletTxns: WalletTxn[] = [];
   const notifications: { user_id: string; title: string }[] = [];
@@ -266,7 +431,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     wallet,
     notifications,
     settings,
-    tables: { vehicles, bookings, drivers, driverBookings, trips, poolRequests, washes, withdrawals, coupons, extensions },
+    tables: { vehicles, bookings, drivers, driverBookings, trips, poolRequests, washes, withdrawals, coupons, extensions, poolRatings, userReports },
 
     /* ---------- accounts ---------- */
     registerCustomer(dl: "none" | "pending" | "approved" | "rejected" = "approved", email?: string) {
@@ -479,13 +644,15 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     },
 
     /* ---------- driver hire ---------- */
-    enrollDriver(hourly = 200, daily = 1500) {
+    enrollDriver(hourly = 200, daily = 1500, trip_types: string[] = [], service_area?: string) {
       const d: Driver = {
         id: id("drv"),
         hourly_rate: hourly,
         daily_rate: daily,
         status: "active",
         verification_status: "pending",
+        trip_types,
+        service_area,
       };
       drivers.set(d.id, d);
       return d;
@@ -495,8 +662,52 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       drivers.get(driver_id)!.verification_status = decision;
       return drivers.get(driver_id)!;
     },
-    searchDrivers() {
-      return [...drivers.values()].filter((d) => d.status === "active" && d.verification_status === "approved");
+    saveDriverProfile(driver_id: string, updates: Partial<Driver>) {
+      const d = drivers.get(driver_id);
+      if (!d) throw new RuleError("Driver not found");
+      Object.assign(d, updates);
+      return d;
+    },
+    searchDrivers(filters?: { trip_type?: string; service_area?: string }) {
+      return [...drivers.values()].filter((d) => {
+        if (d.status !== "active" || d.verification_status !== "approved") return false;
+        if (filters?.trip_type) {
+          const req = filters.trip_type.toLowerCase();
+          const has = (d.trip_types ?? []).some((t) => t.toLowerCase() === req);
+          if (!has) return false;
+        }
+        if (filters?.service_area) {
+          const req = filters.service_area.toLowerCase();
+          if (!d.service_area || !d.service_area.toLowerCase().includes(req)) return false;
+        }
+        return true;
+      });
+    },
+    getPublicDriver(id: string) {
+      const d = drivers.get(id);
+      if (!d || d.verification_status !== "approved" || d.status !== "active") return null;
+      return {
+        id: d.id,
+        full_name: d.full_name || "Driver",
+        city: d.city,
+        bio: d.bio,
+        experience_years: d.experience_years || 0,
+        languages: d.languages || [],
+        vehicle_types: d.vehicle_types || [],
+        photo_url: d.photo_url || null,
+        hourly_rate: d.hourly_rate,
+        daily_rate: d.daily_rate,
+        avg_rating: d.avg_rating || 0,
+        review_count: d.review_count || 0,
+        trip_types: d.trip_types || [],
+        service_area: d.service_area || null,
+      };
+    },
+    setDriverStatus(driver_id: string, status: "active" | "paused") {
+      const d = drivers.get(driver_id);
+      if (!d) throw new RuleError("Driver not found");
+      d.status = status;
+      return d;
     },
     hireDriver(args: {
       customer_id: string;
@@ -506,9 +717,11 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       rate_type?: "hourly" | "daily";
       start_time?: string;
       end_time?: string;
-      /** Client-sent price — ignored; the backend reprices (tg_price_driver_booking). */
       total_price?: number;
       coupon_code?: string | null;
+      trip_type?: string;
+      pickup_address?: string;
+      notes?: string;
     }) {
       const d = drivers.get(args.driver_id);
       if (!d || d.verification_status !== "approved" || d.status !== "active")
@@ -538,10 +751,15 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
         customer_id: args.customer_id,
         start_date: args.start_date,
         end_date: args.end_date,
+        start_time: args.start_time,
+        end_time: args.end_time,
         total_price: money.customer_total,
         status: "pending",
         payment_status: "unpaid",
         refund_amount: 0,
+        trip_type: args.trip_type,
+        pickup_address: args.pickup_address,
+        notes: args.notes,
       };
       driverBookings.set(b.id, b);
       notify(d.id, "New driver hire request");
@@ -562,14 +780,35 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       if (b.payment_status === "paid") throw new RuleError("Already paid");
       wallet.apply(actor, -b.total_price, "driver_payment");
       b.payment_status = "paid";
+      if (settings.commission_pct === 0 && !b.earning_credited_at) {
+        wallet.apply(b.driver_id, b.provider_earning ?? b.total_price, "driver_earning");
+        b.earning_credited_at = clock.now.toISOString();
+      }
+      notify(b.driver_id, "Hire payment received");
       return b;
     },
-    completeDriverBooking(actor: string, booking_id: string) {
+    payDriverBookingWithRazorpay(actor: string, booking_id: string, payment_id: string) {
       const b = driverBookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Not your hire");
+      if (b.status !== "confirmed") throw new RuleError("Driver has not accepted this request yet");
+      if (b.payment_status === "paid") {
+        // Replay of verify payload (DH-10): already paid, do not credit driver again
+        return { ok: true, replayed: true, booking: b };
+      }
+      b.payment_status = "paid";
+      wallet.apply(b.driver_id, b.provider_earning ?? b.total_price, "driver_earning");
+      b.earning_credited_at = clock.now.toISOString();
+      notify(b.driver_id, `Hire payment received via Razorpay (${payment_id})`);
+      return { ok: true, replayed: false, booking: b };
+    },
+    completeDriverBooking(actor: string, booking_id: string) {
+      const b = driverBookings.get(booking_id);
+      if (!b) throw new RuleError("Booking not found");
       if (actor !== b.driver_id && !admins.has(actor)) throw new RuleError("Only the driver can complete a hire");
       if (b.status !== "confirmed") throw new RuleError("Only confirmed hires can be completed");
       b.status = "completed";
       settleDriver(b);
+      notify(b.customer_id, "Driver has completed the hire");
       return b;
     },
     /** public.cancel_driver_booking — customer, driver or admin. */
@@ -579,28 +818,105 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const byDriver = b.driver_id === actor;
       if (b.customer_id !== actor && !byDriver && !isAdmin) throw new RuleError("Not your hire");
       if (!["pending", "confirmed"].includes(b.status)) throw new RuleError("This hire cannot be cancelled");
-      let pct = refundPercent(new Date(`${b.start_date}T00:00:00Z`), clock.now);
+      const timePart = b.start_time ? (b.start_time.length === 5 ? `${b.start_time}:00` : b.start_time.slice(0, 8)) : "00:00:00";
+      let pct = refundPercent(new Date(`${b.start_date}T${timePart}Z`), clock.now);
       if (byDriver || isAdmin) pct = 100;
       let refund = 0;
       let share = 0;
       if (b.payment_status === "paid") {
         refund = round2((b.total_price * pct) / 100);
-        share = round2((b.provider_earning * (100 - pct)) / 100);
+        share = round2(((b.provider_earning ?? b.total_price) * (100 - pct)) / 100);
         if (refund > 0) wallet.apply(b.customer_id, refund, "driver_refund");
-        if (share > 0 && b.driver_id !== b.customer_id && !b.earning_credited_at)
-          wallet.apply(b.driver_id, share, "driver_earning");
+        if (settings.commission_pct === 0) {
+          if (pct === 100) {
+            wallet.apply(b.driver_id, -b.total_price, "payout_reversal");
+          } else if (pct > 0) {
+            wallet.apply(b.driver_id, -refund, "payout_reversal");
+          }
+        } else {
+          if (share > 0 && b.driver_id !== b.customer_id && !b.earning_credited_at) {
+            wallet.apply(b.driver_id, share, "driver_earning");
+            b.earning_credited_at = clock.now.toISOString();
+          }
+        }
         b.payment_status = pct === 100 ? "refunded" : "partially_refunded";
-        b.earning_credited_at = clock.now.toISOString();
       }
       b.refund_amount = refund;
       b.status = "cancelled";
+      notify(b.customer_id, `Hire cancelled by ${actor === b.driver_id ? "driver" : "customer"}`);
       notify(b.driver_id, "Hire cancelled");
       return { booking: b, refund, percent: pct, provider_share: share };
     },
+    reviewDriver(customer_id: string, booking_id: string, rating: number, comment?: string) {
+      const b = driverBookings.get(booking_id);
+      if (!b) throw new RuleError("Hire not found");
+      if (b.customer_id !== customer_id) throw new RuleError("Only the hiring customer can review this hire");
+      if (b.status !== "completed") throw new RuleError("Only completed hires can be reviewed");
+      if (driverReviews.has(booking_id)) throw new RuleError("Hire has already been reviewed");
+      if (rating < 1 || rating > 5) throw new RuleError("Rating must be between 1 and 5");
+
+      const rev: DriverReview = {
+        id: id("drev"),
+        driver_booking_id: booking_id,
+        driver_id: b.driver_id,
+        customer_id,
+        rating,
+        comment: comment || null,
+        created_at: clock.now.toISOString(),
+      };
+      driverReviews.set(booking_id, rev);
+
+      // Recompute driver avg_rating and review_count (trigger simulation)
+      const d = drivers.get(b.driver_id);
+      if (d) {
+        const revs = Array.from(driverReviews.values()).filter((r) => r.driver_id === b.driver_id);
+        d.review_count = revs.length;
+        const sum = revs.reduce((acc, curr) => acc + curr.rating, 0);
+        d.avg_rating = Number((sum / revs.length).toFixed(2));
+      }
+
+      return rev;
+    },
+    getDriverUpcomingHires(driver_id: string, asOfDate?: string) {
+      const date = asOfDate ?? clock.now.toISOString().slice(0, 10);
+      return Array.from(driverBookings.values()).filter(
+        (h) => h.driver_id === driver_id && h.status === "confirmed" && h.start_date >= date,
+      );
+    },
+    getDriverHistoryHires(driver_id: string) {
+      return Array.from(driverBookings.values()).filter(
+        (h) => h.driver_id === driver_id && (h.status === "completed" || h.status === "cancelled"),
+      );
+    },
+    getDriverReviews(driver_id: string) {
+      return Array.from(driverReviews.values()).filter((r) => r.driver_id === driver_id);
+    },
+    getDriverEarnings(driver_id: string) {
+      return Array.from(driverBookings.values())
+        .filter((h) => h.driver_id === driver_id && h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed"))
+        .reduce((s, h) => s + Number(h.total_price), 0);
+    },
 
     /* ---------- car pooling ---------- */
-    createTrip(driver_id: string, args: { depart_at: string; seats_total: number; fare_per_seat: number }) {
-      if (args.seats_total < 1) throw new RuleError("A trip needs at least one seat");
+    createTrip(
+      driver_id: string,
+      args: {
+        depart_at: string;
+        seats_total: number;
+        fare_per_seat: number;
+        vehicle_label?: string;
+        origin_label?: string;
+        origin_lat?: number;
+        origin_lng?: number;
+        dest_label?: string;
+        dest_lat?: number;
+        dest_lng?: number;
+        route?: { lat: number; lng: number; label?: string }[];
+        notes?: string;
+      },
+    ) {
+      if (args.seats_total < 1 || args.seats_total > 8) throw new RuleError("Seats must be between 1 and 8");
+      if (new Date(args.depart_at) <= clock.now) throw new RuleError("Departure must be in the future");
       const t: PoolTrip = {
         id: id("trip"),
         driver_id,
@@ -609,9 +925,23 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
         seats_available: args.seats_total,
         fare_per_seat: args.fare_per_seat,
         status: "scheduled",
+        vehicle_label: args.vehicle_label,
+        origin_label: args.origin_label,
+        origin_lat: args.origin_lat,
+        origin_lng: args.origin_lng,
+        dest_label: args.dest_label,
+        dest_lat: args.dest_lat,
+        dest_lng: args.dest_lng,
+        route: args.route ?? [],
+        notes: args.notes,
       };
       trips.set(t.id, t);
       return t;
+    },
+    getPublicScheduledTrips() {
+      return Array.from(trips.values()).filter(
+        (t) => t.status === "scheduled" && t.seats_available > 0 && new Date(t.depart_at) > clock.now,
+      );
     },
     /** Direct seat tampering is ignored by the trip guard. */
     tamperSeats(trip_id: string, seats: number) {
@@ -619,10 +949,11 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       void seats;
       return t;
     },
-    requestSeat(args: { passenger_id: string; trip_id: string; seats: number; match_score: number }) {
+    requestSeat(args: { passenger_id: string; trip_id: string; seats: number; match_score: number; emergency_contact?: string | null }) {
       const t = trips.get(args.trip_id);
       if (!t) throw new RuleError("Trip not found");
       if (t.status !== "scheduled") throw new RuleError("This trip is no longer open");
+      if (new Date(t.depart_at) <= clock.now) throw new RuleError("This trip has already departed");
       if (t.driver_id === args.passenger_id) throw new RuleError("You cannot join your own trip");
       if (args.match_score < 80) throw new RuleError("This trip does not match your route closely enough");
       if (args.seats < 1) throw new RuleError("Request at least one seat");
@@ -638,6 +969,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
         seats: args.seats,
         match_score: args.match_score,
         status: "pending",
+        emergency_contact: args.emergency_contact || null,
       };
       poolRequests.set(r.id, r);
       notify(t.driver_id, "New pooling request");
@@ -678,22 +1010,187 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       return t;
     },
 
+    /* ---------- pooling ratings and reports (Task 2.8) ---------- */
+    ratePoolTrip(
+      rater_id: string,
+      args: {
+        trip_id: string;
+        request_id?: string;
+        ratee_id: string;
+        role: "passenger_to_driver" | "driver_to_passenger";
+        rating: number;
+        comment?: string;
+      },
+    ) {
+      const t = trips.get(args.trip_id);
+      if (!t) throw new RuleError("Trip not found");
+      if (t.status !== "completed") {
+        throw new RuleError(`Ratings can only be submitted for completed trips (trip status is ${t.status})`);
+      }
+      if (args.rating < 1 || args.rating > 5) throw new RuleError("Rating must be between 1 and 5");
+      if (rater_id === args.ratee_id) throw new RuleError("Cannot rate yourself");
+
+      if (args.role === "passenger_to_driver") {
+        if (args.ratee_id !== t.driver_id) throw new RuleError("Ratee must be the trip driver");
+        const isPassenger = [...poolRequests.values()].some(
+          (r) => r.trip_id === t.id && r.passenger_id === rater_id && ["confirmed", "completed"].includes(r.status),
+        );
+        if (!isPassenger) throw new RuleError("Rater is not a confirmed passenger on this trip");
+      } else if (args.role === "driver_to_passenger") {
+        if (rater_id !== t.driver_id) throw new RuleError("Rater must be the trip driver");
+        const isPassenger = [...poolRequests.values()].some(
+          (r) => r.trip_id === t.id && r.passenger_id === args.ratee_id && ["confirmed", "completed"].includes(r.status),
+        );
+        if (!isPassenger) throw new RuleError("Ratee is not a confirmed passenger on this trip");
+      }
+
+      // Unique rating per party per trip
+      const dupe = [...poolRatings.values()].some(
+        (r) => r.trip_id === t.id && r.rater_id === rater_id && r.ratee_id === args.ratee_id,
+      );
+      if (dupe) throw new RuleError("You have already submitted a rating for this trip and participant");
+
+      const ratingRow: PoolRating = {
+        id: id("prate"),
+        trip_id: t.id,
+        request_id: args.request_id || null,
+        rater_id,
+        ratee_id: args.ratee_id,
+        role: args.role,
+        rating: args.rating,
+        comment: args.comment || null,
+        created_at: clock.now.toISOString(),
+      };
+      poolRatings.set(ratingRow.id, ratingRow);
+      return ratingRow;
+    },
+
+    reportUser(
+      reporter_id: string,
+      args: {
+        reported_user_id?: string | null;
+        target_type: string;
+        target_id?: string | null;
+        reason: string;
+        details?: string | null;
+      },
+    ) {
+      if (!args.reason?.trim()) throw new RuleError("Report reason is required");
+      const rep: UserReport = {
+        id: id("urep"),
+        reporter_id,
+        reported_user_id: args.reported_user_id || null,
+        target_type: args.target_type,
+        target_id: args.target_id || null,
+        reason: args.reason.trim(),
+        details: args.details?.trim() || null,
+        status: "pending",
+        admin_notes: null,
+        resolved_at: null,
+        created_at: clock.now.toISOString(),
+      };
+      userReports.set(rep.id, rep);
+      return rep;
+    },
+
+    adminDecideUserReport(
+      admin_id: string,
+      report_id: string,
+      decision: "resolved" | "dismissed",
+      admin_notes?: string,
+    ) {
+      if (!admins.has(admin_id)) throw new RuleError("Only admins can moderate user reports");
+      const rep = userReports.get(report_id);
+      if (!rep) throw new RuleError("User report not found");
+      rep.status = decision;
+      rep.admin_notes = admin_notes || null;
+      rep.resolved_at = clock.now.toISOString();
+      return rep;
+    },
+
     /* ---------- vehicle wash ---------- */
     /** `service_price` is the wash_services price; the booking total is repriced with fees. */
-    bookWash(customer_id: string, slot_date: string, service_price = 499, coupon_code?: string | null) {
+    bookWash(
+      customer_id: string,
+      slot_date: string,
+      service_price = 499,
+      city = "Bangalore",
+      address?: string,
+      slot_time?: string,
+      coupon_code?: string | null,
+    ) {
       const money = price(service_price, coupon_code);
       const w: WashBooking = {
         ...money,
         id: id("wash"),
         customer_id,
         slot_date,
-        price: money.customer_total,
+        slot_time,
+        address,
+        city,
+        price: money.customer_total ?? price,
         status: "pending",
+        progress: "requested",
+        before_photos: [],
+        after_photos: [],
         payment_status: "unpaid",
         assigned_vendor_id: null,
+        assigned_cleaner_id: null,
         refund_amount: 0,
       };
       washes.set(w.id, w);
+      return w;
+    },
+    createConfirmedWash(customer_id: string, slot_date: string, city = "Bangalore", service_price = 499) {
+      const money = price(service_price);
+      const w: WashBooking = {
+        ...money,
+        id: id("wash"),
+        customer_id,
+        slot_date,
+        city,
+        price: service_price,
+        status: "confirmed",
+        progress: "confirmed",
+        before_photos: [],
+        after_photos: [],
+        payment_status: "paid",
+        assigned_vendor_id: null,
+        assigned_cleaner_id: null,
+        refund_amount: 0,
+      };
+      washes.set(w.id, w);
+      return w;
+    },
+    claimWashJob(cleaner_id: string, wash_id: string) {
+      const cleaner = cleaners.get(cleaner_id);
+      if (!cleaner) throw new RuleError("Cleaner profile not found");
+      if (cleaner.verification_status !== "approved") {
+        throw new RuleError("Only verified cleaners can claim jobs");
+      }
+
+      const w = washes.get(wash_id);
+      if (!w) throw new RuleError("Wash booking not found");
+
+      if (w.assigned_cleaner_id || w.assigned_vendor_id) {
+        throw new RuleError("This wash job is already assigned");
+      }
+
+      if (w.status !== "confirmed" && w.progress !== "confirmed") {
+        throw new RuleError("Only confirmed wash jobs can be claimed");
+      }
+
+      const cleanerCity = (cleaner.city || "Bangalore").trim().toLowerCase();
+      const jobCity = (w.city || "Bangalore").trim().toLowerCase();
+      if (cleanerCity !== jobCity) {
+        throw new RuleError(`Cleaner cannot claim jobs outside their operating city (cleaner city: ${cleaner.city}, job city: ${w.city})`);
+      }
+
+      // Atomic claim
+      w.assigned_cleaner_id = cleaner_id;
+      w.progress = "assigned";
+      w.status = "confirmed";
+      notify(w.customer_id, "Cleaner Assigned to Your Wash");
       return w;
     },
     adminDecideWash(actor: string, wash_id: string, decision: "confirmed" | "rejected", vendor_id?: string) {
@@ -702,22 +1199,78 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       if (w.status !== "pending") throw new RuleError("Already decided");
       if (decision === "confirmed" && !vendor_id) throw new RuleError("Assign a wash vendor before approving");
       w.status = decision;
+      w.progress = decision === "confirmed" ? "confirmed" : "rejected";
       w.assigned_vendor_id = decision === "confirmed" ? vendor_id! : null;
       notify(w.customer_id, `Wash ${decision}`);
       return w;
     },
+    advanceWashStatus(actor: string, wash_id: string, nextStatus: WashStatus, photos?: string[]) {
+      const w = washes.get(wash_id);
+      if (!w) throw new RuleError("Wash booking not found");
+      const isAssigned = w.assigned_vendor_id === actor || w.assigned_cleaner_id === actor || admins.has(actor);
+      if (!isAssigned) throw new RuleError("You are not assigned to this wash job");
+
+      const ranks: Record<string, number> = {
+        requested: 1,
+        pending: 1,
+        confirmed: 2,
+        assigned: 3,
+        on_the_way: 4,
+        started: 5,
+        completed: 6,
+      };
+
+      const curr = (w.progress || w.status) as string;
+      const currRank = ranks[curr] ?? 0;
+      const nextRank = ranks[nextStatus] ?? -1;
+
+      if (nextRank === -1) throw new RuleError(`Invalid wash status: ${nextStatus}`);
+      if (nextRank <= currRank) {
+        throw new RuleError(`Status cannot be moved backwards or to the same status (current: ${curr}, requested: ${nextStatus})`);
+      }
+
+      if (nextStatus === "started" && photos) {
+        w.before_photos = [...(w.before_photos ?? []), ...photos];
+      }
+      if (nextStatus === "completed") {
+        if (photos) w.after_photos = [...(w.after_photos ?? []), ...photos];
+        if (!w.after_photos || w.after_photos.length === 0) {
+          throw new RuleError("After photos are required to complete the wash");
+        }
+      }
+
+      w.progress = nextStatus;
+      w.status = nextStatus;
+      notify(w.customer_id, `Wash status updated to ${nextStatus}`);
+      return w;
+    },
     payWashWithWallet(actor: string, wash_id: string) {
       const w = washes.get(wash_id)!;
+      if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
       if (w.status !== "confirmed") throw new RuleError("Wait for admin approval before paying");
       wallet.apply(actor, -w.price, "wash_payment");
       w.payment_status = "paid";
       return w;
     },
+    payWashWithRazorpay(actor: string, wash_id: string, payment_id: string) {
+      const w = washes.get(wash_id)!;
+      if (!w) throw new RuleError("Wash booking not found");
+      if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
+      if (w.status !== "confirmed") throw new RuleError("Wait for admin approval before paying");
+      if (w.payment_status === "paid") {
+        return { ok: true, replayed: true, wash: w };
+      }
+      w.payment_status = "paid";
+      notify(w.customer_id, `Wash payment received via Razorpay (${payment_id})`);
+      return { ok: true, replayed: false, wash: w };
+    },
     cancelWash(actor: string, wash_id: string) {
       const w = washes.get(wash_id)!;
+      if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
-      const pct = refundPercent(new Date(`${w.slot_date}T00:00:00Z`), clock.now);
+      const timePart = w.slot_time ? (w.slot_time.length === 5 ? `${w.slot_time}:00` : w.slot_time.slice(0, 8)) : "00:00:00";
+      const pct = refundPercent(new Date(`${w.slot_date}T${timePart}Z`), clock.now);
       const refund = w.payment_status === "paid" ? Math.round((w.price * pct) / 100) : 0;
       if (refund > 0) {
         wallet.apply(w.customer_id, refund, "wash_refund");
@@ -726,6 +1279,145 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       w.refund_amount = refund;
       w.status = "cancelled";
       return { wash: w, refund, percent: pct };
+    },
+
+    /* ---------- roles, cleaners & wash centers (Task 2.4) ---------- */
+    registerCleaner(profile: Omit<Cleaner, "verification_status" | "avg_rating" | "review_count"> & { avg_rating?: number; review_count?: number }) {
+      const cleaner: Cleaner = {
+        ...profile,
+        avg_rating: profile.avg_rating ?? 0,
+        review_count: profile.review_count ?? 0,
+        verification_status: "pending",
+        rejection_reason: null,
+      };
+      cleaners.set(profile.id, cleaner);
+      return cleaner;
+    },
+    getCleaner(id: string) {
+      return cleaners.get(id);
+    },
+    verifyCleaner(actor: string, cleanerId: string, decision: "approved" | "rejected", reason?: string) {
+      if (!admins.has(actor)) throw new RuleError("Only admins can verify cleaners");
+      const c = cleaners.get(cleanerId);
+      if (!c) throw new RuleError("Cleaner not found");
+      c.verification_status = decision;
+      c.rejection_reason = decision === "rejected" ? reason || "Rejected by admin" : null;
+      if (decision === "approved") {
+        assignRole(cleanerId, "cleaner");
+      }
+      return c;
+    },
+    registerWashCenter(profile: Omit<WashCenter, "verification_status" | "active" | "avg_rating" | "review_count"> & { avg_rating?: number; review_count?: number }) {
+      const center: WashCenter = {
+        ...profile,
+        active: false,
+        avg_rating: profile.avg_rating ?? 0,
+        review_count: profile.review_count ?? 0,
+        verification_status: "pending",
+        rejection_reason: null,
+      };
+      washCenters.set(profile.id, center);
+      return center;
+    },
+    getWashCenter(id: string) {
+      return washCenters.get(id);
+    },
+    verifyWashCenter(actor: string, centerId: string, decision: "approved" | "rejected", reason?: string) {
+      if (!admins.has(actor)) throw new RuleError("Only admins can verify wash centers");
+      const c = washCenters.get(centerId);
+      if (!c) throw new RuleError("Wash center not found");
+      c.verification_status = decision;
+      c.active = decision === "approved";
+      c.rejection_reason = decision === "rejected" ? reason || "Rejected by admin" : null;
+      if (decision === "approved") {
+        assignRole(centerId, "wash_center");
+      }
+      return c;
+    },
+    addWashCenterStaff(centerId: string, staffMember: Omit<WashCenterStaff, "id" | "center_id">) {
+      const sId = id("wc_staff");
+      const st: WashCenterStaff = {
+        id: sId,
+        center_id: centerId,
+        ...staffMember,
+      };
+      washCenterStaff.set(sId, st);
+      return st;
+    },
+    getWashCenterStaff(centerId: string) {
+      return Array.from(washCenterStaff.values()).filter((s) => s.center_id === centerId);
+    },
+    addWashCenterPackage(centerId: string, pkg: Omit<WashCenterPackage, "id" | "center_id">) {
+      const pId = id("wc_pkg");
+      const p: WashCenterPackage = {
+        id: pId,
+        center_id: centerId,
+        ...pkg,
+      };
+      washCenterPackages.set(pId, p);
+      return p;
+    },
+    getWashCenterPackages(centerId: string) {
+      return Array.from(washCenterPackages.values()).filter((p) => p.center_id === centerId);
+    },
+    hasRole(userId: string, role: string) {
+      return userRoles.get(userId)?.has(role) ?? false;
+    },
+
+    /* ---------- wash reviews (Task 2.6) ---------- */
+    reviewWash(customer_id: string, wash_booking_id: string, rating: number, comment?: string) {
+      const w = washes.get(wash_booking_id);
+      if (!w) throw new RuleError("Wash booking not found");
+      if (w.customer_id !== customer_id) throw new RuleError("Only the booking customer can write a review");
+      if (w.status !== "completed" && w.progress !== "completed") {
+        throw new RuleError("Only completed wash bookings can be reviewed");
+      }
+      if (washReviews.has(wash_booking_id)) {
+        throw new RuleError("Wash booking has already been reviewed");
+      }
+      if (rating < 1 || rating > 5) {
+        throw new RuleError("Rating must be between 1 and 5");
+      }
+
+      const cleaner_id = w.assigned_cleaner_id || null;
+      const center_id = w.assigned_vendor_id || null;
+
+      const rev: WashReview = {
+        id: id("wash_rev"),
+        wash_booking_id,
+        customer_id,
+        cleaner_id,
+        center_id,
+        rating,
+        comment: comment || null,
+      };
+      washReviews.set(wash_booking_id, rev);
+
+      // Trigger simulation: keep cleaner or center average rating up to date (WR-01)
+      if (cleaner_id) {
+        const cleaner = cleaners.get(cleaner_id);
+        if (cleaner) {
+          const revs = Array.from(washReviews.values()).filter((r) => r.cleaner_id === cleaner_id);
+          cleaner.review_count = revs.length;
+          const sum = revs.reduce((acc, curr) => acc + curr.rating, 0);
+          cleaner.avg_rating = Number((sum / revs.length).toFixed(2));
+        }
+      }
+
+      if (center_id) {
+        const center = washCenters.get(center_id);
+        if (center) {
+          const revs = Array.from(washReviews.values()).filter((r) => r.center_id === center_id);
+          center.review_count = revs.length;
+          const sum = revs.reduce((acc, curr) => acc + curr.rating, 0);
+          center.avg_rating = Number((sum / revs.length).toFixed(2));
+        }
+      }
+
+      return rev;
+    },
+    getWashReview(wash_booking_id: string) {
+      return washReviews.get(wash_booking_id);
     },
 
     /* ---------- money: coupons, settings, withdrawals, promo credit ---------- */
