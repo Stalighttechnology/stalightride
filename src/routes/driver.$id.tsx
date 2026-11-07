@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,7 +49,7 @@ function DriverProfile() {
   const { user } = useSession();
   const navigate = useNavigate();
 
-  const [driver, setDriver] = useState<any | null | undefined>(undefined);
+  const [driver, setDriver] = useState<Tables<"public_drivers"> | null | undefined>(undefined);
   const [reviews, setReviews] = useState<any[] | null>(null);
   const [rateType, setRateType] = useState<DriverRateType>("daily");
   const [tripType, setTripType] = useState("city");
@@ -90,7 +91,7 @@ function DriverProfile() {
       .channel(`public_drivers:${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "public_drivers", filter: `id=eq.${id}` }, (payload) => {
         if (payload.eventType === "DELETE") setDriver(null);
-        else setDriver(payload.new as any);
+        else setDriver(payload.new as Tables<"public_drivers">);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -132,7 +133,7 @@ function DriverProfile() {
       pickup_address: pickupAddress || null,
       notes: combinedNotes || null,
       total_price: price.subtotal,
-    } as any);
+    });
     setSubmitting(false);
     if (error) return toast.error(error.message);
     toast.success("Request sent â€” you'll pay once the driver accepts");

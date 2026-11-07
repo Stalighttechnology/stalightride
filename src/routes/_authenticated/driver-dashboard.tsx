@@ -61,7 +61,7 @@ function DriverDashboard() {
       supabase.from("driver_reviews").select("*").eq("driver_id", user.id),
     ]);
     setDriver(d ?? null);
-    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: (d as any).trip_types ?? [], service_area: (d as any).service_area ?? "" });
+    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: d.trip_types ?? [], service_area: d.service_area ?? "" });
     else setForm({ ...emptyDriver, full_name: user.user_metadata?.full_name ?? "" });
     setHires(h ?? []);
     setRatings(r ?? []);
@@ -119,7 +119,7 @@ function DriverDashboard() {
       trip_types: Array.isArray(form.trip_types) ? form.trip_types : [],
       service_area: form.service_area || null,
     };
-    const { error } = await supabase.from("drivers").upsert(payload as any);
+    const { error } = await supabase.from("drivers").upsert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success(driver ? "Profile updated" : "Profile submitted for verification");
@@ -128,7 +128,7 @@ function DriverDashboard() {
 
   const setStatus = async (active: boolean) => {
     if (!user) return;
-    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" } as any).eq("id", user.id);
+    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" }).eq("id", user.id);
     if (error) return toast.error(error.message);
     toast.success(active ? "You're live and bookable" : "Paused — you won't appear in search");
     load();
@@ -146,9 +146,9 @@ function DriverDashboard() {
     if (!window.confirm(paid
       ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)}, deducted from your wallet.`
       : "Cancel this hire?")) return;
-    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id, _reason: null } as any);
+    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
     if (error) return toast.error(error.message);
-    const refund = Number((data as any)?.refund ?? 0);
+    const refund = Number((data as { refund?: number } | null)?.refund ?? 0);
     toast.success(refund > 0 ? `Hire cancelled — ${currency(refund)} refunded to the customer` : "Hire cancelled");
     load();
   };

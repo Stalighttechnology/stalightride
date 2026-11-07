@@ -478,7 +478,9 @@ export type Database = {
           photo_url: string | null
           rejection_reason: string | null
           review_count: number
+          service_area: string | null
           status: Database["public"]["Enums"]["vehicle_status"]
+          trip_types: string[]
           updated_at: string
           vehicle_types: string[]
           verification_status: Database["public"]["Enums"]["verification_status"]
@@ -504,7 +506,9 @@ export type Database = {
           photo_url?: string | null
           rejection_reason?: string | null
           review_count?: number
+          service_area?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
           verification_status?: Database["public"]["Enums"]["verification_status"]
@@ -530,7 +534,9 @@ export type Database = {
           photo_url?: string | null
           rejection_reason?: string | null
           review_count?: number
+          service_area?: string | null
           status?: Database["public"]["Enums"]["vehicle_status"]
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
           verification_status?: Database["public"]["Enums"]["verification_status"]
@@ -837,6 +843,8 @@ export type Database = {
           languages: string[]
           photo_url: string | null
           review_count: number
+          service_area: string | null
+          trip_types: string[]
           updated_at: string
           vehicle_types: string[]
         }
@@ -853,6 +861,8 @@ export type Database = {
           languages?: string[]
           photo_url?: string | null
           review_count?: number
+          service_area?: string | null
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
         }
@@ -869,6 +879,8 @@ export type Database = {
           languages?: string[]
           photo_url?: string | null
           review_count?: number
+          service_area?: string | null
+          trip_types?: string[]
           updated_at?: string
           vehicle_types?: string[]
         }
