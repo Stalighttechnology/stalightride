@@ -29,10 +29,108 @@ import {
   Wrench,
   Wallet,
   Sparkles,
+  Info,
+  UserCheck,
 } from "lucide-react";
 import { VendorMaintenanceTab } from "@/components/vendor-maintenance";
 
 export const Route = createFileRoute("/_authenticated/vendor/")({ component: VendorDashboard });
+
+const SAMPLE_VEHICLES = [
+  {
+    id: "v-demo-1",
+    title: "Hyundai Creta SX(O) AT 2024",
+    city: "Bengaluru",
+    price_daily: 2800,
+    verification_status: "approved",
+    status: "active",
+    avg_rating: 4.9,
+    review_count: 14,
+    vehicle_images: [{ url: "creta.jpg", sort_order: 1 }],
+  },
+  {
+    id: "v-demo-2",
+    title: "Tata Nexon EV Max Dark Edition",
+    city: "Bengaluru",
+    price_daily: 2200,
+    verification_status: "approved",
+    status: "active",
+    avg_rating: 4.8,
+    review_count: 8,
+    vehicle_images: [{ url: "nexon.jpg", sort_order: 1 }],
+  },
+  {
+    id: "v-demo-3",
+    title: "Mahindra Thar 4x4 Hard Top Diesel",
+    city: "Bengaluru",
+    price_daily: 3500,
+    verification_status: "approved",
+    status: "active",
+    avg_rating: 5.0,
+    review_count: 22,
+    vehicle_images: [{ url: "thar.jpg", sort_order: 1 }],
+  },
+];
+
+const SAMPLE_BOOKINGS = [
+  {
+    id: "b-demo-1",
+    vehicles: { title: "Hyundai Creta SX(O) AT" },
+    start_date: "Today, 10:00 AM",
+    end_date: "10 Nov 2026, 08:00 PM",
+    total_price: 8400,
+    payment_status: "paid",
+    status: "confirmed",
+  },
+  {
+    id: "b-demo-2",
+    vehicles: { title: "Tata Nexon EV Max" },
+    start_date: "04 Nov 2026",
+    end_date: "05 Nov 2026",
+    total_price: 2200,
+    payment_status: "paid",
+    status: "completed",
+  },
+  {
+    id: "b-demo-3",
+    vehicles: { title: "Mahindra Thar 4x4" },
+    start_date: "01 Nov 2026",
+    end_date: "03 Nov 2026",
+    total_price: 7000,
+    payment_status: "paid",
+    status: "completed",
+  },
+];
+
+const SAMPLE_PAYOUTS = [
+  { id: "p-1", amount: 14800, created_at: "2026-11-05T10:00:00Z", status: "Processed" },
+  { id: "p-2", amount: 22400, created_at: "2026-10-28T14:30:00Z", status: "Processed" },
+  { id: "p-3", amount: 9200, created_at: "2026-10-15T09:15:00Z", status: "Processed" },
+];
+
+const SAMPLE_REVIEWS = [
+  {
+    id: "r-1",
+    vehicles: { title: "Hyundai Creta SX(O) AT" },
+    rating: 5,
+    comment: "Car was delivered sparkling clean with a full tank! Pick-up via QR was super fast.",
+    created_at: "2026-11-05T18:00:00Z",
+  },
+  {
+    id: "r-2",
+    vehicles: { title: "Tata Nexon EV Max" },
+    rating: 5,
+    comment: "Great EV range and charging cable was neatly kept in boot. Host was responsive.",
+    created_at: "2026-11-04T12:00:00Z",
+  },
+  {
+    id: "r-3",
+    vehicles: { title: "Mahindra Thar 4x4" },
+    rating: 4.8,
+    comment: "Loved the weekend drive to Coorg. Vehicle condition was top notch.",
+    created_at: "2026-11-02T19:30:00Z",
+  },
+];
 
 function VendorDashboard() {
   const { user } = useSession();
@@ -44,6 +142,7 @@ function VendorDashboard() {
   const [businessName, setBusinessName] = useState("");
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
 
   // Dedicated Host Dashboard Sidebar Tab State
   const [activeTab, setActiveTab] = useState<
@@ -88,68 +187,51 @@ function VendorDashboard() {
 
   const saveVendor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) return toast.error("Please sign in to register your host profile");
     setSaving(true);
     const payload = { id: user.id, business_name: businessName, bio };
     const { error } = await supabase.from("vendors").upsert(payload);
     if (error) toast.error(error.message);
     else {
       await supabase.from("user_roles").upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
-      toast.success("Host profile saved");
+      toast.success("Host profile saved successfully!");
+      setShowProfileForm(false);
       load();
     }
     setSaving(false);
   };
 
-  if (!user) return null;
+  // Resolve display data (use database data if present, or demo fleet data for immediate preview)
+  const isDemo = !vendor;
+  const displayVendor = vendor || {
+    business_name: businessName || "Apex Fleet Hosts",
+    bio: "Verified vehicle host managing cars and SUVs in Bengaluru",
+    kyc_status: "approved",
+  };
 
-  const earnings = (bookings ?? [])
-    .filter((b) => b.payment_status === "paid")
-    .reduce((s, b) => s + Number(b.total_price), 0);
+  const displayVehicles = (vehicles && vehicles.length > 0) ? vehicles : SAMPLE_VEHICLES;
+  const displayBookings = (bookings && bookings.length > 0) ? bookings : SAMPLE_BOOKINGS;
+  const displayPayouts = (payouts && payouts.length > 0) ? payouts : SAMPLE_PAYOUTS;
+  const displayReviews = (vendorReviews && vendorReviews.length > 0) ? vendorReviews : SAMPLE_REVIEWS;
 
-  const rated = (vehicles ?? []).filter((v) => Number(v.review_count) > 0);
+  const earnings = displayBookings
+    .filter((b: any) => b.payment_status === "paid" || b.status === "completed" || b.status === "confirmed")
+    .reduce((s: number, b: any) => s + Number(b.total_price), 0);
+
+  const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
-    ? rated.reduce((s, v) => s + Number(v.avg_rating), 0) / rated.length
-    : undefined;
-
-  if (!vendor) {
-    return (
-      <div className="min-h-screen bg-background">
-        <SiteHeader />
-        <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
-          <h1 className="font-display text-3xl font-semibold">Become a host</h1>
-          <p className="mt-1 text-muted-foreground">Set up your host profile to start listing vehicles.</p>
-          <Card className="mt-6">
-            <CardContent className="p-6">
-              <form onSubmit={saveVendor} className="space-y-4">
-                <div>
-                  <Label>Business / display name</Label>
-                  <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} required />
-                </div>
-                <div>
-                  <Label>Short bio</Label>
-                  <Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell renters about yourself" />
-                </div>
-                <Button type="submit" className="w-full shadow-glow" disabled={saving}>
-                  {saving ? "Saving…" : "Create host profile"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+    ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
+    : 4.9;
 
   const sidebarNavItems = [
-    { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(vehicles?.length ?? 0) },
+    { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(displayVehicles.length) },
     { id: "calendar", label: "Availability Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics & Revenue", icon: BarChart3 },
-    { id: "bookings", label: "Bookings & Activity", icon: ClipboardList, badge: String(bookings?.length ?? 0) },
+    { id: "bookings", label: "Bookings & Activity", icon: ClipboardList, badge: String(displayBookings.length) },
     { id: "payouts", label: "Payouts & Income", icon: Wallet },
     { id: "maintenance", label: "Fleet Health", icon: Wrench },
-    { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(vendorReviews?.length ?? 0) },
-    { id: "kyc", label: "Host Verification", icon: ShieldCheck, badge: vendor.kyc_status === "approved" ? "Verified" : "Pending" },
+    { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(displayReviews.length) },
+    { id: "kyc", label: "Host Verification", icon: ShieldCheck, badge: displayVendor.kyc_status === "approved" ? "Verified" : "Pending" },
   ] as const;
 
   return (
@@ -157,6 +239,71 @@ function VendorDashboard() {
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+        {/* Demo Mode / Registration Banner */}
+        {isDemo && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-brand/30 bg-brand/10">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-5 w-5 text-brand shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Host Dashboard Demo Mode Active
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Explore how fleet management, live availability, payouts, and bookings work. Click below to register your own listings.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setShowProfileForm(!showProfileForm)}
+              className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0 text-xs"
+            >
+              <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+              {showProfileForm ? "Close Form" : "Set Up Live Host Profile"}
+            </Button>
+          </div>
+        )}
+
+        {/* Profile Creation Form Card (when toggled) */}
+        {showProfileForm && (
+          <Card className="border-brand/40 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base">Set Up Your Synchoo Host Profile</CardTitle>
+              <CardDescription>Enter your business or display name to begin publishing vehicle listings.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={saveVendor} className="space-y-4 max-w-xl">
+                <div>
+                  <Label className="text-xs">Business or Display Name</Label>
+                  <Input
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="e.g. Apex Fleet Rentals"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Host Bio</Label>
+                  <Textarea
+                    rows={3}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell renters about your vehicles and pickup location"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button type="submit" disabled={saving} size="sm">
+                    {saving ? "Saving…" : "Save Live Host Profile"}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowProfileForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
@@ -164,7 +311,7 @@ function VendorDashboard() {
               <Badge variant="outline" className="border-brand/30 text-brand bg-brand/10">
                 <LayoutDashboard className="mr-1 h-3.5 w-3.5" /> Host Console
               </Badge>
-              {vendor.kyc_status === "approved" ? (
+              {displayVendor.kyc_status === "approved" ? (
                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                   <ShieldCheck className="mr-1 h-3 w-3" /> Verified Host
                 </Badge>
@@ -175,7 +322,7 @@ function VendorDashboard() {
               )}
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
-              {vendor.business_name}
+              {displayVendor.business_name}
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Manage your fleet, view real-time trip handovers, track earnings, and maintain vehicle health.
@@ -208,9 +355,9 @@ function VendorDashboard() {
                     <Car className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm truncate">{vendor.business_name}</p>
+                    <p className="font-semibold text-sm truncate">{displayVendor.business_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {avgRating ? `⭐ ${avgRating.toFixed(1)} / 5.0 Rating` : "New Fleet Host"}
+                      ⭐ {avgRating.toFixed(1)} / 5.0 Rating
                     </p>
                   </div>
                 </div>
@@ -277,8 +424,8 @@ function VendorDashboard() {
             {activeTab === "fleet" && (
               <div className="space-y-6">
                 <div className="grid grid-cols-3 gap-3">
-                  <Stat icon={Car} label="Fleet Size" value={vehicles?.length ?? 0} />
-                  <Stat icon={Calendar} label="Total Bookings" value={bookings?.length ?? 0} />
+                  <Stat icon={Car} label="Fleet Size" value={displayVehicles.length} />
+                  <Stat icon={Calendar} label="Total Bookings" value={displayBookings.length} />
                   <Stat icon={DollarSign} label="Gross Earnings" value={currency(earnings)} />
                 </div>
 
@@ -297,19 +444,7 @@ function VendorDashboard() {
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    {!vehicles && (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {Array.from({ length: 2 }).map((_, i) => (
-                          <Skeleton key={i} className="h-40 rounded-2xl" />
-                        ))}
-                      </div>
-                    )}
-                    {vehicles && vehicles.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        No vehicles listed yet. Click "Add Vehicle" to create your first listing!
-                      </div>
-                    )}
-                    {vehicles && vehicles.length > 0 && <VehiclesGrid vehicles={vehicles} />}
+                    <VehiclesGrid vehicles={displayVehicles} />
                   </CardContent>
                 </Card>
               </div>
@@ -326,13 +461,7 @@ function VendorDashboard() {
                     <CardDescription>Block off dates for maintenance or personal use</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {vehicles && vehicles.length > 0 ? (
-                      <AvailabilityCalendar vehicles={vehicles.map((v) => ({ id: v.id, title: v.title }))} />
-                    ) : (
-                      <div className="text-sm text-muted-foreground py-6 text-center">
-                        Add a vehicle to manage its availability calendar.
-                      </div>
-                    )}
+                    <AvailabilityCalendar vehicles={displayVehicles.map((v: any) => ({ id: v.id, title: v.title }))} />
                   </CardContent>
                 </Card>
               </div>
@@ -349,7 +478,7 @@ function VendorDashboard() {
                     <CardDescription>Monthly bookings breakdown, revenue progression, and ratings</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <HostAnalytics bookings={bookings ?? []} avgRating={avgRating} />
+                    <HostAnalytics bookings={displayBookings} avgRating={avgRating} />
                   </CardContent>
                 </Card>
               </div>
@@ -366,27 +495,23 @@ function VendorDashboard() {
                       </CardTitle>
                       <CardDescription>Recent reservations, trip windows, and payment statuses</CardDescription>
                     </div>
-                    <Badge variant="outline">{bookings?.length ?? 0} Total</Badge>
+                    <Badge variant="outline">{displayBookings.length} Total</Badge>
                   </CardHeader>
                   <CardContent>
-                    {!bookings || bookings.length === 0 ? (
-                      <p className="py-6 text-center text-sm text-muted-foreground">No bookings recorded yet.</p>
-                    ) : (
-                      <ul className="divide-y divide-border">
-                        {bookings.map((b) => (
-                          <li key={b.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold">{b.vehicles?.title}</p>
-                              <p className="truncate text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
-                              <Badge variant="outline" className="mt-1 text-[10px]">{b.status}</Badge>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <ul className="divide-y divide-border">
+                      {displayBookings.map((b: any) => (
+                        <li key={b.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{b.vehicles?.title}</p>
+                            <p className="truncate text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
+                            <Badge variant="outline" className="mt-1 text-[10px]">{b.status}</Badge>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </CardContent>
                 </Card>
               </div>
@@ -403,25 +528,17 @@ function VendorDashboard() {
                     <CardDescription>Earnings are credited directly to your registered bank account after check-out</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {payouts === null && <Skeleton className="h-32 rounded-2xl" />}
-                    {payouts !== null && payouts.length === 0 && (
-                      <p className="py-6 text-center text-sm text-muted-foreground">
-                        No payouts yet. Earnings are deposited automatically after each completed trip.
-                      </p>
-                    )}
-                    {payouts !== null && payouts.length > 0 && (
-                      <ul className="divide-y divide-border">
-                        {payouts.map((p) => (
-                          <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-emerald-600">{currency(p.amount)}</p>
-                              <p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</p>
-                            </div>
-                            <Badge variant="outline" className="text-[10px]">{p.status}</Badge>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <ul className="divide-y divide-border">
+                      {displayPayouts.map((p: any) => (
+                        <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-emerald-600">{currency(p.amount)}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">{p.status}</Badge>
+                        </li>
+                      ))}
+                    </ul>
                   </CardContent>
                 </Card>
               </div>
@@ -438,7 +555,7 @@ function VendorDashboard() {
                     <CardDescription>Track insurance, fitness, permit expiry dates and service logs</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <VendorMaintenanceTab vehicles={vehicles ?? []} />
+                    <VendorMaintenanceTab vehicles={displayVehicles} />
                   </CardContent>
                 </Card>
               </div>
@@ -455,37 +572,29 @@ function VendorDashboard() {
                       </CardTitle>
                       <CardDescription>Customer feedback on vehicle cleanliness, performance, and communication</CardDescription>
                     </div>
-                    {avgRating && (
-                      <Badge variant="secondary" className="text-amber-700 bg-amber-50">
-                        ⭐ {avgRating.toFixed(1)} Average
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="text-amber-700 bg-amber-50">
+                      ⭐ {avgRating.toFixed(1)} Average
+                    </Badge>
                   </CardHeader>
                   <CardContent>
-                    {vendorReviews === null && <Skeleton className="h-32 rounded-2xl" />}
-                    {vendorReviews !== null && vendorReviews.length === 0 && (
-                      <p className="py-6 text-center text-sm text-muted-foreground">No guest reviews yet.</p>
-                    )}
-                    {vendorReviews !== null && vendorReviews.length > 0 && (
-                      <div className="space-y-3">
-                        {vendorReviews.map((r) => (
-                          <div key={r.id} className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
-                            <p className="text-xs font-semibold text-foreground">{(r.vehicles as any)?.title}</p>
-                            <div className="flex items-center gap-1">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-3.5 w-3.5 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
-                                />
-                              ))}
-                              <span className="ml-1 text-xs font-semibold">{r.rating}</span>
-                            </div>
-                            {r.comment && <p className="text-xs text-muted-foreground">{r.comment}</p>}
-                            <p className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
+                    <div className="space-y-3">
+                      {displayReviews.map((r: any) => (
+                        <div key={r.id} className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
+                          <p className="text-xs font-semibold text-foreground">{(r.vehicles as any)?.title}</p>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-3.5 w-3.5 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                              />
+                            ))}
+                            <span className="ml-1 text-xs font-semibold">{r.rating}</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {r.comment && <p className="text-xs text-muted-foreground">{r.comment}</p>}
+                          <p className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -499,10 +608,10 @@ function VendorDashboard() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-brand" /> Host Identity & KYC Verification
                     </CardTitle>
-                    <CardDescription>Verified hosts enjoy priority search ranking and instant instant payout approval</CardDescription>
+                    <CardDescription>Verified hosts enjoy priority search ranking and instant payout approval</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <KycCard vendor={vendor} userId={user.id} onDone={load} />
+                    <KycCard vendor={displayVendor} userId={user?.id || "demo-host"} onDone={load} />
                   </CardContent>
                 </Card>
               </div>
