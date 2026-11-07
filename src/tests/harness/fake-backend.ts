@@ -14,7 +14,10 @@
  *  - earnings released on completion, provider withdrawals, promo credits
  *
  * Every rule is expressed once here and asserted by the flow tests.
- * Mirrors supabase/migrations/20261105120000_money_phase1.sql.
+ *  - admin refunds and paid trip extensions (money phase 1b)
+ *
+ * Mirrors supabase/migrations/20261105120000_money_phase1.sql and
+ * 20261107120000_money_phase1b.sql.
  */
 
 import { computeCharges, round2, type Charges, type PlatformSettings } from "@/lib/charges";
@@ -79,6 +82,17 @@ export type Withdrawal = {
   method: "upi" | "bank";
   status: "requested" | "paid" | "rejected";
   reference: string | null;
+};
+
+export type BookingExtension = Charges & {
+  id: string;
+  booking_id: string;
+  customer_id: string;
+  vendor_id: string;
+  hours: number;
+  new_end_date: string;
+  new_dropoff_time: string;
+  status: "pending" | "accepted" | "rejected" | "paid" | "cancelled";
 };
 
 export type Driver = {
@@ -159,6 +173,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
   const hosts = new Set<string>();
   const coupons = new Map<string, Coupon>();
   const withdrawals = new Map<string, Withdrawal>();
+  const extensions = new Map<string, BookingExtension>();
   const vehicles = new Map<string, Vehicle>();
   const bookings = new Map<string, Booking>();
   const drivers = new Map<string, Driver>();
@@ -227,6 +242,14 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     b.earning_credited_at = clock.now.toISOString();
   };
 
+  /** public.extension_clashes: another live booking on the vehicle overlapping [start, newEnd]. */
+  const extensionClashes = (b: Booking, newEnd: string) =>
+    [...bookings.values()].some(
+      (o) =>
+        o.id !== b.id && o.vehicle_id === b.vehicle_id && ["pending", "confirmed"].includes(o.status) &&
+        datesOverlap(o.start_date, o.end_date, b.start_date, newEnd),
+    );
+
   const withdrawable = (user: string) => {
     const earned = walletTxns
       .filter((t) => t.user_id === user && EARNING_KINDS.includes(t.kind))
@@ -243,7 +266,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     wallet,
     notifications,
     settings,
-    tables: { vehicles, bookings, drivers, driverBookings, trips, poolRequests, washes, withdrawals, coupons },
+    tables: { vehicles, bookings, drivers, driverBookings, trips, poolRequests, washes, withdrawals, coupons, extensions },
 
     /* ---------- accounts ---------- */
     registerCustomer(dl: "none" | "pending" | "approved" | "rejected" = "approved", email?: string) {
@@ -763,6 +786,91 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const uid = emails.get(email.trim().toLowerCase());
       if (!uid) throw new RuleError("No user with that email");
       return wallet.apply(uid, round2(amount), "promo_credit");
+    },
+    /** public.admin_refund: credited as 'refund', so it is never withdrawable. */
+    adminRefund(actor: string, email: string, amount: number, reason: string) {
+      if (!admins.has(actor)) throw new RuleError("Admins only");
+      if (amount <= 0 || amount > 100000) throw new RuleError("Amount must be between 1 and 100000");
+      if (!reason.trim()) throw new RuleError("A reason is required");
+      const uid = emails.get(email.trim().toLowerCase());
+      if (!uid) throw new RuleError("No user with that email");
+      return wallet.apply(uid, round2(amount), "refund");
+    },
+
+    /* ---------- trip extensions (wallet only) ---------- */
+    /** public.request_booking_extension */
+    requestExtension(actor: string, booking_id: string, hours: number) {
+      const b = bookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Not your booking");
+      if (b.status !== "confirmed" || b.payment_status !== "paid")
+        throw new RuleError("Only paid, confirmed trips can be extended");
+      if (!b.pickup_checked_at || b.return_checked_at)
+        throw new RuleError("Extensions are only possible during an active trip");
+      if (!Number.isInteger(hours) || hours < 1 || hours > 72) throw new RuleError("Extend by 1 to 72 hours");
+      if ([...extensions.values()].some((e) => e.booking_id === b.id && ["pending", "accepted"].includes(e.status)))
+        throw new RuleError("An extension request is already open for this trip");
+      const end = new Date(new Date(`${b.end_date}T${b.dropoff_time}:00Z`).getTime() + hours * 3_600_000).toISOString();
+      const new_end_date = end.slice(0, 10);
+      const new_dropoff_time = end.slice(11, 16);
+      if (extensionClashes(b, new_end_date)) throw new RuleError("The vehicle is not available for the extra time");
+      const v = vehicles.get(b.vehicle_id)!;
+      const full = calculateRentalPrice({
+        startDate: b.start_date, endDate: new_end_date, pickupTime: b.pickup_time, dropoffTime: new_dropoff_time,
+        priceHourly: v.price_hourly, priceDaily: v.price_daily,
+      }).subtotal;
+      const e: BookingExtension = {
+        ...computeCharges(Math.max(0, full - b.base_price), settings),
+        id: id("ext"), booking_id: b.id, customer_id: b.customer_id, vendor_id: b.vendor_id,
+        hours, new_end_date, new_dropoff_time, status: "pending",
+      };
+      extensions.set(e.id, e);
+      notify(b.vendor_id, "Trip extension requested");
+      return e;
+    },
+    /** public.decide_booking_extension */
+    decideExtension(actor: string, extension_id: string, accept: boolean) {
+      const e = extensions.get(extension_id)!;
+      if (e.vendor_id !== actor) throw new RuleError("Only the host can decide");
+      if (e.status !== "pending") throw new RuleError("This request was already decided");
+      if (accept && extensionClashes(bookings.get(e.booking_id)!, e.new_end_date))
+        throw new RuleError("The vehicle is booked or blocked during the extra time");
+      e.status = accept ? "accepted" : "rejected";
+      notify(e.customer_id, accept ? "Extension accepted" : "Extension declined");
+      return e;
+    },
+    /** public.cancel_booking_extension */
+    cancelExtension(actor: string, extension_id: string) {
+      const e = extensions.get(extension_id)!;
+      if (e.customer_id !== actor) throw new RuleError("Not your request");
+      if (!["pending", "accepted"].includes(e.status)) throw new RuleError("This request is already closed");
+      e.status = "cancelled";
+      return e;
+    },
+    /** public.wallet_pay_extension: debit + extend the booking atomically. */
+    payExtension(actor: string, extension_id: string) {
+      const e = extensions.get(extension_id)!;
+      if (e.customer_id !== actor) throw new RuleError("Not your request");
+      if (e.status === "paid") throw new RuleError("Already paid");
+      if (e.status !== "accepted") throw new RuleError("The host has not accepted this extension");
+      const b = bookings.get(e.booking_id)!;
+      if (b.status !== "confirmed" || b.return_checked_at) throw new RuleError("This trip has already ended");
+      // trg_bookings_conflict re-checks on UPDATE; the debit rolls back with it.
+      if (extensionClashes(b, e.new_end_date)) throw new RuleError("Vehicle not available for selected dates");
+      if (e.customer_total > 0) wallet.apply(actor, -e.customer_total, "booking_payment");
+      Object.assign(b, {
+        end_date: e.new_end_date,
+        dropoff_time: e.new_dropoff_time,
+        base_price: round2(b.base_price + e.base),
+        service_fee: round2(b.service_fee + e.service_fee),
+        gst: round2(b.gst + e.gst),
+        commission: round2(b.commission + e.commission),
+        commission_gst: round2(b.commission_gst + e.commission_gst),
+        provider_earning: round2(b.provider_earning + e.provider_earning),
+        total_price: round2(b.total_price + e.customer_total),
+      });
+      e.status = "paid";
+      notify(e.vendor_id, "Trip extended");
+      return b;
     },
   };
 }

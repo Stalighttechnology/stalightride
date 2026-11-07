@@ -49,6 +49,80 @@ export type Database = {
           },
         ]
       }
+      booking_extensions: {
+        Row: {
+          id: string
+          booking_id: string
+          customer_id: string
+          vendor_id: string
+          hours: number
+          note: string | null
+          new_end_date: string
+          new_dropoff_time: string
+          extra_base: number
+          service_fee: number
+          gst_amount: number
+          commission_amount: number
+          commission_gst: number
+          provider_earning: number
+          extra_total: number
+          status: string
+          decided_at: string | null
+          paid_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          customer_id: string
+          vendor_id: string
+          hours: number
+          note?: string | null
+          new_end_date: string
+          new_dropoff_time: string
+          extra_base: number
+          service_fee: number
+          gst_amount: number
+          commission_amount: number
+          commission_gst: number
+          provider_earning: number
+          extra_total: number
+          status?: string
+          decided_at?: string | null
+          paid_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          customer_id?: string
+          vendor_id?: string
+          hours?: number
+          note?: string | null
+          new_end_date?: string
+          new_dropoff_time?: string
+          extra_base?: number
+          service_fee?: number
+          gst_amount?: number
+          commission_amount?: number
+          commission_gst?: number
+          provider_earning?: number
+          extra_total?: number
+          status?: string
+          decided_at?: string | null
+          paid_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_extensions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_locations: {
         Row: {
           accuracy: number | null
@@ -1754,6 +1828,20 @@ export type Database = {
         Returns: string
       }
       withdrawable_balance: { Args: { _user?: string }; Returns: number }
+      admin_refund: {
+        Args: { _amount: number; _email: string; _reason: string }
+        Returns: number
+      }
+      cancel_booking_extension: { Args: { _extension_id: string }; Returns: undefined }
+      decide_booking_extension: {
+        Args: { _accept: boolean; _extension_id: string }
+        Returns: string
+      }
+      request_booking_extension: {
+        Args: { _booking_id: string; _hours: number; _note?: string }
+        Returns: string
+      }
+      wallet_pay_extension: { Args: { _extension_id: string }; Returns: number }
       admin_decide_wash_booking: {
         Args: {
           _decision: string

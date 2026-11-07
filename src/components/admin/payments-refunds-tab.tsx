@@ -38,61 +38,24 @@ export function PaymentsRefundsTab() {
 
   const handleManualRefund = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!refundUser.trim() || !refundAmount || Number(refundAmount) <= 0) {
-      return toast.error("Enter a valid user UUID and positive refund amount");
+    const amt = Number(refundAmount);
+    if (!refundUser.trim() || !(amt > 0) || !refundReason.trim()) {
+      return toast.error("Enter the customer's email, a positive amount and a reason");
     }
-
     setProcessing(true);
-    try {
-      const targetUserId = refundUser.trim();
-      const amt = Number(refundAmount);
-
-      // 1. Get or create wallet for target user
-      const { data: walletData, error: wError } = await supabase
-        .from("wallets")
-        .select("user_id, balance")
-        .eq("user_id", targetUserId)
-        .maybeSingle();
-
-      if (wError) throw wError;
-
-      const currentBalance = walletData?.balance ?? 0;
-      const newBalance = currentBalance + amt;
-
-      if (!walletData) {
-        // Insert wallet
-        const { error: nwErr } = await supabase
-          .from("wallets")
-          .insert({ user_id: targetUserId, balance: newBalance });
-        if (nwErr) throw nwErr;
-      } else {
-        // Update balance
-        const { error: upErr } = await supabase
-          .from("wallets")
-          .update({ balance: newBalance })
-          .eq("user_id", targetUserId);
-        if (upErr) throw upErr;
-      }
-
-      // 2. Insert transaction
-      await supabase.from("wallet_transactions").insert({
-        user_id: targetUserId,
-        amount: amt,
-        balance_after: newBalance,
-        kind: "refund",
-        description: `Admin manual refund: ${refundReason.trim() || "Customer compensation"}`,
-      });
-
-      toast.success(`Refund of ${currency(amt)} credited to customer wallet!`);
-      setRefundUser("");
-      setRefundAmount("");
-      setRefundReason("");
-      loadTransactions();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to process refund");
-    } finally {
-      setProcessing(false);
-    }
+    // Goes through wallet_apply on the server: ledger row, running balance, admin check.
+    const { error } = await supabase.rpc("admin_refund", {
+      _email: refundUser.trim(),
+      _amount: amt,
+      _reason: refundReason.trim(),
+    });
+    setProcessing(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Refund of ${currency(amt)} credited to the customer's wallet`);
+    setRefundUser("");
+    setRefundAmount("");
+    setRefundReason("");
+    loadTransactions();
   };
 
   if (!transactions) return <Skeleton className="h-44 w-full mt-4" />;
@@ -120,11 +83,12 @@ export function PaymentsRefundsTab() {
         <CardContent>
           <form onSubmit={handleManualRefund} className="grid gap-3 sm:grid-cols-4 items-end">
             <div>
-              <Label className="text-xs">User ID (UUID)</Label>
+              <Label className="text-xs">Customer email</Label>
               <Input
+                type="email"
                 value={refundUser}
                 onChange={(e) => setRefundUser(e.target.value)}
-                placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                placeholder="customer@example.com"
                 required
               />
             </div>
@@ -145,6 +109,8 @@ export function PaymentsRefundsTab() {
                 value={refundReason}
                 onChange={(e) => setRefundReason(e.target.value)}
                 placeholder="Vehicle delayed by host"
+                maxLength={280}
+                required
               />
             </div>
             <Button type="submit" disabled={processing}>

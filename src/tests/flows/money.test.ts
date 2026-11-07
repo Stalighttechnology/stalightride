@@ -340,3 +340,109 @@ describe("settings", () => {
     expect(() => be.updateSettings(customer, { commission_pct: 0 })).toThrow(/Admins only/);
   });
 });
+
+describe("admin refund", () => {
+  test("admins credit a refund by email with a reason; it is not withdrawable", () => {
+    const { be, admin, customer } = setup();
+    expect(be.adminRefund(admin, "RIDER@test.local", 300, "Host was late")).toBe(300);
+    expect(be.wallet.txns(customer).at(-1)).toMatchObject({ kind: "refund", amount: 300, balance_after: 300 });
+    expect(be.withdrawable(customer)).toBe(0);
+  });
+
+  test("non-admins, missing reasons, bad amounts and unknown emails are rejected", () => {
+    const { be, admin, customer } = setup();
+    expect(() => be.adminRefund(customer, "rider@test.local", 300, "x")).toThrow(/Admins only/);
+    expect(() => be.adminRefund(admin, "rider@test.local", 300, "   ")).toThrow(/reason/);
+    expect(() => be.adminRefund(admin, "rider@test.local", 0, "x")).toThrow(/between/);
+    expect(() => be.adminRefund(admin, "ghost@test.local", 300, "x")).toThrow(/No user/);
+    expect(be.wallet.balance(customer)).toBe(0);
+  });
+});
+
+describe("trip extension", () => {
+  /** Paid one-day rental (base 1000) that has been picked up. */
+  function activeTrip() {
+    const s = paidRental();
+    s.be.setNow("2026-08-20T10:00:00Z");
+    s.be.checkIn(s.host, s.b.id, 80);
+    return s;
+  }
+
+  test("only the customer can request, and only during an active trip", () => {
+    const s = paidRental();
+    expect(() => s.be.requestExtension(s.customer, s.b.id, 6)).toThrow(/active trip/);
+    s.be.setNow("2026-08-20T10:00:00Z");
+    s.be.checkIn(s.host, s.b.id, 80);
+    expect(() => s.be.requestExtension(s.host, s.b.id, 6)).toThrow(/Not your booking/);
+    expect(() => s.be.requestExtension(s.customer, s.b.id, 0)).toThrow(/1 to 72/);
+    expect(() => s.be.requestExtension(s.customer, s.b.id, 73)).toThrow(/1 to 72/);
+  });
+
+  test("request → host accepts → wallet pays → booking extended and earning released on return", () => {
+    const { be, host, customer, b } = activeTrip();
+    const totalBefore = b.total_price;
+
+    // 24h + 6h = 30h → 2 days = 2000, so the extra base is 1000.
+    const e = be.requestExtension(customer, b.id, 6);
+    expect(e).toMatchObject({ base: 1000, service_fee: 50, gst: 9, provider_earning: 882, customer_total: 1059 });
+    expect(e).toMatchObject({ new_end_date: "2026-08-21", new_dropoff_time: "16:00", status: "pending" });
+    expect(() => be.requestExtension(customer, b.id, 3)).toThrow(/already open/);
+    expect(() => be.payExtension(customer, e.id)).toThrow(/not accepted/);
+    expect(() => be.decideExtension(customer, e.id, true)).toThrow(/Only the host/);
+
+    be.decideExtension(host, e.id, true);
+    expect(() => be.decideExtension(host, e.id, true)).toThrow(/already decided/);
+    be.wallet.topup(customer, 1059);
+    be.payExtension(customer, e.id);
+
+    expect(be.wallet.balance(customer)).toBe(0);
+    expect(b).toMatchObject({
+      end_date: "2026-08-21",
+      dropoff_time: "16:00",
+      base_price: 2000,
+      provider_earning: 1764,
+      total_price: totalBefore + 1059,
+    });
+    expect(() => be.payExtension(customer, e.id)).toThrow(/Already paid/);
+
+    be.checkOut(host, b.id, 70);
+    expect(be.wallet.txns(host).filter((t) => t.kind === "booking_earning").map((t) => t.amount)).toEqual([1764]);
+  });
+
+  test("an accept that would clash with the next booking is rejected; the customer can withdraw and retry", () => {
+    const { be, host, customer, vehicle, b } = activeTrip();
+    const e = be.requestExtension(customer, b.id, 24); // → 22 Aug 10:00
+
+    const other = be.registerCustomer("approved");
+    be.createBooking({ customer_id: other, vehicle_id: vehicle.id, start_date: "2026-08-22", end_date: "2026-08-23" });
+
+    expect(() => be.decideExtension(host, e.id, true)).toThrow(/booked or blocked/);
+    expect(() => be.requestExtension(customer, b.id, 48)).toThrow(/already open/);
+    be.cancelExtension(customer, e.id);
+    expect(() => be.requestExtension(customer, b.id, 48)).toThrow(/not available/);
+    expect(be.requestExtension(customer, b.id, 3).status).toBe("pending"); // same day, no clash
+  });
+
+  test("a declined request cannot be paid; insufficient balance leaves the booking unchanged", () => {
+    const { be, host, customer, b } = activeTrip();
+    const declined = be.requestExtension(customer, b.id, 6);
+    be.decideExtension(host, declined.id, false);
+    expect(() => be.payExtension(customer, declined.id)).toThrow(/not accepted/);
+
+    const e = be.requestExtension(customer, b.id, 6);
+    be.decideExtension(host, e.id, true);
+    expect(() => be.payExtension(customer, e.id)).toThrow(/Insufficient/);
+    expect(b).toMatchObject({ end_date: "2026-08-21", dropoff_time: "10:00", base_price: 1000 });
+    expect(e.status).toBe("accepted");
+  });
+
+  test("after the return check-out the trip can no longer be extended or paid", () => {
+    const { be, host, customer, b } = activeTrip();
+    const e = be.requestExtension(customer, b.id, 6);
+    be.decideExtension(host, e.id, true);
+    be.checkOut(host, b.id, 70);
+    be.wallet.topup(customer, 2000);
+    expect(() => be.payExtension(customer, e.id)).toThrow(/already ended/);
+    expect(() => be.requestExtension(customer, b.id, 6)).toThrow(/paid, confirmed|active trip/);
+  });
+});
