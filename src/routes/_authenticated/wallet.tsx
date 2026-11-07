@@ -3,27 +3,21 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/site-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { currency } from "@/lib/format";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "sonner";
-import {
-  Wallet as WalletIcon,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Banknote,
-  Gift,
-  Clock,
-} from "lucide-react";
+import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Banknote, Gift } from "lucide-react";
 import { createWalletTopupOrder, verifyWalletTopup } from "@/lib/wallet.functions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { PayoutsCard } from "@/components/payouts-card";
+import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   component: WalletPage,
@@ -44,24 +38,25 @@ const KIND_LABEL: Record<string, string> = {
   booking_payment: "Ride payment",
   booking_earning: "Ride earning",
   refund: "Refund",
-  payout: "Payout",
+  payout: "Withdrawal",
+  payout_reversal: "Withdrawal returned",
   adjustment: "Adjustment",
-  promo: "Promo credit",
+  promo_credit: "Promo credit",
+  driver_payment: "Driver hire payment",
+  driver_earning: "Driver earning",
+  driver_refund: "Driver hire refund",
+  driver_refund_reversal: "Driver refund reversal",
+  wash_payment: "Wash payment",
+  wash_refund: "Wash refund",
 };
-
-const PLATFORM_COMMISSION = 0.10; // 10%
 
 function WalletPage() {
   const { user } = useSession();
+  const settings = usePlatformSettings();
   const [balance, setBalance] = useState<number | null>(null);
   const [txns, setTxns] = useState<any[] | null>(null);
   const [amount, setAmount] = useState("500");
   const [busy, setBusy] = useState(false);
-
-  // Withdraw state
-  const [withdrawAmt, setWithdrawAmt] = useState("");
-  const [upiOrBank, setUpiOrBank] = useState("");
-  const [withdrawing, setWithdrawing] = useState(false);
 
   const createOrder = useServerFn(createWalletTopupOrder);
   const verify = useServerFn(verifyWalletTopup);
@@ -117,37 +112,8 @@ function WalletPage() {
     }
   };
 
-  // Derived values
-  const earnings = (txns ?? [])
-    .filter((t) => t.kind === "booking_earning")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const totalPayouts = (txns ?? [])
-    .filter((t) => t.kind === "payout")
-    .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
-  const withdrawableBalance = Math.max(0, earnings - totalPayouts);
-  const promoCredits = (txns ?? []).filter((t) => t.kind === "promo");
-  const pendingTxns = (txns ?? []).filter((t) => (t as any).status === "pending");
-  const regularTxns = (txns ?? []).filter((t) => t.kind !== "promo");
-
-  const submitWithdraw = async () => {
-    const amt = Number(withdrawAmt);
-    if (!Number.isFinite(amt) || amt < 100) return toast.error("Minimum withdrawal is ₹100");
-    if (amt > withdrawableBalance) return toast.error("Insufficient withdrawable balance");
-    if (!upiOrBank.trim()) return toast.error("Enter your UPI ID or bank account number");
-    setWithdrawing(true);
-    const { error } = await supabase.from("payouts" as any).insert({
-      vendor_id: user!.id,
-      amount: amt,
-      payout_account: upiOrBank.trim(),
-      status: "pending",
-    });
-    setWithdrawing(false);
-    if (error) return toast.error(error.message);
-    toast.success("Withdrawal request submitted — typically processed within 2 business days");
-    setWithdrawAmt("");
-    setUpiOrBank("");
-    load();
-  };
+  // Withdrawable / pending earnings come from the database (see PayoutsCard).
+  const promoCredits = (txns ?? []).filter((t) => t.kind === "promo_credit");
 
   return (
     <div className="min-h-screen bg-background">
@@ -156,9 +122,8 @@ function WalletPage() {
         <h1 className="font-display text-3xl font-semibold">Wallet</h1>
 
         {/* ── Balance row ── */}
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          {/* Available balance */}
-          <Card className="sm:col-span-1">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <Card>
             <CardContent className="p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <WalletIcon className="h-4 w-4" /> Available
@@ -171,30 +136,10 @@ function WalletPage() {
             </CardContent>
           </Card>
 
-          {/* Withdrawable earnings */}
-          <Card className="sm:col-span-1">
+          <Card>
             <CardContent className="p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Banknote className="h-4 w-4" /> Withdrawable
-              </div>
-              {txns === null ? (
-                <Skeleton className="mt-2 h-9 w-24" />
-              ) : (
-                <>
-                  <div className="mt-1 font-display text-3xl font-semibold">{currency(withdrawableBalance)}</div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Ride earnings minus {(PLATFORM_COMMISSION * 100).toFixed(0)}% platform fee &amp; payouts
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Promo credits */}
-          <Card className="sm:col-span-1">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Gift className="h-4 w-4" /> Promo credits
+                <Gift className="h-4 w-4" /> Promo credits received
               </div>
               {txns === null ? (
                 <Skeleton className="mt-2 h-9 w-24" />
@@ -237,53 +182,15 @@ function WalletPage() {
           </CardContent>
         </Card>
 
-        {/* ── Withdraw ── */}
-        {withdrawableBalance > 0 && (
-          <Card className="mt-4">
-            <CardContent className="p-5">
-              <h2 className="font-medium">Withdraw earnings</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Withdraw your ride earnings to your UPI or bank account. Minimum ₹100.
-              </p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                <div>
-                  <Label className="text-xs">Amount (max {currency(withdrawableBalance)})</Label>
-                  <Input
-                    type="number"
-                    min={100}
-                    max={withdrawableBalance}
-                    value={withdrawAmt}
-                    onChange={(e) => setWithdrawAmt(e.target.value)}
-                    placeholder="₹ amount"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">UPI ID or bank account</Label>
-                  <Input
-                    value={upiOrBank}
-                    onChange={(e) => setUpiOrBank(e.target.value)}
-                    placeholder="yourname@upi or ACNO"
-                  />
-                </div>
-                <Button
-                  className="mt-5"
-                  disabled={withdrawing}
-                  onClick={submitWithdraw}
-                >
-                  {withdrawing ? "Submitting…" : "Request payout"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* ── Earnings & withdrawals (hosts and drivers only) ── */}
+        {user && <PayoutsCard userId={user.id} onChanged={load} />}
 
-        {/* ── Tabs: History / Promo / Pending ── */}
+        {/* ── Tabs: History / Promo ── */}
         <div className="mt-6">
           <Tabs defaultValue="history">
             <TabsList>
               <TabsTrigger value="history">Transaction history</TabsTrigger>
               {promoCredits.length > 0 && <TabsTrigger value="promo">Promo credits</TabsTrigger>}
-              {pendingTxns.length > 0 && <TabsTrigger value="pending">Pending</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="history">
@@ -295,14 +202,12 @@ function WalletPage() {
                         <Skeleton key={i} className="h-14 rounded-lg" />
                       ))}
                     </div>
-                  ) : regularTxns.length === 0 ? (
+                  ) : txns.length === 0 ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">No transactions yet.</p>
                   ) : (
                     <ul className="divide-y divide-border">
-                      {regularTxns.map((t) => {
+                      {txns.map((t) => {
                         const credit = Number(t.amount) >= 0;
-                        const isEarning = t.kind === "booking_earning";
-                        const commission = isEarning ? Number(t.amount) * PLATFORM_COMMISSION : 0;
                         return (
                           <li key={t.id} className="flex items-center justify-between gap-3 py-3">
                             <div className="flex items-center gap-3">
@@ -314,13 +219,9 @@ function WalletPage() {
                               <div>
                                 <div className="text-sm font-medium">{KIND_LABEL[t.kind] ?? t.kind}</div>
                                 <div className="text-xs text-muted-foreground">
+                                  {t.description ? `${t.description} · ` : ""}
                                   {new Date(t.created_at).toLocaleString()}
                                 </div>
-                                {isEarning && commission > 0 && (
-                                  <div className="text-[11px] text-muted-foreground">
-                                    Platform fee: {currency(commission)} ({(PLATFORM_COMMISSION * 100).toFixed(0)}%)
-                                  </div>
-                                )}
                               </div>
                             </div>
                             <div className="text-right">
@@ -344,59 +245,22 @@ function WalletPage() {
             <TabsContent value="promo">
               <Card className="mt-3">
                 <CardContent className="p-4">
-                  {promoCredits.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted-foreground">No promo credits yet.</p>
-                  ) : (
-                    <ul className="divide-y divide-border">
-                      {promoCredits.map((t) => (
-                        <li key={t.id} className="flex items-center justify-between gap-3 py-3">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950">
-                              <Gift className="h-4 w-4" />
-                            </span>
-                            <div>
-                              <div className="text-sm font-medium">Promo credit</div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(t.created_at).toLocaleString()}
-                              </div>
-                            </div>
+                  <ul className="divide-y divide-border">
+                    {promoCredits.map((t) => (
+                      <li key={t.id} className="flex items-center justify-between gap-3 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950">
+                            <Gift className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <div className="text-sm font-medium">{t.description || "Promo credit"}</div>
+                            <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                           </div>
-                          <div className="text-sm font-semibold text-violet-600">
-                            +{currency(Math.abs(Number(t.amount)))}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="pending">
-              <Card className="mt-3">
-                <CardContent className="p-4">
-                  {pendingTxns.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted-foreground">No pending transactions.</p>
-                  ) : (
-                    <ul className="divide-y divide-border">
-                      {pendingTxns.map((t) => (
-                        <li key={t.id} className="flex items-center justify-between gap-3 py-3">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-600">
-                              <Clock className="h-4 w-4" />
-                            </span>
-                            <div>
-                              <div className="text-sm font-medium">{KIND_LABEL[t.kind] ?? t.kind}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(t.created_at).toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-amber-600">Pending</Badge>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                        </div>
+                        <div className="text-sm font-semibold text-violet-600">+{currency(Math.abs(Number(t.amount)))}</div>
+                      </li>
+                    ))}
+                  </ul>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -407,8 +271,9 @@ function WalletPage() {
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
           <Banknote className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Synchoo charges a <strong>{(PLATFORM_COMMISSION * 100).toFixed(0)}% platform commission</strong> on each
-            ride earning. Your withdrawable balance reflects earnings after this fee.
+            Hosts and drivers: Synchoo keeps a <strong>{settings.commission_pct}% commission</strong> (plus {settings.gst_pct}% GST
+            on it) on each completed booking. Earnings land in your wallet already net of this fee, and only earnings can be
+            withdrawn — top-ups, refunds and promo credit can be spent on bookings.
           </span>
         </div>
       </div>

@@ -49,6 +49,80 @@ export type Database = {
           },
         ]
       }
+      booking_extensions: {
+        Row: {
+          id: string
+          booking_id: string
+          customer_id: string
+          vendor_id: string
+          hours: number
+          note: string | null
+          new_end_date: string
+          new_dropoff_time: string
+          extra_base: number
+          service_fee: number
+          gst_amount: number
+          commission_amount: number
+          commission_gst: number
+          provider_earning: number
+          extra_total: number
+          status: string
+          decided_at: string | null
+          paid_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          customer_id: string
+          vendor_id: string
+          hours: number
+          note?: string | null
+          new_end_date: string
+          new_dropoff_time: string
+          extra_base: number
+          service_fee: number
+          gst_amount: number
+          commission_amount: number
+          commission_gst: number
+          provider_earning: number
+          extra_total: number
+          status?: string
+          decided_at?: string | null
+          paid_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          customer_id?: string
+          vendor_id?: string
+          hours?: number
+          note?: string | null
+          new_end_date?: string
+          new_dropoff_time?: string
+          extra_base?: number
+          service_fee?: number
+          gst_amount?: number
+          commission_amount?: number
+          commission_gst?: number
+          provider_earning?: number
+          extra_total?: number
+          status?: string
+          decided_at?: string | null
+          paid_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_extensions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_locations: {
         Row: {
           accuracy: number | null
@@ -95,6 +169,16 @@ export type Database = {
       }
       bookings: {
         Row: {
+          commission_amount: number
+          commission_gst: number
+          earning_credited_at: string | null
+          gst_amount: number
+          provider_earning: number
+          service_fee: number
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          refund_amount: number
           base_price: number
           coupon_code: string | null
           created_at: string
@@ -132,6 +216,16 @@ export type Database = {
           vendor_id: string
         }
         Insert: {
+          commission_amount?: number
+          commission_gst?: number
+          earning_credited_at?: string | null
+          gst_amount?: number
+          provider_earning?: number
+          service_fee?: number
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          refund_amount?: number
           base_price: number
           coupon_code?: string | null
           created_at?: string
@@ -169,6 +263,16 @@ export type Database = {
           vendor_id: string
         }
         Update: {
+          commission_amount?: number
+          commission_gst?: number
+          earning_credited_at?: string | null
+          gst_amount?: number
+          provider_earning?: number
+          service_fee?: number
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          refund_amount?: number
           base_price?: number
           coupon_code?: string | null
           created_at?: string
@@ -306,6 +410,15 @@ export type Database = {
       }
       driver_bookings: {
         Row: {
+          commission_amount: number
+          commission_gst: number
+          earning_credited_at: string | null
+          gst_amount: number
+          provider_earning: number
+          service_fee: number
+          base_price: number
+          coupon_code: string | null
+          discount: number
           booking_id: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
@@ -334,6 +447,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          commission_amount?: number
+          commission_gst?: number
+          earning_credited_at?: string | null
+          gst_amount?: number
+          provider_earning?: number
+          service_fee?: number
+          base_price?: number
+          coupon_code?: string | null
+          discount?: number
           booking_id?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
@@ -362,6 +484,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          commission_amount?: number
+          commission_gst?: number
+          earning_credited_at?: string | null
+          gst_amount?: number
+          provider_earning?: number
+          service_fee?: number
+          base_price?: number
+          coupon_code?: string | null
+          discount?: number
           booking_id?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
@@ -459,6 +590,8 @@ export type Database = {
       }
       drivers: {
         Row: {
+          service_area: string | null
+          trip_types: string[]
           avg_rating: number
           bio: string | null
           city: string
@@ -485,6 +618,8 @@ export type Database = {
           verified_at: string | null
         }
         Insert: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city: string
@@ -511,6 +646,8 @@ export type Database = {
           verified_at?: string | null
         }
         Update: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city?: string
@@ -637,6 +774,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          commission_pct: number
+          gst_pct: number
+          id: number
+          min_withdrawal: number
+          service_fee_pct: number
+          updated_at: string
+        }
+        Insert: {
+          commission_pct?: number
+          gst_pct?: number
+          id?: number
+          min_withdrawal?: number
+          service_fee_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          commission_pct?: number
+          gst_pct?: number
+          id?: number
+          min_withdrawal?: number
+          service_fee_pct?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       pool_requests: {
         Row: {
@@ -825,6 +989,8 @@ export type Database = {
       }
       public_drivers: {
         Row: {
+          service_area: string | null
+          trip_types: string[]
           avg_rating: number
           bio: string | null
           city: string
@@ -841,6 +1007,8 @@ export type Database = {
           vehicle_types: string[]
         }
         Insert: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city: string
@@ -857,6 +1025,8 @@ export type Database = {
           vehicle_types?: string[]
         }
         Update: {
+          service_area?: string | null
+          trip_types?: string[]
           avg_rating?: number
           bio?: string | null
           city?: string
@@ -1297,6 +1467,15 @@ export type Database = {
       }
       wash_bookings: {
         Row: {
+          commission_amount: number
+          commission_gst: number
+          earning_credited_at: string | null
+          gst_amount: number
+          provider_earning: number
+          service_fee: number
+          base_price: number
+          coupon_code: string | null
+          discount: number
           address: string
           admin_note: string | null
           assigned_vendor_id: string | null
@@ -1328,6 +1507,15 @@ export type Database = {
           vehicle_label: string | null
         }
         Insert: {
+          commission_amount?: number
+          commission_gst?: number
+          earning_credited_at?: string | null
+          gst_amount?: number
+          provider_earning?: number
+          service_fee?: number
+          base_price?: number
+          coupon_code?: string | null
+          discount?: number
           address: string
           admin_note?: string | null
           assigned_vendor_id?: string | null
@@ -1359,6 +1547,15 @@ export type Database = {
           vehicle_label?: string | null
         }
         Update: {
+          commission_amount?: number
+          commission_gst?: number
+          earning_credited_at?: string | null
+          gst_amount?: number
+          provider_earning?: number
+          service_fee?: number
+          base_price?: number
+          coupon_code?: string | null
+          discount?: number
           address?: string
           admin_note?: string | null
           assigned_vendor_id?: string | null
@@ -1412,6 +1609,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wash_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          rating: number
+          wash_booking_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating: number
+          wash_booking_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating?: number
+          wash_booking_id?: string
+        }
+        Relationships: []
       }
       wash_services: {
         Row: {
@@ -1520,11 +1744,104 @@ export type Database = {
           },
         ]
       }
+      withdrawals: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          admin_note: string | null
+          amount: number
+          created_at: string
+          id: string
+          ifsc: string | null
+          method: string
+          processed_at: string | null
+          processed_by: string | null
+          reference: string | null
+          status: string
+          upi_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          admin_note?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          ifsc?: string | null
+          method: string
+          processed_at?: string | null
+          processed_by?: string | null
+          reference?: string | null
+          status?: string
+          upi_id?: string | null
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          ifsc?: string | null
+          method?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          reference?: string | null
+          status?: string
+          upi_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      admin_decide_withdrawal: {
+        Args: { _decision: string; _note?: string; _reference?: string; _withdrawal_id: string }
+        Returns: undefined
+      }
+      admin_grant_credit: {
+        Args: { _amount: number; _email: string; _note?: string }
+        Returns: number
+      }
+      cancel_booking: {
+        Args: { _booking_id: string; _reason?: string }
+        Returns: Json
+      }
+      compute_charges: {
+        Args: { _base: number; _coupon?: string }
+        Returns: Json
+      }
+      request_withdrawal: {
+        Args: {
+          _account_name?: string
+          _account_number?: string
+          _amount: number
+          _ifsc?: string
+          _method: string
+          _upi_id?: string
+        }
+        Returns: string
+      }
+      withdrawable_balance: { Args: { _user?: string }; Returns: number }
+      admin_refund: {
+        Args: { _amount: number; _email: string; _reason: string }
+        Returns: number
+      }
+      cancel_booking_extension: { Args: { _extension_id: string }; Returns: undefined }
+      decide_booking_extension: {
+        Args: { _accept: boolean; _extension_id: string }
+        Returns: string
+      }
+      request_booking_extension: {
+        Args: { _booking_id: string; _hours: number; _note?: string }
+        Returns: string
+      }
+      wallet_pay_extension: { Args: { _extension_id: string }; Returns: number }
       admin_decide_wash_booking: {
         Args: {
           _decision: string

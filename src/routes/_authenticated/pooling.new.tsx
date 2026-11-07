@@ -20,9 +20,9 @@ export const Route = createFileRoute("/_authenticated/pooling/new")({
   component: NewPoolTrip,
   head: () => ({
     meta: [
-      { title: "Offer a car pooling ride Ã¢â‚¬â€ Synchoo" },
+      { title: "Offer a car pooling ride — Synchoo" },
       { name: "description", content: "Publish your route, seats and fare per passenger, then approve the riders you want to travel with." },
-      { property: "og:title", content: "Offer a car pooling ride Ã¢â‚¬â€ Synchoo" },
+      { property: "og:title", content: "Offer a car pooling ride — Synchoo" },
       { property: "og:description", content: "Share your route and fill empty seats on Synchoo." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -144,7 +144,7 @@ function NewPoolTrip() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <Label className="flex items-center gap-2"><RouteIcon className="h-4 w-4" /> Route waypoints</Label>
-                  <p className="text-xs text-muted-foreground">Optional Ã¢â‚¬â€ towns or highway stops you pass through.</p>
+                  <p className="text-xs text-muted-foreground">Optional — towns or highway stops you pass through.</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" className="rounded-full"
                   onClick={() => setStops((s) => [...s, { label: "", point: { lat: null, lng: null } }])}>
@@ -188,7 +188,7 @@ function NewPoolTrip() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="vehicle">Vehicle</Label>
-                <Input id="vehicle" value={vehicleLabel} onChange={(e) => setVehicleLabel(e.target.value)} placeholder="Hyundai Creta Ã‚Â· White" />
+                <Input id="vehicle" value={vehicleLabel} onChange={(e) => setVehicleLabel(e.target.value)} placeholder="Hyundai Creta · White" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="seats" className="flex items-center gap-2"><Users className="h-4 w-4" /> Seats offered</Label>
@@ -196,7 +196,7 @@ function NewPoolTrip() {
                   onChange={(e) => setSeats(Math.max(1, Math.min(8, Number(e.target.value) || 1)))} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="fare">Fare per passenger (Ã¢â€šÂ¹)</Label>
+                <Label htmlFor="fare">Fare per passenger (₹)</Label>
                 <Input id="fare" type="number" min={0} step={10} value={fare} onChange={(e) => setFare(Number(e.target.value))} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
@@ -208,7 +208,7 @@ function NewPoolTrip() {
           </Card>
 
           <Button type="submit" disabled={saving} className="w-full rounded-full sm:w-auto">
-            {saving ? "PublishingÃ¢â‚¬Â¦" : "Publish pooling trip"}
+            {saving ? "Publishing…" : "Publish pooling trip"}
           </Button>
         </form>
       </div>

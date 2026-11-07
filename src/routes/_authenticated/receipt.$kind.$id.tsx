@@ -187,6 +187,17 @@ function ReceiptPage() {
   );
 }
 
+/** Discount, service fee and GST lines shared by every receipt kind (money phase 1 columns). */
+function feeLines(b: any): Line[] {
+  const out: Line[] = [];
+  if (Number(b.discount ?? 0) > 0) {
+    out.push({ label: `Discount${b.coupon_code ? ` (${b.coupon_code})` : ""}`, value: -Number(b.discount), muted: true });
+  }
+  if (Number(b.service_fee ?? 0) > 0) out.push({ label: "Service fee", value: Number(b.service_fee), muted: true });
+  if (Number(b.gst_amount ?? 0) > 0) out.push({ label: "GST on service fee", value: Number(b.gst_amount), muted: true });
+  return out;
+}
+
 async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
   if (kind === "vehicle") {
     const { data, error } = await supabase
@@ -199,11 +210,9 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
     const b: any = data;
     const lines: Line[] = [
       { label: "Rental fare", value: Number(b.base_price ?? 0) },
+      ...feeLines(b),
       { label: "Refundable security deposit", value: Number(b.security_deposit ?? 0) },
     ];
-    if (Number(b.discount ?? 0) > 0) {
-      lines.push({ label: `Discount${b.coupon_code ? ` (${b.coupon_code})` : ""}`, value: -Number(b.discount), muted: true });
-    }
     return {
       title: b.vehicles?.title ?? "Vehicle rental",
       subtitle: [b.vehicles?.brand, b.vehicles?.model, b.vehicles?.year].filter(Boolean).join(" ") + (b.vehicles?.city ? ` · ${b.vehicles.city}` : ""),
@@ -221,7 +230,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
       ],
       lines,
       total: Number(b.total_price ?? 0),
-      refund: 0,
+      refund: Number(b.refund_amount ?? 0),
       backTo: "/bookings",
     };
   }
@@ -237,8 +246,8 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
     const b: any = data;
     const lines: Line[] =
       b.rate_type === "hourly"
-        ? [{ label: `Driver charges · ${b.hours} hour${Number(b.hours) === 1 ? "" : "s"}`, value: Number(b.total_price ?? 0) }]
-        : [{ label: `Driver charges · ${b.days} day${Number(b.days) === 1 ? "" : "s"}`, value: Number(b.total_price ?? 0) }];
+        ? [{ label: `Driver charges · ${b.hours} hour${Number(b.hours) === 1 ? "" : "s"}`, value: Number(b.base_price || b.total_price || 0) }, ...feeLines(b)]
+        : [{ label: `Driver charges · ${b.days} day${Number(b.days) === 1 ? "" : "s"}`, value: Number(b.base_price || b.total_price || 0) }, ...feeLines(b)];
     return {
       title: `Driver hire — ${b.drivers?.full_name ?? "Driver"}`,
       subtitle: `${b.rate_type === "hourly" ? "Hourly" : "Daily"} hire${b.drivers?.city ? ` · ${b.drivers.city}` : ""}`,
@@ -286,7 +295,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
       { label: "Service address", value: b.address || b.city || "—" },
       { label: "Booking ID", value: String(b.id).slice(0, 8).toUpperCase() },
     ],
-    lines: [{ label: "Wash package", value: Number(b.price ?? 0) }],
+    lines: [{ label: "Wash package", value: Number(b.base_price || b.price || 0) }, ...feeLines(b)],
     total: Number(b.price ?? 0),
     refund: Number(b.refund_amount ?? 0),
     backTo: "/washes",

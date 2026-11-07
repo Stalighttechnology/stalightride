@@ -23,13 +23,13 @@ export const Route = createFileRoute("/pooling")({
   component: PoolingPage,
   head: () => ({
     meta: [
-      { title: "Car pooling â€” share a ride on your route | Synchoo" },
+      { title: "Car pooling — share a ride on your route | Synchoo" },
       {
         name: "description",
         content:
           "Find car pooling trips that follow your own route. Match with drivers heading your way, see seats, fare per passenger and request a seat in seconds.",
       },
-      { property: "og:title", content: "Car pooling â€” share a ride | Synchoo" },
+      { property: "og:title", content: "Car pooling — share a ride | Synchoo" },
       { property: "og:description", content: "Match with drivers whose route overlaps yours by 80% or more." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -127,7 +127,7 @@ function PoolingPage() {
         throw error;
       }
       setJoined((j) => [...j, trip.id]);
-      toast.success("Seat requested â€” the driver will accept or decline shortly");
+      toast.success("Seat requested — the driver will accept or decline shortly");
     } catch (e: any) {
       toast.error(e.message ?? "Could not request this trip");
     } finally {
@@ -156,7 +156,7 @@ function PoolingPage() {
             <Badge variant="secondary" className="rounded-full">Car pooling</Badge>
             <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Share the ride, split the fare</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              We match you with drivers whose route overlaps yours by at least {MATCH_THRESHOLD}% â€” so no long detours for anyone.
+              We match you with drivers whose route overlaps yours by at least {MATCH_THRESHOLD}% — so no long detours for anyone.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -214,7 +214,7 @@ function PoolingPage() {
             </div>
             <div className="lg:col-span-2">
               <Button onClick={search} disabled={!ready || searching} className="w-full rounded-full sm:w-auto">
-                <Search className="mr-1.5 h-4 w-4" /> {searching ? "Matching routesâ€¦" : "Find matching trips"}
+                <Search className="mr-1.5 h-4 w-4" /> {searching ? "Matching routes…" : "Find matching trips"}
               </Button>
             </div>
           </CardContent>
@@ -224,7 +224,7 @@ function PoolingPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
-            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Cancellation policy: 100% refund if cancelled up to 12 hours before departure; 50% refund between 2â€“12 hours; non-refundable within 2 hours of departure.
+            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Cancellation policy: 100% refund if cancelled up to 12 hours before departure; 50% refund between 2–12 hours; non-refundable within 2 hours of departure.
           </div>
         </div>
 
@@ -282,7 +282,7 @@ function PoolingPage() {
                             {currency(Number(trip.fare_per_seat))} / passenger
                           </span>
                         </div>
-                        {trip.notes && <p className="text-xs text-muted-foreground">â€œ{trip.notes}â€</p>}
+                        {trip.notes && <p className="text-xs text-muted-foreground">“{trip.notes}”</p>}
                         <div className="flex flex-wrap items-center gap-2 pt-1">
                           <span className="text-sm font-semibold">Total {currency(Number(trip.fare_per_seat) * seats)}</span>
                           {user ? (
@@ -292,7 +292,7 @@ function PoolingPage() {
                               disabled={joining === trip.id || alreadyJoined}
                               onClick={() => join(trip)}
                             >
-                              {alreadyJoined ? "Requested" : joining === trip.id ? "Requestingâ€¦" : `Request ${seats} seat${seats > 1 ? "s" : ""}`}
+                              {alreadyJoined ? "Requested" : joining === trip.id ? "Requesting…" : `Request ${seats} seat${seats > 1 ? "s" : ""}`}
                             </Button>
                           ) : (
                             <Button asChild size="sm" className="rounded-full">
@@ -308,7 +308,7 @@ function PoolingPage() {
                             <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Report
                           </Button>
                           <span className="text-xs text-muted-foreground">
-                            Pickup ~{match.pickupDistanceKm.toFixed(1)} km off route Â· Drop ~{match.dropDistanceKm.toFixed(1)} km
+                            Pickup ~{match.pickupDistanceKm.toFixed(1)} km off route · Drop ~{match.dropDistanceKm.toFixed(1)} km
                           </span>
                         </div>
                       </div>
