@@ -91,14 +91,28 @@ export type PoolRequest = {
   status: BookingStatus;
 };
 
+export type WashStatus =
+  | "requested"
+  | "confirmed"
+  | "assigned"
+  | "on_the_way"
+  | "started"
+  | "completed"
+  | "cancelled"
+  | "rejected";
+
 export type WashBooking = {
   id: string;
   customer_id: string;
   slot_date: string;
   price: number;
-  status: BookingStatus;
+  status: string;
+  progress?: WashStatus;
+  before_photos?: string[];
+  after_photos?: string[];
   payment_status: PaymentStatus;
   assigned_vendor_id: string | null;
+  assigned_cleaner_id?: string | null;
   refund_amount: number;
 };
 
@@ -498,8 +512,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         slot_date,
         price,
         status: "pending",
+        progress: "requested",
+        before_photos: [],
+        after_photos: [],
         payment_status: "unpaid",
         assigned_vendor_id: null,
+        assigned_cleaner_id: null,
         refund_amount: 0,
       };
       washes.set(w.id, w);
@@ -511,8 +529,49 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       if (w.status !== "pending") throw new RuleError("Already decided");
       if (decision === "confirmed" && !vendor_id) throw new RuleError("Assign a wash vendor before approving");
       w.status = decision;
+      w.progress = decision === "confirmed" ? "confirmed" : "rejected";
       w.assigned_vendor_id = decision === "confirmed" ? vendor_id! : null;
       notify(w.customer_id, `Wash ${decision}`);
+      return w;
+    },
+    advanceWashStatus(actor: string, wash_id: string, nextStatus: WashStatus, photos?: string[]) {
+      const w = washes.get(wash_id);
+      if (!w) throw new RuleError("Wash booking not found");
+      const isAssigned = w.assigned_vendor_id === actor || w.assigned_cleaner_id === actor || admins.has(actor);
+      if (!isAssigned) throw new RuleError("You are not assigned to this wash job");
+
+      const ranks: Record<string, number> = {
+        requested: 1,
+        pending: 1,
+        confirmed: 2,
+        assigned: 3,
+        on_the_way: 4,
+        started: 5,
+        completed: 6,
+      };
+
+      const curr = (w.progress || w.status) as string;
+      const currRank = ranks[curr] ?? 0;
+      const nextRank = ranks[nextStatus] ?? -1;
+
+      if (nextRank === -1) throw new RuleError(`Invalid wash status: ${nextStatus}`);
+      if (nextRank <= currRank) {
+        throw new RuleError(`Status cannot be moved backwards or to the same status (current: ${curr}, requested: ${nextStatus})`);
+      }
+
+      if (nextStatus === "started" && photos) {
+        w.before_photos = [...(w.before_photos ?? []), ...photos];
+      }
+      if (nextStatus === "completed") {
+        if (photos) w.after_photos = [...(w.after_photos ?? []), ...photos];
+        if (!w.after_photos || w.after_photos.length === 0) {
+          throw new RuleError("After photos are required to complete the wash");
+        }
+      }
+
+      w.progress = nextStatus;
+      w.status = nextStatus;
+      notify(w.customer_id, `Wash status updated to ${nextStatus}`);
       return w;
     },
     payWashWithWallet(actor: string, wash_id: string) {

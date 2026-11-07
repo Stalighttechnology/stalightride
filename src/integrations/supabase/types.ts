@@ -1314,7 +1314,10 @@ export type Database = {
         Row: {
           address: string
           admin_note: string | null
+          after_photos: string[]
+          assigned_cleaner_id: string | null
           assigned_vendor_id: string | null
+          before_photos: string[]
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -1330,6 +1333,7 @@ export type Database = {
           payment_method: string | null
           payment_status: string
           price: number
+          progress: Database["public"]["Enums"]["wash_status"]
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           refund_amount: number
@@ -1337,7 +1341,7 @@ export type Database = {
           service_id: string
           slot_date: string
           slot_time: string
-          status: Database["public"]["Enums"]["booking_status"]
+          status: string
           updated_at: string
           vehicle_id: string | null
           vehicle_label: string | null
@@ -1345,7 +1349,10 @@ export type Database = {
         Insert: {
           address: string
           admin_note?: string | null
+          after_photos?: string[]
+          assigned_cleaner_id?: string | null
           assigned_vendor_id?: string | null
+          before_photos?: string[]
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -1361,6 +1368,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string
           price: number
+          progress?: Database["public"]["Enums"]["wash_status"]
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           refund_amount?: number
@@ -1368,7 +1376,7 @@ export type Database = {
           service_id: string
           slot_date: string
           slot_time: string
-          status?: Database["public"]["Enums"]["booking_status"]
+          status?: string
           updated_at?: string
           vehicle_id?: string | null
           vehicle_label?: string | null
@@ -1376,7 +1384,10 @@ export type Database = {
         Update: {
           address?: string
           admin_note?: string | null
+          after_photos?: string[]
+          assigned_cleaner_id?: string | null
           assigned_vendor_id?: string | null
+          before_photos?: string[]
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -1392,6 +1403,7 @@ export type Database = {
           payment_method?: string | null
           payment_status?: string
           price?: number
+          progress?: Database["public"]["Enums"]["wash_status"]
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           refund_amount?: number
@@ -1399,7 +1411,7 @@ export type Database = {
           service_id?: string
           slot_date?: string
           slot_time?: string
-          status?: Database["public"]["Enums"]["booking_status"]
+          status?: string
           updated_at?: string
           vehicle_id?: string | null
           vehicle_label?: string | null
@@ -1540,6 +1552,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_wash_status: {
+        Args: {
+          _next_status: string
+          _notes?: string | null
+          _photos?: string[] | null
+          _wash_booking_id: string
+        }
+        Returns: Json
+      }
       admin_decide_wash_booking: {
         Args: {
           _decision: string
@@ -1628,6 +1649,15 @@ export type Database = {
       vehicle_category: "scooter" | "bike" | "motorcycle" | "car" | "ev"
       vehicle_status: "draft" | "active" | "paused"
       verification_status: "pending" | "approved" | "rejected"
+      wash_status:
+        | "requested"
+        | "confirmed"
+        | "assigned"
+        | "on_the_way"
+        | "started"
+        | "completed"
+        | "cancelled"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never

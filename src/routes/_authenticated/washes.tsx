@@ -266,9 +266,10 @@ function WashesPage() {
 
         <ul className="mt-6 grid gap-3">
           {(items ?? []).map((b) => {
-            const canPay = b.status === "confirmed" && b.payment_status !== "paid";
-            const canCancel = b.status === "pending" || b.status === "confirmed";
-            const canReview = b.status === "completed" && !reviewedIds.has(b.id);
+            const currentStatus = b.progress || b.status;
+            const canPay = (b.status === "confirmed" || b.progress === "confirmed") && b.payment_status !== "paid";
+            const canCancel = (b.status === "pending" || b.status === "confirmed" || b.progress === "requested" || b.progress === "confirmed");
+            const canReview = (b.status === "completed" || b.progress === "completed") && !reviewedIds.has(b.id);
             return (
               <Card key={b.id}>
                 <CardContent className="p-4">
@@ -280,7 +281,7 @@ function WashesPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge s={b.status} />
+                      <StatusBadge s={currentStatus} />
                       {b.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
                       {b.payment_status === "refunded" && (
                         <Badge variant="outline" className="border-emerald-300 text-emerald-700">
@@ -296,8 +297,8 @@ function WashesPage() {
                   </div>
 
                   {/* Status stepper */}
-                  {b.status !== "cancelled" && b.status !== "rejected" && (
-                    <WashStepper status={b.status} />
+                  {currentStatus !== "cancelled" && currentStatus !== "rejected" && (
+                    <WashStepper status={currentStatus} />
                   )}
 
                   <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
@@ -305,6 +306,12 @@ function WashesPage() {
                     {b.vehicle_label && <div>🚗 {b.vehicle_label}</div>}
                     {b.notes && <div className="sm:col-span-2">📝 {b.notes}</div>}
                   </div>
+                  {b.after_photos && b.after_photos.length > 0 && (
+                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Camera className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="font-medium text-emerald-700">{b.after_photos.length} completion proof photo(s) attached</span>
+                    </div>
+                  )}
                   <p className="mt-1 text-sm">
                     Total: <span className="font-semibold">{currency(b.price)}</span>
                   </p>

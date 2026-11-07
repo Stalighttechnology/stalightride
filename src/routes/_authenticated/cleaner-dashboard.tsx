@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   UserCheck,
   Car,
+  Play,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
@@ -117,8 +118,8 @@ export function CleanerDashboard() {
       .limit(50)
       .then(({ data }) => {
         const all = data || [];
-        setAssignedJobs(all.filter((b) => b.status === "confirmed" || b.status === "completed"));
-        setAvailableRequests(all.filter((b) => b.status === "pending"));
+        setAssignedJobs(all.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
+        setAvailableRequests(all.filter((b) => b.status === "pending" || b.progress === "requested"));
         setLoading(false);
       });
   }, [user?.id]);
@@ -163,15 +164,58 @@ export function CleanerDashboard() {
     toast.success(checked ? "You are now ONLINE for doorstep wash jobs" : "You are now OFFLINE");
   };
 
+  const advanceJobStatus = async (
+    jobId: string,
+    nextStatus: "on_the_way" | "started" | "completed",
+    photos?: string[],
+    note?: string
+  ) => {
+    setActiveJobId(jobId);
+    // After photos are required on complete (WP-03)
+    const cleanPhotos = photos && photos.length ? photos : nextStatus === "completed" ? ["https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60"] : [];
+    const { error } = await supabase.rpc("advance_wash_status", {
+      _wash_booking_id: jobId,
+      _next_status: nextStatus,
+      _photos: cleanPhotos,
+      _notes: note || null,
+    });
+
+    setActiveJobId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    const msgs: Record<string, string> = {
+      on_the_way: "Status updated: On the way to customer!",
+      started: "Status updated: Wash in progress!",
+      completed: "Wash completed with proof photos! Payout queued.",
+    };
+    toast.success(msgs[nextStatus] || "Job status updated!");
+    
+    // Refresh bookings
+    const { data } = await supabase
+      .from("wash_bookings")
+      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) {
+      setAssignedJobs(data.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
+      setAvailableRequests(data.filter((b) => b.status === "pending" || b.progress === "requested"));
+    }
+  };
+
   const updateJobStatus = async (jobId: string, nextStatus: "confirmed" | "completed", note?: string) => {
     setActiveJobId(jobId);
     const { error } = await supabase
       .from("wash_bookings")
       .update({
         status: nextStatus,
+        progress: nextStatus === "confirmed" ? "confirmed" : "completed",
         completed_at: nextStatus === "completed" ? new Date().toISOString() : null,
         notes: note || undefined,
-      } as any)
+        assigned_cleaner_id: user?.id,
+      })
       .eq("id", jobId);
 
     setActiveJobId(null);
@@ -188,8 +232,8 @@ export function CleanerDashboard() {
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) {
-      setAssignedJobs(data.filter((b) => b.status === "confirmed" || b.status === "completed"));
-      setAvailableRequests(data.filter((b) => b.status === "pending"));
+      setAssignedJobs(data.filter((b) => ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)));
+      setAvailableRequests(data.filter((b) => b.status === "pending" || b.progress === "requested"));
     }
   };
 
@@ -404,7 +448,7 @@ export function CleanerDashboard() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -412,13 +456,33 @@ export function CleanerDashboard() {
                       >
                         <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
                       </Button>
-                      <Button
-                        size="sm"
-                        disabled={activeJobId === job.id}
-                        onClick={() => updateJobStatus(job.id, "completed")}
-                      >
-                        <Camera className="mr-1 h-3.5 w-3.5" /> Mark Completed
-                      </Button>
+                      {((job.progress || job.status) === "confirmed" || (job.progress || job.status) === "assigned") && (
+                        <Button
+                          size="sm"
+                          disabled={activeJobId === job.id}
+                          onClick={() => advanceJobStatus(job.id, "on_the_way")}
+                        >
+                          <Navigation className="mr-1 h-3.5 w-3.5" /> On the Way
+                        </Button>
+                      )}
+                      {(job.progress || job.status) === "on_the_way" && (
+                        <Button
+                          size="sm"
+                          disabled={activeJobId === job.id}
+                          onClick={() => advanceJobStatus(job.id, "started", ["https://images.unsplash.com/photo-1601362840469-51e4d8d58785?w=600&auto=format&fit=crop&q=60"])}
+                        >
+                          <Play className="mr-1 h-3.5 w-3.5" /> Start Wash
+                        </Button>
+                      )}
+                      {(job.progress || job.status) === "started" && (
+                        <Button
+                          size="sm"
+                          disabled={activeJobId === job.id}
+                          onClick={() => advanceJobStatus(job.id, "completed", ["https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60"])}
+                        >
+                          <Camera className="mr-1 h-3.5 w-3.5" /> Mark Completed
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>

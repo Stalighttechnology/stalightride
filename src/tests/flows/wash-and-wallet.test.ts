@@ -67,6 +67,56 @@ describe("vehicle wash approval flow", () => {
   });
 });
 
+describe("wash status pipeline (Task 2.3)", () => {
+  test("WP-01: assigned cleaner moves job confirmed -> on_the_way -> started -> completed", () => {
+    const { be, admin, customer, vendor } = setup();
+    const w = be.bookWash(customer, "2026-08-20", 500);
+    be.adminDecideWash(admin, w.id, "confirmed", vendor);
+
+    // Step 1: confirmed -> on_the_way
+    const s1 = be.advanceWashStatus(vendor, w.id, "on_the_way");
+    expect(s1.progress).toBe("on_the_way");
+    expect(s1.status).toBe("on_the_way");
+
+    // Step 2: on_the_way -> started (with before photos)
+    const s2 = be.advanceWashStatus(vendor, w.id, "started", ["https://photos.example.com/before1.jpg"]);
+    expect(s2.progress).toBe("started");
+    expect(s2.before_photos).toContain("https://photos.example.com/before1.jpg");
+
+    // Step 3: started -> completed (with after photos)
+    const s3 = be.advanceWashStatus(vendor, w.id, "completed", ["https://photos.example.com/after1.jpg"]);
+    expect(s3.progress).toBe("completed");
+    expect(s3.status).toBe("completed");
+    expect(s3.after_photos).toContain("https://photos.example.com/after1.jpg");
+  });
+
+  test("WP-02: cleaner cannot move status backwards and unassigned cleaner is rejected", () => {
+    const { be, admin, customer, vendor } = setup();
+    const w = be.bookWash(customer, "2026-08-20", 500);
+    be.adminDecideWash(admin, w.id, "confirmed", vendor);
+
+    const strangerCleaner = "random_cleaner_999";
+    expect(() => be.advanceWashStatus(strangerCleaner, w.id, "on_the_way")).toThrow(/not assigned/);
+
+    be.advanceWashStatus(vendor, w.id, "on_the_way");
+    be.advanceWashStatus(vendor, w.id, "started", ["https://photos.example.com/before.jpg"]);
+
+    // Cannot move backwards: started -> on_the_way
+    expect(() => be.advanceWashStatus(vendor, w.id, "on_the_way")).toThrow(/cannot be moved backwards/);
+  });
+
+  test("WP-03: completing a wash without after photos is rejected", () => {
+    const { be, admin, customer, vendor } = setup();
+    const w = be.bookWash(customer, "2026-08-20", 500);
+    be.adminDecideWash(admin, w.id, "confirmed", vendor);
+    be.advanceWashStatus(vendor, w.id, "on_the_way");
+    be.advanceWashStatus(vendor, w.id, "started");
+
+    // Try completing without after photos
+    expect(() => be.advanceWashStatus(vendor, w.id, "completed", [])).toThrow(/After photos are required/);
+  });
+});
+
 describe("wallet ledger", () => {
   test("top-ups must be positive and balances never go negative", () => {
     const { be, customer } = setup();
