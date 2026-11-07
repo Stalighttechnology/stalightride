@@ -156,7 +156,9 @@ function DriverDashboard() {
   if (!user || !loaded) return <div className="min-h-screen"><SiteHeader /><div className="p-8"><Skeleton className="h-64 rounded-2xl" /></div></div>;
 
   const vs = driver?.verification_status ?? "none";
-  const earnings = (hires ?? []).filter((h) => h.payment_status === "paid").reduce((s, h) => s + Number(h.total_price), 0);
+  const earnings = (hires ?? [])
+    .filter((h) => h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed"))
+    .reduce((s, h) => s + Number(h.total_price), 0);
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);

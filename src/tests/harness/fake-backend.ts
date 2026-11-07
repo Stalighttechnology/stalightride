@@ -149,6 +149,18 @@ export type DriverBooking = {
   payment_status: PaymentStatus;
   refund_amount: number;
   trip_type?: string;
+  pickup_address?: string;
+  notes?: string;
+};
+
+export type DriverReview = {
+  id: string;
+  driver_booking_id: string;
+  driver_id: string;
+  customer_id: string;
+  rating: number;
+  comment?: string | null;
+  created_at: string;
 };
 
 export type PoolTrip = {
@@ -248,6 +260,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
   const bookings = new Map<string, Booking>();
   const drivers = new Map<string, Driver>();
   const driverBookings = new Map<string, DriverBooking>();
+  const driverReviews = new Map<string, DriverReview>();
   const trips = new Map<string, PoolTrip>();
   const poolRequests = new Map<string, PoolRequest>();
   const washes = new Map<string, WashBooking>();
@@ -520,7 +533,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       d.status = status;
       return d;
     },
-    hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; start_time?: string; end_time?: string; total_price?: number; trip_type?: string }) {
+    hireDriver(args: { customer_id: string; driver_id: string; start_date: string; end_date: string; start_time?: string; end_time?: string; total_price?: number; trip_type?: string; pickup_address?: string; notes?: string }) {
       const d = drivers.get(args.driver_id);
       if (!d || d.verification_status !== "approved" || d.status !== "active")
         throw new RuleError("This driver is not available");
@@ -544,6 +557,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         payment_status: "unpaid",
         refund_amount: 0,
         trip_type: args.trip_type,
+        pickup_address: args.pickup_address,
+        notes: args.notes,
       };
       driverBookings.set(b.id, b);
       notify(d.id, "New driver hire request");
@@ -604,6 +619,64 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       notify(b.customer_id, `Hire cancelled by ${actor === b.driver_id ? "driver" : "customer"}`);
       notify(b.driver_id, "Hire cancelled");
       return { booking: b, refund, percent: pct };
+    },
+    completeDriverBooking(driver_id: string, booking_id: string) {
+      const b = driverBookings.get(booking_id);
+      if (!b) throw new RuleError("Booking not found");
+      if (b.driver_id !== driver_id) throw new RuleError("Not your hire");
+      if (b.status !== "confirmed") throw new RuleError("Only confirmed hires can be completed");
+      b.status = "completed";
+      notify(b.customer_id, "Driver has completed the hire");
+      return b;
+    },
+    reviewDriver(customer_id: string, booking_id: string, rating: number, comment?: string) {
+      const b = driverBookings.get(booking_id);
+      if (!b) throw new RuleError("Hire not found");
+      if (b.customer_id !== customer_id) throw new RuleError("Only the hiring customer can review this hire");
+      if (b.status !== "completed") throw new RuleError("Only completed hires can be reviewed");
+      if (driverReviews.has(booking_id)) throw new RuleError("Hire has already been reviewed");
+      if (rating < 1 || rating > 5) throw new RuleError("Rating must be between 1 and 5");
+
+      const rev: DriverReview = {
+        id: id("drev"),
+        driver_booking_id: booking_id,
+        driver_id: b.driver_id,
+        customer_id,
+        rating,
+        comment: comment || null,
+        created_at: clock.now.toISOString(),
+      };
+      driverReviews.set(booking_id, rev);
+
+      // Recompute driver avg_rating and review_count (trigger simulation)
+      const d = drivers.get(b.driver_id);
+      if (d) {
+        const revs = Array.from(driverReviews.values()).filter((r) => r.driver_id === b.driver_id);
+        d.review_count = revs.length;
+        const sum = revs.reduce((acc, curr) => acc + curr.rating, 0);
+        d.avg_rating = Number((sum / revs.length).toFixed(2));
+      }
+
+      return rev;
+    },
+    getDriverUpcomingHires(driver_id: string, asOfDate?: string) {
+      const date = asOfDate ?? clock.now.toISOString().slice(0, 10);
+      return Array.from(driverBookings.values()).filter(
+        (h) => h.driver_id === driver_id && h.status === "confirmed" && h.start_date >= date,
+      );
+    },
+    getDriverHistoryHires(driver_id: string) {
+      return Array.from(driverBookings.values()).filter(
+        (h) => h.driver_id === driver_id && (h.status === "completed" || h.status === "cancelled"),
+      );
+    },
+    getDriverReviews(driver_id: string) {
+      return Array.from(driverReviews.values()).filter((r) => r.driver_id === driver_id);
+    },
+    getDriverEarnings(driver_id: string) {
+      return Array.from(driverBookings.values())
+        .filter((h) => h.driver_id === driver_id && h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed"))
+        .reduce((s, h) => s + Number(h.total_price), 0);
     },
 
     /* ---------- car pooling ---------- */
