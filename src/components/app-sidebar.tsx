@@ -25,6 +25,8 @@ const exploreItems: Item[] = [
   { to: "/drivers", label: "Hire a driver", icon: UserRound },
   { to: "/wash", label: "Vehicle wash", icon: Droplets },
   { to: "/corporate", label: "Corporate travel", icon: Briefcase },
+  { to: "/rewards", label: "Synchoo Rewards", icon: Award },
+  { to: "/referrals", label: "Refer & earn", icon: Gift },
   { to: "/safety", label: "Safety center", icon: ShieldAlert },
   { to: "/membership", label: "Membership", icon: Crown },
 ];
@@ -49,11 +51,13 @@ const hostItems: Item[] = [
 ];
 
 const earnItems: Item[] = [
+  { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
   { to: "/earn", label: "Earning options", icon: BadgeIndianRupee },
   { to: "/driver-dashboard", label: "Driver dashboard", icon: Steering },
   { to: "/cleaner-dashboard", label: "Cleaner dashboard", icon: Sparkles },
   { to: "/wash-center-dashboard", label: "Washing center", icon: Building2 },
   { to: "/pooling/driver", label: "Pooling trips", icon: Users },
+  { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];
 
 
