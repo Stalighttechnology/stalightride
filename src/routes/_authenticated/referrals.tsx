@@ -5,7 +5,6 @@ import { useSession } from "@/hooks/use-session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
@@ -15,16 +14,13 @@ import {
   Share2,
   CheckCircle2,
   Users,
-  IndianRupee,
   Sparkles,
-  ArrowRight,
-  Send,
-  Wallet,
-  Clock,
+  Award,
   HelpCircle,
   FileText,
-  Search,
-  Check,
+  Clock,
+  ArrowRight,
+  TrendingUp,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/referrals")({
@@ -41,28 +37,25 @@ interface ReferralEvent {
   id: string;
   friendName: string;
   email: string;
-  status: "First Trip Completed" | "Joined" | "Pending";
+  status: "First Trip Completed" | "Account Created" | "Invite Sent";
   earnedAmount: number;
   date: string;
 }
 
-const INITIAL_HISTORY: ReferralEvent[] = [
-  { id: "1", friendName: "Karthik Rajan", email: "karthik.r@gmail.com", status: "First Trip Completed", earnedAmount: 500, date: "3 days ago" },
-  { id: "2", friendName: "Sneha Nair", email: "sneha.n@outlook.com", status: "First Trip Completed", earnedAmount: 500, date: "1 week ago" },
-  { id: "3", friendName: "Manish Joshi", email: "manish.j@company.com", status: "Joined", earnedAmount: 0, date: "Yesterday" },
-  { id: "4", friendName: "Divya Deshmukh", email: "divya.d@gmail.com", status: "Pending", earnedAmount: 0, date: "5 days ago" },
-];
-
 export function ReferralsPage() {
   const { user } = useSession();
+  const [activeTab, setActiveTab] = useState<"overview" | "activity" | "rules">("overview");
+
   const referralCode = (user?.id ? `SYN-${user.id.slice(0, 6).toUpperCase()}` : "SYN-RIDE500");
   const referralLink = `https://synchoo.in/join?ref=${referralCode}`;
 
-  const [activeTab, setActiveTab] = useState<"share" | "friends" | "earnings" | "rules">("share");
   const [copied, setCopied] = useState(false);
-  const [history, setHistory] = useState<ReferralEvent[]>(INITIAL_HISTORY);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [searchFriend, setSearchFriend] = useState("");
+  const [history] = useState<ReferralEvent[]>([
+    { id: "1", friendName: "Karthik Rajan", email: "karthik.r@gmail.com", status: "First Trip Completed", earnedAmount: 500, date: "3 days ago" },
+    { id: "2", friendName: "Sneha Nair", email: "sneha.nair@outlook.com", status: "First Trip Completed", earnedAmount: 500, date: "1 week ago" },
+    { id: "3", friendName: "Manish Joshi", email: "manish.j@company.org", status: "Account Created", earnedAmount: 0, date: "Yesterday" },
+    { id: "4", friendName: "Rohan Verma", email: "rohan.v@tech.in", status: "Invite Sent", earnedAmount: 0, date: "2 hours ago" },
+  ]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralLink);
@@ -76,100 +69,73 @@ export function ReferralsPage() {
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 
-  const handleSendInvite = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
-      return toast.error("Please enter a valid email address");
-    }
-    const newEvent: ReferralEvent = {
-      id: String(Date.now()),
-      friendName: inviteEmail.split("@")[0],
-      email: inviteEmail.trim(),
-      status: "Pending",
-      earnedAmount: 0,
-      date: "Just now",
-    };
-    setHistory([newEvent, ...history]);
-    setInviteEmail("");
-    toast.success(`Invitation email sent to ${inviteEmail}!`);
-  };
-
   const totalEarned = history.reduce((sum, item) => sum + item.earnedAmount, 0);
-  const completedCount = history.filter((h) => h.status === "First Trip Completed").length;
-  const pendingCount = history.filter((h) => h.status !== "First Trip Completed").length;
-
-  const filteredHistory = history.filter((h) =>
-    h.friendName.toLowerCase().includes(searchFriend.toLowerCase()) ||
-    h.email.toLowerCase().includes(searchFriend.toLowerCase())
-  );
+  const completedTrips = history.filter((h) => h.status === "First Trip Completed").length;
 
   const sidebarNavItems = [
-    { id: "share", label: "Share & Invite", icon: Gift },
-    { id: "friends", label: "Invited Friends", icon: Users, badge: String(history.length) },
-    { id: "earnings", label: "Earnings & Wallet", icon: Wallet, badge: currency(totalEarned) },
-    { id: "rules", label: "Program Terms & FAQ", icon: FileText },
+    { id: "overview", label: "Refer & Earn", icon: Gift },
+    { id: "activity", label: "Invited Friends", icon: Users, badge: String(history.length) },
+    { id: "rules", label: "Program Terms & FAQ", icon: HelpCircle },
   ] as const;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="flex-1 py-8 px-4 sm:px-6 max-w-6xl mx-auto w-full">
-        {/* Top Header Banner */}
-        <div className="border-b border-border pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-brand/40 text-brand bg-brand/10">
-                  <Gift className="mr-1 h-3.5 w-3.5" /> Refer & Earn ₹500
-                </Badge>
-                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                  Instant Wallet Cash
-                </Badge>
-              </div>
-              <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
-                Invite Friends, Earn ₹500 Each
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                Friends get ₹500 off on their first trip. You earn ₹500 directly in your Synchoo wallet.
-              </p>
-            </div>
-
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-6">
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+          <div>
             <div className="flex items-center gap-2">
-              <Button onClick={shareViaWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm">
-                <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share on WhatsApp
-              </Button>
+              <Badge variant="outline" className="border-brand/40 text-brand bg-brand/10">
+                <Gift className="mr-1 h-3.5 w-3.5" /> Synchoo Referrals
+              </Badge>
+              <Badge variant="secondary" className="text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400">
+                ₹500 Instant Cash Bonus
+              </Badge>
             </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
+              Refer Friends, Earn ₹500 Every Time
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Give your friends ₹500 off on their first trip. When they complete their first ride, get ₹500 deposited directly into your wallet.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/rewards">
+                <Award className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> Synchoo Points Hub
+              </Link>
+            </Button>
+            <Button size="sm" onClick={shareViaWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share on WhatsApp
+            </Button>
           </div>
         </div>
 
-        {/* 2-Column Responsive Layout with Page Sidebar */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Referrals Page Sidebar */}
+        {/* 2-Column Responsive Layout with Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Left Referrals Sidebar */}
           <aside className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
-              {/* Unique Code Card */}
+              {/* Quick Referral Card */}
               <Card className="p-4 border-brand/20 bg-brand/5">
-                <div className="space-y-1">
-                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Your Referral Code</span>
-                  <div className="font-mono text-lg font-bold text-foreground bg-background/80 p-2 rounded-lg border border-border flex items-center justify-between">
-                    <span>{referralCode}</span>
-                    <button onClick={copyToClipboard} className="text-muted-foreground hover:text-foreground text-xs" title="Copy code">
-                      {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-brand mb-1">
+                  <Sparkles className="h-3.5 w-3.5" /> Your Referral Code
+                </div>
+                <div className="font-mono text-base font-extrabold tracking-wider text-foreground bg-background/80 px-3 py-1.5 rounded-lg border border-border text-center">
+                  {referralCode}
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Total Earned:</span>
-                    <p className="font-bold text-emerald-600 mt-0.5">{currency(totalEarned)}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Friends:</span>
-                    <p className="font-bold text-foreground mt-0.5">{history.length} invited</p>
-                  </div>
+                <div className="mt-3 pt-3 border-t border-border/80 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Total Earned:</span>
+                  <span className="font-bold text-emerald-600">{currency(totalEarned)}</span>
                 </div>
+
+                <Button size="sm" variant="outline" onClick={copyToClipboard} className="w-full mt-3 text-xs">
+                  <Copy className="mr-1.5 h-3.5 w-3.5" /> {copied ? "Link Copied!" : "Copy Invite Link"}
+                </Button>
               </Card>
 
               {/* Sidebar Navigation */}
@@ -204,101 +170,128 @@ export function ReferralsPage() {
                     </button>
                   );
                 })}
+
+                {/* Direct Cross-link to Rewards Page */}
+                <Link
+                  to="/rewards"
+                  className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap text-left mt-2 border-t border-border/50 pt-3"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Award className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span>Rewards & Points</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-300">
+                    Points Hub
+                  </Badge>
+                </Link>
               </nav>
 
-              {/* Direct Wallet Shortcut */}
-              <Card className="hidden lg:block p-3.5 text-xs text-muted-foreground bg-muted/40">
-                <div className="flex items-center gap-1.5 font-medium text-foreground mb-1">
-                  <Wallet className="h-3.5 w-3.5 text-brand" /> Synchoo Wallet
-                </div>
-                Your referral earnings are deposited automatically. Spend on self-drive rides, driver hires, or washes.
-                <Button asChild variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs text-brand justify-start px-0">
-                  <Link to="/wallet">Go to Wallet <ArrowRight className="ml-1 h-3 w-3" /></Link>
-                </Button>
+              {/* Quick Info Box in Sidebar */}
+              <Card className="hidden lg:block p-3.5 text-xs text-muted-foreground bg-muted/30">
+                <p className="font-semibold text-foreground mb-1">Unlimited Earnings</p>
+                There is no cap on how many friends you can invite. Refer 10 friends, get ₹5,000 wallet credits!
               </Card>
             </div>
           </aside>
 
-          {/* Right Main Content Pane */}
+          {/* Right Main Content Area */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Tab 1: Share & Invite */}
-            {activeTab === "share" && (
+            {/* Tab 1: Overview */}
+            {activeTab === "overview" && (
               <div className="space-y-6">
-                {/* Hero Feature Box */}
-                <Card className="overflow-hidden">
-                  <div className="bg-gradient-to-r from-brand/10 via-background to-emerald-500/10 p-6 space-y-3">
-                    <h2 className="font-display text-xl font-bold">Give ₹500, Get ₹500</h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
-                      When someone registers with your link, they receive a ₹500 welcome discount credited to their first booking. Once their first trip finishes, you receive ₹500 instant wallet credits.
+                {/* Banner & Share Box */}
+                <div className="relative overflow-hidden rounded-3xl border border-brand/20 bg-gradient-to-r from-brand/10 via-background to-emerald-500/10 p-6 sm:p-8">
+                  <div className="max-w-xl space-y-3">
+                    <Badge variant="outline" className="border-brand/40 text-brand bg-brand/10">
+                      <Gift className="mr-1 h-3.5 w-3.5" /> Double Bonus Program
+                    </Badge>
+                    <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">
+                      Give ₹500, Get ₹500 On Every Friend
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Share your unique referral link. Your friend receives a ₹500 discount voucher on their first self-drive rental or chauffeur hire, and you receive ₹500 instant wallet credits as soon as their trip finishes.
                     </p>
                   </div>
-                  <CardContent className="p-6 space-y-4">
-                    <div>
-                      <Label className="text-xs">Your Personalized Referral Link</Label>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <Input value={referralLink} readOnly className="font-mono text-xs bg-muted" />
-                        <Button onClick={copyToClipboard} size="sm" className="shrink-0 text-xs">
-                          {copied ? <Check className="mr-1 h-3.5 w-3.5" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
-                          {copied ? "Copied" : "Copy Link"}
+                </div>
+
+                {/* Share Link Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Share Your Referral Link</CardTitle>
+                    <CardDescription>Friends who register with this link get their welcome voucher automatically.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex-1 min-w-[240px] relative">
+                        <Input value={referralLink} readOnly className="font-mono text-xs pr-20 bg-muted" />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={copyToClipboard}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
+                        >
+                          <Copy className="mr-1 h-3.5 w-3.5" /> {copied ? "Copied" : "Copy"}
                         </Button>
                       </div>
+
+                      <Button onClick={shareViaWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Share2 className="mr-1.5 h-4 w-4" /> Share on WhatsApp
+                      </Button>
                     </div>
 
-                    {/* Email Invite Form */}
-                    <div className="pt-2">
-                      <Label className="text-xs">Send Email Invitation Directly</Label>
-                      <form onSubmit={handleSendInvite} className="flex gap-2 mt-1.5">
-                        <Input
-                          type="email"
-                          placeholder="friend@company.com"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          className="text-xs"
-                        />
-                        <Button type="submit" size="sm" variant="outline" className="shrink-0 text-xs">
-                          <Send className="mr-1 h-3.5 w-3.5" /> Send Invite
-                        </Button>
-                      </form>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Referral code:</span>
+                      <span className="font-mono font-bold text-foreground bg-muted px-2 py-0.5 rounded-md">{referralCode}</span>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* How It Works Steps */}
+                {/* 3 Metric Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Card className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Friends Invited</p>
+                    <p className="font-display text-2xl font-bold mt-1 text-foreground">{history.length}</p>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Completed Trips</p>
+                    <p className="font-display text-2xl font-bold mt-1 text-emerald-600">{completedTrips}</p>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Total Wallet Earned</p>
+                    <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(totalEarned)}</p>
+                  </Card>
+                </div>
+
+                {/* How It Works 3 Steps */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-brand" /> How the Referral Program Works
+                      <TrendingUp className="h-4 w-4 text-brand" /> How Refer & Earn Works
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="p-4 rounded-xl border border-border bg-card space-y-1.5 text-center sm:text-left">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10 text-brand font-bold text-xs mb-2 mx-auto sm:mx-0">
-                          1
-                        </div>
-                        <p className="font-semibold text-sm">1. Share Your Link</p>
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-xs font-bold">1</span>
+                        <h4 className="font-semibold text-sm">Send Invitation</h4>
                         <p className="text-xs text-muted-foreground">
-                          Send your unique link via WhatsApp, email, or social media to colleagues and friends.
+                          Share your link via WhatsApp, Telegram, or email with colleagues and friends.
                         </p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-border bg-card space-y-1.5 text-center sm:text-left">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 font-bold text-xs mb-2 mx-auto sm:mx-0">
-                          2
-                        </div>
-                        <p className="font-semibold text-sm">2. Friend Takes a Trip</p>
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-xs font-bold">2</span>
+                        <h4 className="font-semibold text-sm">Friend Gets ₹500</h4>
                         <p className="text-xs text-muted-foreground">
-                          Your friend gets ₹500 off their first self-drive rental, chauffeur hire, or carpooling seat.
+                          They sign up and receive a ₹500 coupon applied automatically at checkout.
                         </p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-border bg-card space-y-1.5 text-center sm:text-left">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 font-bold text-xs mb-2 mx-auto sm:mx-0">
-                          3
-                        </div>
-                        <p className="font-semibold text-sm">3. Earn ₹500 Cash</p>
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand text-xs font-bold">3</span>
+                        <h4 className="font-semibold text-sm">You Get ₹500 Cash</h4>
                         <p className="text-xs text-muted-foreground">
-                          You instantly receive ₹500 in your Synchoo wallet with no expiration or usage restriction.
+                          As soon as their trip check-out is complete, ₹500 is credited to your Synchoo wallet.
                         </p>
                       </div>
                     </div>
@@ -307,131 +300,82 @@ export function ReferralsPage() {
               </div>
             )}
 
-            {/* Tab 2: Invited Friends */}
-            {activeTab === "friends" && (
+            {/* Tab 2: Activity & History */}
+            {activeTab === "activity" && (
               <div className="space-y-6">
                 <Card>
-                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Users className="h-4 w-4 text-brand" /> Invited Friends ({history.length})
+                        <Users className="h-4 w-4 text-brand" /> Invited Friends & Bonus Status
                       </CardTitle>
-                      <CardDescription>Track registration and trip completion status</CardDescription>
+                      <CardDescription>Live tracker of who joined with your link and completed their trip</CardDescription>
                     </div>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        placeholder="Search friend..."
-                        value={searchFriend}
-                        onChange={(e) => setSearchFriend(e.target.value)}
-                        className="pl-8 h-8 text-xs w-48"
-                      />
-                    </div>
+                    <Badge variant="outline">{history.length} Total Invites</Badge>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {filteredHistory.map((item) => (
-                      <div key={item.id} className="p-3.5 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">{item.friendName}</span>
-                            <Badge
-                              variant={item.status === "First Trip Completed" ? "secondary" : "outline"}
-                              className={item.status === "First Trip Completed" ? "text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40" : "text-[10px]"}
-                            >
-                              {item.status}
-                            </Badge>
+                  <CardContent>
+                    <div className="divide-y divide-border">
+                      {history.map((item) => (
+                        <div key={item.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm">{item.friendName}</p>
+                              <Badge
+                                variant={item.status === "First Trip Completed" ? "secondary" : "outline"}
+                                className={item.status === "First Trip Completed" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]" : "text-[10px]"}
+                              >
+                                {item.status}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.email} · {item.date}</p>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{item.email} · Invited {item.date}</p>
-                        </div>
 
-                        <div className="text-right">
-                          {item.earnedAmount > 0 ? (
-                            <span className="font-bold text-sm text-emerald-600">+{currency(item.earnedAmount)}</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">₹500 on trip completion</span>
-                          )}
+                          <div className="text-right">
+                            {item.earnedAmount > 0 ? (
+                              <p className="font-bold text-sm text-emerald-600">+{currency(item.earnedAmount)} Credited</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Pending trip completion</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
             )}
 
-            {/* Tab 3: Earnings & Wallet */}
-            {activeTab === "earnings" && (
-              <div className="space-y-6">
-                {/* 3 Metric Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Card className="p-4">
-                    <span className="text-xs text-muted-foreground">Total Referral Earnings</span>
-                    <p className="font-display text-2xl font-bold mt-1 text-emerald-600">{currency(totalEarned)}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">From {completedCount} completed rides</p>
-                  </Card>
-                  <Card className="p-4">
-                    <span className="text-xs text-muted-foreground">Potential Pending Earnings</span>
-                    <p className="font-display text-2xl font-bold mt-1 text-amber-600">{currency(pendingCount * 500)}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">{pendingCount} friends yet to ride</p>
-                  </Card>
-                  <Card className="p-4">
-                    <span className="text-xs text-muted-foreground">Reward Rate</span>
-                    <p className="font-display text-2xl font-bold mt-1 text-foreground">₹500 / friend</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">Unlimited invitations</p>
-                  </Card>
-                </div>
-
-                {/* Direct Action Card */}
-                <Card className="p-6 border-brand/20 bg-brand/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-base">Check Your Current Wallet Balance</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Your referral credits can be spent on any self-drive car, driver hire, or vehicle wash.
-                    </p>
-                  </div>
-                  <Button asChild>
-                    <Link to="/wallet">Open Wallet</Link>
-                  </Button>
-                </Card>
-              </div>
-            )}
-
-            {/* Tab 4: Rules & FAQ */}
+            {/* Tab 3: Program Rules & FAQ */}
             {activeTab === "rules" && (
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <HelpCircle className="h-4 w-4 text-brand" /> Referral Program Guidelines & FAQ
+                      <HelpCircle className="h-4 w-4 text-brand" /> Referral Program Guidelines & Terms
                     </CardTitle>
-                    <CardDescription>Everything you need to know about rewards eligibility</CardDescription>
+                    <CardDescription>Everything you need to know about referral credits and usage</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4 text-xs sm:text-sm">
-                    <div className="p-4 rounded-xl border border-border bg-card space-y-1">
-                      <p className="font-semibold text-foreground">Who is eligible for the ₹500 welcome discount?</p>
-                      <p className="text-muted-foreground">
-                        Any new user signing up on Synchoo who has not previously booked a trip. The discount coupon is applied automatically at the checkout screen.
-                      </p>
-                    </div>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3 text-xs sm:text-sm text-muted-foreground">
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1">
+                        <p className="font-semibold text-foreground">Who is eligible to participate?</p>
+                        <p>Any verified Synchoo account holder can share their referral link. The invited friend must be a new user who has never registered on Synchoo previously.</p>
+                      </div>
 
-                    <div className="p-4 rounded-xl border border-border bg-card space-y-1">
-                      <p className="font-semibold text-foreground">When will I receive my ₹500 reward?</p>
-                      <p className="text-muted-foreground">
-                        Your referral reward is credited directly to your Synchoo wallet within 30 minutes of your invited friend completing their first ride or driver duty.
-                      </p>
-                    </div>
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1">
+                        <p className="font-semibold text-foreground">When do I receive my ₹500 reward?</p>
+                        <p>Your ₹500 wallet cash is deposited automatically within 10 minutes after your friend completes check-out and pays for their first vehicle rental or chauffeur trip.</p>
+                      </div>
 
-                    <div className="p-4 rounded-xl border border-border bg-card space-y-1">
-                      <p className="font-semibold text-foreground">Is there a limit on how many friends I can refer?</p>
-                      <p className="text-muted-foreground">
-                        No! There is no cap. You can invite as many friends, colleagues, and family members as you wish.
-                      </p>
-                    </div>
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1">
+                        <p className="font-semibold text-foreground">Can I use referral wallet cash on any service?</p>
+                        <p>Yes! Synchoo wallet credits can be spent on self-drive rentals, driver hires, carpooling seat fares, and doorstep car washes.</p>
+                      </div>
 
-                    <div className="p-4 rounded-xl border border-border bg-card space-y-1">
-                      <p className="font-semibold text-foreground">Can I withdraw referral earnings to my bank account?</p>
-                      <p className="text-muted-foreground">
-                        Referral credits are promo wallet cash valid for 100% payment across all Synchoo bookings and do not expire.
-                      </p>
+                      <div className="p-3.5 rounded-xl border border-border bg-card space-y-1">
+                        <p className="font-semibold text-foreground">Is there an expiry date on referral wallet cash?</p>
+                        <p>Referral credits in your Synchoo wallet never expire and remain valid for all future bookings.</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

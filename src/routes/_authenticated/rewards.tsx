@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
@@ -17,13 +17,13 @@ import {
   Droplets,
   Fuel,
   Coffee,
-  Ticket,
-  Clock,
-  Crown,
   Copy,
-  Check,
+  Crown,
+  ChevronRight,
   TrendingUp,
-  ShoppingBag,
+  Tag,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/rewards")({
@@ -40,25 +40,15 @@ interface RewardVoucher {
   id: string;
   title: string;
   pointsCost: number;
-  category: "Rental" | "Wash" | "Fuel" | "Lifestyle";
+  category: "Rentals" | "Wash" | "Fuel" | "Lifestyle";
   icon: any;
   description: string;
-}
-
-interface RedeemedCoupon {
-  id: string;
-  title: string;
   code: string;
-  expires: string;
-  discount: string;
 }
 
-interface PointsTransaction {
-  id: string;
-  description: string;
-  date: string;
-  points: number;
-  type: "earned" | "spent";
+interface ClaimedVoucher extends RewardVoucher {
+  claimedAt: string;
+  expiresAt: string;
 }
 
 const REWARDS_CATALOG: RewardVoucher[] = [
@@ -66,9 +56,10 @@ const REWARDS_CATALOG: RewardVoucher[] = [
     id: "r1",
     title: "₹500 Off Self-Drive Rental",
     pointsCost: 500,
-    category: "Rental",
+    category: "Rentals",
     icon: Car,
-    description: "Applicable on any 24h+ car or EV booking across India.",
+    description: "Valid on any 24h+ car, EV or SUV reservation nationwide.",
+    code: "SYN-RENT500-VIP",
   },
   {
     id: "r2",
@@ -76,7 +67,8 @@ const REWARDS_CATALOG: RewardVoucher[] = [
     pointsCost: 400,
     category: "Wash",
     icon: Droplets,
-    description: "Complete exterior foam wash & tyre polish at your doorstep.",
+    description: "Complete exterior pressure foam wash & tyre dressing at your door.",
+    code: "SYN-WASH-FREE",
   },
   {
     id: "r3",
@@ -84,165 +76,151 @@ const REWARDS_CATALOG: RewardVoucher[] = [
     pointsCost: 300,
     category: "Fuel",
     icon: Fuel,
-    description: "Digital IOCL fuel coupon redeemable at any petrol pump nationwide.",
+    description: "Digital IOCL e-fuel coupon redeemable at any pump nationwide.",
+    code: "IOCL-FUEL-300",
   },
   {
     id: "r4",
-    title: "Starbucks Coffee & Snack Voucher",
+    title: "Starbucks Beverage Voucher",
     pointsCost: 250,
     category: "Lifestyle",
     icon: Coffee,
-    description: "Enjoy a complimentary handcrafted beverage at any Starbucks outlet.",
+    description: "Enjoy any complimentary handcrafted tall drink at Starbucks India.",
+    code: "SBUX-COFFEE-SYN",
   },
   {
     id: "r5",
-    title: "₹1,000 Off Weekend Outstation Rental",
+    title: "₹1,000 Luxury SUV Voucher",
     pointsCost: 900,
-    category: "Rental",
-    icon: Car,
-    description: "Valid on SUVs and premium sedans for trips longer than 48 hours.",
-  },
-  {
-    id: "r6",
-    title: "Complete Interior Deep Clean Wash",
-    pointsCost: 650,
-    category: "Wash",
-    icon: Droplets,
-    description: "Interior vacuuming, steam sanitized upholstery, and dashboard treatment.",
+    category: "Rentals",
+    icon: Crown,
+    description: "Exclusive discount on premium BMW, Audi and Mercedes-Benz bookings.",
+    code: "SYN-LUX-1000",
   },
 ];
 
-const INITIAL_HISTORY: PointsTransaction[] = [
-  { id: "t1", description: "Completed Trip: Bangalore -> Mysore (Creta)", date: "04 Nov 2026", points: 240, type: "earned" },
-  { id: "t2", description: "Doorstep Premium Foam Wash", date: "01 Nov 2026", points: 30, type: "earned" },
-  { id: "t3", description: "5-Star Vehicle Review Reward", date: "28 Oct 2026", points: 20, type: "earned" },
-  { id: "t4", description: "Referral Bonus (Sneha Nair First Trip)", date: "24 Oct 2026", points: 500, type: "earned" },
-  { id: "t5", description: "Driver Duty Hire (8 Hours)", date: "18 Oct 2026", points: 60, type: "earned" },
+const INITIAL_CLAIMED: ClaimedVoucher[] = [
+  {
+    id: "r2-claimed",
+    title: "Free Doorstep Foam Wash",
+    pointsCost: 400,
+    category: "Wash",
+    icon: Droplets,
+    description: "Complete exterior pressure foam wash & tyre dressing at your door.",
+    code: "SYN-WASH-OCT89",
+    claimedAt: "25 Oct 2026",
+    expiresAt: "25 Dec 2026",
+  },
 ];
 
 export function RewardsPage() {
   const { user } = useSession();
-  const [activeTab, setActiveTab] = useState<"catalog" | "vouchers" | "history" | "tiers">("catalog");
-  const [pointsBalance, setPointsBalance] = useState<number>(850);
+  const [activeTab, setActiveTab] = useState<"catalog" | "redeemed" | "earn-guide" | "tiers">("catalog");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [redeemedVouchers, setRedeemedVouchers] = useState<RedeemedCoupon[]>([
-    { id: "v0", title: "₹300 IndianOil Fuel Card", code: "IOCL-SYN-98214", expires: "Valid till 30 Dec 2026", discount: "₹300" },
-  ]);
-  const [transactions, setTransactions] = useState<PointsTransaction[]>(INITIAL_HISTORY);
+
+  const [pointsBalance, setPointsBalance] = useState<number>(850);
+  const [claimedList, setClaimedList] = useState<ClaimedVoucher[]>(INITIAL_CLAIMED);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const handleRedeem = (voucher: RewardVoucher) => {
     if (pointsBalance < voucher.pointsCost) {
       return toast.error(`Insufficient points. You need ${voucher.pointsCost - pointsBalance} more points.`);
     }
-    const newBalance = pointsBalance - voucher.pointsCost;
-    setPointsBalance(newBalance);
 
-    const generatedCode = `SYNC-${voucher.category.toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newCoupon: RedeemedCoupon = {
-      id: String(Date.now()),
-      title: voucher.title,
-      code: generatedCode,
-      expires: "Valid for 60 days",
-      discount: voucher.title.split(" ")[0],
+    setPointsBalance((prev) => prev - voucher.pointsCost);
+
+    const newClaimed: ClaimedVoucher = {
+      ...voucher,
+      id: `${voucher.id}-${Date.now()}`,
+      claimedAt: "Just now",
+      expiresAt: "In 60 days",
     };
-    setRedeemedVouchers([newCoupon, ...redeemedVouchers]);
 
-    const newTx: PointsTransaction = {
-      id: String(Date.now()),
-      description: `Redeemed ${voucher.title}`,
-      date: "Just now",
-      points: voucher.pointsCost,
-      type: "spent",
-    };
-    setTransactions([newTx, ...transactions]);
-
-    toast.success(`Redeemed ${voucher.title}! Coupon code: ${generatedCode}`);
+    setClaimedList([newClaimed, ...claimedList]);
+    toast.success(`Redeemed ${voucher.title}! Voucher saved to My Redeemed Vouchers.`);
   };
 
-  const copyVoucherCode = (code: string) => {
+  const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
-    toast.success("Coupon code copied to clipboard!");
+    toast.success(`Promo code ${code} copied to clipboard!`);
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const filteredCatalog = REWARDS_CATALOG.filter((v) =>
-    selectedCategory === "All" || v.category === selectedCategory
+  const filteredCatalog = REWARDS_CATALOG.filter(
+    (v) => selectedCategory === "All" || v.category === selectedCategory
   );
 
   const sidebarNavItems = [
-    { id: "catalog", label: "Rewards Catalog", icon: ShoppingBag },
-    { id: "vouchers", label: "My Vouchers", icon: Ticket, badge: String(redeemedVouchers.length) },
-    { id: "history", label: "Points History", icon: TrendingUp },
-    { id: "tiers", label: "Loyalty Tiers", icon: Crown, badge: "Gold" },
+    { id: "catalog", label: "Points Catalog", icon: Award, badge: String(REWARDS_CATALOG.length) },
+    { id: "redeemed", label: "My Vouchers", icon: Tag, badge: String(claimedList.length) },
+    { id: "earn-guide", label: "How to Earn", icon: Zap },
+    { id: "tiers", label: "Loyalty Tiers", icon: Crown },
   ] as const;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="flex-1 py-8 px-4 sm:px-6 max-w-6xl mx-auto w-full">
-        {/* Top Header Banner */}
-        <div className="border-b border-border pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40">
-                  <Sparkles className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Loyalty Club
-                </Badge>
-                <Badge variant="secondary" className="bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  Gold Tier Member
-                </Badge>
-              </div>
-              <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
-                Synchoo Rewards & Points
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                Earn 5% back in points on all completed self-drive trips, driver hires, and doorstep washes.
-              </p>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-6">
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40">
+                <Sparkles className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Loyalty Club
+              </Badge>
+              <Badge variant="secondary" className="text-amber-800 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300">
+                Gold Tier Member
+              </Badge>
             </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
+              Synchoo Rewards & Point Hub
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Earn 5% back in points on every self-drive rental, driver booking, and car wash. 1 Point = ₹1.
+            </p>
+          </div>
 
-            <div className="flex items-center gap-3">
-              <div className="text-right bg-card p-3 rounded-2xl border border-border">
-                <span className="text-[10px] text-muted-foreground uppercase font-semibold">Your Balance</span>
-                <p className="font-display text-xl font-extrabold text-amber-600">
-                  {pointsBalance} <span className="text-xs font-normal text-muted-foreground">pts ({currency(pointsBalance)})</span>
-                </p>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/referrals">
+                <Gift className="mr-1.5 h-3.5 w-3.5 text-brand" /> Refer & Earn ₹500
+              </Link>
+            </Button>
+            <Button size="sm" onClick={() => setActiveTab("catalog")} className="bg-brand text-brand-foreground hover:bg-brand/90">
+              <Award className="mr-1.5 h-3.5 w-3.5" /> Redeem Points
+            </Button>
           </div>
         </div>
 
-        {/* 2-Column Responsive Layout with Page Sidebar */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Rewards Page Sidebar */}
+        {/* 2-Column Responsive Layout with Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Left Rewards Sidebar */}
           <aside className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
-              {/* Points Summary Card */}
-              <Card className="p-4 border-amber-500/20 bg-amber-500/5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Available Points</span>
-                  <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                    1 pt = ₹1
-                  </Badge>
+              {/* Points Card */}
+              <Card className="p-4 border-amber-400/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-background">
+                <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold uppercase">
+                  <span>Available Balance</span>
+                  <Sparkles className="h-4 w-4 text-amber-500 fill-amber-400" />
                 </div>
-                <div className="font-display text-3xl font-black text-amber-600 mt-1">
-                  {pointsBalance}
+                <div className="font-display text-3xl font-extrabold text-amber-600 mt-1">
+                  {pointsBalance} <span className="text-xs font-normal text-muted-foreground">Points</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">Redeemable for {currency(pointsBalance)} cash value</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Worth <span className="font-semibold text-foreground">{currency(pointsBalance)}</span> in savings
+                </p>
 
-                <div className="mt-4 pt-3 border-t border-border space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tier:</span>
-                    <span className="font-semibold text-foreground flex items-center gap-1">
-                      <Crown className="h-3.5 w-3.5 text-amber-500" /> Gold (5% return)
-                    </span>
+                <div className="mt-3 pt-3 border-t border-border/80 space-y-1.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Gold Tier</span>
+                    <span className="font-medium text-amber-600">85% to Platinum</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Next Tier:</span>
-                    <span className="font-medium text-muted-foreground">Platinum in 650 pts</span>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: "85%" }} />
                   </div>
+                  <p className="text-[10px] text-muted-foreground">Earn 150 more points to unlock 1.5x Multiplier</p>
                 </div>
               </Card>
 
@@ -278,68 +256,58 @@ export function RewardsPage() {
                     </button>
                   );
                 })}
+
+                {/* Direct Cross-link to Referrals Page */}
+                <Link
+                  to="/referrals"
+                  className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap text-left mt-2 border-t border-border/50 pt-3"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Gift className="h-4 w-4 shrink-0 text-brand" />
+                    <span>Refer & Earn</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-brand bg-brand/10 border-brand/30">
+                    ₹500 Bonus
+                  </Badge>
+                </Link>
               </nav>
 
-              {/* Quick Earning Rule */}
-              <Card className="hidden lg:block p-3.5 text-xs text-muted-foreground bg-muted/40">
-                <div className="flex items-center gap-1.5 font-medium text-foreground mb-1">
-                  <Zap className="h-3.5 w-3.5 text-amber-500" /> Rapid Point Multiplier
-                </div>
-                Booking with a Synchoo VIP pass yields 2x reward points on all self-drive rentals!
+              {/* Quick Info Box in Sidebar */}
+              <Card className="hidden lg:block p-3.5 text-xs text-muted-foreground bg-muted/30">
+                <p className="font-semibold text-foreground mb-1">Instant Redemption</p>
+                Claimed vouchers appear immediately in your account and can be applied during booking checkout.
               </Card>
             </div>
           </aside>
 
-          {/* Right Main Content Pane */}
+          {/* Right Main Content Area */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Tab 1: Rewards Catalog */}
+            {/* Tab 1: Catalog */}
             {activeTab === "catalog" && (
               <div className="space-y-6">
-                {/* How to Earn Strip */}
-                <div className="grid grid-cols-3 gap-3">
-                  <Card className="p-3 text-center">
-                    <Car className="mx-auto h-5 w-5 text-brand mb-1" />
-                    <p className="text-xs font-semibold">Rent a Car or EV</p>
-                    <p className="text-[10px] text-muted-foreground">50 pts / ₹1,000</p>
-                  </Card>
-                  <Card className="p-3 text-center">
-                    <Droplets className="mx-auto h-5 w-5 text-cyan-500 mb-1" />
-                    <p className="text-xs font-semibold">Doorstep Wash</p>
-                    <p className="text-[10px] text-muted-foreground">30 pts / booking</p>
-                  </Card>
-                  <Card className="p-3 text-center">
-                    <Award className="mx-auto h-5 w-5 text-amber-500 mb-1" />
-                    <p className="text-xs font-semibold">Trip Reviews</p>
-                    <p className="text-[10px] text-muted-foreground">20 pts / review</p>
-                  </Card>
+                {/* Category Filter Pills */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {["All", "Rentals", "Wash", "Fuel", "Lifestyle"].map((cat) => (
+                    <Button
+                      key={cat}
+                      size="sm"
+                      variant={selectedCategory === cat ? "default" : "outline"}
+                      onClick={() => setSelectedCategory(cat)}
+                      className="rounded-full text-xs h-8"
+                    >
+                      {cat}
+                    </Button>
+                  ))}
                 </div>
 
-                {/* Category Filters */}
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h2 className="font-display text-lg font-bold">Redeemable Rewards</h2>
-                  <div className="flex gap-1 overflow-x-auto text-xs">
-                    {["All", "Rental", "Wash", "Fuel", "Lifestyle"].map((cat) => (
-                      <Button
-                        key={cat}
-                        size="sm"
-                        variant={selectedCategory === cat ? "default" : "outline"}
-                        onClick={() => setSelectedCategory(cat)}
-                        className="h-7 text-xs rounded-lg"
-                      >
-                        {cat}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Vouchers Grid */}
+                {/* Rewards Grid */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   {filteredCatalog.map((v) => {
                     const Icon = v.icon;
                     const canAfford = pointsBalance >= v.pointsCost;
 
                     return (
-                      <Card key={v.id} className="p-4 flex flex-col justify-between">
+                      <Card key={v.id} className="p-4 flex flex-col justify-between hover:border-brand/40 transition-colors">
                         <div className="flex items-start gap-3">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground">
                             <Icon className="h-5 w-5 text-brand" />
@@ -359,7 +327,7 @@ export function RewardsPage() {
                             onClick={() => handleRedeem(v)}
                             className="text-xs"
                           >
-                            Redeem Voucher
+                            {canAfford ? "Redeem Voucher" : `Need ${v.pointsCost - pointsBalance} Pts`}
                           </Button>
                         </div>
                       </Card>
@@ -370,81 +338,108 @@ export function RewardsPage() {
             )}
 
             {/* Tab 2: My Redeemed Vouchers */}
-            {activeTab === "vouchers" && (
+            {activeTab === "redeemed" && (
               <div className="space-y-6">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Ticket className="h-4 w-4 text-brand" /> Your Active Coupon Vouchers ({redeemedVouchers.length})
-                    </CardTitle>
-                    <CardDescription>
-                      Copy these promo codes and paste them during checkout on your next rental, wash, or at partner outlets.
-                    </CardDescription>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-brand" /> Claimed Reward Coupons & Vouchers
+                      </CardTitle>
+                      <CardDescription>Copy your promo code to apply on your next trip or booking</CardDescription>
+                    </div>
+                    <Badge variant="outline">{claimedList.length} Active Vouchers</Badge>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {redeemedVouchers.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-6 text-center">
-                        You have not redeemed any vouchers yet. Choose a reward from the catalog to get started.
-                      </p>
+                    {claimedList.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        No vouchers redeemed yet. Browse the Points Catalog to redeem your rewards!
+                      </div>
                     ) : (
-                      redeemedVouchers.map((coupon) => (
-                        <div key={coupon.id} className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm">{coupon.title}</span>
-                              <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40">
-                                Active
-                              </Badge>
+                      claimedList.map((v) => {
+                        const Icon = v.icon;
+                        const isCopied = copiedCode === v.code;
+                        return (
+                          <div key={v.id} className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                                <Icon className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm">{v.title}</p>
+                                <p className="text-xs text-muted-foreground">Claimed: {v.claimedAt} · Valid {v.expiresAt}</p>
+                              </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">{coupon.expires}</p>
-                          </div>
 
-                          <div className="flex items-center gap-2">
-                            <div className="font-mono text-sm font-bold bg-muted px-3 py-1.5 rounded-lg border border-border">
-                              {coupon.code}
+                            <div className="flex items-center gap-2">
+                              <div className="font-mono text-xs font-bold bg-muted px-2.5 py-1.5 rounded-lg border border-border">
+                                {v.code}
+                              </div>
+                              <Button size="sm" variant="outline" onClick={() => copyCode(v.code)} className="h-8 text-xs">
+                                <Copy className="mr-1 h-3.5 w-3.5" /> {isCopied ? "Copied" : "Copy"}
+                              </Button>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => copyVoucherCode(coupon.code)}
-                              className="text-xs"
-                            >
-                              {copiedCode === coupon.code ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                              {copiedCode === coupon.code ? "Copied" : "Copy"}
-                            </Button>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </CardContent>
                 </Card>
               </div>
             )}
 
-            {/* Tab 3: Points History */}
-            {activeTab === "history" && (
+            {/* Tab 3: How to Earn Points */}
+            {activeTab === "earn-guide" && (
               <div className="space-y-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-brand" /> Points Transaction History
+                      <Zap className="h-4 w-4 text-brand" /> Points Earning Schedule
                     </CardTitle>
-                    <CardDescription>Detailed log of rewards points earned and redeemed</CardDescription>
+                    <CardDescription>Earn points on every rupee spent across all mobility services</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    {transactions.map((tx) => (
-                      <div key={tx.id} className="flex items-center justify-between py-2.5 border-b border-border last:border-none text-xs">
-                        <div>
-                          <p className="font-medium text-sm">{tx.description}</p>
-                          <p className="text-muted-foreground">{tx.date}</p>
+                  <CardContent>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Car className="h-4 w-4 text-brand" />
+                          <p className="font-semibold text-sm">Self-Drive Rentals & EVs</p>
                         </div>
-                        <div className="text-right">
-                          <span className={`font-bold text-sm ${tx.type === "earned" ? "text-emerald-600" : "text-amber-600"}`}>
-                            {tx.type === "earned" ? `+${tx.points}` : `-${tx.points}`} pts
-                          </span>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Earn 50 Points for every ₹1,000 spent. Multiplier applied automatically for Gold & Platinum tiers.
+                        </p>
                       </div>
-                    ))}
+
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Crown className="h-4 w-4 text-amber-500" />
+                          <p className="font-semibold text-sm">Chauffeur & Driver Hires</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Earn 60 Points for every ₹1,000 on daily or hourly driver duty bookings.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Droplets className="h-4 w-4 text-cyan-500" />
+                          <p className="font-semibold text-sm">Doorstep Vehicle Wash</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Earn 30 Points flat on every completed exterior or interior doorstep wash booking.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Award className="h-4 w-4 text-emerald-500" />
+                          <p className="font-semibold text-sm">Trip Reviews & Ratings</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Earn 20 Points on every helpful vehicle or driver review submitted after trip completion.
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -456,58 +451,42 @@ export function RewardsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-brand" /> Synchoo Loyalty Club Tiers & Benefits
+                      <Crown className="h-4 w-4 text-brand" /> Synchoo Membership Tiers & Privileges
                     </CardTitle>
-                    <CardDescription>Level up as you ride and enjoy higher cash-back rates and exclusive perks</CardDescription>
+                    <CardDescription>Higher tiers earn bonus multipliers and enjoy priority vehicle dispatch</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="p-4 rounded-xl border border-border bg-card space-y-2">
+                  <CardContent className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm">Explorer (Entry)</span>
-                          <Badge variant="outline">0 - 250 Pts</Badge>
+                          <span className="font-bold text-sm">Explorer Tier</span>
+                          <Badge variant="outline">0 - 2 Trips</Badge>
                         </div>
-                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                          <li>2.5% points back on all rides</li>
-                          <li>Standard customer support</li>
-                          <li>Regular security deposit terms</li>
-                        </ul>
+                        <p className="text-xs text-muted-foreground">Base 1x point accrual rate · Standard customer support.</p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-border bg-card space-y-2">
+                      <div className="p-4 rounded-xl border border-border bg-card space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm">Silver</span>
-                          <Badge variant="outline">250 - 600 Pts</Badge>
+                          <span className="font-bold text-sm text-cyan-600">Silver Tier</span>
+                          <Badge variant="outline">3 - 9 Trips</Badge>
                         </div>
-                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                          <li>3.5% points back on all rides</li>
-                          <li>1 free car sanitization voucher</li>
-                          <li>Expedited phone support</li>
-                        </ul>
+                        <p className="text-xs text-muted-foreground">1.1x Points Multiplier · Free cancellation up to 6 hours before trip.</p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/5 space-y-2">
+                      <div className="p-4 rounded-xl border-2 border-amber-400 bg-amber-500/5 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm text-amber-700 dark:text-amber-300">Gold (Your Tier)</span>
-                          <Badge className="bg-amber-600 text-white">Current</Badge>
+                          <span className="font-bold text-sm text-amber-700">Gold Tier (Your Current Tier)</span>
+                          <Badge className="bg-amber-500 text-white">10 - 24 Trips</Badge>
                         </div>
-                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                          <li>5.0% points back on every booking</li>
-                          <li>50% security deposit discount</li>
-                          <li>Priority vehicle delivery dispatch</li>
-                        </ul>
+                        <p className="text-xs text-muted-foreground">1.25x Points Multiplier · Priority vehicle delivery · 1 Free wash voucher/quarter.</p>
                       </div>
 
-                      <div className="p-4 rounded-xl border border-violet-500/30 bg-violet-500/5 space-y-2">
+                      <div className="p-4 rounded-xl border border-violet-500/30 bg-violet-500/5 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm text-violet-700 dark:text-violet-300">Platinum Elite</span>
-                          <Badge variant="outline">1,500+ Pts</Badge>
+                          <span className="font-bold text-sm text-violet-600">Platinum VIP</span>
+                          <Badge variant="secondary" className="bg-violet-100 text-violet-800">25+ Trips</Badge>
                         </div>
-                        <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                          <li>7.5% points back on all trips</li>
-                          <li>ZERO security deposit required</li>
-                          <li>Dedicated fleet relationship manager</li>
-                        </ul>
+                        <p className="text-xs text-muted-foreground">1.5x Points Multiplier · Zero security deposit · Dedicated fleet relationship manager.</p>
                       </div>
                     </div>
                   </CardContent>
