@@ -319,6 +319,57 @@ export type Database = {
           },
         ]
       }
+      cleaners: {
+        Row: {
+          id: string
+          full_name: string
+          phone: string | null
+          city: string
+          service_area: string | null
+          bio: string | null
+          experience_years: number
+          services: string[]
+          available: boolean
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          rejection_reason: string | null
+          verified_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          full_name: string
+          phone?: string | null
+          city: string
+          service_area?: string | null
+          bio?: string | null
+          experience_years?: number
+          services?: string[]
+          available?: boolean
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          rejection_reason?: string | null
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          full_name?: string
+          phone?: string | null
+          city?: string
+          service_area?: string | null
+          bio?: string | null
+          experience_years?: number
+          services?: string[]
+          available?: boolean
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          rejection_reason?: string | null
+          verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           active: boolean
@@ -1467,6 +1518,8 @@ export type Database = {
       }
       wash_bookings: {
         Row: {
+          cleaner_id: string | null
+          progress: string | null
           commission_amount: number
           commission_gst: number
           earning_credited_at: string | null
@@ -1507,6 +1560,8 @@ export type Database = {
           vehicle_label: string | null
         }
         Insert: {
+          cleaner_id?: string | null
+          progress?: string | null
           commission_amount?: number
           commission_gst?: number
           earning_credited_at?: string | null
@@ -1547,6 +1602,8 @@ export type Database = {
           vehicle_label?: string | null
         }
         Update: {
+          cleaner_id?: string | null
+          progress?: string | null
           commission_amount?: number
           commission_gst?: number
           earning_credited_at?: string | null
@@ -1606,6 +1663,44 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wash_center_staff: {
+        Row: {
+          id: string
+          vendor_id: string
+          name: string
+          phone: string | null
+          role: string
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          vendor_id: string
+          name: string
+          phone?: string | null
+          role?: string
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          vendor_id?: string
+          name?: string
+          phone?: string | null
+          role?: string
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wash_center_staff_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "wash_vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -1678,6 +1773,10 @@ export type Database = {
       }
       wash_vendors: {
         Row: {
+          owner_id: string | null
+          address: string | null
+          opening_time: string | null
+          closing_time: string | null
           active: boolean
           city: string
           contact_email: string | null
@@ -1690,6 +1789,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          owner_id?: string | null
+          address?: string | null
+          opening_time?: string | null
+          closing_time?: string | null
           active?: boolean
           city: string
           contact_email?: string | null
@@ -1702,6 +1805,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          owner_id?: string | null
+          address?: string | null
+          opening_time?: string | null
+          closing_time?: string | null
           active?: boolean
           city?: string
           contact_email?: string | null
@@ -1828,6 +1935,26 @@ export type Database = {
         Returns: string
       }
       withdrawable_balance: { Args: { _user?: string }; Returns: number }
+      admin_verify_cleaner: {
+        Args: { _cleaner_id: string; _decision: string; _reason?: string }
+        Returns: undefined
+      }
+      advance_wash_job: { Args: { _to: string; _wash_booking_id: string }; Returns: string }
+      claim_wash_job: { Args: { _wash_booking_id: string }; Returns: undefined }
+      is_wash_job_provider: { Args: { _cleaner_id: string; _vendor_id: string }; Returns: boolean }
+      wash_job_board: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          city: string
+          duration_minutes: number
+          id: string
+          provider_earning: number
+          service_name: string
+          slot_date: string
+          slot_time: string
+          vehicle_label: string | null
+        }[]
+      }
       admin_refund: {
         Args: { _amount: number; _email: string; _reason: string }
         Returns: number

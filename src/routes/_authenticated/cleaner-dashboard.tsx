@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { CityPicker } from "@/components/city-picker";
+import { PayoutsCard } from "@/components/payouts-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,190 +16,135 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
+import { NEXT_WASH_STEP, WASH_STEP_LABEL } from "@/lib/wash-steps";
 import { toast } from "sonner";
-import {
-  Sparkles,
-  MapPin,
-  CalendarCheck,
-  IndianRupee,
-  Star,
-  CheckCircle2,
-  Clock,
-  Camera,
-  Navigation,
-  ShieldCheck,
-  UserCheck,
-  Car,
-} from "lucide-react";
+import { Sparkles, MapPin, CalendarCheck, IndianRupee, Star, CheckCircle2, Clock, Navigation, Car, Hourglass } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
   component: CleanerDashboard,
   head: () => ({
     meta: [
       { title: "Cleaner dashboard — Synchoo" },
-      { name: "description", content: "Manage vehicle wash appointments, today's schedule, service areas, and earnings on Synchoo." },
+      { name: "description", content: "Accept doorstep wash jobs, track today's schedule and earnings on Synchoo." },
     ],
   }),
 });
 
-interface CleanerProfile {
-  full_name: string;
-  phone: string;
+type Cleaner = Tables<"cleaners">;
+type Job = Tables<"wash_bookings"> & { wash_services: { name: string; duration_minutes: number } | null };
+type BoardJob = {
+  id: string;
+  slot_date: string;
+  slot_time: string;
   city: string;
-  service_area: string;
-  bio: string;
-  experience_years: number;
-  available: boolean;
-  status: "pending" | "approved" | "rejected";
-  services: string[];
-}
+  vehicle_label: string | null;
+  service_name: string;
+  duration_minutes: number;
+  provider_earning: number;
+};
 
 const DEFAULT_SERVICES = ["Doorstep Car Wash", "Bike Wash", "Interior Detailing", "Foam Wash & Wax"];
+const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-export function CleanerDashboard() {
+function CleanerDashboard() {
   const { user } = useSession();
-  const [profile, setProfile] = useState<CleanerProfile | null>(null);
+  const [profile, setProfile] = useState<Cleaner | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Form state for onboarding/profile edit
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("Bangalore");
-  const [serviceArea, setServiceArea] = useState("Koramangala, HSR Layout, Indiranagar");
+  const [city, setCity] = useState("Bengaluru");
+  const [serviceArea, setServiceArea] = useState("");
   const [bio, setBio] = useState("");
   const [experience, setExperience] = useState("2");
-  const [selectedServices, setSelectedServices] = useState<string[]>(DEFAULT_SERVICES);
 
-  // Bookings & stats state
-  const [assignedJobs, setAssignedJobs] = useState<any[]>([]);
-  const [availableRequests, setAvailableRequests] = useState<any[]>([]);
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [board, setBoard] = useState<BoardJob[]>([]);
+  const [ratings, setRatings] = useState<number[]>([]);
 
-  const storageKey = user ? `cleaner_profile_${user.id}` : null;
-
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
-
-    // 1. Try local cache / metadata
-    let existingProfile: CleanerProfile | null = null;
-    if (storageKey) {
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) existingProfile = JSON.parse(raw);
-      } catch (err) {
-        console.error("Failed to load cleaner profile from cache", err);
-      }
-    }
-
-    if (!existingProfile && user.user_metadata?.cleaner_profile) {
-      existingProfile = user.user_metadata.cleaner_profile;
-    }
-
-    if (existingProfile) {
-      setProfile(existingProfile);
-      setFullName(existingProfile.full_name);
-      setPhone(existingProfile.phone);
-      setCity(existingProfile.city || "Bangalore");
-      setServiceArea(existingProfile.service_area || "");
-      setBio(existingProfile.bio || "");
-      setExperience(String(existingProfile.experience_years || 2));
-      setSelectedServices(existingProfile.services || DEFAULT_SERVICES);
+    const { data: c } = await supabase.from("cleaners").select("*").eq("id", user.id).maybeSingle();
+    setProfile(c);
+    if (c) {
+      setFullName(c.full_name);
+      setPhone(c.phone ?? "");
+      setCity(c.city);
+      setServiceArea(c.service_area ?? "");
+      setBio(c.bio ?? "");
+      setExperience(String(c.experience_years));
+      const [{ data: mine }, { data: open }] = await Promise.all([
+        supabase
+          .from("wash_bookings")
+          .select("*, wash_services:service_id(name, duration_minutes)")
+          .eq("cleaner_id", user.id)
+          .order("slot_date", { ascending: true })
+          .limit(100),
+        c.verification_status === "approved" ? supabase.rpc("wash_job_board") : Promise.resolve({ data: [] }),
+      ]);
+      const myJobs = (mine as Job[]) ?? [];
+      setJobs(myJobs);
+      setBoard((open as BoardJob[]) ?? []);
+      const done = myJobs.filter((j) => j.status === "completed").map((j) => j.id);
+      if (done.length) {
+        const { data: rv } = await supabase.from("wash_reviews").select("rating").in("wash_booking_id", done);
+        setRatings((rv ?? []).map((r) => r.rating));
+      } else setRatings([]);
     } else {
       setFullName(user.user_metadata?.full_name || "");
       setPhone(user.phone || "");
     }
+    setLoading(false);
+  }, [user]);
 
-    // 2. Load wash bookings
-    supabase
-      .from("wash_bookings")
-      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-      .order("created_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        const all = data || [];
-        setAssignedJobs(all.filter((b) => b.status === "confirmed" || b.status === "completed"));
-        setAvailableRequests(all.filter((b) => b.status === "pending"));
-        setLoading(false);
-      });
-  }, [user?.id]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-
-    const newProfile: CleanerProfile = {
-      full_name: fullName.trim() || user.email?.split("@")[0] || "Cleaner Partner",
-      phone: phone.trim(),
+    const { error } = await supabase.from("cleaners").upsert({
+      id: user.id,
+      full_name: fullName.trim(),
+      phone: phone.trim() || null,
       city: city.trim(),
-      service_area: serviceArea.trim(),
-      bio: bio.trim(),
-      experience_years: Number(experience) || 1,
-      available: profile?.available ?? true,
-      status: profile?.status ?? "approved",
-      services: selectedServices,
-    };
-
-    if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(newProfile));
-    }
-
-    await supabase.auth.updateUser({
-      data: { cleaner_profile: newProfile },
+      service_area: serviceArea.trim() || null,
+      bio: bio.trim() || null,
+      experience_years: Number(experience) || 0,
+      services: profile?.services?.length ? profile.services : DEFAULT_SERVICES,
     });
-
-    setProfile(newProfile);
     setSaving(false);
-    toast.success("Cleaner profile saved successfully!");
+    if (error) return toast.error(error.message);
+    toast.success(profile ? "Profile updated" : "Profile submitted. An admin will verify you shortly.");
+    load();
   };
 
   const toggleAvailability = async (checked: boolean) => {
     if (!profile) return;
-    const updated = { ...profile, available: checked };
-    setProfile(updated);
-    if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-    }
-    toast.success(checked ? "You are now ONLINE for doorstep wash jobs" : "You are now OFFLINE");
+    const { error } = await supabase.from("cleaners").update({ available: checked }).eq("id", profile.id);
+    if (error) return toast.error(error.message);
+    toast.success(checked ? "You're online for wash jobs" : "You're offline");
+    load();
   };
 
-  const updateJobStatus = async (jobId: string, nextStatus: "confirmed" | "completed", note?: string) => {
-    setActiveJobId(jobId);
-    const { error } = await supabase
-      .from("wash_bookings")
-      .update({
-        status: nextStatus,
-        completed_at: nextStatus === "completed" ? new Date().toISOString() : null,
-        notes: note || undefined,
-      } as any)
-      .eq("id", jobId);
-
-    setActiveJobId(null);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    toast.success(nextStatus === "completed" ? "Wash marked as completed! Payout queued." : "Job status updated!");
-    // Refresh bookings
-    const { data } = await supabase
-      .from("wash_bookings")
-      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (data) {
-      setAssignedJobs(data.filter((b) => b.status === "confirmed" || b.status === "completed"));
-      setAvailableRequests(data.filter((b) => b.status === "pending"));
-    }
+  const act = async (id: string, call: () => PromiseLike<{ error: { message: string } | null }>, done: string) => {
+    setBusyId(id);
+    const { error } = await call();
+    setBusyId(null);
+    if (error) return toast.error(error.message);
+    toast.success(done);
+    load();
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <SiteHeader />
-        <div className="mx-auto max-w-5xl px-4 py-8 space-y-4">
+        <div className="mx-auto max-w-5xl space-y-4 px-4 py-8">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-44 w-full" />
         </div>
@@ -205,7 +152,6 @@ export function CleanerDashboard() {
     );
   }
 
-  // Not yet registered screen
   if (!profile) {
     return (
       <div className="min-h-screen bg-background">
@@ -218,67 +164,21 @@ export function CleanerDashboard() {
             <div>
               <h1 className="font-display text-2xl font-bold tracking-tight">Become a Vehicle Cleaner Partner</h1>
               <p className="text-sm text-muted-foreground">
-                Join Synchoo’s verified doorstep washing team. Accept appointments, track schedules, and earn weekly.
+                Join Synchoo's doorstep washing team. Once an admin verifies you, you can accept jobs in your city.
               </p>
             </div>
           </div>
-
           <Card>
             <CardHeader>
-              <CardTitle>Cleaner Registration & Verification</CardTitle>
-              <CardDescription>Enter your contact details and service coverage to activate your dashboard.</CardDescription>
+              <CardTitle>Cleaner registration</CardTitle>
+              <CardDescription>Your profile is reviewed by our team before you can take jobs.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={saveProfile} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="c-name">Full name *</Label>
-                    <Input id="c-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="c-phone">Phone number *</Label>
-                    <Input id="c-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" required />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>Operating city *</Label>
-                    <CityPicker value={city} onChange={setCity} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="c-exp">Experience (years)</Label>
-                    <Input id="c-exp" type="number" min="0" value={experience} onChange={(e) => setExperience(e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="c-area">Service areas / Localities *</Label>
-                  <Input
-                    id="c-area"
-                    value={serviceArea}
-                    onChange={(e) => setServiceArea(e.target.value)}
-                    placeholder="e.g. Koramangala, Indiranagar, HSR Layout, Bellandur"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">List neighborhoods where you can travel for doorstep washing.</p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="c-bio">About you / Equipment notes</Label>
-                  <Textarea
-                    id="c-bio"
-                    rows={3}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Equipped with portable pressure jet washer, eco-friendly car foam, vacuum cleaner, and microfiber kits."
-                  />
-                </div>
-
-                <Button type="submit" disabled={saving} className="w-full">
-                  {saving ? "Activating cleaner profile..." : "Register & Start Taking Jobs"}
-                </Button>
-              </form>
+              <ProfileForm
+                {...{ fullName, setFullName, phone, setPhone, city, setCity, serviceArea, setServiceArea, bio, setBio, experience, setExperience, saving }}
+                onSubmit={saveProfile}
+                submitLabel="Submit for verification"
+              />
             </CardContent>
           </Card>
         </div>
@@ -286,168 +186,145 @@ export function CleanerDashboard() {
     );
   }
 
-  // Active Dashboard
-  const completedJobs = assignedJobs.filter((j) => j.status === "completed");
-  const inProgressJobs = assignedJobs.filter((j) => j.status === "confirmed");
-  const totalEarnings = completedJobs.reduce((acc, curr) => acc + (Number(curr.price) || 0) * 0.85, 0);
+  const approved = profile.verification_status === "approved";
+  const active = jobs.filter((j) => j.status === "confirmed");
+  const completed = jobs.filter((j) => j.status === "completed");
+  const earned = completed.reduce((s, j) => s + Number(j.provider_earning ?? 0), 0);
+  const todays = active.filter((j) => j.slot_date === today()).sort((a, b) => a.slot_time.localeCompare(b.slot_time));
+  const avg = ratings.length ? ratings.reduce((s, r) => s + r, 0) / ratings.length : null;
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        {/* Top Header Card */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-5 shadow-xs">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand">
               <Sparkles className="h-6 w-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-display text-2xl font-bold tracking-tight">{profile.full_name}</h1>
-                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
-                  <CheckCircle2 className="mr-1 h-3 w-3" /> Verified Cleaner
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                <MapPin className="h-3 w-3" /> {profile.city} · {profile.service_area}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2">
-              <Switch checked={profile.available} onCheckedChange={toggleAvailability} id="cleaner-online" />
-              <Label htmlFor="cleaner-online" className="text-xs font-medium cursor-pointer">
-                {profile.available ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> ONLINE
-                  </span>
+                {approved ? (
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+                    <CheckCircle2 className="mr-1 h-3 w-3" /> Verified cleaner
+                  </Badge>
+                ) : profile.verification_status === "rejected" ? (
+                  <Badge variant="destructive">Verification rejected</Badge>
                 ) : (
-                  <span className="text-muted-foreground">OFFLINE</span>
+                  <Badge variant="outline">
+                    <Hourglass className="mr-1 h-3 w-3" /> Awaiting verification
+                  </Badge>
                 )}
-              </Label>
+              </div>
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3" /> {profile.city}
+                {profile.service_area ? ` · ${profile.service_area}` : ""}
+              </p>
+              {profile.verification_status === "rejected" && profile.rejection_reason && (
+                <p className="mt-1 text-xs text-destructive">{profile.rejection_reason}</p>
+              )}
             </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2">
+            <Switch checked={profile.available} onCheckedChange={toggleAvailability} id="cleaner-online" />
+            <Label htmlFor="cleaner-online" className="cursor-pointer text-xs font-medium">
+              {profile.available ? <span className="font-semibold text-emerald-600">Online</span> : <span className="text-muted-foreground">Offline</span>}
+            </Label>
           </div>
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-          <Card className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span className="text-xs">Active jobs</span>
-            </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">{inProgressJobs.length}</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-xs">Completed</span>
-            </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">{completedJobs.length}</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <IndianRupee className="h-4 w-4" />
-              <span className="text-xs">Net earnings</span>
-            </div>
-            <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(totalEarnings)}</p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              <span className="text-xs">Rating</span>
-            </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">4.9 / 5.0</p>
-          </Card>
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat icon={Clock} label="Active jobs" value={active.length} />
+          <Stat icon={CheckCircle2} label="Completed" value={completed.length} />
+          <Stat icon={IndianRupee} label="Earned (after commission)" value={currency(earned)} />
+          <Stat icon={Star} label="Rating" value={avg ? `${avg.toFixed(1)} / 5 (${ratings.length})` : "No ratings yet"} />
         </div>
 
-        {/* Dashboard Tabs */}
         <Tabs defaultValue="jobs" className="space-y-4">
-          <TabsList className="bg-muted p-1">
-            <TabsTrigger value="jobs">Assigned & Active Jobs ({inProgressJobs.length})</TabsTrigger>
-            <TabsTrigger value="available">Available Requests ({availableRequests.length})</TabsTrigger>
-            <TabsTrigger value="schedule">Today's Schedule</TabsTrigger>
-            <TabsTrigger value="earnings">Earnings & History</TabsTrigger>
-            <TabsTrigger value="profile">Profile & Coverage</TabsTrigger>
+          <TabsList className="h-auto flex-wrap justify-start bg-muted p-1">
+            <TabsTrigger value="jobs">My jobs ({active.length})</TabsTrigger>
+            <TabsTrigger value="available">Available ({board.length})</TabsTrigger>
+            <TabsTrigger value="schedule">Today</TabsTrigger>
+            <TabsTrigger value="earnings">Earnings</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
           </TabsList>
 
-          {/* Tab 1: Assigned Jobs */}
           <TabsContent value="jobs" className="space-y-3">
-            {inProgressJobs.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Car className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="mt-2 text-sm font-medium">No active jobs right now</p>
-                <p className="text-xs text-muted-foreground">New appointments assigned to you will appear here.</p>
-              </Card>
+            {active.length === 0 ? (
+              <Empty icon={Car} title="No active jobs" body="Jobs you accept from Available appear here." />
             ) : (
-              inProgressJobs.map((job) => (
-                <Card key={job.id} className="p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-sky-50 text-sky-700">
-                          {job.slot_date} · {job.slot_time}
-                        </Badge>
-                        <span className="font-semibold text-sm">
-                          {job.wash_services?.name || "Doorstep Foam Wash"}
-                        </span>
+              active.map((job) => {
+                const next = NEXT_WASH_STEP[job.progress ?? "none"];
+                return (
+                  <Card key={job.id} className="p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{job.slot_date} · {job.slot_time.slice(0, 5)}</Badge>
+                          <span className="text-sm font-semibold">{job.wash_services?.name ?? "Wash"}</span>
+                          {job.progress && <Badge variant="secondary">{WASH_STEP_LABEL[job.progress]}</Badge>}
+                        </div>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" /> {job.address}, {job.city}
+                        </p>
+                        {job.vehicle_label && <p className="mt-1 text-xs font-medium">Vehicle: {job.vehicle_label}</p>}
+                        {job.notes && <p className="mt-1 text-xs text-muted-foreground">Note: {job.notes}</p>}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {job.address}, {job.city}
-                      </p>
-                      {job.vehicle_label && (
-                        <p className="text-xs text-foreground font-medium mt-1">Vehicle: {job.vehicle_label}</p>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button size="sm" variant="outline" asChild>
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                              job.lat != null && job.lng != null ? `${job.lat},${job.lng}` : `${job.address}, ${job.city}`,
+                            )}&travelmode=driving`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={busyId === job.id}
+                          onClick={() =>
+                            act(job.id, () => supabase.rpc("advance_wash_job", { _wash_booking_id: job.id, _to: next.to }), `Updated: ${next.label}`)
+                          }
+                        >
+                          {next.label}
+                        </Button>
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(job.address)}`, "_blank")}
-                      >
-                        <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={activeJobId === job.id}
-                        onClick={() => updateJobStatus(job.id, "completed")}
-                      >
-                        <Camera className="mr-1 h-3.5 w-3.5" /> Mark Completed
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
 
-          {/* Tab 2: Available Requests */}
           <TabsContent value="available" className="space-y-3">
-            {availableRequests.length === 0 ? (
-              <Card className="p-8 text-center text-sm text-muted-foreground">
-                No new unassigned wash requests in {profile.city} at this moment.
-              </Card>
+            {!approved ? (
+              <Empty icon={Hourglass} title="Awaiting verification" body="You can accept jobs once an admin verifies your profile." />
+            ) : !profile.available ? (
+              <Empty icon={Clock} title="You're offline" body="Go online to see open wash jobs in your city." />
+            ) : board.length === 0 ? (
+              <Empty icon={Car} title={`No open jobs in ${profile.city} right now`} body="Paid, approved washes appear here. Check back soon." />
             ) : (
-              availableRequests.map((req) => (
+              board.map((req) => (
                 <Card key={req.id} className="p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-sm">{req.wash_services?.name || "Vehicle Wash"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {req.slot_date} · {req.slot_time} · {req.city} · Payout: {currency(Number(req.price) * 0.85)}
+                      <p className="text-sm font-semibold">{req.service_name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {req.slot_date} · {req.slot_time.slice(0, 5)} · {req.city} · {req.duration_minutes} min · You earn{" "}
+                        {currency(Number(req.provider_earning))}
                       </p>
+                      <p className="text-[11px] text-muted-foreground">The address is shown after you accept.</p>
                     </div>
                     <Button
                       size="sm"
-                      disabled={activeJobId === req.id}
-                      onClick={() => updateJobStatus(req.id, "confirmed", `Cleaner assigned: ${profile.full_name}`)}
+                      disabled={busyId === req.id}
+                      onClick={() => act(req.id, () => supabase.rpc("claim_wash_job", { _wash_booking_id: req.id }), "Job accepted")}
                     >
-                      Accept Job
+                      Accept job
                     </Button>
                   </div>
                 </Card>
@@ -455,104 +332,62 @@ export function CleanerDashboard() {
             )}
           </TabsContent>
 
-          {/* Tab 3: Today's Schedule */}
           <TabsContent value="schedule">
             <Card className="p-4">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <CalendarCheck className="h-4 w-4 text-brand" /> Appointment Timeline
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <CalendarCheck className="h-4 w-4 text-brand" /> Today's appointments
               </h3>
-              <div className="space-y-3">
-                {[
-                  { time: "09:00 AM - 10:30 AM", customer: "Rahul M.", vehicle: "Hyundai Creta", address: "HSR Layout, Sector 2", status: "Done" },
-                  { time: "11:30 AM - 01:00 PM", customer: "Priya S.", vehicle: "Tata Nexon EV", address: "Koramangala 4th Block", status: "Next" },
-                  { time: "03:00 PM - 04:30 PM", customer: "Amit K.", vehicle: "Royal Enfield Hunter", address: "Indiranagar 100ft Rd", status: "Upcoming" },
-                ].map((slot, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-xl border border-border p-3 text-sm">
-                    <div>
-                      <span className="font-mono text-xs font-semibold text-brand">{slot.time}</span>
-                      <p className="font-medium text-xs mt-0.5">{slot.customer} · {slot.vehicle}</p>
-                      <p className="text-[11px] text-muted-foreground">{slot.address}</p>
+              {todays.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nothing scheduled for today.</p>
+              ) : (
+                <div className="space-y-3">
+                  {todays.map((j) => (
+                    <div key={j.id} className="flex items-center justify-between rounded-xl border border-border p-3 text-sm">
+                      <div className="min-w-0">
+                        <span className="font-mono text-xs font-semibold text-brand">{j.slot_time.slice(0, 5)}</span>
+                        <p className="mt-0.5 text-xs font-medium">
+                          {j.wash_services?.name ?? "Wash"}
+                          {j.vehicle_label ? ` · ${j.vehicle_label}` : ""}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{j.address}</p>
+                      </div>
+                      <Badge variant="outline">{j.progress ? WASH_STEP_LABEL[j.progress] : "Assigned"}</Badge>
                     </div>
-                    <Badge variant={slot.status === "Done" ? "secondary" : slot.status === "Next" ? "default" : "outline"}>
-                      {slot.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </TabsContent>
 
-          {/* Tab 4: Earnings */}
-          <TabsContent value="earnings">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="p-4">
-                <h3 className="font-semibold text-sm mb-2">Earnings Summary</h3>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Gross Wash Volume</span>
-                    <span className="font-semibold">{currency(totalEarnings / 0.85 || 0)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Platform Fee (15%)</span>
-                    <span className="text-muted-foreground">−{currency((totalEarnings / 0.85) * 0.15 || 0)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 font-semibold text-sm text-foreground">
-                    <span>Withdrawable Cleaner Payout</span>
-                    <span className="text-brand">{currency(totalEarnings)}</span>
-                  </div>
-                </div>
-                <Button className="w-full mt-4" size="sm" onClick={() => toast.success("Payout request submitted to admin queue!")}>
-                  Withdraw to Bank / UPI
-                </Button>
-              </Card>
-
-              <Card className="p-4">
-                <h3 className="font-semibold text-sm mb-2">Past Completed Washes</h3>
-                {completedJobs.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No completed washes yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {completedJobs.slice(0, 5).map((c) => (
-                      <div key={c.id} className="flex justify-between items-center text-xs py-1 border-b border-border">
-                        <div>
-                          <p className="font-medium">{c.wash_services?.name || "Car Wash"}</p>
-                          <p className="text-muted-foreground">{c.slot_date} · {c.city}</p>
-                        </div>
-                        <span className="font-semibold text-emerald-600">+{currency(Number(c.price) * 0.85)}</span>
+          <TabsContent value="earnings" className="space-y-4">
+            {user && <PayoutsCard userId={user.id} onChanged={load} />}
+            <Card className="p-4">
+              <h3 className="mb-2 text-sm font-semibold">Completed washes</h3>
+              {completed.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No completed washes yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {completed.slice(-10).reverse().map((c) => (
+                    <div key={c.id} className="flex items-center justify-between border-b border-border py-1 text-xs">
+                      <div>
+                        <p className="font-medium">{c.wash_services?.name ?? "Wash"}</p>
+                        <p className="text-muted-foreground">{c.slot_date} · {c.city}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
+                      <span className="font-semibold text-emerald-600">+{currency(Number(c.provider_earning ?? 0))}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </TabsContent>
 
-          {/* Tab 5: Profile & Coverage */}
           <TabsContent value="profile">
             <Card className="p-4">
-              <form onSubmit={saveProfile} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-xs">Name</Label>
-                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Phone</Label>
-                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">Coverage Area</Label>
-                  <Input value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} required />
-                </div>
-                <div>
-                  <Label className="text-xs">Bio & Equipment</Label>
-                  <Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} />
-                </div>
-                <Button type="submit" size="sm" disabled={saving}>
-                  {saving ? "Updating..." : "Update Profile"}
-                </Button>
-              </form>
+              <ProfileForm
+                {...{ fullName, setFullName, phone, setPhone, city, setCity, serviceArea, setServiceArea, bio, setBio, experience, setExperience, saving }}
+                onSubmit={saveProfile}
+                submitLabel="Update profile"
+              />
             </Card>
           </TabsContent>
         </Tabs>
@@ -561,3 +396,75 @@ export function CleanerDashboard() {
   );
 }
 
+function Stat({ icon: Icon, label, value }: { icon: typeof Clock; label: string; value: React.ReactNode }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon className="h-4 w-4" />
+        <span className="text-xs">{label}</span>
+      </div>
+      <p className="mt-1 font-display text-xl font-bold text-foreground">{value}</p>
+    </Card>
+  );
+}
+
+function Empty({ icon: Icon, title, body }: { icon: typeof Clock; title: string; body: string }) {
+  return (
+    <Card className="p-8 text-center">
+      <Icon className="mx-auto h-8 w-8 text-muted-foreground" />
+      <p className="mt-2 text-sm font-medium">{title}</p>
+      <p className="text-xs text-muted-foreground">{body}</p>
+    </Card>
+  );
+}
+
+type FormProps = {
+  fullName: string; setFullName: (v: string) => void;
+  phone: string; setPhone: (v: string) => void;
+  city: string; setCity: (v: string) => void;
+  serviceArea: string; setServiceArea: (v: string) => void;
+  bio: string; setBio: (v: string) => void;
+  experience: string; setExperience: (v: string) => void;
+  saving: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  submitLabel: string;
+};
+
+function ProfileForm(p: FormProps) {
+  return (
+    <form onSubmit={p.onSubmit} className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="c-name">Full name *</Label>
+          <Input id="c-name" value={p.fullName} onChange={(e) => p.setFullName(e.target.value)} minLength={2} maxLength={80} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="c-phone">Phone number *</Label>
+          <Input id="c-phone" type="tel" value={p.phone} onChange={(e) => p.setPhone(e.target.value)} maxLength={20} placeholder="+91 98765 43210" required />
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Operating city *</Label>
+          <CityPicker value={p.city} onChange={p.setCity} />
+          <p className="text-xs text-muted-foreground">You'll see jobs in this city only.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="c-exp">Experience (years)</Label>
+          <Input id="c-exp" type="number" min="0" max="60" value={p.experience} onChange={(e) => p.setExperience(e.target.value)} />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="c-area">Service areas / localities</Label>
+        <Input id="c-area" value={p.serviceArea} onChange={(e) => p.setServiceArea(e.target.value)} maxLength={200} placeholder="e.g. Koramangala, Indiranagar, HSR Layout" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="c-bio">About you / equipment</Label>
+        <Textarea id="c-bio" rows={3} value={p.bio} onChange={(e) => p.setBio(e.target.value)} maxLength={1000} placeholder="Portable pressure washer, eco foam, vacuum, microfiber kit." />
+      </div>
+      <Button type="submit" disabled={p.saving} className="w-full sm:w-auto">
+        {p.saving ? "Saving..." : p.submitLabel}
+      </Button>
+    </form>
+  );
+}

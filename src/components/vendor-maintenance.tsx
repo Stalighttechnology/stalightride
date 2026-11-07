@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ComingSoonBanner, comingSoon } from "@/components/coming-soon";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,9 @@ export function VendorMaintenanceTab({ vehicles }: { vehicles: any[] }) {
 
   const handleAddLog = (e: React.FormEvent) => {
     e.preventDefault();
+    comingSoon();
+    return;
+    e.preventDefault();
     if (!cost || Number(cost) <= 0) return toast.error("Please enter a valid service cost");
 
     const newLog: MaintenanceLog = {
@@ -103,6 +107,8 @@ export function VendorMaintenanceTab({ vehicles }: { vehicles: any[] }) {
   };
 
   const handleDeleteLog = (id: string) => {
+    comingSoon();
+    return;
     setLogs(logs.filter((l) => l.id !== id));
     toast.success("Maintenance record deleted");
   };
@@ -111,6 +117,7 @@ export function VendorMaintenanceTab({ vehicles }: { vehicles: any[] }) {
 
   return (
     <div className="space-y-6">
+      <ComingSoonBanner feature="Fleet maintenance tracking" />
       {/* Expiry Reminders Bar */}
       <div>
         <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">

@@ -37,7 +37,7 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "destructive"> = 
 };
 
 /**
- * Earnings and withdrawals for hosts and drivers. Renders nothing for
+ * Earnings and withdrawals for hosts, drivers, cleaners and washing centers. Renders nothing for
  * customers. Withdrawals are paid manually by an admin (see admin → Payouts).
  */
 export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: () => void }) {
@@ -58,14 +58,18 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
   });
 
   const load = useCallback(async () => {
-    const [v, d] = await Promise.all([
+    const [v, d, c, wc] = await Promise.all([
       supabase.from("vendors").select("id").eq("id", userId).maybeSingle(),
       supabase.from("drivers").select("id").eq("id", userId).maybeSingle(),
+      supabase.from("cleaners").select("id").eq("id", userId).maybeSingle(),
+      supabase.from("wash_vendors").select("id").eq("owner_id", userId).maybeSingle(),
     ]);
-    const provider = !!v.data || !!d.data;
+    const provider = !!v.data || !!d.data || !!c.data || !!wc.data;
     setIsProvider(provider);
     if (!provider) return;
-    const [w, hist, rentals, hires] = await Promise.all([
+    // Wash jobs this user is paid for: as the cleaner, or as the center owner.
+    const washFilter = wc.data ? `cleaner_id.eq.${userId},assigned_vendor_id.eq.${wc.data.id}` : `cleaner_id.eq.${userId}`;
+    const [w, hist, rentals, hires, washes] = await Promise.all([
       supabase.rpc("withdrawable_balance", {}),
       supabase
         .from("withdrawals")
@@ -85,12 +89,19 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
         .eq("driver_id", userId)
         .eq("payment_status", "paid")
         .is("earning_credited_at", null),
+      supabase
+        .from("wash_bookings")
+        .select("provider_earning")
+        .or(washFilter)
+        .eq("status", "confirmed")
+        .eq("payment_status", "paid")
+        .is("earning_credited_at", null),
     ]);
     setWithdrawable(Number(w.data ?? 0));
     setHistory((hist.data as Withdrawal[]) ?? []);
     const sum = (rows: { provider_earning: number }[] | null) =>
       (rows ?? []).reduce((s, r) => s + Number(r.provider_earning ?? 0), 0);
-    setPending(sum(rentals.data as any) + sum(hires.data as any));
+    setPending(sum(rentals.data as any) + sum(hires.data as any) + sum(washes.data as any));
   }, [userId]);
 
   useEffect(() => {

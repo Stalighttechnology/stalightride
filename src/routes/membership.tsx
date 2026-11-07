@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ComingSoonBanner, comingSoon } from "@/components/coming-soon";
 import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -91,6 +92,8 @@ export function MembershipPage() {
   const [activePlan, setActivePlan] = useState<string>("free");
 
   const handleSubscribe = (plan: Plan) => {
+    comingSoon();
+    return;
     if (plan.id === "free") {
       setActivePlan("free");
       toast.info("You are currently on Synchoo Standard.");
@@ -105,6 +108,7 @@ export function MembershipPage() {
       <SiteHeader />
 
       <main className="flex-1 py-12 px-4 sm:px-6">
+        <ComingSoonBanner feature="Synchoo Membership" />
         <div className="mx-auto max-w-5xl text-center space-y-4">
           <Badge variant="outline" className="border-amber-300 text-amber-600 bg-amber-50 dark:bg-amber-950/40">
             <Crown className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Club Privileges

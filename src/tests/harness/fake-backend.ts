@@ -15,9 +15,11 @@
  *
  * Every rule is expressed once here and asserted by the flow tests.
  *  - admin refunds and paid trip extensions (money phase 1b)
+ *  - wash pipeline: cleaner verification, job claiming, step order, wash
+ *    earnings for cleaners and center owners
  *
- * Mirrors supabase/migrations/20261105120000_money_phase1.sql and
- * 20261107120000_money_phase1b.sql.
+ * Mirrors supabase/migrations/20261105120000_money_phase1.sql,
+ * 20261107120000_money_phase1b.sql and 20261107130000_wash_pipeline.sql.
  */
 
 import { computeCharges, round2, type Charges, type PlatformSettings } from "@/lib/charges";
@@ -134,9 +136,15 @@ export type PoolRequest = {
   status: BookingStatus;
 };
 
+export type WashProgress = "assigned" | "on_the_way" | "started";
+export const WASH_STEPS = ["assigned", "on_the_way", "started", "completed"] as const;
+
 export type WashBooking = Money & {
   id: string;
   customer_id: string;
+  city: string;
+  cleaner_id: string | null;
+  progress: WashProgress | null;
   slot_date: string;
   price: number;
   status: BookingStatus;
@@ -162,7 +170,7 @@ export function datesOverlap(aStart: string, aEnd: string, bStart: string, bEnd:
 let seq = 0;
 const id = (p: string) => `${p}_${++seq}`;
 
-const EARNING_KINDS = ["booking_earning", "driver_earning", "driver_refund_reversal"];
+const EARNING_KINDS = ["booking_earning", "driver_earning", "driver_refund_reversal", "wash_earning"];
 
 export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSettings: PlatformSettings = ZERO_FEES) {
   const clock = { now };
@@ -174,6 +182,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
   const coupons = new Map<string, Coupon>();
   const withdrawals = new Map<string, Withdrawal>();
   const extensions = new Map<string, BookingExtension>();
+  const cleaners = new Map<string, { city: string; status: "pending" | "approved" | "rejected"; available: boolean }>();
+  /** wash vendor id -> owning user (a self-registered washing center). */
+  const centerOwners = new Map<string, string>();
   const vehicles = new Map<string, Vehicle>();
   const bookings = new Map<string, Booking>();
   const drivers = new Map<string, Driver>();
@@ -225,7 +236,21 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     return { ...c, base_price: c.base, coupon_code: code, earning_credited_at: null };
   };
 
-  const isProvider = (user: string) => hosts.has(user) || drivers.has(user);
+  const isProvider = (user: string) =>
+    hosts.has(user) || drivers.has(user) || cleaners.has(user) || [...centerOwners.values()].includes(user);
+
+  /** public.is_wash_job_provider */
+  const isWashProvider = (user: string, w: WashBooking) =>
+    w.cleaner_id === user || (!!w.assigned_vendor_id && centerOwners.get(w.assigned_vendor_id) === user);
+
+  /** tg_wash_settle: the cleaner, else the center owner, is paid on completion. */
+  const settleWash = (w: WashBooking) => {
+    if (w.payment_status !== "paid" || w.earning_credited_at) return;
+    const payee = w.cleaner_id ?? (w.assigned_vendor_id ? centerOwners.get(w.assigned_vendor_id) : undefined);
+    if (payee && payee !== w.customer_id && w.provider_earning > 0) wallet.apply(payee, w.provider_earning, "wash_earning");
+    w.earning_credited_at = clock.now.toISOString();
+    w.progress = null;
+  };
 
   /** Earnings and deposit are released when a paid booking completes (tg_money_settle_*). */
   const settleRental = (b: Booking) => {
@@ -686,6 +711,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
         ...money,
         id: id("wash"),
         customer_id,
+        city: "Bengaluru",
+        cleaner_id: null,
+        progress: null,
         slot_date,
         price: money.customer_total,
         status: "pending",
@@ -728,6 +756,72 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       return { wash: w, refund, percent: pct };
     },
 
+    /* ---------- wash pipeline ---------- */
+    registerCleaner(city = "Bengaluru") {
+      const uid = id("cleaner");
+      cleaners.set(uid, { city, status: "pending", available: true });
+      return uid;
+    },
+    /** public.admin_verify_cleaner */
+    verifyCleaner(actor: string, cleaner_id: string, decision: "approved" | "rejected") {
+      if (!admins.has(actor)) throw new RuleError("Admins only");
+      cleaners.get(cleaner_id)!.status = decision;
+    },
+    setCleanerAvailable(cleaner_id: string, available: boolean) {
+      cleaners.get(cleaner_id)!.available = available;
+    },
+    /** A self-registered washing center (wash_vendors row with owner_id). */
+    registerWashCenter(owner: string) {
+      const vid = id("center");
+      centerOwners.set(vid, owner);
+      return vid;
+    },
+    /** public.wash_job_board */
+    jobBoard(cleaner_id: string) {
+      const c = cleaners.get(cleaner_id);
+      if (!c || c.status !== "approved" || !c.available) return [];
+      return [...washes.values()].filter(
+        (w) =>
+          w.status === "confirmed" && w.payment_status === "paid" && !w.cleaner_id && !w.progress &&
+          !(w.assigned_vendor_id && centerOwners.has(w.assigned_vendor_id)) &&
+          w.city.trim().toLowerCase() === c.city.trim().toLowerCase(),
+      );
+    },
+    /** public.claim_wash_job */
+    claimWashJob(actor: string, wash_id: string) {
+      const c = cleaners.get(actor);
+      if (!c || c.status !== "approved") throw new RuleError("Only verified cleaners can accept jobs");
+      if (!c.available) throw new RuleError("Go online to accept jobs");
+      const w = washes.get(wash_id)!;
+      if (w.cleaner_id || w.progress) throw new RuleError("This job was already taken");
+      if (w.status !== "confirmed" || w.payment_status !== "paid") throw new RuleError("This job is not open yet");
+      if (w.assigned_vendor_id && centerOwners.has(w.assigned_vendor_id))
+        throw new RuleError("This job belongs to a washing center");
+      if (w.city.trim().toLowerCase() !== c.city.trim().toLowerCase()) throw new RuleError("This job is outside your city");
+      if (w.customer_id === actor) throw new RuleError("You cannot accept your own wash");
+      w.cleaner_id = actor;
+      w.progress = "assigned";
+      notify(w.customer_id, "Cleaner assigned");
+      return w;
+    },
+    /** public.advance_wash_job: strictly one step forward. */
+    advanceWashJob(actor: string, wash_id: string, to: (typeof WASH_STEPS)[number]) {
+      const w = washes.get(wash_id)!;
+      if (!isWashProvider(actor, w)) throw new RuleError("This is not your job");
+      if (w.status !== "confirmed" || w.payment_status !== "paid")
+        throw new RuleError("Only paid, confirmed washes can be updated");
+      const cur = w.progress ? WASH_STEPS.indexOf(w.progress) + 1 : 0;
+      if (WASH_STEPS.indexOf(to) !== cur) throw new RuleError(`Next step must be ${WASH_STEPS[cur]}`);
+      if (to === "completed") {
+        w.status = "completed";
+        settleWash(w);
+      } else {
+        w.progress = to;
+        notify(w.customer_id, `Wash ${to}`);
+      }
+      return w;
+    },
+
     /* ---------- money: coupons, settings, withdrawals, promo credit ---------- */
     addCoupon(actor: string, c: Coupon) {
       if (!admins.has(actor)) throw new RuleError("Admins only");
@@ -743,7 +837,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     withdrawable,
     /** public.request_withdrawal */
     requestWithdrawal(actor: string, amount: number, method: "upi" | "bank", details: { upi_id?: string; account_number?: string; ifsc?: string; account_name?: string }) {
-      if (!isProvider(actor)) throw new RuleError("Only hosts and drivers can withdraw earnings");
+      if (!isProvider(actor)) throw new RuleError("Only hosts, drivers, cleaners and washing centers can withdraw earnings");
       const amt = round2(amount);
       if (amt <= 0 || amt < settings.min_withdrawal) throw new RuleError(`Minimum withdrawal is Rs ${settings.min_withdrawal}`);
       const avail = withdrawable(actor);

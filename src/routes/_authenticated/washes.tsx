@@ -57,6 +57,10 @@ const WASH_STEPS = [
   { key: "completed", label: "Completed" },
 ];
 
+/** status stays pending/confirmed/completed; while confirmed, progress holds the in-between step. */
+const washStage = (b: { status: string; progress?: string | null }) =>
+  b.status === "confirmed" && b.progress ? b.progress : b.status;
+
 function WashStepper({ status }: { status: string }) {
   const stepIndex = WASH_STEPS.findIndex((s) => s.key === status);
   const activeIndex = stepIndex === -1 ? 0 : stepIndex;
@@ -280,7 +284,7 @@ function WashesPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge s={b.status} />
+                      <StatusBadge s={washStage(b)} />
                       {b.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
                       {b.payment_status === "refunded" && (
                         <Badge variant="outline" className="border-emerald-300 text-emerald-700">
@@ -297,7 +301,7 @@ function WashesPage() {
 
                   {/* Status stepper */}
                   {b.status !== "cancelled" && b.status !== "rejected" && (
-                    <WashStepper status={b.status} />
+                    <WashStepper status={washStage(b)} />
                   )}
 
                   <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">

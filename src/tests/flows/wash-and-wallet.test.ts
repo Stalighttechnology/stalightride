@@ -110,3 +110,95 @@ describe("refund tier boundaries", () => {
     expect(refundPercent(start, new Date("2026-08-21T00:00:00Z"))).toBe(0);
   });
 });
+
+describe("wash pipeline: cleaners and washing centers", () => {
+  /** A paid, admin-approved wash in Bengaluru assigned to a platform partner (no owner). */
+  function paidWash() {
+    const s = setup();
+    const w = s.be.bookWash(s.customer, "2026-08-20", 499);
+    s.be.adminDecideWash(s.admin, w.id, "confirmed", s.vendor);
+    s.be.wallet.topup(s.customer, w.price);
+    s.be.payWashWithWallet(s.customer, w.id);
+    return { ...s, w };
+  }
+
+  test("only verified, online cleaners in the same city see and claim the job", () => {
+    const { be, admin, w } = paidWash();
+    const ravi = be.registerCleaner("bengaluru ");
+    const anil = be.registerCleaner("Mumbai");
+    expect(be.jobBoard(ravi)).toHaveLength(0);
+    expect(() => be.claimWashJob(ravi, w.id)).toThrow(/verified cleaners/);
+    expect(() => be.verifyCleaner(ravi, ravi, "approved")).toThrow(/Admins only/);
+
+    be.verifyCleaner(admin, ravi, "approved");
+    be.verifyCleaner(admin, anil, "approved");
+    expect(be.jobBoard(anil)).toHaveLength(0);
+    expect(() => be.claimWashJob(anil, w.id)).toThrow(/outside your city/);
+
+    be.setCleanerAvailable(ravi, false);
+    expect(be.jobBoard(ravi)).toHaveLength(0);
+    expect(() => be.claimWashJob(ravi, w.id)).toThrow(/Go online/);
+    be.setCleanerAvailable(ravi, true);
+    expect(be.jobBoard(ravi).map((j) => j.id)).toEqual([w.id]);
+  });
+
+  test("a job can be claimed once; the board empties", () => {
+    const { be, admin, w } = paidWash();
+    const a = be.registerCleaner();
+    const b = be.registerCleaner();
+    be.verifyCleaner(admin, a, "approved");
+    be.verifyCleaner(admin, b, "approved");
+    be.claimWashJob(a, w.id);
+    expect(() => be.claimWashJob(b, w.id)).toThrow(/already taken/);
+    expect(be.jobBoard(b)).toHaveLength(0);
+  });
+
+  test("unpaid jobs are not claimable", () => {
+    const { be, admin, customer, vendor } = setup();
+    const w = be.bookWash(customer, "2026-08-20", 499);
+    be.adminDecideWash(admin, w.id, "confirmed", vendor);
+    const c = be.registerCleaner();
+    be.verifyCleaner(admin, c, "approved");
+    expect(be.jobBoard(c)).toHaveLength(0);
+    expect(() => be.claimWashJob(c, w.id)).toThrow(/not open yet/);
+  });
+
+  test("steps advance strictly in order and only by the job's cleaner; completion pays the cleaner", () => {
+    const { be, admin, w } = paidWash();
+    const c = be.registerCleaner();
+    const stranger = be.registerCleaner();
+    be.verifyCleaner(admin, c, "approved");
+    expect(() => be.advanceWashJob(c, w.id, "on_the_way")).toThrow(/not your job/);
+    be.claimWashJob(c, w.id);
+    expect(() => be.advanceWashJob(stranger, w.id, "on_the_way")).toThrow(/not your job/);
+    expect(() => be.advanceWashJob(c, w.id, "completed")).toThrow(/Next step must be on_the_way/);
+
+    be.advanceWashJob(c, w.id, "on_the_way");
+    be.advanceWashJob(c, w.id, "started");
+    be.advanceWashJob(c, w.id, "completed");
+
+    expect(w).toMatchObject({ status: "completed", progress: null });
+    expect(be.wallet.txns(c)).toEqual([{ user_id: c, amount: w.provider_earning, kind: "wash_earning", balance_after: w.provider_earning }]);
+    expect(be.withdrawable(c)).toBe(w.provider_earning);
+    expect(() => be.advanceWashJob(c, w.id, "completed")).toThrow(/paid, confirmed/);
+  });
+
+  test("a center's jobs stay off the cleaner board; the center runs them and is paid", () => {
+    const { be, admin, customer } = setup();
+    const owner = be.registerCustomer();
+    const center = be.registerWashCenter(owner);
+    const w = be.bookWash(customer, "2026-08-20", 499);
+    be.adminDecideWash(admin, w.id, "confirmed", center);
+    be.wallet.topup(customer, w.price);
+    be.payWashWithWallet(customer, w.id);
+
+    const c = be.registerCleaner();
+    be.verifyCleaner(admin, c, "approved");
+    expect(be.jobBoard(c)).toHaveLength(0);
+    expect(() => be.claimWashJob(c, w.id)).toThrow(/washing center/);
+
+    for (const step of ["assigned", "on_the_way", "started", "completed"] as const) be.advanceWashJob(owner, w.id, step);
+    expect(be.wallet.txns(owner).map((t) => t.kind)).toEqual(["wash_earning"]);
+    expect(be.withdrawable(owner)).toBe(w.provider_earning);
+  });
+});
