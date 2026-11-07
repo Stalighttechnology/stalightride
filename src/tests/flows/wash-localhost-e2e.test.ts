@@ -240,3 +240,4 @@ describe("M11: Vehicle wash localhost integration and acceptance tests (WS-01 to
     expect(wash.payment_status).toBe("paid");
   });
 });
+

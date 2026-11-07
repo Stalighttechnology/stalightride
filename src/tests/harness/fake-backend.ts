@@ -171,6 +171,15 @@ export type PoolTrip = {
   seats_available: number;
   fare_per_seat: number;
   status: "scheduled" | "started" | "completed" | "cancelled";
+  vehicle_label?: string;
+  origin_label?: string;
+  origin_lat?: number;
+  origin_lng?: number;
+  dest_label?: string;
+  dest_lat?: number;
+  dest_lng?: number;
+  route?: { lat: number; lng: number; label?: string }[];
+  notes?: string;
 };
 
 export type PoolRequest = {
@@ -682,8 +691,25 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
     },
 
     /* ---------- car pooling ---------- */
-    createTrip(driver_id: string, args: { depart_at: string; seats_total: number; fare_per_seat: number }) {
-      if (args.seats_total < 1) throw new RuleError("A trip needs at least one seat");
+    createTrip(
+      driver_id: string,
+      args: {
+        depart_at: string;
+        seats_total: number;
+        fare_per_seat: number;
+        vehicle_label?: string;
+        origin_label?: string;
+        origin_lat?: number;
+        origin_lng?: number;
+        dest_label?: string;
+        dest_lat?: number;
+        dest_lng?: number;
+        route?: { lat: number; lng: number; label?: string }[];
+        notes?: string;
+      },
+    ) {
+      if (args.seats_total < 1 || args.seats_total > 8) throw new RuleError("Seats must be between 1 and 8");
+      if (new Date(args.depart_at) <= clock.now) throw new RuleError("Departure must be in the future");
       const t: PoolTrip = {
         id: id("trip"),
         driver_id,
@@ -692,9 +718,23 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
         seats_available: args.seats_total,
         fare_per_seat: args.fare_per_seat,
         status: "scheduled",
+        vehicle_label: args.vehicle_label,
+        origin_label: args.origin_label,
+        origin_lat: args.origin_lat,
+        origin_lng: args.origin_lng,
+        dest_label: args.dest_label,
+        dest_lat: args.dest_lat,
+        dest_lng: args.dest_lng,
+        route: args.route ?? [],
+        notes: args.notes,
       };
       trips.set(t.id, t);
       return t;
+    },
+    getPublicScheduledTrips() {
+      return Array.from(trips.values()).filter(
+        (t) => t.status === "scheduled" && t.seats_available > 0 && new Date(t.depart_at) > clock.now,
+      );
     },
     /** Direct seat tampering is ignored by the trip guard. */
     tamperSeats(trip_id: string, seats: number) {
@@ -706,6 +746,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z")) {
       const t = trips.get(args.trip_id);
       if (!t) throw new RuleError("Trip not found");
       if (t.status !== "scheduled") throw new RuleError("This trip is no longer open");
+      if (new Date(t.depart_at) <= clock.now) throw new RuleError("This trip has already departed");
       if (t.driver_id === args.passenger_id) throw new RuleError("You cannot join your own trip");
       if (args.match_score < 80) throw new RuleError("This trip does not match your route closely enough");
       if (args.seats < 1) throw new RuleError("Request at least one seat");
