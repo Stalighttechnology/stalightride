@@ -78,14 +78,21 @@ function Index() {
         to: "/browse",
         search: {
           city: city || undefined,
-          start: pickupDate || undefined,
-          end: returnDate || undefined,
+          from: pickupDate || undefined,
+          to: returnDate || undefined,
         } as any,
       });
     } else if (service === "driver") {
       navigate({ to: "/drivers", search: { city: city || undefined } as any });
     } else {
-      navigate({ to: "/wash" });
+      navigate({
+        to: "/wash",
+        search: {
+          city: city || undefined,
+          date: pickupDate || undefined,
+          slot: pickupTime || undefined,
+        } as any,
+      });
     }
   };
 
@@ -115,35 +122,38 @@ function Index() {
                 <button
                   type="button"
                   onClick={() => setService("rental")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
                     service === "rental"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Car className="h-4 w-4" /> Vehicle Rental
+                  <Car className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Vehicle Rental</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setService("driver")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
                     service === "driver"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <UserRound className="h-4 w-4" /> Hire Driver
+                  <UserRound className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Hire Driver</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setService("wash")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
                     service === "wash"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Droplets className="h-4 w-4" /> Doorstep Wash
+                  <Droplets className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Doorstep Wash</span>
                 </button>
               </div>
 
@@ -228,6 +238,27 @@ function Index() {
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Reporting time"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {service === "wash" && (
+                  <div className="space-y-1.5 text-xs min-w-0">
+                    <label className="text-[11px] font-medium text-muted-foreground">Preferred wash schedule</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                      <DatePicker
+                        value={pickupDate}
+                        onChange={setPickupDate}
+                        minDate={new Date()}
+                        placeholder="dd-mm-yyyy"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                      />
+                      <TimePicker
+                        value={pickupTime}
+                        onChange={setPickupTime}
+                        placeholder="Preferred time"
                         className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                       />
                     </div>

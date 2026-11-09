@@ -18,8 +18,16 @@ import { toast } from "sonner";
 import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
+import { z } from "zod";
+
+const searchSchema = z.object({
+  city: z.string().optional(),
+  date: z.string().optional(),
+  slot: z.string().optional(),
+});
 
 export const Route = createFileRoute("/wash")({
+  validateSearch: searchSchema,
   component: WashPage,
   head: () => ({
     meta: [
@@ -55,19 +63,31 @@ function todayISO() {
 function WashPage() {
   const { user } = useSession();
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const { city: selectedCity } = useSelectedCity();
   const [services, setServices] = useState<any[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [form, setForm] = useState({
-    city: "",
+    city: search.city ?? "",
     address: "",
     vehicle_label: "",
-    slot_date: todayISO(),
-    slot_time: "10:00",
+    slot_date: search.date ?? todayISO(),
+    slot_time: search.slot ?? "10:00",
     notes: "",
   });
+
+  useEffect(() => {
+    if (search.city || search.date || search.slot) {
+      setForm((f) => ({
+        ...f,
+        ...(search.city ? { city: search.city } : {}),
+        ...(search.date ? { slot_date: search.date } : {}),
+        ...(search.slot ? { slot_time: search.slot } : {}),
+      }));
+    }
+  }, [search.city, search.date, search.slot]);
 
   // Prefill the city from the top-bar city selector, then from the saved profile city.
   useEffect(() => {

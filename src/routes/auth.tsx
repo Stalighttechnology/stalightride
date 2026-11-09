@@ -220,11 +220,11 @@ function AuthPage() {
           <CardContent className="p-6 sm:p-8">
             {/* Logo & Header */}
             <div className="mb-6 flex flex-col items-center text-center gap-2">
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 p-2.5 shadow-sm">
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20 p-2.5 shadow-xs">
                 <img
                   src={synchooMark}
                   alt="Synchoo"
-                  className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(245,158,11,0.35)]"
+                  className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(59,130,246,0.35)]"
                 />
               </div>
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">

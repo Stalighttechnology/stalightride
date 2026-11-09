@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/site-header";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { CitySearch } from "@/components/city-search";
+import { CityPicker } from "@/components/city-picker";
 import { CITIES, useSelectedCity } from "@/components/city-selector";
 
 import { Label } from "@/components/ui/label";
@@ -35,7 +35,13 @@ const search = z.object({
   page: z.number().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
-});
+  start: z.string().optional(),
+  end: z.string().optional(),
+}).transform((val) => ({
+  ...val,
+  from: val.from || val.start,
+  to: val.to || val.end,
+}));
 type Search = z.infer<typeof search>;
 
 export const Route = createFileRoute("/browse")({
@@ -242,9 +248,11 @@ function Browse() {
 
       <div>
         <Label>City</Label>
-        <CitySearch
+        <CityPicker
           value={params.city}
-          cities={cities}
+          allowClear
+          placeholder="All cities"
+          className="mt-1.5 rounded-xl h-10 w-full"
           onChange={(city) => {
             if (!city) saveCity("");
             update({ city: city || undefined });
