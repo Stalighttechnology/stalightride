@@ -240,7 +240,7 @@ function WashPage() {
                     value={form.slot_date}
                     onChange={(d) => setForm({ ...form, slot_date: d })}
                     minDate={new Date()}
-                    placeholder="Select wash date"
+                    placeholder="dd-mm-yyyy"
                   />
                 </div>
                 <div className="grid gap-1.5">

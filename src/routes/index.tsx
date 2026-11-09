@@ -181,7 +181,7 @@ function Index() {
                           value={pickupDate}
                           onChange={setPickupDate}
                           minDate={new Date()}
-                          placeholder="Pickup date"
+                          placeholder="dd-mm-yyyy"
                           className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                         <TimePicker
@@ -199,7 +199,7 @@ function Index() {
                           value={returnDate}
                           onChange={setReturnDate}
                           minDate={pickupDate || new Date()}
-                          placeholder="Return date"
+                          placeholder="dd-mm-yyyy"
                           className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                         <TimePicker
@@ -221,7 +221,7 @@ function Index() {
                         value={pickupDate}
                         onChange={setPickupDate}
                         minDate={new Date()}
-                        placeholder="Reporting date"
+                        placeholder="dd-mm-yyyy"
                         className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                       />
                       <TimePicker

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Wrench,
   AlertTriangle,
@@ -247,12 +248,11 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Service Date</Label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={serviceDate}
-                    onChange={(e) => setServiceDate(e.target.value)}
-                    className="h-8 text-xs"
-                    required
+                    onChange={(d) => setServiceDate(d)}
+                    placeholder="dd-mm-yyyy"
+                    className="h-8 text-xs rounded-md"
                   />
                 </div>
 

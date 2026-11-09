@@ -175,7 +175,7 @@ function Profile() {
                   disabled={status === "approved" || status === "pending"}
                   onChange={(d) => setProfile({ ...profile, dl_expiry: d })}
                   minDate={new Date()}
-                  placeholder="Select licence expiry"
+                  placeholder="dd-mm-yyyy"
                   className="mt-1.5"
                 />
               </div>

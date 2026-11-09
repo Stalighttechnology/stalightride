@@ -196,7 +196,7 @@ function PoolingPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:col-span-2">
               <div className="space-y-1.5">
                 <Label htmlFor="pool-date">Travel date (optional)</Label>
-                <DatePicker id="pool-date" value={date} onChange={setDate} minDate={new Date()} placeholder="Select date" />
+                <DatePicker id="pool-date" value={date} onChange={setDate} minDate={new Date()} placeholder="dd-mm-yyyy" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pool-seats">Seats needed</Label>

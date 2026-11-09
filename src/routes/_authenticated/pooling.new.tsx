@@ -182,7 +182,7 @@ function NewPoolTrip() {
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="depart">Departure date & time</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <DatePicker value={departDate} onChange={setDepartDate} minDate={new Date()} placeholder="Departure date" />
+                  <DatePicker value={departDate} onChange={setDepartDate} minDate={new Date()} placeholder="dd-mm-yyyy" />
                   <TimePicker value={departTime} onChange={setDepartTime} placeholder="Departure time" />
                 </div>
               </div>
