@@ -158,36 +158,40 @@ function Index() {
                 </div>
 
                 {service === "rental" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">Pickup</label>
-                      <div className="grid grid-cols-[1.4fr_1fr] gap-1.5">
+                      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={pickupDate}
                           onChange={setPickupDate}
                           minDate={new Date()}
                           placeholder="Pickup date"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                         <TimePicker
                           value={pickupTime}
                           onChange={setPickupTime}
                           placeholder="Time"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                       </div>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">Return</label>
-                      <div className="grid grid-cols-[1.4fr_1fr] gap-1.5">
+                      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={returnDate}
                           onChange={setReturnDate}
                           minDate={pickupDate || new Date()}
                           placeholder="Return date"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                         <TimePicker
                           value={returnTime}
                           onChange={setReturnTime}
                           placeholder="Time"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                       </div>
                     </div>
@@ -195,19 +199,21 @@ function Index() {
                 )}
 
                 {service === "driver" && (
-                  <div className="space-y-1 text-xs">
+                  <div className="space-y-1.5 text-xs min-w-0">
                     <label className="text-[11px] font-medium text-muted-foreground">When do you need the driver?</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                       <DatePicker
                         value={pickupDate}
                         onChange={setPickupDate}
                         minDate={new Date()}
                         placeholder="Reporting date"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                       />
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Reporting time"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                       />
                     </div>
                   </div>

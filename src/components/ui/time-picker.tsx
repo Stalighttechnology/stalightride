@@ -78,17 +78,15 @@ export function TimePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-3 text-xs sm:text-sm",
+            "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-2.5 text-xs sm:text-sm",
             !value && "text-muted-foreground",
             className
           )}
         >
-          <Clock className="mr-2 h-3.5 w-3.5 shrink-0 opacity-70" />
-          {value ? (
-            <span>{formatTime12h(value)} <span className="text-[10px] text-muted-foreground">({value})</span></span>
-          ) : (
-            <span>{placeholder}</span>
-          )}
+          <Clock className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+          <span className="truncate flex-1">
+            {value ? formatTime12h(value) : placeholder}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="start">
