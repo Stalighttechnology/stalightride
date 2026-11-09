@@ -42,7 +42,6 @@ const DEFAULT_CATEGORIES: CategoryConfig[] = [
   { id: "c2", name: "Electric Vehicles (EV)", key: "ev", minDeposit: 4000, minHours: 4, commissionPct: 10, active: true },
   { id: "c3", name: "Motorcycles / Superbikes", key: "motorcycle", minDeposit: 1500, minHours: 3, commissionPct: 10, active: true },
   { id: "c4", name: "Scooters", key: "scooter", minDeposit: 1000, minHours: 2, commissionPct: 10, active: true },
-  { id: "c5", name: "Bicycles & E-Bikes", key: "bike", minDeposit: 500, minHours: 1, commissionPct: 8, active: true },
 ];
 
 export function CitiesCategoriesTab() {

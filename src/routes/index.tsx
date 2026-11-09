@@ -53,7 +53,6 @@ const CATS = [
   { key: "ev", label: "Electric", desc: "Zero-emission rides" },
   { key: "motorcycle", label: "Motorcycles", desc: "Cruisers & sport" },
   { key: "scooter", label: "Scooters", desc: "Zip through the city" },
-  { key: "bike", label: "Bicycles", desc: "Pedal on your terms" },
 ] as const;
 
 function Index() {

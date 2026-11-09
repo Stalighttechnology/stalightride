@@ -67,7 +67,6 @@ const CATEGORY_CHIPS = [
   { key: "ev", label: "Electric" },
   { key: "motorcycle", label: "Motorcycles" },
   { key: "scooter", label: "Scooters" },
-  { key: "bike", label: "Bicycles" },
 ] as const;
 
 function Browse() {
@@ -286,7 +285,6 @@ function Browse() {
             <SelectItem value="ev">EV</SelectItem>
             <SelectItem value="motorcycle">Motorcycle</SelectItem>
             <SelectItem value="scooter">Scooter</SelectItem>
-            <SelectItem value="bike">Bike</SelectItem>
           </SelectContent>
         </Select>
       </div>
