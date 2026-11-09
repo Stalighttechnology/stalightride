@@ -4,6 +4,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/site-header";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { CitySearch } from "@/components/city-search";
 import { CITIES, useSelectedCity } from "@/components/city-selector";
 
@@ -188,19 +189,23 @@ function Browse() {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Pickup</Label>
-          <Input
-            type="date" min={today} className="mt-1.5 rounded-xl"
+          <Label className="text-xs font-medium">Pickup</Label>
+          <DatePicker
             value={params.from ?? ""}
-            onChange={(e) => update({ from: e.target.value || undefined, to: params.to ?? (e.target.value || undefined) })}
+            minDate={today}
+            placeholder="dd-mm-yyyy"
+            className="mt-1.5 rounded-xl h-10 w-full"
+            onChange={(date) => update({ from: date || undefined, to: params.to ?? (date || undefined) })}
           />
         </div>
         <div>
-          <Label>Return</Label>
-          <Input
-            type="date" min={params.from ?? today} className="mt-1.5 rounded-xl"
+          <Label className="text-xs font-medium">Return</Label>
+          <DatePicker
             value={params.to ?? ""}
-            onChange={(e) => update({ to: e.target.value || undefined, from: params.from ?? (e.target.value || undefined) })}
+            minDate={params.from ?? today}
+            placeholder="dd-mm-yyyy"
+            className="mt-1.5 rounded-xl h-10 w-full"
+            onChange={(date) => update({ to: date || undefined, from: params.from ?? (date || undefined) })}
           />
         </div>
       </div>
