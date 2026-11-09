@@ -31,6 +31,9 @@ import {
   Sparkles,
   Info,
   UserCheck,
+  Check,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import { VendorMaintenanceTab } from "@/components/vendor-maintenance";
 
@@ -73,6 +76,15 @@ const SAMPLE_VEHICLES = [
 ];
 
 const SAMPLE_BOOKINGS = [
+  {
+    id: "b-demo-0",
+    vehicles: { title: "Mahindra Thar 4x4 Petrol AT" },
+    start_date: "14 Nov 2026",
+    end_date: "16 Nov 2026",
+    total_price: 6500,
+    payment_status: "unpaid",
+    status: "pending",
+  },
   {
     id: "b-demo-1",
     vehicles: { title: "Hyundai Creta SX(O) AT" },
@@ -143,6 +155,7 @@ function VendorDashboard() {
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
 
   // Dedicated Host Dashboard Sidebar Tab State
   const [activeTab, setActiveTab] = useState<
@@ -154,7 +167,7 @@ function VendorDashboard() {
     const [{ data: vend }, { data: vhs }, { data: bks }] = await Promise.all([
       supabase.from("vendors").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("vehicles").select("*, vehicle_images(url,sort_order)").eq("vendor_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(10),
+      supabase.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(50),
     ]);
     setVendor(vend);
     setVehicles(vhs ?? []);
@@ -201,6 +214,41 @@ function VendorDashboard() {
     setSaving(false);
   };
 
+  const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
+    setProcessingBookingId(id);
+    try {
+      if (isDemo) {
+        setBookings((prev) => {
+          const base = prev ?? SAMPLE_BOOKINGS;
+          return base.map((b) => (b.id === id ? { ...b, status } : b));
+        });
+        toast.success(
+          status === "confirmed"
+            ? "Booking approved! Guest can now proceed to payment."
+            : "Booking declined",
+        );
+        return;
+      }
+      // Optimistically update UI
+      setBookings((prev) =>
+        prev ? prev.map((b) => (b.id === id ? { ...b, status } : b)) : prev,
+      );
+      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+      if (error) throw error;
+      toast.success(
+        status === "confirmed"
+          ? "Booking approved! Guest can now proceed to payment."
+          : "Booking declined",
+      );
+      await load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update booking status");
+      await load();
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
   // Resolve display data (use database data if present, or demo fleet data for immediate preview)
   const isDemo = !vendor;
   const displayVendor = vendor || {
@@ -212,7 +260,7 @@ function VendorDashboard() {
   // Sample data is only for visitors who haven't registered as a host yet;
   // a real host with no bookings must see zeros, not fake numbers.
   const displayVehicles = isDemo ? SAMPLE_VEHICLES : (vehicles ?? []);
-  const displayBookings = isDemo ? SAMPLE_BOOKINGS : (bookings ?? []);
+  const displayBookings = isDemo ? (bookings ?? SAMPLE_BOOKINGS) : (bookings ?? []);
   const displayPayouts = isDemo ? SAMPLE_PAYOUTS : (payouts ?? []);
   const displayReviews = isDemo ? SAMPLE_REVIEWS : (vendorReviews ?? []);
 
@@ -226,11 +274,18 @@ function VendorDashboard() {
     ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
     : isDemo ? 4.9 : 0;
 
+  const pendingCount = displayBookings.filter((b: any) => b.status === "pending").length;
+
   const sidebarNavItems = [
     { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(displayVehicles.length) },
     { id: "calendar", label: "Availability Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics & Revenue", icon: BarChart3 },
-    { id: "bookings", label: "Bookings & Activity", icon: ClipboardList, badge: String(displayBookings.length) },
+    {
+      id: "bookings",
+      label: "Bookings & Activity",
+      icon: ClipboardList,
+      badge: pendingCount > 0 ? `${pendingCount} pending` : String(displayBookings.length),
+    },
     { id: "payouts", label: "Payouts & Income", icon: Wallet },
     { id: "maintenance", label: "Fleet Health", icon: Wrench },
     { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(displayReviews.length) },
@@ -426,6 +481,31 @@ function VendorDashboard() {
             {/* Tab 1: Fleet & Vehicles */}
             {activeTab === "fleet" && (
               <div className="space-y-6">
+                {pendingCount > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200">
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400">
+                        <ClipboardList className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">
+                          {pendingCount} requested ride{pendingCount === 1 ? "" : "s"} awaiting your approval
+                        </p>
+                        <p className="text-xs opacity-90">
+                          Review and approve incoming reservations so guests can complete their payment.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setActiveTab("bookings")}
+                      className="bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+                    >
+                      Review Requests
+                    </Button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-3">
                   <Stat icon={Car} label="Fleet Size" value={displayVehicles.length} />
                   <Stat icon={Calendar} label="Total Bookings" value={displayBookings.length} />
@@ -498,22 +578,119 @@ function VendorDashboard() {
                       </CardTitle>
                       <CardDescription>Recent reservations, trip windows, and payment statuses</CardDescription>
                     </div>
-                    <Badge variant="outline">{displayBookings.length} Total</Badge>
+                    <div className="flex items-center gap-2">
+                      {pendingCount > 0 && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300">
+                          {pendingCount} Pending
+                        </Badge>
+                      )}
+                      <Badge variant="outline">{displayBookings.length} Total</Badge>
+                    </div>
                   </CardHeader>
                   <CardContent>
+                    {pendingCount > 0 && (
+                      <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>
+                            You have <strong>{pendingCount}</strong> requested ride{pendingCount === 1 ? "" : "s"} waiting for your approval. Guests can pay once you approve.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <ul className="divide-y divide-border">
-                      {displayBookings.map((b: any) => (
-                        <li key={b.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{b.vehicles?.title}</p>
-                            <p className="truncate text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
-                            <Badge variant="outline" className="mt-1 text-[10px]">{b.status}</Badge>
-                          </div>
+                      {displayBookings.length === 0 ? (
+                        <li className="py-8 text-center text-sm text-muted-foreground">
+                          No rental bookings yet.
                         </li>
-                      ))}
+                      ) : (
+                        displayBookings.map((b: any) => {
+                          const isPending = b.status === "pending";
+                          const isProcessing = processingBookingId === b.id;
+                          return (
+                            <li
+                              key={b.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-1 last:pb-1"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate text-sm font-semibold">{b.vehicles?.title ?? "Vehicle"}</p>
+                                  {isPending && (
+                                    <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium">
+                                      Needs approval
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="truncate text-xs text-muted-foreground mt-0.5">
+                                  {b.start_date} → {b.end_date}
+                                  {b.pickup_time && b.dropoff_time && (
+                                    <span className="ml-1.5 opacity-80">
+                                      ({String(b.pickup_time).slice(0, 5)} - {String(b.dropoff_time).slice(0, 5)})
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
+                                <div className="text-left sm:text-right">
+                                  <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
+                                  <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
+                                    <Badge
+                                      variant={
+                                        b.status === "confirmed"
+                                          ? "default"
+                                          : b.status === "completed"
+                                          ? "secondary"
+                                          : b.status === "rejected" || b.status === "cancelled"
+                                          ? "destructive"
+                                          : "outline"
+                                      }
+                                      className={`text-[10px] capitalize ${
+                                        b.status === "confirmed"
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                          : b.status === "pending"
+                                          ? "bg-amber-50 text-amber-700 border-amber-300"
+                                          : ""
+                                      }`}
+                                    >
+                                      {b.status}
+                                    </Badge>
+                                    {b.payment_status === "paid" && (
+                                      <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                                        Paid
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {isPending && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+                                      disabled={isProcessing}
+                                      onClick={() => decideBooking(b.id, "confirmed")}
+                                    >
+                                      <Check className="mr-1 h-3.5 w-3.5" />
+                                      {isProcessing ? "Approving…" : "Approve"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                                      disabled={isProcessing}
+                                      onClick={() => decideBooking(b.id, "rejected")}
+                                    >
+                                      <X className="mr-1 h-3.5 w-3.5" />
+                                      Decline
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })
+                      )}
                     </ul>
                   </CardContent>
                 </Card>
