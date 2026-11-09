@@ -503,7 +503,7 @@ function VendorDashboard() {
               </Card>
 
               {/* Sidebar Navigation */}
-              <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0" aria-label="Host navigation">
+              <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0" aria-label="Host navigation">
                 {sidebarNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;

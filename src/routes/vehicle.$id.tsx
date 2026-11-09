@@ -306,7 +306,7 @@ function VehiclePage() {
                 )}
               </div>
               {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto p-3">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar inapp-scroll p-3">
                   {images.map((im: any, i: number) => (
                     <button
                       key={i}

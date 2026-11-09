@@ -271,7 +271,7 @@ export function SafetyCenterPage() {
                   </Button>
                 </Card>
 
-                <TabsList className="flex flex-row lg:flex-col w-full h-auto bg-transparent p-0 gap-1.5 overflow-x-auto pb-2 lg:pb-0 justify-start">
+                <TabsList className="flex flex-row lg:flex-col w-full h-auto bg-transparent p-0 gap-1.5 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0 justify-start">
                   <TabsTrigger
                     value="breakdown"
                     className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"

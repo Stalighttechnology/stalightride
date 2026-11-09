@@ -115,7 +115,7 @@ function Help() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                   Guide Sections
                 </p>
-                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 text-xs font-medium">
+                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0 text-xs font-medium">
                   {[
                     { label: "1. Getting started", href: "#start", icon: ShieldCheck },
                     { label: "2. Vehicle rentals", href: "#rental", icon: Car },

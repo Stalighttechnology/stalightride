@@ -397,7 +397,7 @@ function Browse() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-          <aside className="hidden surface-card p-5 lg:sticky lg:top-20 lg:block lg:self-start">
+          <aside className="hidden surface-card p-5 lg:sticky lg:top-20 lg:block lg:self-start max-h-[calc(100vh-6rem)] overflow-y-auto inapp-scroll">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
               <Filter className="h-4 w-4 text-brand" />Filters
             </div>
