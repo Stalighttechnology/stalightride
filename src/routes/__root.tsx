@@ -128,7 +128,7 @@ function RootComponent() {
       <SidebarProvider>
         <div className="flex min-h-screen w-full">
           <AppSidebar />
-          <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0 inapp-scroll">
+          <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
             <div className="flex-1"><Outlet /></div>
             <SiteFooter />
           </SidebarInset>

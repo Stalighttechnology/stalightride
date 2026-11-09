@@ -190,10 +190,11 @@
     scrollbar-color: color-mix(in oklab, var(--muted-foreground) 25%, transparent) transparent;
   }
   html {
-    overflow-x: clip;
     max-width: 100%;
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   body {
     background-color: var(--color-background);
@@ -201,9 +202,10 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow-x: clip;
     max-width: 100%;
-    overscroll-behavior-y: none;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   img, svg, video, canvas {
     max-width: 100%;
