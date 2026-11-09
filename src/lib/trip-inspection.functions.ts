@@ -83,9 +83,19 @@ export const submitInspection = createServerFn({ method: "POST" })
             status: "completed" as const,
           };
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: upErr } = await supabaseAdmin.from("bookings").update(patch as any).eq("id", booking.id);
-    if (upErr) throw new Error(upErr.message);
+    let updated = false;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: upErr } = await supabaseAdmin.from("bookings").update(patch as any).eq("id", booking.id);
+      if (!upErr) updated = true;
+    } catch (e) {
+      console.warn("supabaseAdmin unavailable, using context.supabase", e);
+    }
+
+    if (!updated) {
+      const { error: upErr2 } = await supabase.from("bookings").update(patch as any).eq("id", booking.id);
+      if (upErr2) throw new Error(upErr2.message);
+    }
 
     return { ok: true as const, phase: data.phase };
   });

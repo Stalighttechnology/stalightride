@@ -74,9 +74,15 @@ function Bookings() {
       const b = [...(asCustomer ?? []), ...(asVendor ?? [])].find((x) => x.id === id);
       if (b) return cancel(b);
     }
+    setAsVendor((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, status } : x)) : prev));
+    setAsCustomer((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, status } : x)) : prev));
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Booking ${status}`);
+    if (error) {
+      toast.error(error.message);
+      load();
+      return;
+    }
+    toast.success(status === "confirmed" ? "Booking approved! Guest can now proceed to payment." : `Booking ${status}`);
     load();
   };
 

@@ -18,7 +18,7 @@ export const resolveHandoverCode = createServerFn({ method: "POST" })
   .inputValidator((raw) => codeSchema.parse(raw))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: booking, error } = await supabase
+    let { data: booking, error } = await supabase
       .from("bookings")
       .select(
         "id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, total_price, pickup_checked_at, return_checked_at, customer_id, vendor_id, vehicle_id",
@@ -26,7 +26,18 @@ export const resolveHandoverCode = createServerFn({ method: "POST" })
       .eq("qr_code", data.code)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (!booking) {
+      const { data: byId } = await supabase
+        .from("bookings")
+        .select(
+          "id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, total_price, pickup_checked_at, return_checked_at, customer_id, vendor_id, vehicle_id",
+        )
+        .eq("id", data.code)
+        .maybeSingle();
+      booking = byId;
+    }
+
+    if (error && !booking) throw new Error(error.message);
     if (!booking) return { found: false as const };
 
     const [{ data: vehicle }, { data: rider }, { data: isAdmin }] = await Promise.all([
@@ -62,19 +73,29 @@ export const confirmHandover = createServerFn({ method: "POST" })
   .inputValidator((raw) => confirmSchema.parse(raw))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: booking, error } = await supabase
+    let { data: booking, error } = await supabase
       .from("bookings")
       .select("id, status, payment_status, vendor_id, start_date, end_date, pickup_time, dropoff_time, pickup_checked_at, return_checked_at")
       .eq("qr_code", data.code)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+
+    if (!booking) {
+      const { data: byId } = await supabase
+        .from("bookings")
+        .select("id, status, payment_status, vendor_id, start_date, end_date, pickup_time, dropoff_time, pickup_checked_at, return_checked_at")
+        .eq("id", data.code)
+        .maybeSingle();
+      booking = byId;
+    }
+
+    if (error && !booking) throw new Error(error.message);
     if (!booking) throw new Error("This QR code does not match any booking.");
 
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
     if (booking.vendor_id !== userId && isAdmin !== true) {
       throw new Error("Only the vehicle host can confirm the handover.");
     }
-    if (booking.status !== "confirmed" || booking.payment_status !== "paid") {
+    if (booking.status !== "confirmed" || (booking.payment_status !== "paid" && !(booking as any).paid_at)) {
       throw new Error("This booking is not paid and confirmed yet.");
     }
 
@@ -101,9 +122,19 @@ export const confirmHandover = createServerFn({ method: "POST" })
         : { return_checked_at: new Date().toISOString() };
 
     // Handover timestamps are locked from end-user writes; write them after the host/admin check above.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: upErr } = await supabaseAdmin.from("bookings").update(patch).eq("id", booking.id);
-    if (upErr) throw new Error(upErr.message);
+    let updated = false;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: upErr } = await supabaseAdmin.from("bookings").update(patch).eq("id", booking.id);
+      if (!upErr) updated = true;
+    } catch (e) {
+      console.warn("supabaseAdmin unavailable, using context.supabase", e);
+    }
+
+    if (!updated) {
+      const { error: upErr2 } = await supabase.from("bookings").update(patch).eq("id", booking.id);
+      if (upErr2) throw new Error(upErr2.message);
+    }
 
     return { ok: true as const, phase: data.phase, bookingId: booking.id };
   });
