@@ -350,18 +350,40 @@ function VehiclePage() {
                   <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/60">
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={CalendarDays} label="Pickup date">
-                        <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <DatePicker
+                          value={start}
+                          onChange={(d) => setStart(d)}
+                          minDate={new Date()}
+                          placeholder="dd-mm-yyyy"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                       <SlotField icon={CalendarDays} label="Return date">
-                        <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} min={start || new Date().toISOString().slice(0, 10)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <DatePicker
+                          value={end}
+                          onChange={(d) => setEnd(d)}
+                          minDate={start || new Date()}
+                          placeholder="dd-mm-yyyy"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={Clock} label="Pickup time">
-                        <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <TimePicker
+                          value={pickupTime}
+                          onChange={(t) => setPickupTime(t)}
+                          placeholder="Select time"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                       <SlotField icon={Clock} label="Drop-off time">
-                        <Input type="time" value={dropoffTime} onChange={(e) => setDropoffTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <TimePicker
+                          value={dropoffTime}
+                          onChange={(t) => setDropoffTime(t)}
+                          placeholder="Select time"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                     </div>
                   </div>

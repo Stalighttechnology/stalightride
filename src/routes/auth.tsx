@@ -22,6 +22,14 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+function formatAuthError(err: any): string {
+  const msg = (err?.message || (typeof err === "string" ? err : "")).trim();
+  if (!msg || msg.toLowerCase().includes("failed to fetch")) {
+    return "Cannot connect to Supabase. The project may be paused in your Supabase dashboard or the backend URL is unreachable.";
+  }
+  return msg;
+}
+
 function AuthPage() {
   const { mode: initialMode } = Route.useSearch();
   const [tab, setTab] = useState<"signin" | "signup">(initialMode === "signup" ? "signup" : "signin");
@@ -78,7 +86,7 @@ function AuthPage() {
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error(formatAuthError(error));
         setLoading(false);
         return;
       }
@@ -88,7 +96,7 @@ function AuthPage() {
         navigate({ to: (await landingPathForUser(data.user.id)) as any });
       }
     } catch (err: any) {
-      toast.error(err?.message || "Sign in failed");
+      toast.error(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -119,7 +127,7 @@ function AuthPage() {
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error(formatAuthError(error));
         setLoading(false);
         return;
       }
@@ -134,7 +142,7 @@ function AuthPage() {
         setTab("signin");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Registration failed");
+      toast.error(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -155,13 +163,13 @@ function AuthPage() {
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error(formatAuthError(error));
       } else {
         toast.success("Password reset link sent! Please check your inbox.");
         setShowForgotPassword(false);
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to send reset link");
+      toast.error(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -179,11 +187,11 @@ function AuthPage() {
       });
 
       if (error) {
-        toast.error(error.message ?? "Google sign-in failed");
+        toast.error(formatAuthError(error));
         setLoading(false);
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "Google sign-in failed");
+      toast.error(formatAuthError(err));
       setLoading(false);
     }
   };

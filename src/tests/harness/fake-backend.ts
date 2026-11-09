@@ -20,7 +20,7 @@
  * 20261107120000_money_phase1b.sql.
  */
 
-import { computeCharges, round2, type Charges, type PlatformSettings } from "@/lib/charges";
+import { computeCharges, round2, type Charges, type PlatformSettings as FeeSettings } from "@/lib/charges";
 import { calculateRentalPrice } from "@/lib/format";
 import { calculateDriverPrice } from "@/lib/driver-pricing";
 
@@ -32,7 +32,7 @@ export class RuleError extends Error {}
 const day = 86_400_000;
 
 /** Harness default: fees off, so legacy flow tests keep their round numbers. */
-export const ZERO_FEES: PlatformSettings = { commission_pct: 0, service_fee_pct: 0, gst_pct: 0, min_withdrawal: 500 };
+export const ZERO_FEES: FeeSettings = { commission_pct: 0, service_fee_pct: 0, gst_pct: 0, min_withdrawal: 500 };
 
 export type Money = Charges & { base_price: number; coupon_code: string | null; earning_credited_at: string | null };
 
@@ -382,9 +382,9 @@ const id = (p: string) => `${p}_${++seq}`;
 
 const EARNING_KINDS = ["booking_earning", "driver_earning", "driver_refund_reversal"];
 
-export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSettings: PlatformSettings = ZERO_FEES) {
+export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSettings: FeeSettings = ZERO_FEES) {
   const clock = { now };
-  const settings: PlatformSettings = { ...initialSettings };
+  const settings: FeeSettings = { ...initialSettings };
   const profiles = new Map<
     string,
     {
@@ -1937,7 +1937,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       coupons.set(coupon.code, coupon);
       return coupon;
     },
-    updateSettings(actor: string, patch: Partial<PlatformSettings>) {
+    updateSettings(actor: string, patch: Partial<FeeSettings>) {
       if (!admins.has(actor)) throw new RuleError("Admins only");
       Object.assign(settings, patch);
       return settings;

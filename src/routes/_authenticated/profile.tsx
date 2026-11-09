@@ -1,4 +1,5 @@
 import { CityPicker } from "@/components/city-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -167,7 +168,17 @@ function Profile() {
           <form onSubmit={submitDl} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div><Label>Licence number</Label><Input value={profile.dl_number ?? ""} disabled={status === "approved" || status === "pending"} onChange={(e) => setProfile({ ...profile, dl_number: e.target.value })} placeholder="DL-XX-YYYY-NNNNNNN" /></div>
-              <div><Label>Expiry date</Label><Input type="date" value={profile.dl_expiry ?? ""} disabled={status === "approved" || status === "pending"} onChange={(e) => setProfile({ ...profile, dl_expiry: e.target.value })} min={new Date().toISOString().slice(0, 10)} /></div>
+              <div>
+                <Label>Expiry date</Label>
+                <DatePicker
+                  value={profile.dl_expiry ?? ""}
+                  disabled={status === "approved" || status === "pending"}
+                  onChange={(d) => setProfile({ ...profile, dl_expiry: d })}
+                  minDate={new Date()}
+                  placeholder="Select licence expiry"
+                  className="mt-1.5"
+                />
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { format, parseISO } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,8 +11,10 @@ export interface DatePickerProps {
   onChange?: (isoDate: string) => void;
   minDate?: string | Date;
   placeholder?: string;
+  formatStr?: string;
   className?: string;
   disabled?: boolean;
+  clearable?: boolean;
   id?: string;
 }
 
@@ -20,9 +22,11 @@ export function DatePicker({
   value,
   onChange,
   minDate,
-  placeholder = "Select date",
+  placeholder = "dd-mm-yyyy",
+  formatStr = "d MMM yyyy",
   className,
   disabled,
+  clearable = true,
   id,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
@@ -37,15 +41,12 @@ export function DatePicker({
     }
   }, [value]);
 
-  const min = React.useMemo(() => {
+  const minMidnight = React.useMemo(() => {
     if (!minDate) return undefined;
-    if (minDate instanceof Date) return minDate;
-    try {
-      const parsed = parseISO(minDate);
-      return isNaN(parsed.getTime()) ? undefined : parsed;
-    } catch {
-      return undefined;
-    }
+    const d = minDate instanceof Date ? new Date(minDate.getTime()) : parseISO(minDate);
+    if (isNaN(d.getTime())) return undefined;
+    d.setHours(0, 0, 0, 0);
+    return d;
   }, [minDate]);
 
   const handleSelect = (date: Date | undefined) => {
@@ -69,16 +70,33 @@ export function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-3 text-xs sm:text-sm",
+            "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-3 text-xs sm:text-sm",
             !selectedDate && "text-muted-foreground",
             className
           )}
         >
           <CalendarDays className="mr-2 h-3.5 w-3.5 shrink-0 opacity-70" />
-          {selectedDate ? (
-            format(selectedDate, "EEE, d MMM yyyy")
-          ) : (
-            <span>{placeholder}</span>
+          <span className="truncate flex-1">
+            {selectedDate ? (
+              format(selectedDate, formatStr)
+            ) : (
+              <span>{placeholder}</span>
+            )}
+          </span>
+          {clearable && selectedDate && !disabled && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear date"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onChange?.("");
+              }}
+              className="ml-1 -mr-1 rounded-full p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </span>
           )}
         </Button>
       </PopoverTrigger>
@@ -87,7 +105,7 @@ export function DatePicker({
           mode="single"
           selected={selectedDate}
           onSelect={handleSelect}
-          disabled={min ? (d) => d < new Date(min.setHours(0, 0, 0, 0)) : undefined}
+          disabled={minMidnight ? (d) => d < minMidnight : undefined}
           initialFocus
         />
       </PopoverContent>

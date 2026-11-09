@@ -235,12 +235,12 @@ function WashPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="grid gap-1.5 min-w-0">
                   <Label htmlFor="wash-date">Date</Label>
-                  <Input
+                  <DatePicker
                     id="wash-date"
-                    type="date"
-                    min={todayISO()}
                     value={form.slot_date}
-                    onChange={(e) => setForm({ ...form, slot_date: e.target.value })}
+                    onChange={(d) => setForm({ ...form, slot_date: d })}
+                    minDate={new Date()}
+                    placeholder="Select wash date"
                   />
                 </div>
                 <div className="grid gap-1.5">
