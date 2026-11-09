@@ -325,8 +325,21 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {role === "vendor" && b.status === "pending" && (
                       <>
-                        <Button size="sm" className="btn-gradient rounded-full" onClick={() => onAction(b.id, "confirmed")}>Accept request</Button>
-                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => onAction(b.id, "rejected")}>Decline</Button>
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-xs"
+                          onClick={() => onAction(b.id, "confirmed")}
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-full"
+                          onClick={() => onAction(b.id, "rejected")}
+                        >
+                          <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
+                        </Button>
                       </>
                     )}
                     {(b.status === "pending" || b.status === "confirmed") && !b.pickup_checked_at && (role === "customer" || b.status === "confirmed") && (

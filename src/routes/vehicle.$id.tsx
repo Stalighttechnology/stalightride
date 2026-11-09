@@ -370,10 +370,20 @@ function VehiclePage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={Clock} label="Pickup time">
-                        <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <TimePicker
+                          value={pickupTime}
+                          onChange={(t) => setPickupTime(t)}
+                          placeholder="Select time"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                       <SlotField icon={Clock} label="Drop-off time">
-                        <Input type="time" value={dropoffTime} onChange={(e) => setDropoffTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <TimePicker
+                          value={dropoffTime}
+                          onChange={(t) => setDropoffTime(t)}
+                          placeholder="Select time"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                     </div>
                   </div>
