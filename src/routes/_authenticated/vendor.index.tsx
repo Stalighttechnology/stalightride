@@ -393,7 +393,7 @@ function VendorDashboard() {
       id: "bookings",
       label: "Bookings & Activity",
       icon: ClipboardList,
-      badge: pendingCount > 0 ? `${pendingCount} pending` : String(displayBookings.length),
+      badge: pendingCount > 0 ? String(pendingCount) : String(displayBookings.length),
     },
     { id: "payouts", label: "Payouts & Income", icon: Wallet },
     { id: "maintenance", label: "Fleet Health", icon: Wrench },
@@ -550,15 +550,19 @@ function VendorDashboard() {
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`} />
-                        <span>{item.label}</span>
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
-                          className={`text-[10px] px-1.5 py-0 ${
-                            isActive ? "bg-white/20 text-brand-foreground border-transparent" : "text-muted-foreground"
+                          className={`text-[10px] px-2 py-0 shrink-0 font-medium ${
+                            isActive
+                              ? "bg-white/20 text-brand-foreground border-transparent"
+                              : item.id === "bookings" && pendingCount > 0
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 font-semibold"
+                                : "text-muted-foreground"
                           }`}
                         >
                           {item.badge}
@@ -1012,12 +1016,12 @@ function VehiclesGrid({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {vehicles.map((v) => {
         const img = v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0];
         const url = img ? urls[img.url] : null;
         return (
-          <Card key={v.id} className="overflow-hidden group hover:border-brand/40 transition-colors">
+          <Card key={v.id} className="overflow-hidden group hover:border-brand/40 transition-colors flex flex-col justify-between">
             <div className="relative aspect-[16/9] overflow-hidden bg-muted">
               {url ? (
                 <img
@@ -1031,38 +1035,40 @@ function VehiclesGrid({
                 </div>
               )}
             </div>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold text-foreground">{v.title}</div>
-                  <div className="truncate text-xs text-muted-foreground">{v.city || "Operating city unassigned"}</div>
-                </div>
-                <Badge
-                  variant={
-                    v.verification_status === "approved"
-                      ? "secondary"
+            <CardContent className="p-4 flex flex-col justify-between flex-1">
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-foreground">{v.title}</div>
+                    <div className="truncate text-xs text-muted-foreground">{v.city || "Operating city unassigned"}</div>
+                  </div>
+                  <Badge
+                    variant={
+                      v.verification_status === "approved"
+                        ? "secondary"
+                        : v.verification_status === "rejected"
+                          ? "destructive"
+                          : "outline"
+                    }
+                    className="shrink-0 text-[11px]"
+                  >
+                    {v.verification_status === "approved"
+                      ? v.status === "active"
+                        ? "Live"
+                        : v.status
                       : v.verification_status === "rejected"
-                        ? "destructive"
-                        : "outline"
-                  }
-                  className="shrink-0 text-[11px]"
-                >
-                  {v.verification_status === "approved"
-                    ? v.status === "active"
-                      ? "Live"
-                      : v.status
-                    : v.verification_status === "rejected"
-                      ? "Rejected"
-                      : "Pending review"}
-                </Badge>
+                        ? "Rejected"
+                        : "Pending review"}
+                  </Badge>
+                </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-sm">
-                <div>
-                  <span className="font-semibold text-foreground">{currency(v.price_daily)}</span>
+              <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <span className="font-semibold text-foreground text-sm sm:text-base">{currency(v.price_daily)}</span>
                   <span className="text-xs text-muted-foreground"> / day</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs rounded-lg">
                     <Link to="/vehicle/$id" params={{ id: v.id }}>
                       <Eye className="mr-1 h-3.5 w-3.5" /> View
                     </Link>
@@ -1072,7 +1078,7 @@ function VehiclesGrid({
                       variant="outline"
                       size="sm"
                       disabled={isDeletingId === v.id}
-                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 rounded-lg shrink-0"
                       onClick={() => onDelete(v)}
                       title="Delete vehicle listing"
                     >
