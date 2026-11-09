@@ -156,7 +156,13 @@ function Browse() {
         .eq("status", "active")
         .order("created_at", { ascending: false })
         .range(from, to);
-      if (params.category) q = q.eq("category", params.category as any);
+      if (params.category) {
+        if (params.category === "motorcycle" || params.category === "bike") {
+          q = q.in("category", ["motorcycle", "bike"]);
+        } else {
+          q = q.eq("category", params.category as any);
+        }
+      }
       if (params.transmission) q = q.eq("transmission", params.transmission as any);
       if (params.fuel) q = q.eq("fuel", params.fuel as any);
       if (params.city) q = q.ilike("city", `%${params.city.trim()}%`);
@@ -285,7 +291,10 @@ function Browse() {
 
       <div>
         <Label>Category</Label>
-        <Select value={params.category ?? "any"} onValueChange={(v) => update({ category: v === "any" ? undefined : v })}>
+        <Select
+          value={params.category === "bike" ? "motorcycle" : (params.category ?? "any")}
+          onValueChange={(v) => update({ category: v === "any" ? undefined : v })}
+        >
           <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Any</SelectItem>
@@ -491,7 +500,9 @@ function VehicleCard({
             <div className="grid h-full w-full place-items-center text-sm text-muted-foreground">No image</div>
           )}
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" />
-          <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">{v.category}</Badge>
+          <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">
+            {v.category === "bike" ? "Motorcycle" : v.category}
+          </Badge>
           <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium">
             <Star className="h-3.5 w-3.5 fill-brand text-brand" />
             {Number(v.avg_rating).toFixed(1)}

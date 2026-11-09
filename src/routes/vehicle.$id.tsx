@@ -298,7 +298,9 @@ function VehiclePage() {
                   </div>
                 )}
                 <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
-                <Badge className="absolute left-4 top-4 rounded-full bg-background/85 capitalize text-foreground backdrop-blur">{v.category}</Badge>
+                <Badge className="absolute left-4 top-4 rounded-full bg-background/85 capitalize text-foreground backdrop-blur">
+                  {v.category === "bike" ? "Motorcycle" : v.category}
+                </Badge>
                 {images.length > 1 && (
                   <span className="absolute bottom-4 right-4 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium backdrop-blur">
                     {activeImg + 1} / {images.length}
