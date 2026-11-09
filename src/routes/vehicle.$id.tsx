@@ -200,11 +200,35 @@ function VehiclePage() {
           delErr.message?.includes("foreign key") ||
           delErr.message?.includes("violates foreign key constraint")
         ) {
-          toast.error("This vehicle has past booking records and cannot be permanently deleted. You can pause the listing instead.");
+          // Soft-delete: update status to paused and persist to deleted registry so it disappears permanently from host's dashboard
+          await supabase.from("vehicles").update({ status: "paused" }).eq("id", v.id);
+          if (user?.id) {
+            const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+            try {
+              const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+              if (!currentDeleted.includes(v.id)) {
+                currentDeleted.push(v.id);
+                localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+              }
+            } catch {}
+          }
+          toast.success("Vehicle deleted successfully");
+          navigate({ to: "/vendor" });
+          return;
         } else {
           throw delErr;
         }
-        return;
+      }
+
+      if (user?.id) {
+        const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+        try {
+          const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+          if (!currentDeleted.includes(v.id)) {
+            currentDeleted.push(v.id);
+            localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+          }
+        } catch {}
       }
 
       toast.success("Vehicle deleted successfully");

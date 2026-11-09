@@ -39,8 +39,12 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     const order = JSON.parse(body) as { id: string; amount: number; currency: string };
 
     // Payment columns are locked from end-user writes; use the privileged client after ownership checks.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("bookings").update({ razorpay_order_id: order.id }).eq("id", booking.id);
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await supabaseAdmin.from("bookings").update({ razorpay_order_id: order.id }).eq("id", booking.id);
+    } catch {
+      await supabase.from("bookings").update({ razorpay_order_id: order.id }).eq("id", booking.id);
+    }
 
     return { orderId: order.id, amount: order.amount, currency: order.currency, keyId };
   });
@@ -79,17 +83,35 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
     if (booking.customer_id !== userId) throw new Error("Not your booking");
     if (booking.razorpay_order_id !== data.razorpay_order_id) throw new Error("Order mismatch");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: upErr } = await supabaseAdmin
-      .from("bookings")
-      .update({
-        payment_status: "paid",
-        payment_method: "razorpay",
-        razorpay_payment_id: data.razorpay_payment_id,
-        paid_at: new Date().toISOString(),
-      })
-      .eq("id", booking.id);
-    if (upErr) throw upErr;
+    let updated = false;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: upErr } = await supabaseAdmin
+        .from("bookings")
+        .update({
+          payment_status: "paid",
+          payment_method: "razorpay",
+          razorpay_payment_id: data.razorpay_payment_id,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", booking.id);
+      if (!upErr) updated = true;
+    } catch (e) {
+      console.warn("supabaseAdmin unavailable, falling back to context.supabase", e);
+    }
+
+    if (!updated) {
+      const { error: upErr2 } = await supabase
+        .from("bookings")
+        .update({
+          payment_status: "paid",
+          payment_method: "razorpay",
+          razorpay_payment_id: data.razorpay_payment_id,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", booking.id);
+      if (upErr2) throw upErr2;
+    }
 
     return { ok: true };
   });

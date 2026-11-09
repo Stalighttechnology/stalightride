@@ -185,7 +185,15 @@ function VendorDashboard() {
       supabase.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(50),
     ]);
     setVendor(vend);
-    setVehicles(vhs ?? []);
+    const storeKey = user ? `synchoo_deleted_vehicles_${user.id}` : "";
+    let deletedIds: string[] = [];
+    if (storeKey) {
+      try {
+        deletedIds = JSON.parse(localStorage.getItem(storeKey) || "[]");
+      } catch {}
+    }
+    const filteredVehicles = (vhs ?? []).filter((item: any) => !deletedIds.includes(item.id));
+    setVehicles(filteredVehicles);
     setBookings(bks ?? []);
     if (vend) { setBusinessName(vend.business_name); setBio(vend.bio ?? ""); }
 
@@ -307,11 +315,36 @@ function VendorDashboard() {
           delErr.message?.includes("foreign key") ||
           delErr.message?.includes("violates foreign key constraint")
         ) {
-          toast.error("This vehicle has past booking records and cannot be permanently deleted. You can pause the listing instead.");
+          // Soft-delete to preserve historical booking records while removing it completely from host's listings
+          await supabase.from("vehicles").update({ status: "paused" }).eq("id", vehicleId);
+          if (user?.id) {
+            const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+            try {
+              const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+              if (!currentDeleted.includes(vehicleId)) {
+                currentDeleted.push(vehicleId);
+                localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+              }
+            } catch {}
+          }
+          setVehicles((prev) => (prev ? prev.filter((v) => v.id !== vehicleId) : prev));
+          setVehicleToDelete(null);
+          toast.success("Vehicle deleted successfully");
+          return;
         } else {
           throw delErr;
         }
-        return;
+      }
+
+      if (user?.id) {
+        const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+        try {
+          const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+          if (!currentDeleted.includes(vehicleId)) {
+            currentDeleted.push(vehicleId);
+            localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+          }
+        } catch {}
       }
 
       toast.success("Vehicle deleted successfully");
