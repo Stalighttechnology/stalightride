@@ -20,7 +20,7 @@ import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import {
   MapPin, Star, Search, Filter, ChevronLeft, ChevronRight,
-  Fuel, Settings2, CalendarDays, ShieldCheck, CarFront,
+  Fuel, Settings2, CalendarDays, ShieldCheck, CarFront, X,
 } from "lucide-react";
 
 const PAGE_SIZE = 12;
@@ -76,12 +76,41 @@ function Browse() {
   const { city: savedCity, select: saveCity } = useSelectedCity();
   const [items, setItems] = useState<Vehicle[] | null>(null);
   const [total, setTotal] = useState<number>(0);
-  const [maxPrice, setMaxPrice] = useState<number>(params.max ?? 5000);
+  const [maxPrice, setMaxPrice] = useState<number>(params.max ?? 20000);
   const [cities, setCities] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState(params.q ?? "");
   const page = Math.max(1, params.page ?? 1);
 
-  const update = (patch: Partial<Search>) =>
-    navigate({ to: "/browse", search: { ...params, page: 1, ...patch } as any });
+  const update = (patch: Partial<Search>) => {
+    const next = { ...params, page: 1, ...patch };
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(next)) {
+      if (v !== undefined && v !== "" && v !== null && v !== "any") {
+        clean[k] = v;
+      }
+    }
+    navigate({ to: "/browse", search: clean as any });
+  };
+
+  // Sync search input and max price when params change
+  useEffect(() => {
+    setSearchInput(params.q ?? "");
+  }, [params.q]);
+
+  useEffect(() => {
+    setMaxPrice(params.max ?? 20000);
+  }, [params.max]);
+
+  // Debounce live typing search so results update automatically
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      if ((params.q ?? "") !== trimmed) {
+        update({ q: trimmed || undefined });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Adopt the city chosen in the top navigation on first visit.
   useEffect(() => {
@@ -111,7 +140,6 @@ function Browse() {
         .map((r: any) => (typeof r === "string" ? r : r.booked_vehicle_ids ?? r.vehicle_id))
         .filter(Boolean);
 
-
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       let q = supabase
@@ -126,8 +154,20 @@ function Browse() {
       if (params.category) q = q.eq("category", params.category as any);
       if (params.transmission) q = q.eq("transmission", params.transmission as any);
       if (params.fuel) q = q.eq("fuel", params.fuel as any);
-      if (params.city) q = q.ilike("city", `%${params.city}%`);
-      if (params.q) q = q.or(`title.ilike.%${params.q}%,brand.ilike.%${params.q}%,model.ilike.%${params.q}%`);
+      if (params.city) q = q.ilike("city", `%${params.city.trim()}%`);
+
+      const cleanQ = params.q?.trim().replace(/[,()]/g, "");
+      if (cleanQ) {
+        const words = cleanQ.split(/\s+/).filter(Boolean);
+        if (words.length > 1) {
+          for (const w of words) {
+            q = q.or(`title.ilike.%${w}%,brand.ilike.%${w}%,model.ilike.%${w}%`);
+          }
+        } else {
+          q = q.or(`title.ilike.%${cleanQ}%,brand.ilike.%${cleanQ}%,model.ilike.%${cleanQ}%`);
+        }
+      }
+
       if (params.max) q = q.lte("price_daily", params.max);
       if (unavailable.length) q = q.not("id", "in", `(${unavailable.join(",")})`);
       const { data, count } = await q;
@@ -174,17 +214,43 @@ function Browse() {
         <div className="relative mt-1.5">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            className="rounded-xl pl-9"
+            className="rounded-xl pl-9 pr-9"
             placeholder="Brand, model or title"
-            defaultValue={params.q}
-            onBlur={(e) => update({ q: e.target.value || undefined })}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                update({ q: searchInput.trim() || undefined });
+              }
+            }}
           />
+          {searchInput && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                setSearchInput("");
+                update({ q: undefined });
+              }}
+              className="absolute right-2.5 top-2.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
       <div>
         <Label>City</Label>
-        <CitySearch value={params.city} cities={cities} onChange={(city) => update({ city })} />
+        <CitySearch
+          value={params.city}
+          cities={cities}
+          onChange={(city) => {
+            if (!city) saveCity("");
+            update({ city: city || undefined });
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -261,7 +327,16 @@ function Browse() {
         <Slider className="mt-3" min={200} max={20000} step={100} value={[maxPrice]} onValueChange={(v) => setMaxPrice(v[0])} onValueCommit={(v) => update({ max: v[0] })} />
       </div>
 
-      <Button variant="outline" className="w-full rounded-xl" onClick={() => navigate({ to: "/browse", search: {} as any })}>
+      <Button
+        variant="outline"
+        className="w-full rounded-xl"
+        onClick={() => {
+          setSearchInput("");
+          setMaxPrice(20000);
+          saveCity("");
+          navigate({ to: "/browse", search: {} as any });
+        }}
+      >
         Clear filters
       </Button>
     </div>
