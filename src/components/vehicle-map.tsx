@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Navigation, MapPin, ExternalLink, ShieldCheck } from "lucide-react";
+import { mapsBrowserKey } from "@/lib/gmaps";
 
 interface Props {
   query?: string;
@@ -50,9 +51,7 @@ export function VehicleMap({ query, lat, lng, className }: Props) {
   // If a valid authorized API key is set, use the Google Maps Embed v1 API.
   // Otherwise, use the standard Google Maps web embed endpoint which renders real Google Maps
   // with zero 403 API restriction errors and without quota issues.
-  const apiKey =
-    (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
-    (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
+  const apiKey = mapsBrowserKey();
 
   const googleMapsEmbedUrl = useMemo(() => {
     const locQuery = `${coords.lat},${coords.lng}`;

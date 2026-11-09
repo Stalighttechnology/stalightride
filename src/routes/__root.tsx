@@ -8,6 +8,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { landingPathForUser } from "@/lib/post-login";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
@@ -102,10 +103,20 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+
+      if (typeof window !== "undefined" && window.location.hash.includes("access_token") && session?.user) {
+        try {
+          const target = await landingPathForUser(session.user.id);
+          window.history.replaceState(null, "", window.location.pathname);
+          router.navigate({ to: target as any });
+        } catch {
+          // ignore
+        }
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [queryClient, router]);

@@ -18,7 +18,13 @@ if (typeof window !== "undefined") {
 }
 
 export function mapsBrowserKey(): string | undefined {
-  return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
+  return (
+    (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
+    (import.meta.env.VITE_MAPS_API_KEY as string | undefined) ||
+    (import.meta.env.VITE_GOOGLE_MAP_API_KEY as string | undefined) ||
+    (import.meta.env.VITE_GMAPS_API_KEY as string | undefined) ||
+    (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined)
+  );
 }
 
 export function loadGoogleMaps(): Promise<void> {
@@ -37,7 +43,7 @@ export function loadGoogleMaps(): Promise<void> {
       key,
       loading: "async",
       callback: CALLBACK,
-      libraries: "marker,places,geometry",
+      libraries: "marker,places,geometry,geocoding",
       v: "weekly",
     });
     if (channel) params.set("channel", channel);
