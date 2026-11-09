@@ -75,7 +75,14 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
     if (error) throw error;
     if (!topup) throw new Error("Top-up not found");
     if (topup.user_id !== userId) throw new Error("Not your top-up");
-    if (topup.status === "paid") return { ok: true, alreadyCredited: true };
+    if (topup.status === "paid") {
+      const { data: w } = await supabaseAdmin
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return { ok: true, alreadyCredited: true, newBalance: Number(w?.balance ?? 0) };
+    }
 
     const { error: upErr } = await supabaseAdmin
       .from("wallet_topups")
@@ -84,7 +91,7 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
       .eq("status", "created");
     if (upErr) throw upErr;
 
-    const { error: rpcErr } = await supabaseAdmin.rpc("wallet_apply", {
+    const { data: newBal, error: rpcErr } = await supabaseAdmin.rpc("wallet_apply", {
       _user_id: userId,
       _amount: Number(topup.amount),
       _kind: "topup",
@@ -94,5 +101,5 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
     });
     if (rpcErr) throw rpcErr;
 
-    return { ok: true, alreadyCredited: false };
+    return { ok: true, alreadyCredited: false, newBalance: Number(newBal) };
   });

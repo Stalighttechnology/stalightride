@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "sonner";
-import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Banknote, Gift } from "lucide-react";
+import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Banknote, Gift, RotateCw } from "lucide-react";
 import { createWalletTopupOrder, verifyWalletTopup } from "@/lib/wallet.functions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { PayoutsCard } from "@/components/payouts-card";
@@ -57,28 +57,59 @@ function WalletPage() {
   const [txns, setTxns] = useState<any[] | null>(null);
   const [amount, setAmount] = useState("500");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const createOrder = useServerFn(createWalletTopupOrder);
   const verify = useServerFn(verifyWalletTopup);
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [w, t] = await Promise.all([
-      supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-      supabase
-        .from("wallet_transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-    ]);
-    setBalance(Number(w.data?.balance ?? 0));
-    setTxns(t.data ?? []);
+    setRefreshing(true);
+    try {
+      const [w, t] = await Promise.all([
+        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        supabase
+          .from("wallet_transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+      setBalance(Number(w.data?.balance ?? 0));
+      setTxns(t.data ?? []);
+    } catch (e) {
+      console.error("Wallet refresh failed:", e);
+    } finally {
+      setRefreshing(false);
+    }
   }, [user?.id]);
 
   useEffect(() => {
+    if (!user) return;
     load();
-  }, [load]);
+
+    const channel = supabase
+      .channel(`wallet_realtime_${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` },
+        () => {
+          load();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` },
+        () => {
+          load();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, load]);
 
   const addMoney = async () => {
     const amt = Number(amount);
@@ -96,9 +127,12 @@ function WalletPage() {
         prefill: { email: user?.email ?? undefined, name: user?.user_metadata?.full_name ?? undefined },
         onSuccess: async (resp) => {
           try {
-            await verify({ data: resp });
+            const res = await verify({ data: resp });
+            if (typeof (res as any)?.newBalance === "number") {
+              setBalance((res as any).newBalance);
+            }
             toast.success("Money added to your wallet");
-            load();
+            await load();
           } catch (e: any) {
             toast.error(e.message ?? "Could not verify the payment");
           }
@@ -125,8 +159,20 @@ function WalletPage() {
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <Card>
             <CardContent className="p-5">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <WalletIcon className="h-4 w-4" /> Available
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <WalletIcon className="h-4 w-4" /> Available
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => load()}
+                  disabled={refreshing}
+                  title="Refresh wallet balance"
+                >
+                  <RotateCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                </Button>
               </div>
               {balance === null ? (
                 <Skeleton className="mt-2 h-9 w-24" />
