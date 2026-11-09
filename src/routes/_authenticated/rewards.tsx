@@ -173,6 +173,9 @@ export function RewardsPage() {
               <Badge variant="secondary" className="text-amber-800 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300">
                 Gold Tier Member
               </Badge>
+              <Badge variant="outline" className="text-xs border-amber-300/60">
+                Early Access Preview
+              </Badge>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
               Synchoo Rewards & Point Hub

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site-header";
+import { SupportTicketForm } from "@/components/support-ticket-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -398,6 +399,11 @@ function Help() {
               </AccordionItem>
             ))}
           </Accordion>
+        </section>
+
+        {/* Raise a Support Ticket Form */}
+        <section className="mt-12" id="ticket-support">
+          <SupportTicketForm defaultCategory="Other" />
         </section>
 
         {/* Footer CTAs */}

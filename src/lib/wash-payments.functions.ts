@@ -8,9 +8,8 @@ export const createWashRazorpayOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ washBookingId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const keyId = process.env["RAZORPAY_KEY_ID"];
-    const keySecret = process.env["RAZORPAY_KEY_SECRET"];
-    if (!keyId || !keySecret) throw new Error("Payments are not configured");
+    const { getRazorpayCredentials } = await import("@/lib/razorpay.server");
+    const { keyId, keySecret } = getRazorpayCredentials();
 
     const { data: booking, error } = await supabase
       .from("wash_bookings")
@@ -63,8 +62,8 @@ export const verifyWashRazorpayPayment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const keySecret = process.env["RAZORPAY_KEY_SECRET"];
-    if (!keySecret) throw new Error("Payments are not configured");
+    const { getRazorpayCredentials } = await import("@/lib/razorpay.server");
+    const { keySecret } = getRazorpayCredentials();
 
     const { createHmac, timingSafeEqual } = await import("crypto");
     const expected = createHmac("sha256", keySecret)
