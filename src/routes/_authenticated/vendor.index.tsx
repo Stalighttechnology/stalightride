@@ -34,7 +34,19 @@ import {
   Check,
   X,
   AlertCircle,
+  Trash2,
+  Eye,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { VendorMaintenanceTab } from "@/components/vendor-maintenance";
 
 export const Route = createFileRoute("/_authenticated/vendor/")({ component: VendorDashboard });
@@ -156,6 +168,9 @@ function VendorDashboard() {
   const [saving, setSaving] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [demoVehicles, setDemoVehicles] = useState<any[]>(SAMPLE_VEHICLES);
 
   // Dedicated Host Dashboard Sidebar Tab State
   const [activeTab, setActiveTab] = useState<
@@ -249,6 +264,67 @@ function VendorDashboard() {
     }
   };
 
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    setIsDeleting(true);
+    try {
+      if (isDemo) {
+        setDemoVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
+        toast.success("Vehicle deleted successfully");
+        setVehicleToDelete(null);
+        return;
+      }
+
+      // 1. Check for active or upcoming bookings
+      const { data: activeBookings, error: bErr } = await supabase
+        .from("bookings")
+        .select("id, status")
+        .eq("vehicle_id", vehicleId)
+        .in("status", ["pending", "confirmed"]);
+
+      if (bErr) throw bErr;
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast.error("Cannot delete vehicle with active or upcoming reservations. Please complete or cancel them first.");
+        return;
+      }
+
+      // 2. Remove storage images if any
+      const target = vehicles?.find((x) => x.id === vehicleId);
+      const imagePaths = target?.vehicle_images?.map((img: any) => img.url).filter(Boolean);
+      if (imagePaths && imagePaths.length > 0) {
+        try {
+          await supabase.storage.from("vehicle-images").remove(imagePaths);
+        } catch {
+          // non-blocking storage cleanup
+        }
+      }
+
+      // 3. Delete vehicle from database (cascades to vehicle_images, availability_blocks, vehicle_features, etc.)
+      const { error: delErr } = await supabase.from("vehicles").delete().eq("id", vehicleId);
+      if (delErr) {
+        if (
+          delErr.code === "23503" ||
+          delErr.message?.includes("foreign key") ||
+          delErr.message?.includes("violates foreign key constraint")
+        ) {
+          toast.error("This vehicle has past booking records and cannot be permanently deleted. You can pause the listing instead.");
+        } else {
+          throw delErr;
+        }
+        return;
+      }
+
+      toast.success("Vehicle deleted successfully");
+      setVehicles((prev) => (prev ? prev.filter((v) => v.id !== vehicleId) : prev));
+      setVehicleToDelete(null);
+      await load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete vehicle");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Resolve display data (use database data if present, or demo fleet data for immediate preview)
   const isDemo = !vendor;
   const displayVendor = vendor || {
@@ -259,7 +335,7 @@ function VendorDashboard() {
 
   // Sample data is only for visitors who haven't registered as a host yet;
   // a real host with no bookings must see zeros, not fake numbers.
-  const displayVehicles = isDemo ? SAMPLE_VEHICLES : (vehicles ?? []);
+  const displayVehicles = isDemo ? demoVehicles : (vehicles ?? []);
   const displayBookings = isDemo ? (bookings ?? SAMPLE_BOOKINGS) : (bookings ?? []);
   const displayPayouts = isDemo ? SAMPLE_PAYOUTS : (payouts ?? []);
   const displayReviews = isDemo ? SAMPLE_REVIEWS : (vendorReviews ?? []);
@@ -527,9 +603,51 @@ function VendorDashboard() {
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    <VehiclesGrid vehicles={displayVehicles} />
+                    <VehiclesGrid
+                      vehicles={displayVehicles}
+                      onDelete={(v) => setVehicleToDelete(v)}
+                      isDeletingId={isDeleting ? vehicleToDelete?.id : null}
+                    />
                   </CardContent>
                 </Card>
+
+                {/* Delete Confirmation Dialog */}
+                <AlertDialog
+                  open={!!vehicleToDelete}
+                  onOpenChange={(open) => !open && !isDeleting && setVehicleToDelete(null)}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                        <Trash2 className="h-5 w-5" /> Delete Vehicle Listing?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-2">
+                        <p>
+                          Are you sure you want to delete{" "}
+                          <span className="font-semibold text-foreground">{vehicleToDelete?.title}</span>?
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          This will permanently delete this vehicle from your fleet, including all uploaded photos and specifications. This action cannot be undone.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={isDeleting}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (vehicleToDelete) {
+                            handleDeleteVehicle(vehicleToDelete.id);
+                          }
+                        }}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                      >
+                        {isDeleting ? "Deleting..." : "Delete Vehicle"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             )}
 
@@ -827,32 +945,109 @@ function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: a
   );
 }
 
-function VehiclesGrid({ vehicles }: { vehicles: any[] }) {
-  const paths = vehicles.map((v) => v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0]?.url);
+function VehiclesGrid({
+  vehicles,
+  onDelete,
+  isDeletingId,
+}: {
+  vehicles: any[];
+  onDelete?: (vehicle: any) => void;
+  isDeletingId?: string | null;
+}) {
+  const paths = vehicles.map(
+    (v) => v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0]?.url,
+  );
   const urls = useSignedUrls("vehicle-images", paths);
+
+  if (vehicles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 p-12 text-center">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-muted text-muted-foreground">
+          <Car className="h-6 w-6" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold">No vehicles listed yet</h3>
+        <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+          List your vehicle to start accepting rental bookings and earning as a verified host.
+        </p>
+        <Button asChild size="sm" className="mt-4">
+          <Link to="/vendor/vehicles/new">
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Vehicle
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {vehicles.map((v) => {
         const img = v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0];
         const url = img ? urls[img.url] : null;
         return (
-          <Card key={v.id} className="overflow-hidden">
-            <div className="aspect-[16/9] overflow-hidden bg-muted">
-              {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+          <Card key={v.id} className="overflow-hidden group hover:border-brand/40 transition-colors">
+            <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+              {url ? (
+                <img
+                  src={url}
+                  alt={v.title}
+                  className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-muted-foreground">
+                  <Car className="h-8 w-8 opacity-40" />
+                </div>
+              )}
             </div>
             <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{v.title}</div>
-                  <div className="truncate text-xs text-muted-foreground">{v.city}</div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold text-foreground">{v.title}</div>
+                  <div className="truncate text-xs text-muted-foreground">{v.city || "Operating city unassigned"}</div>
                 </div>
-                <Badge variant={v.verification_status === "approved" ? "secondary" : v.verification_status === "rejected" ? "destructive" : "outline"}>
-                  {v.verification_status === "approved" ? (v.status === "active" ? "Live" : v.status) : v.verification_status === "rejected" ? "Rejected" : "Pending review"}
+                <Badge
+                  variant={
+                    v.verification_status === "approved"
+                      ? "secondary"
+                      : v.verification_status === "rejected"
+                        ? "destructive"
+                        : "outline"
+                  }
+                  className="shrink-0 text-[11px]"
+                >
+                  {v.verification_status === "approved"
+                    ? v.status === "active"
+                      ? "Live"
+                      : v.status
+                    : v.verification_status === "rejected"
+                      ? "Rejected"
+                      : "Pending review"}
                 </Badge>
               </div>
-              <div className="mt-2 flex justify-between text-sm">
-                <span>{currency(v.price_daily)} / day</span>
-                <Link to="/vehicle/$id" params={{ id: v.id }} className="text-foreground hover:underline">View</Link>
+              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-sm">
+                <div>
+                  <span className="font-semibold text-foreground">{currency(v.price_daily)}</span>
+                  <span className="text-xs text-muted-foreground"> / day</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs">
+                    <Link to="/vehicle/$id" params={{ id: v.id }}>
+                      <Eye className="mr-1 h-3.5 w-3.5" /> View
+                    </Link>
+                  </Button>
+                  {onDelete && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isDeletingId === v.id}
+                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                      onClick={() => onDelete(v)}
+                      title="Delete vehicle listing"
+                    >
+                      <Trash2 className="mr-1 h-3.5 w-3.5" />
+                      {isDeletingId === v.id ? "Deleting..." : "Delete"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

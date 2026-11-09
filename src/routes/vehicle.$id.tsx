@@ -18,7 +18,18 @@ import { toast } from "sonner";
 import {
   Star, MapPin, Users, Fuel, Cog, Gauge, Heart, ShieldCheck,
   Clock, CalendarDays, CircleAlert, Loader2, ArrowRight, QrCode, Navigation, ImageOff, MessageSquareQuote,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSession } from "@/hooks/use-session";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -55,6 +66,8 @@ function VehiclePage() {
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [booking, setBooking] = useState(false);
   const [wished, setWished] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   useEffect(() => {
@@ -154,6 +167,55 @@ function VehiclePage() {
     }
   };
 
+  const handleDeleteVehicle = async () => {
+    if (!v) return;
+    setIsDeleting(true);
+    try {
+      const { data: activeBookings, error: bErr } = await supabase
+        .from("bookings")
+        .select("id, status")
+        .eq("vehicle_id", v.id)
+        .in("status", ["pending", "confirmed"]);
+
+      if (bErr) throw bErr;
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast.error("Cannot delete vehicle with active or upcoming reservations. Please complete or cancel them first.");
+        return;
+      }
+
+      const imagePaths = v.vehicle_images?.map((img: any) => img.url).filter(Boolean);
+      if (imagePaths && imagePaths.length > 0) {
+        try {
+          await supabase.storage.from("vehicle-images").remove(imagePaths);
+        } catch {
+          // non-blocking
+        }
+      }
+
+      const { error: delErr } = await supabase.from("vehicles").delete().eq("id", v.id);
+      if (delErr) {
+        if (
+          delErr.code === "23503" ||
+          delErr.message?.includes("foreign key") ||
+          delErr.message?.includes("violates foreign key constraint")
+        ) {
+          toast.error("This vehicle has past booking records and cannot be permanently deleted. You can pause the listing instead.");
+        } else {
+          throw delErr;
+        }
+        return;
+      }
+
+      toast.success("Vehicle deleted successfully");
+      navigate({ to: "/vendor" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete vehicle");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   if (!v) return (
     <div className="min-h-screen bg-background"><SiteHeader />
@@ -195,10 +257,22 @@ function VehiclePage() {
             <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
             <p className="text-sm text-muted-foreground">{v.brand} {v.model} · {v.year}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={toggleWish}>
-            <Heart className={`mr-2 h-4 w-4 ${wished ? "fill-foreground text-foreground" : ""}`} />
-            {wished ? "Saved" : "Save"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={toggleWish}>
+              <Heart className={`mr-2 h-4 w-4 ${wished ? "fill-foreground text-foreground" : ""}`} />
+              {wished ? "Saved" : "Save"}
+            </Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" /> Delete Vehicle
+              </Button>
+            )}
+          </div>
         </div>
 
         {isOwner && v.verification_status !== "approved" && (
@@ -478,6 +552,38 @@ function VehiclePage() {
 
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => !open && !isDeleting && setShowDeleteDialog(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> Delete Vehicle Listing?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to delete <span className="font-semibold text-foreground">{v.title}</span>?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This will permanently delete this vehicle from your fleet, including all photos, documents, and specifications. This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteVehicle();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {isDeleting ? "Deleting..." : "Delete Vehicle"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

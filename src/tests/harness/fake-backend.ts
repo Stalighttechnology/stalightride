@@ -640,6 +640,21 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       notify(v.vendor_id, `Vehicle ${decision}`);
       return v;
     },
+    deleteVehicle(actor: string, vehicle_id: string) {
+      const v = vehicles.get(vehicle_id);
+      if (!v) throw new RuleError("Vehicle not found");
+      if (v.vendor_id !== actor && !admins.has(actor)) {
+        throw new RuleError("Only the vehicle host or admin can delete this vehicle");
+      }
+      const hasActiveBookings = [...bookings.values()].some(
+        (b) => b.vehicle_id === vehicle_id && ["pending", "confirmed"].includes(b.status),
+      );
+      if (hasActiveBookings) {
+        throw new RuleError("Cannot delete vehicle with active or upcoming bookings");
+      }
+      vehicles.delete(vehicle_id);
+      return true;
+    },
     /** What an anonymous visitor sees in Browse Rides for a date range and optional city. */
     browse(startDate?: string, endDate?: string, city?: string) {
       if (city && cities.get(city)?.active === false) {
