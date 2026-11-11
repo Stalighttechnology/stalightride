@@ -8,9 +8,8 @@ export const createWalletTopupOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ amount: z.number().positive().max(200000) }).parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keyId || !keySecret) throw new Error("Payments are not configured");
+    const { getRazorpayCredentials } = await import("@/lib/razorpay.server");
+    const { keyId, keySecret } = getRazorpayCredentials();
 
     const amount = Math.round(data.amount);
     if (amount < 1) throw new Error("Enter a valid amount");
@@ -56,8 +55,8 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { userId } = context;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keySecret) throw new Error("Payments are not configured");
+    const { getRazorpayCredentials } = await import("@/lib/razorpay.server");
+    const { keySecret } = getRazorpayCredentials();
 
     const { createHmac, timingSafeEqual } = await import("crypto");
     const expected = createHmac("sha256", keySecret)
@@ -76,7 +75,14 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
     if (error) throw error;
     if (!topup) throw new Error("Top-up not found");
     if (topup.user_id !== userId) throw new Error("Not your top-up");
-    if (topup.status === "paid") return { ok: true, alreadyCredited: true };
+    if (topup.status === "paid") {
+      const { data: w } = await supabaseAdmin
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+      return { ok: true, alreadyCredited: true, newBalance: Number(w?.balance ?? 0) };
+    }
 
     const { error: upErr } = await supabaseAdmin
       .from("wallet_topups")
@@ -85,7 +91,7 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
       .eq("status", "created");
     if (upErr) throw upErr;
 
-    const { error: rpcErr } = await supabaseAdmin.rpc("wallet_apply", {
+    const { data: newBal, error: rpcErr } = await supabaseAdmin.rpc("wallet_apply", {
       _user_id: userId,
       _amount: Number(topup.amount),
       _kind: "topup",
@@ -95,5 +101,5 @@ export const verifyWalletTopup = createServerFn({ method: "POST" })
     });
     if (rpcErr) throw rpcErr;
 
-    return { ok: true, alreadyCredited: false };
+    return { ok: true, alreadyCredited: false, newBalance: Number(newBal) };
   });

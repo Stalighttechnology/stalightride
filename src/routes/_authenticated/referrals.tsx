@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ComingSoonBanner, comingSoon } from "@/components/coming-soon";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +13,10 @@ import {
   Gift,
   Copy,
   Share2,
-  CheckCircle2,
   Users,
   Sparkles,
   Award,
   HelpCircle,
-  FileText,
-  Clock,
-  ArrowRight,
   TrendingUp,
 } from "lucide-react";
 
@@ -46,21 +42,56 @@ interface ReferralEvent {
 export function ReferralsPage() {
   const { user } = useSession();
   const [activeTab, setActiveTab] = useState<"overview" | "activity" | "rules">("overview");
+  const [referralCode, setReferralCode] = useState(
+    user?.id ? `SYN-${user.id.slice(0, 6).toUpperCase()}` : "SYN-RIDE500"
+  );
+  const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<ReferralEvent[]>([]);
+  const [_loading, setLoading] = useState(true);
 
-  const referralCode = (user?.id ? `SYN-${user.id.slice(0, 6).toUpperCase()}` : "SYN-RIDE500");
   const referralLink = `https://synchoo.in/join?ref=${referralCode}`;
 
-  const [copied, setCopied] = useState(false);
-  const [history] = useState<ReferralEvent[]>([
-    { id: "1", friendName: "Karthik Rajan", email: "karthik.r@gmail.com", status: "First Trip Completed", earnedAmount: 500, date: "3 days ago" },
-    { id: "2", friendName: "Sneha Nair", email: "sneha.nair@outlook.com", status: "First Trip Completed", earnedAmount: 500, date: "1 week ago" },
-    { id: "3", friendName: "Manish Joshi", email: "manish.j@company.org", status: "Account Created", earnedAmount: 0, date: "Yesterday" },
-    { id: "4", friendName: "Rohan Verma", email: "rohan.v@tech.in", status: "Invite Sent", earnedAmount: 0, date: "2 hours ago" },
-  ]);
+  useEffect(() => {
+    if (!user) return;
+
+    (async () => {
+      // 1. Load user's referral code
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("referral_code")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.referral_code) {
+        setReferralCode(profile.referral_code);
+      }
+
+      // 2. Load friends referred by this user
+      const { data: friends } = await supabase
+        .from("profiles")
+        .select("id, full_name, created_at, referral_rewarded")
+        .eq("referred_by", user.id)
+        .order("created_at", { ascending: false });
+
+      if (friends && friends.length > 0) {
+        setHistory(
+          friends.map((f) => ({
+            id: f.id,
+            friendName: f.full_name || "Friend",
+            email: "Verified User",
+            status: f.referral_rewarded ? "First Trip Completed" : "Account Created",
+            earnedAmount: f.referral_rewarded ? 500 : 0,
+            date: new Date(f.created_at).toLocaleDateString(),
+          }))
+        );
+      } else {
+        setHistory([]);
+      }
+      setLoading(false);
+    })();
+  }, [user?.id]);
 
   const copyToClipboard = () => {
-    comingSoon();
-    return;
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     toast.success("Referral link copied to clipboard!");
@@ -68,8 +99,6 @@ export function ReferralsPage() {
   };
 
   const shareViaWhatsApp = () => {
-    comingSoon();
-    return;
     const text = `Join Synchoo for self-drive car rentals, driver hire, and doorstep washes! Use my link to get ₹500 OFF your first trip: ${referralLink}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -88,7 +117,6 @@ export function ReferralsPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-6">
-        <ComingSoonBanner feature="Refer & Earn" />
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
@@ -115,7 +143,7 @@ export function ReferralsPage() {
               </Link>
             </Button>
             <Button size="sm" onClick={shareViaWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share on WhatsApp
+              <Share2 className="mr-1.5 h-4 w-4" /> Share WhatsApp
             </Button>
           </div>
         </div>
@@ -320,32 +348,38 @@ export function ReferralsPage() {
                     <Badge variant="outline">{history.length} Total Invites</Badge>
                   </CardHeader>
                   <CardContent>
-                    <div className="divide-y divide-border">
-                      {history.map((item) => (
-                        <div key={item.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-sm">{item.friendName}</p>
-                              <Badge
-                                variant={item.status === "First Trip Completed" ? "secondary" : "outline"}
-                                className={item.status === "First Trip Completed" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]" : "text-[10px]"}
-                              >
-                                {item.status}
-                              </Badge>
+                    {history.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        No friends have joined using your link yet. Share your code to start earning!
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {history.map((item) => (
+                          <div key={item.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm">{item.friendName}</p>
+                                <Badge
+                                  variant={item.status === "First Trip Completed" ? "secondary" : "outline"}
+                                  className={item.status === "First Trip Completed" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]" : "text-[10px]"}
+                                >
+                                  {item.status}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">{item.email} · {item.date}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">{item.email} · {item.date}</p>
-                          </div>
 
-                          <div className="text-right">
-                            {item.earnedAmount > 0 ? (
-                              <p className="font-bold text-sm text-emerald-600">+{currency(item.earnedAmount)} Credited</p>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Pending trip completion</p>
-                            )}
+                            <div className="text-right">
+                              {item.earnedAmount > 0 ? (
+                                <p className="font-bold text-sm text-emerald-600">+{currency(item.earnedAmount)} Credited</p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Pending trip completion</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

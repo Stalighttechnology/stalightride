@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "@/lib/gmaps";
+import { loadGoogleMaps, mapsBrowserKey } from "@/lib/gmaps";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ interface Props {
  * - Vendor/admin: sees the customer's live position on a map, updated via Supabase Realtime.
  */
 export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, className }: Props) {
-  const key = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
+  const key = mapsBrowserKey();
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapObj = useRef<any>(null);
   const carMarker = useRef<any>(null);

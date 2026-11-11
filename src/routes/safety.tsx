@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
+import { supabase } from "@/integrations/supabase/client";
+import { SupportTicketForm } from "@/components/support-ticket-form";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,61 +65,141 @@ export function SafetyCenterPage() {
   const [submittingLost, setSubmittingLost] = useState(false);
 
   // Emergency contacts state
-  const [contacts, setContacts] = useState<EmergencyContact[]>([
-    { id: "1", name: "Family Primary Contact", relationship: "Spouse / Parent", phone: "+91 98765 00001" },
-  ]);
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [newContactName, setNewContactName] = useState("");
   const [newContactRelation, setNewContactRelation] = useState("Parent");
   const [newContactPhone, setNewContactPhone] = useState("");
 
-  const handleIncidentSubmit = (e: React.FormEvent) => {
+  const loadTrustedContacts = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("trusted_contacts")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+    if (data) {
+      setContacts(
+        data.map((c) => ({
+          id: c.id,
+          name: c.name,
+          relationship: c.relationship || "Contact",
+          phone: c.phone,
+        }))
+      );
+    }
+  };
+
+  useEffect(() => {
+    loadTrustedContacts();
+  }, [user?.id]);
+
+  const handleIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!incidentBookingId.trim() || !incidentDesc.trim()) {
-      return toast.error("Provide booking ID and incident description");
+    if (!user) {
+      return toast.error("Please sign in to report an incident");
+    }
+    if (!incidentDesc.trim()) {
+      return toast.error("Provide incident description");
     }
     setSubmittingIncident(true);
-    setTimeout(() => {
-      setSubmittingIncident(false);
-      toast.success("Incident report filed! Our 24/7 Safety Team has been notified and will call you.");
-      setIncidentBookingId("");
-      setIncidentLocation("");
-      setIncidentDesc("");
-    }, 600);
+
+    const { error } = await supabase.from("incidents").insert({
+      reporter_id: user.id,
+      type: incidentType,
+      booking_id: incidentBookingId.trim() || null,
+      location_text: incidentLocation.trim() || null,
+      description: incidentDesc.trim(),
+      status: "open",
+    });
+
+    setSubmittingIncident(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Incident report filed! Our 24/7 Safety Team has been notified and will call you.");
+    setIncidentBookingId("");
+    setIncidentLocation("");
+    setIncidentDesc("");
   };
 
-  const handleLostSubmit = (e: React.FormEvent) => {
+  const handleLostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!lostItemName.trim() || !lostTripId.trim()) {
-      return toast.error("Provide item name and trip reference");
+    if (!user) {
+      return toast.error("Please sign in to file a lost & found report");
+    }
+    if (!lostItemName.trim()) {
+      return toast.error("Provide item name");
     }
     setSubmittingLost(true);
-    setTimeout(() => {
-      setSubmittingLost(false);
-      toast.success("Lost & Found report submitted! We have notified your vehicle host.");
-      setLostItemName("");
-      setLostTripId("");
-      setLostDesc("");
-    }, 500);
+
+    const { error } = await supabase.from("incidents").insert({
+      reporter_id: user.id,
+      type: "lost_item",
+      booking_id: lostTripId.trim() || null,
+      item_name: lostItemName.trim(),
+      description: lostDesc.trim() || null,
+      status: "open",
+    });
+
+    setSubmittingLost(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Lost & Found report submitted! We have notified your vehicle host.");
+    setLostItemName("");
+    setLostTripId("");
+    setLostDesc("");
   };
 
-  const addEmergencyContact = (e: React.FormEvent) => {
+  const addEmergencyContact = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      return toast.error("Please sign in to save emergency contacts");
+    }
     if (!newContactName.trim() || !newContactPhone.trim()) {
       return toast.error("Provide contact name and phone number");
     }
-    const c: EmergencyContact = {
-      id: String(Date.now()),
-      name: newContactName.trim(),
-      relationship: newContactRelation,
-      phone: newContactPhone.trim(),
-    };
-    setContacts([...contacts, c]);
+
+    const { data, error } = await supabase
+      .from("trusted_contacts")
+      .insert({
+        user_id: user.id,
+        name: newContactName.trim(),
+        relationship: newContactRelation,
+        phone: newContactPhone.trim(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setContacts([
+      ...contacts,
+      {
+        id: data.id,
+        name: data.name,
+        relationship: data.relationship || "Contact",
+        phone: data.phone,
+      },
+    ]);
     setNewContactName("");
     setNewContactPhone("");
     toast.success("Trusted emergency contact saved!");
   };
 
-  const removeContact = (id: string) => {
+  const removeContact = async (id: string) => {
+    const { error } = await supabase.from("trusted_contacts").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setContacts(contacts.filter((c) => c.id !== id));
     toast.success("Emergency contact removed");
   };
@@ -189,7 +271,7 @@ export function SafetyCenterPage() {
                   </Button>
                 </Card>
 
-                <TabsList className="flex flex-row lg:flex-col w-full h-auto bg-transparent p-0 gap-1.5 overflow-x-auto pb-2 lg:pb-0 justify-start">
+                <TabsList className="flex flex-row lg:flex-col w-full h-auto bg-transparent p-0 gap-1.5 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0 justify-start">
                   <TabsTrigger
                     value="breakdown"
                     className="w-full justify-start text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-border bg-card data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:border-brand whitespace-nowrap"

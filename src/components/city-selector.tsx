@@ -48,11 +48,11 @@ export function CitySelector({ className }: { className?: string }) {
           className={cn("h-8 sm:h-9 gap-1.5 rounded-full px-2 sm:pl-2.5 sm:pr-2", className)}
           aria-label="Select your city"
         >
-          <MapPin className="h-4 w-4 text-brand" />
-          <span className="hidden max-w-[7rem] truncate text-xs font-medium sm:inline sm:text-sm">
+          <MapPin className="h-4 w-4 text-brand shrink-0" />
+          <span className="max-w-[4.5rem] sm:max-w-[7rem] truncate text-xs font-medium sm:text-sm">
             {city ?? "Select city"}
           </span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+          <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

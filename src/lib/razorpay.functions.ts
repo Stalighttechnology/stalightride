@@ -8,9 +8,8 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ bookingId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keyId || !keySecret) throw new Error("Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+    const { getRazorpayCredentials } = await import("@/lib/razorpay.server");
+    const { keyId, keySecret } = getRazorpayCredentials();
 
     const { data: booking, error } = await supabase
       .from("bookings")
@@ -40,8 +39,12 @@ export const createRazorpayOrder = createServerFn({ method: "POST" })
     const order = JSON.parse(body) as { id: string; amount: number; currency: string };
 
     // Payment columns are locked from end-user writes; use the privileged client after ownership checks.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("bookings").update({ razorpay_order_id: order.id }).eq("id", booking.id);
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await supabaseAdmin.from("bookings").update({ razorpay_order_id: order.id }).eq("id", booking.id);
+    } catch {
+      await supabase.from("bookings").update({ razorpay_order_id: order.id }).eq("id", booking.id);
+    }
 
     return { orderId: order.id, amount: order.amount, currency: order.currency, keyId };
   });
@@ -59,8 +62,8 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keySecret) throw new Error("Razorpay is not configured");
+    const { getRazorpayCredentials } = await import("@/lib/razorpay.server");
+    const { keySecret } = getRazorpayCredentials();
 
     const { createHmac, timingSafeEqual } = await import("crypto");
     const expected = createHmac("sha256", keySecret)
@@ -80,17 +83,35 @@ export const verifyRazorpayPayment = createServerFn({ method: "POST" })
     if (booking.customer_id !== userId) throw new Error("Not your booking");
     if (booking.razorpay_order_id !== data.razorpay_order_id) throw new Error("Order mismatch");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: upErr } = await supabaseAdmin
-      .from("bookings")
-      .update({
-        payment_status: "paid",
-        payment_method: "razorpay",
-        razorpay_payment_id: data.razorpay_payment_id,
-        paid_at: new Date().toISOString(),
-      })
-      .eq("id", booking.id);
-    if (upErr) throw upErr;
+    let updated = false;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: upErr } = await supabaseAdmin
+        .from("bookings")
+        .update({
+          payment_status: "paid",
+          payment_method: "razorpay",
+          razorpay_payment_id: data.razorpay_payment_id,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", booking.id);
+      if (!upErr) updated = true;
+    } catch (e) {
+      console.warn("supabaseAdmin unavailable, falling back to context.supabase", e);
+    }
+
+    if (!updated) {
+      const { error: upErr2 } = await supabase
+        .from("bookings")
+        .update({
+          payment_status: "paid",
+          payment_method: "razorpay",
+          razorpay_payment_id: data.razorpay_payment_id,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", booking.id);
+      if (upErr2) throw upErr2;
+    }
 
     return { ok: true };
   });

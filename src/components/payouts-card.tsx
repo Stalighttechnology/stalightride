@@ -62,13 +62,13 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
       supabase.from("vendors").select("id").eq("id", userId).maybeSingle(),
       supabase.from("drivers").select("id").eq("id", userId).maybeSingle(),
       supabase.from("cleaners").select("id").eq("id", userId).maybeSingle(),
-      supabase.from("wash_vendors").select("id").eq("owner_id", userId).maybeSingle(),
+      supabase.from("wash_centers").select("id").eq("id", userId).maybeSingle(),
     ]);
     const provider = !!v.data || !!d.data || !!c.data || !!wc.data;
     setIsProvider(provider);
     if (!provider) return;
-    // Wash jobs this user is paid for: as the cleaner, or as the center owner.
-    const washFilter = wc.data ? `cleaner_id.eq.${userId},assigned_vendor_id.eq.${wc.data.id}` : `cleaner_id.eq.${userId}`;
+    // Wash jobs this user is paid for: as the cleaner, or as the center (a center's vendor id is its user id).
+    const washFilter = `assigned_cleaner_id.eq.${userId},assigned_vendor_id.eq.${userId}`;
     const [w, hist, rentals, hires, washes] = await Promise.all([
       supabase.rpc("withdrawable_balance", {}),
       supabase

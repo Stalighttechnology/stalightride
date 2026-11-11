@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/hooks/use-session";
 import type { Tables } from "@/integrations/supabase/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ interface TripSafetyExtensionProps {
 }
 
 export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: TripSafetyExtensionProps) {
+  const { user } = useSession();
   const [sosOpen, setSosOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [selectedHours, setSelectedHours] = useState<number>(6);
@@ -66,11 +68,33 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
     onExtensionSubmitted?.();
   };
 
+  const recordSosIncident = async (lat?: number, lng?: number, coordsText?: string, kind?: string) => {
+    if (!user) return;
+    try {
+      await supabase.from("incidents").insert({
+        reporter_id: user.id,
+        type: "sos",
+        booking_id: booking?.id || null,
+        lat: lat ?? null,
+        lng: lng ?? null,
+        location_text: coordsText || null,
+        description: `Emergency ${kind || "general"} SOS triggered during active trip`,
+        status: "open",
+      });
+    } catch (err) {
+      // Ignore background logging failure so dialer still opens
+    }
+  };
+
   const handleTriggerSOS = (kind: "police" | "synchoo" | "ambulance" | "breakdown") => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const coords = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+          recordSosIncident(lat, lng, coords, kind);
+
           if (kind === "police") {
             window.open("tel:112", "_self");
           } else if (kind === "ambulance") {
@@ -83,11 +107,13 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
           toast.success(`Emergency request registered at coordinates: ${coords}`);
         },
         () => {
+          recordSosIncident(undefined, undefined, undefined, kind);
           if (kind === "police") window.open("tel:112", "_self");
           else window.open("tel:+918045678900", "_self");
         }
       );
     } else {
+      recordSosIncident(undefined, undefined, undefined, kind);
       window.open("tel:+918045678900", "_self");
     }
   };

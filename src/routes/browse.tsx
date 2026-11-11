@@ -4,7 +4,8 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/site-header";
 import { Input } from "@/components/ui/input";
-import { CitySearch } from "@/components/city-search";
+import { DatePicker } from "@/components/ui/date-picker";
+import { CityPicker } from "@/components/city-picker";
 import { CITIES, useSelectedCity } from "@/components/city-selector";
 
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,7 @@ import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import {
   MapPin, Star, Search, Filter, ChevronLeft, ChevronRight,
-  Fuel, Settings2, CalendarDays, ShieldCheck, CarFront,
+  Fuel, Settings2, CalendarDays, ShieldCheck, CarFront, X,
 } from "lucide-react";
 
 const PAGE_SIZE = 12;
@@ -34,7 +35,13 @@ const search = z.object({
   page: z.number().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
-});
+  start: z.string().optional(),
+  end: z.string().optional(),
+}).transform((val) => ({
+  ...val,
+  from: val.from || val.start,
+  to: val.to || val.end,
+}));
 type Search = z.infer<typeof search>;
 
 export const Route = createFileRoute("/browse")({
@@ -66,7 +73,6 @@ const CATEGORY_CHIPS = [
   { key: "ev", label: "Electric" },
   { key: "motorcycle", label: "Motorcycles" },
   { key: "scooter", label: "Scooters" },
-  { key: "bike", label: "Bicycles" },
 ] as const;
 
 function Browse() {
@@ -75,12 +81,41 @@ function Browse() {
   const { city: savedCity, select: saveCity } = useSelectedCity();
   const [items, setItems] = useState<Vehicle[] | null>(null);
   const [total, setTotal] = useState<number>(0);
-  const [maxPrice, setMaxPrice] = useState<number>(params.max ?? 5000);
+  const [maxPrice, setMaxPrice] = useState<number>(params.max ?? 20000);
   const [cities, setCities] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState(params.q ?? "");
   const page = Math.max(1, params.page ?? 1);
 
-  const update = (patch: Partial<Search>) =>
-    navigate({ to: "/browse", search: { ...params, page: 1, ...patch } as any });
+  const update = (patch: Partial<Search>) => {
+    const next = { ...params, page: 1, ...patch };
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(next)) {
+      if (v !== undefined && v !== "" && v !== null && v !== "any") {
+        clean[k] = v;
+      }
+    }
+    navigate({ to: "/browse", search: clean as any });
+  };
+
+  // Sync search input and max price when params change
+  useEffect(() => {
+    setSearchInput(params.q ?? "");
+  }, [params.q]);
+
+  useEffect(() => {
+    setMaxPrice(params.max ?? 20000);
+  }, [params.max]);
+
+  // Debounce live typing search so results update automatically
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      if ((params.q ?? "") !== trimmed) {
+        update({ q: trimmed || undefined });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Adopt the city chosen in the top navigation on first visit.
   useEffect(() => {
@@ -110,7 +145,6 @@ function Browse() {
         .map((r: any) => (typeof r === "string" ? r : r.booked_vehicle_ids ?? r.vehicle_id))
         .filter(Boolean);
 
-
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       let q = supabase
@@ -122,11 +156,29 @@ function Browse() {
         .eq("status", "active")
         .order("created_at", { ascending: false })
         .range(from, to);
-      if (params.category) q = q.eq("category", params.category as any);
+      if (params.category) {
+        if (params.category === "motorcycle" || params.category === "bike") {
+          q = q.in("category", ["motorcycle", "bike"]);
+        } else {
+          q = q.eq("category", params.category as any);
+        }
+      }
       if (params.transmission) q = q.eq("transmission", params.transmission as any);
       if (params.fuel) q = q.eq("fuel", params.fuel as any);
-      if (params.city) q = q.ilike("city", `%${params.city}%`);
-      if (params.q) q = q.or(`title.ilike.%${params.q}%,brand.ilike.%${params.q}%,model.ilike.%${params.q}%`);
+      if (params.city) q = q.ilike("city", `%${params.city.trim()}%`);
+
+      const cleanQ = params.q?.trim().replace(/[,()]/g, "");
+      if (cleanQ) {
+        const words = cleanQ.split(/\s+/).filter(Boolean);
+        if (words.length > 1) {
+          for (const w of words) {
+            q = q.or(`title.ilike.%${w}%,brand.ilike.%${w}%,model.ilike.%${w}%`);
+          }
+        } else {
+          q = q.or(`title.ilike.%${cleanQ}%,brand.ilike.%${cleanQ}%,model.ilike.%${cleanQ}%`);
+        }
+      }
+
       if (params.max) q = q.lte("price_daily", params.max);
       if (unavailable.length) q = q.not("id", "in", `(${unavailable.join(",")})`);
       const { data, count } = await q;
@@ -173,41 +225,76 @@ function Browse() {
         <div className="relative mt-1.5">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            className="rounded-xl pl-9"
+            className="rounded-xl pl-9 pr-9"
             placeholder="Brand, model or title"
-            defaultValue={params.q}
-            onBlur={(e) => update({ q: e.target.value || undefined })}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                update({ q: searchInput.trim() || undefined });
+              }
+            }}
           />
+          {searchInput && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                setSearchInput("");
+                update({ q: undefined });
+              }}
+              className="absolute right-2.5 top-2.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
       <div>
         <Label>City</Label>
-        <CitySearch value={params.city} cities={cities} onChange={(city) => update({ city })} />
+        <CityPicker
+          value={params.city}
+          allowClear
+          placeholder="All cities"
+          className="mt-1.5 rounded-xl h-10 w-full"
+          onChange={(city) => {
+            if (!city) saveCity("");
+            update({ city: city || undefined });
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Pickup</Label>
-          <Input
-            type="date" min={today} className="mt-1.5 rounded-xl"
+          <Label className="text-xs font-medium">Pickup</Label>
+          <DatePicker
             value={params.from ?? ""}
-            onChange={(e) => update({ from: e.target.value || undefined, to: params.to ?? (e.target.value || undefined) })}
+            minDate={today}
+            placeholder="dd-mm-yyyy"
+            className="mt-1.5 rounded-xl h-10 w-full"
+            onChange={(date) => update({ from: date || undefined, to: params.to ?? (date || undefined) })}
           />
         </div>
         <div>
-          <Label>Return</Label>
-          <Input
-            type="date" min={params.from ?? today} className="mt-1.5 rounded-xl"
+          <Label className="text-xs font-medium">Return</Label>
+          <DatePicker
             value={params.to ?? ""}
-            onChange={(e) => update({ to: e.target.value || undefined, from: params.from ?? (e.target.value || undefined) })}
+            minDate={params.from ?? today}
+            placeholder="dd-mm-yyyy"
+            className="mt-1.5 rounded-xl h-10 w-full"
+            onChange={(date) => update({ to: date || undefined, from: params.from ?? (date || undefined) })}
           />
         </div>
       </div>
 
       <div>
         <Label>Category</Label>
-        <Select value={params.category ?? "any"} onValueChange={(v) => update({ category: v === "any" ? undefined : v })}>
+        <Select
+          value={params.category === "bike" ? "motorcycle" : (params.category ?? "any")}
+          onValueChange={(v) => update({ category: v === "any" ? undefined : v })}
+        >
           <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Any</SelectItem>
@@ -215,7 +302,6 @@ function Browse() {
             <SelectItem value="ev">EV</SelectItem>
             <SelectItem value="motorcycle">Motorcycle</SelectItem>
             <SelectItem value="scooter">Scooter</SelectItem>
-            <SelectItem value="bike">Bike</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -256,7 +342,16 @@ function Browse() {
         <Slider className="mt-3" min={200} max={20000} step={100} value={[maxPrice]} onValueChange={(v) => setMaxPrice(v[0])} onValueCommit={(v) => update({ max: v[0] })} />
       </div>
 
-      <Button variant="outline" className="w-full rounded-xl" onClick={() => navigate({ to: "/browse", search: {} as any })}>
+      <Button
+        variant="outline"
+        className="w-full rounded-xl"
+        onClick={() => {
+          setSearchInput("");
+          setMaxPrice(20000);
+          saveCity("");
+          navigate({ to: "/browse", search: {} as any });
+        }}
+      >
         Clear filters
       </Button>
     </div>
@@ -319,7 +414,7 @@ function Browse() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-          <aside className="hidden surface-card p-5 lg:sticky lg:top-20 lg:block lg:self-start">
+          <aside className="hidden surface-card p-5 lg:sticky lg:top-20 lg:block lg:self-start max-h-[calc(100vh-6rem)] overflow-y-auto inapp-scroll">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
               <Filter className="h-4 w-4 text-brand" />Filters
             </div>
@@ -405,7 +500,9 @@ function VehicleCard({
             <div className="grid h-full w-full place-items-center text-sm text-muted-foreground">No image</div>
           )}
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" />
-          <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">{v.category}</Badge>
+          <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">
+            {v.category === "bike" ? "Motorcycle" : v.category}
+          </Badge>
           <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium">
             <Star className="h-3.5 w-3.5 fill-brand text-brand" />
             {Number(v.avg_rating).toFixed(1)}

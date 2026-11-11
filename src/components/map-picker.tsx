@@ -23,11 +23,47 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const sessionTokenRef = useRef<any>(null);
+  const isMountedRef = useRef(true);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
   const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      if (!isMountedRef.current) return;
+      setSearching(true);
+      setShowSuggest(false);
+      setSuggestions([]);
+
+      if (!window.google?.maps?.Geocoder) {
+        await window.google?.maps?.importLibrary?.("geocoding");
+      }
+
+      const geocoder = new window.google.maps.Geocoder();
+      const response = await geocoder.geocode({ location: { lat, lng } });
+
+      if (!isMountedRef.current) return;
+
+      if (response?.results?.[0]?.formatted_address) {
+        const fullAddr = response.results[0].formatted_address;
+        onAddressChange(fullAddr);
+        onChange({ lat, lng, address: fullAddr });
+      }
+    } catch (err) {
+      console.warn("[MapPicker] Reverse geocode error:", err);
+    } finally {
+      if (isMountedRef.current) setSearching(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -45,9 +81,21 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
         animation: window.google.maps.Animation.DROP,
       });
       markerRef.current = marker;
-      const commit = (latLng: any) => onChange({ lat: latLng.lat(), lng: latLng.lng() });
-      map.addListener("click", (e: any) => { marker.setPosition(e.latLng); commit(e.latLng); });
-      marker.addListener("dragend", () => commit(marker.getPosition()));
+
+      const commit = (latLng: any) => {
+        const lat = typeof latLng.lat === "function" ? latLng.lat() : Number(latLng.lat);
+        const lng = typeof latLng.lng === "function" ? latLng.lng() : Number(latLng.lng);
+        onChange({ lat, lng });
+        reverseGeocode(lat, lng);
+      };
+
+      map.addListener("click", (e: any) => {
+        marker.setPosition(e.latLng);
+        commit(e.latLng);
+      });
+      marker.addListener("dragend", () => {
+        commit(marker.getPosition());
+      });
       setReady(true);
     }).catch((e) => setError(e.message));
     return () => { cancelled = true; };
@@ -104,18 +152,14 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
   const useMyLocation = () => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        onChange(p);
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        onChange({ lat, lng });
         mapRef.current?.setZoom(16);
-        mapRef.current?.panTo(p);
-        markerRef.current?.setPosition(p);
-        // Reverse-geocode to fill address
-        try {
-          const geocoder = new window.google.maps.Geocoder();
-          const { results } = await geocoder.geocode({ location: p });
-          if (results?.[0]) onAddressChange(results[0].formatted_address);
-        } catch { /* ignore */ }
+        mapRef.current?.panTo({ lat, lng });
+        markerRef.current?.setPosition({ lat, lng });
+        reverseGeocode(lat, lng);
       },
       () => {},
       { enableHighAccuracy: true, timeout: 8000 },

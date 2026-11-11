@@ -35,6 +35,7 @@ export function CategoryIcon({ name, ...rest }: Props) {
         </svg>
       );
     case "motorcycle":
+    case "bike":
       return (
         <svg {...common}>
           <circle cx="11" cy="33" r="6" />
@@ -54,17 +55,6 @@ export function CategoryIcon({ name, ...rest }: Props) {
           <path d="M31 21l4 12" />
           <path d="M26 21h8" />
           <path d="M31 21V13h5" />
-        </svg>
-      );
-    case "bike":
-      return (
-        <svg {...common}>
-          <circle cx="11" cy="34" r="7" />
-          <circle cx="37" cy="34" r="7" />
-          <path d="M11 34l9-14h9l8 14" />
-          <path d="M20 20h9" />
-          <path d="M24 12h5l-1 8" />
-          <circle cx="24" cy="34" r="1.2" fill="currentColor" stroke="none" />
         </svg>
       );
   }

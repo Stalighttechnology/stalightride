@@ -107,7 +107,6 @@ function PoolingPage() {
     setJoining(trip.id);
     try {
       const match = matchScore(trip, { lat: pickup.lat!, lng: pickup.lng! }, { lat: drop.lat!, lng: drop.lng! });
-      const combinedNote = [emergencyContact ? `Emergency Contact: ${emergencyContact}` : "", note].filter(Boolean).join(" | ");
       const { error } = await supabase.from("pool_requests").insert({
         trip_id: trip.id,
         passenger_id: user.id,
@@ -119,8 +118,9 @@ function PoolingPage() {
         drop_lng: drop.lng!,
         seats,
         match_score: match.score,
-        note: combinedNote || null,
-      } as any);
+        emergency_contact: emergencyContact.trim() || null,
+        note: note.trim() || null,
+      });
       if (error) {
         if (error.code === "23505" || error.message.includes("pool_requests_one_active_idx"))
           throw new Error("You already have an active request for this trip");
@@ -196,7 +196,7 @@ function PoolingPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:col-span-2">
               <div className="space-y-1.5">
                 <Label htmlFor="pool-date">Travel date (optional)</Label>
-                <DatePicker id="pool-date" value={date} onChange={setDate} minDate={new Date()} placeholder="Select date" />
+                <DatePicker id="pool-date" value={date} onChange={setDate} minDate={new Date()} placeholder="dd-mm-yyyy" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pool-seats">Seats needed</Label>
@@ -224,7 +224,7 @@ function PoolingPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
-            <span className="font-semibold text-foreground">How pooling works:</span> Seats aren't paid in the app. You pay the fare shown directly to the driver at the trip. Either of you can cancel a request in the app before departure, so please cancel as early as you can if your plans change. Share your trip with a trusted contact and check the driver's profile before you ride.
+            <span className="font-semibold text-foreground">Pooling Safety & Cancellation Policy:</span> Every driver is verified before listing trips. Fares are settled directly with the driver (Cash or UPI). Riders can cancel their booking anytime before departure with no cancellation fees; seats are automatically returned to the pool for other travelers.
           </div>
         </div>
 
@@ -262,7 +262,7 @@ function PoolingPage() {
                             <AvatarFallback>{(driver?.full_name ?? "D").charAt(0).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{driver?.full_name ?? "Driver"}</p>
+                            <p className="truncate text-sm font-semibold">{driver?.full_name ?? "Verified driver"}</p>
                             <p className="truncate text-xs text-muted-foreground">{trip.vehicle_label}</p>
                           </div>
                           <Badge className="ml-auto rounded-full">{match.score}% route match</Badge>

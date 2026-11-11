@@ -47,25 +47,12 @@ export function VehicleMap({ query, lat, lng, className }: Props) {
   }, [lat, lng, query]);
 
   // Google Maps Embed URL
-  // If a valid authorized API key is set, use the Google Maps Embed v1 API.
-  // Otherwise, use the standard Google Maps web embed endpoint which renders real Google Maps
-  // with zero 403 API restriction errors and without quota issues.
-  const apiKey =
-    (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
-    (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined);
-
+  // Uses universal maps.google.com embed which reliably works across all domains,
+  // preventing "API key is not authorized" iframe restrictions.
   const googleMapsEmbedUrl = useMemo(() => {
-    const locQuery = `${coords.lat},${coords.lng}`;
-    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-    // When running on localhost, domain-restricted Google keys fail with 403.
-    // The maps.google.com embed renders authentic Google Maps with markers reliably everywhere.
-    if (!apiKey || isLocal) {
-      return `https://maps.google.com/maps?q=${encodeURIComponent(locQuery)}&hl=en&z=15&output=embed`;
-    }
-
-    return `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(locQuery)}`;
-  }, [coords.lat, coords.lng, apiKey]);
+    const locQuery = query ? `${query}` : `${coords.lat},${coords.lng}`;
+    return `https://maps.google.com/maps?q=${encodeURIComponent(locQuery)}&hl=en&z=15&output=embed`;
+  }, [coords.lat, coords.lng, query]);
 
   // Direct URLs for opening in native Google Maps app / browser
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}&travelmode=driving`;

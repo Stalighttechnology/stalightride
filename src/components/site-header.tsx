@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,12 +15,20 @@ import { InstallPwaButton } from "@/components/install-pwa-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CitySelector } from "@/components/city-selector";
 import { NotificationBell } from "@/components/notification-bell";
+import { cn } from "@/lib/utils";
 
+const NAV_PILLS = [
+  { to: "/browse", label: "Rentals" },
+  { to: "/pooling", label: "Carpooling" },
+  { to: "/drivers", label: "Hire Driver" },
+  { to: "/wash", label: "Doorstep Wash" },
+] as const;
 
 export function SiteHeader() {
   const { user } = useSession();
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -34,11 +42,32 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <SidebarTrigger className="-ml-1 shrink-0 md:hidden" aria-label="Open navigation" />
+          <SidebarTrigger className="-ml-1 shrink-0" aria-label="Toggle navigation" />
           <Link to="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2 md:hidden">
             <img src={synchooMark} alt="Synchoo" width={32} height={32} className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 object-contain" />
             <span className="truncate font-display text-sm sm:text-base font-bold tracking-tight text-foreground">Synchoo</span>
           </Link>
+          <nav className="hidden md:flex items-center gap-1 ml-2">
+            {NAV_PILLS.map((item) => {
+              const active = item.to === "/browse"
+                ? pathname.startsWith("/browse") || pathname.startsWith("/vehicle")
+                : pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to as any}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">

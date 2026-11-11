@@ -1,4 +1,5 @@
 import { CityPicker } from "@/components/city-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldAlert, Clock, Upload, IndianRupee, CalendarCheck, Star } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Clock, Upload, IndianRupee, CalendarCheck, Star, CheckCircle2, CircleSlash } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/driver-dashboard")({
@@ -61,7 +62,7 @@ function DriverDashboard() {
       supabase.from("driver_reviews").select("*").eq("driver_id", user.id),
     ]);
     setDriver(d ?? null);
-    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: (d as any).trip_types ?? [], service_area: (d as any).service_area ?? "" });
+    if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: d.trip_types ?? [], service_area: d.service_area ?? "" });
     else setForm({ ...emptyDriver, full_name: user.user_metadata?.full_name ?? "" });
     setHires(h ?? []);
     setRatings(r ?? []);
@@ -119,7 +120,7 @@ function DriverDashboard() {
       trip_types: Array.isArray(form.trip_types) ? form.trip_types : [],
       service_area: form.service_area || null,
     };
-    const { error } = await supabase.from("drivers").upsert(payload as any);
+    const { error } = await supabase.from("drivers").upsert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success(driver ? "Profile updated" : "Profile submitted for verification");
@@ -128,7 +129,7 @@ function DriverDashboard() {
 
   const setStatus = async (active: boolean) => {
     if (!user) return;
-    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" } as any).eq("id", user.id);
+    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" }).eq("id", user.id);
     if (error) return toast.error(error.message);
     toast.success(active ? "You're live and bookable" : "Paused — you won't appear in search");
     load();
@@ -146,9 +147,9 @@ function DriverDashboard() {
     if (!window.confirm(paid
       ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
       : "Cancel this hire?")) return;
-    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id, _reason: null } as any);
+    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
     if (error) return toast.error(error.message);
-    const refund = Number((data as any)?.refund ?? 0);
+    const refund = Number((data as { refund?: number } | null)?.refund ?? 0);
     toast.success(refund > 0 ? `Hire cancelled — ${currency(refund)} refunded to the customer` : "Hire cancelled");
     load();
   };
@@ -158,11 +159,12 @@ function DriverDashboard() {
   const vs = driver?.verification_status ?? "none";
   // Net of commission; excludes customer service fee and GST.
   const earnings = (hires ?? [])
-    .filter((h) => h.payment_status === "paid" || h.payment_status === "partially_refunded")
-    .reduce((s, h) => s + Number(h.provider_earning ?? 0), 0);
+    .filter((h) => h.status !== "cancelled" && (h.payment_status === "paid" || h.payment_status === "partially_refunded" || h.status === "completed"))
+    .reduce((s, h) => s + Number(h.provider_earning ?? h.total_price), 0);
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);
+  const pendingHires = (hires ?? []).filter((h) => h.status === "pending");
   const upcomingHires = (hires ?? []).filter((h) => h.status === "confirmed" && h.start_date >= today);
   const historyHires = (hires ?? []).filter((h) => h.status === "completed" || h.status === "cancelled");
 
@@ -185,6 +187,28 @@ function DriverDashboard() {
           </div>
           <VerifyBadge status={vs} />
         </div>
+
+        {/* Pending Hires Action Banner */}
+        {pendingHires.length > 0 && (
+          <div className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 shadow-xs dark:border-amber-900/50 dark:bg-amber-950/25">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-foreground">
+                    {pendingHires.length} driver hire request{pendingHires.length > 1 ? "s" : ""} awaiting your approval
+                  </p>
+                  <p className="text-xs text-muted-foreground">Review trip dates and reporting location below to approve or decline.</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 font-semibold">
+                Action Required
+              </Badge>
+            </div>
+          </div>
+        )}
 
         {driver && (
           <div className="grid gap-4 sm:grid-cols-3">
@@ -283,7 +307,17 @@ function DriverDashboard() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div><Label>Licence number</Label><Input value={form.dl_number ?? ""} disabled={locked} onChange={(e) => setForm({ ...form, dl_number: e.target.value })} /></div>
-              <div><Label>Licence expiry</Label><Input type="date" value={form.dl_expiry ?? ""} disabled={locked} onChange={(e) => setForm({ ...form, dl_expiry: e.target.value })} /></div>
+              <div>
+                <Label>Licence expiry</Label>
+                <DatePicker
+                  value={form.dl_expiry ?? ""}
+                  disabled={locked}
+                  onChange={(d) => setForm({ ...form, dl_expiry: d })}
+                  minDate={new Date()}
+                  placeholder="Select licence expiry"
+                  className="mt-1.5"
+                />
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
@@ -318,7 +352,10 @@ function DriverDashboard() {
                     <Card key={h.id}><CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                            {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                           </p>
@@ -350,7 +387,10 @@ function DriverDashboard() {
                     <Card key={h.id}><CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-medium">{currency(h.total_price)}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{currency(h.total_price)}</p>
+                            {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""}
                           </p>
@@ -400,7 +440,10 @@ function DriverDashboard() {
                   <Card key={h.id}><CardContent className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{currency(h.total_price)} · {h.rate_type === "hourly" ? `${h.hours} hour(s)` : `${h.days} day(s)`}</p>
+                          {h.trip_type && <Badge variant="secondary" className="capitalize text-xs font-normal">🚗 {h.trip_type}</Badge>}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {h.start_date}{h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} · {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                         </p>
@@ -410,8 +453,21 @@ function DriverDashboard() {
                       <Badge variant="outline">{h.status}</Badge>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => decide(h.id, "confirmed")}>Accept</Button>
-                      <Button size="sm" variant="outline" onClick={() => decide(h.id, "rejected")}>Decline</Button>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs"
+                        onClick={() => decide(h.id, "confirmed")}
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve Hire
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg"
+                        onClick={() => decide(h.id, "rejected")}
+                      >
+                        <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
+                      </Button>
                     </div>
                   </CardContent></Card>
                 ))}

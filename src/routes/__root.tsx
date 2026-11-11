@@ -1,14 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet, Link, createRootRouteWithContext, useRouter,
-  HeadContent, Scripts, type ErrorComponentProps,
+  HeadContent, Scripts, ScrollRestoration, type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { landingPathForUser } from "@/lib/post-login";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
@@ -91,7 +92,9 @@ function RootShell({ children }: { children: ReactNode }) {
       <head><HeadContent /></head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {children}<Scripts />
+        {children}
+        <ScrollRestoration />
+        <Scripts />
       </body>
     </html>
   );
@@ -102,10 +105,20 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+
+      if (typeof window !== "undefined" && window.location.hash.includes("access_token") && session?.user) {
+        try {
+          const target = await landingPathForUser(session.user.id);
+          window.history.replaceState(null, "", window.location.pathname);
+          router.navigate({ to: target as any });
+        } catch {
+          // ignore
+        }
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [queryClient, router]);
@@ -115,10 +128,10 @@ function RootComponent() {
       <SidebarProvider>
         <div className="flex min-h-screen w-full">
           <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
+          <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
             <div className="flex-1"><Outlet /></div>
             <SiteFooter />
-          </div>
+          </SidebarInset>
         </div>
         <MobileBottomNav />
       </SidebarProvider>

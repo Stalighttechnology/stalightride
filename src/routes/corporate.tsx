@@ -232,9 +232,12 @@ export function CorporatePage() {
               <Badge variant="outline" className="border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/40">
                 <Briefcase className="mr-1 h-3.5 w-3.5" /> Synchoo For Business
               </Badge>
+              <Badge variant="secondary" className="text-xs">
+                Enterprise Beta Preview
+              </Badge>
               {registered && (
                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-                  <CheckCircle2 className="mr-1 h-3 w-3" /> GST Verified Portal
+                  <CheckCircle2 className="mr-1 h-3 w-3" /> GST Ready
                 </Badge>
               )}
             </div>
@@ -361,7 +364,7 @@ export function CorporatePage() {
                 </Card>
 
                 {/* Sidebar Navigation Menu */}
-                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0" aria-label="Corporate navigation">
+                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0" aria-label="Corporate navigation">
                   {sidebarNavItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;

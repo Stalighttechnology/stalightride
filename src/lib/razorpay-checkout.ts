@@ -36,8 +36,9 @@ export async function openRazorpayCheckout(opts: RazorpayCheckoutOptions) {
   const ok = await loadRazorpayScript();
   if (!ok) throw new Error("Failed to load Razorpay Checkout");
   const w = window as any;
+  const key = opts.keyId || (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) || "";
   const rzp = new w.Razorpay({
-    key: opts.keyId,
+    key,
     amount: opts.amount,
     currency: opts.currency,
     order_id: opts.orderId,

@@ -41,6 +41,29 @@ describe("vehicle listing + admin verification", () => {
     const { be, host, vehicle } = setup();
     expect(() => be.verifyVehicle(host, vehicle.id, "approved")).toThrow(/admins/);
   });
+
+  test("host can delete their own vehicle listing after adding", () => {
+    const be = createBackend();
+    const host = be.registerCustomer();
+    const v = be.listVehicle(host);
+    expect(be.tables.vehicles.has(v.id)).toBe(true);
+    be.deleteVehicle(host, v.id);
+    expect(be.tables.vehicles.has(v.id)).toBe(false);
+  });
+
+  test("non-owner cannot delete another host's vehicle", () => {
+    const be = createBackend();
+    const host = be.registerCustomer();
+    const other = be.registerCustomer();
+    const v = be.listVehicle(host);
+    expect(() => be.deleteVehicle(other, v.id)).toThrow(/host or admin/);
+  });
+
+  test("host cannot delete vehicle with active bookings", () => {
+    const { be, host, customer, vehicle } = setup();
+    be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 4) });
+    expect(() => be.deleteVehicle(host, vehicle.id)).toThrow(/Cannot delete vehicle with active or upcoming bookings/);
+  });
 });
 
 describe("booking gates", () => {
