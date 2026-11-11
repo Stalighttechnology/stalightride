@@ -1,6 +1,6 @@
 # Rebasing your branch onto the Django + React layout
 
-PR #PR_NUMBER removed Supabase and split the repo into `backend/` (Django + PostgreSQL) and `frontend/` (React SPA). If your branch started before that PR was merged, follow this once. It takes 10 to 30 minutes, depending on how many files you changed.
+PR #10 removed Supabase and split the repo into `backend/` (Django + PostgreSQL) and `frontend/` (React SPA). If your branch started before that PR was merged, follow this once. It takes 10 to 30 minutes, depending on how many files you changed.
 
 ## What changed, in one table
 
