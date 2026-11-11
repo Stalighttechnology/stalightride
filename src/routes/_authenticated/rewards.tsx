@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ComingSoonBanner, comingSoon } from "@/components/coming-soon";
 import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
@@ -123,6 +124,8 @@ export function RewardsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const handleRedeem = (voucher: RewardVoucher) => {
+    comingSoon();
+    return;
     if (pointsBalance < voucher.pointsCost) {
       return toast.error(`Insufficient points. You need ${voucher.pointsCost - pointsBalance} more points.`);
     }
@@ -141,6 +144,8 @@ export function RewardsPage() {
   };
 
   const copyCode = (code: string) => {
+    comingSoon();
+    return;
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     toast.success(`Promo code ${code} copied to clipboard!`);
@@ -163,6 +168,7 @@ export function RewardsPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 space-y-6">
+        <ComingSoonBanner feature="Synchoo Rewards" />
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
