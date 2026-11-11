@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,25 +42,25 @@ export function HomeActivity() {
     let alive = true;
     (async () => {
       const [rentals, hires, washes, w] = await Promise.all([
-        supabase
+        api
           .from("bookings")
           .select("id, start_date, end_date, status, payment_status, total_price, vehicles(title)")
           .eq("customer_id", user.id)
           .order("created_at", { ascending: false })
           .limit(3),
-        supabase
+        api
           .from("driver_bookings")
           .select("id, start_date, end_date, status, payment_status, total_price, drivers(full_name)")
           .eq("customer_id", user.id)
           .order("created_at", { ascending: false })
           .limit(3),
-        supabase
+        api
           .from("wash_bookings")
           .select("id, slot_date, slot_time, status, payment_status, price, wash_services(name)")
           .eq("customer_id", user.id)
           .order("created_at", { ascending: false })
           .limit(3),
-        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
       ]);
       if (!alive) return;
       setWallet(w.data ? Number(w.data.balance) : 0);

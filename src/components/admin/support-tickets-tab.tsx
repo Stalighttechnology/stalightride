@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export function SupportTicketsTab() {
   const [sending, setSending] = useState(false);
 
   const loadTickets = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("support_tickets")
       .select("*")
       .order("created_at", { ascending: false });
@@ -35,7 +35,7 @@ export function SupportTicketsTab() {
   }, []);
 
   const loadMessages = async (ticketId: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("ticket_messages")
       .select("*")
       .eq("ticket_id", ticketId)
@@ -52,7 +52,7 @@ export function SupportTicketsTab() {
   };
 
   const updateStatus = async (id: string, status: "Open" | "In Progress" | "Resolved") => {
-    const { error } = await supabase
+    const { error } = await api
       .from("support_tickets")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id);
@@ -78,7 +78,7 @@ export function SupportTicketsTab() {
     setSending(true);
 
     // 1. Insert admin message
-    const { data: newMsg, error: msgError } = await supabase
+    const { data: newMsg, error: msgError } = await api
       .from("ticket_messages")
       .insert({
         ticket_id: selectedTicket.id,
@@ -96,7 +96,7 @@ export function SupportTicketsTab() {
     }
 
     // 2. Mark ticket resolved with resolution text
-    const { error: ticketError } = await supabase
+    const { error: ticketError } = await api
       .from("support_tickets")
       .update({
         status: "Resolved",

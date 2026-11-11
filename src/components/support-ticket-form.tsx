@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
 
   const loadMyTickets = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data } = await api
       .from("support_tickets")
       .select("*")
       .eq("user_id", user.id)
@@ -46,7 +46,7 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
     setSubmitting(true);
     const ticketNo = `SYN-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const { data: ticket, error } = await supabase
+    const { data: ticket, error } = await api
       .from("support_tickets")
       .insert({
         ticket_no: ticketNo,
@@ -67,7 +67,7 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
     }
 
     // Insert first message
-    await supabase.from("ticket_messages").insert({
+    await api.from("ticket_messages").insert({
       ticket_id: ticket.id,
       sender_id: user.id,
       message: description.trim(),

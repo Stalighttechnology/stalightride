@@ -15,7 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useProviderStatus } from "@/hooks/use-provider-status";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import synchooMark from "@/assets/synchoo-mark.png";
@@ -81,7 +81,7 @@ export function AppSidebar() {
 
   const signOut = async () => {
     close();
-    await supabase.auth.signOut();
+    await api.auth.signOut();
     navigate({ to: "/" });
   };
 

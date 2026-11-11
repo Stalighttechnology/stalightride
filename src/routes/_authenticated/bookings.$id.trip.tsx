@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,7 @@ import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
 import { Upload, X, Fuel, Gauge, Camera, ShieldAlert, Radio } from "lucide-react";
 import { getHandoverGate } from "@/lib/trip-window";
-import { useServerFn } from "@tanstack/react-start";
-import { submitInspection } from "@/lib/trip-inspection.functions";
+import { submitInspection } from "@/lib/actions";
 import { LiveTracker } from "@/components/live-tracker";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { TripSafetyExtension } from "@/components/trip-safety-extension";
@@ -43,10 +42,10 @@ function TripInspection() {
   const navigate = useNavigate();
   const [b, setB] = useState<any>(null);
   const [saving, setSaving] = useState<Phase | null>(null);
-  const saveInspection = useServerFn(submitInspection);
+  const saveInspection = submitInspection;
 
   const load = async () => {
-    const { data } = await supabase
+    const { data } = await api
       .from("bookings")
       .select("*, vehicles(title,brand,model,year,lat,lng)")
       .eq("id", id)
@@ -378,7 +377,7 @@ function InspectionForm({
         const f = files[i];
         const ext = f.name.split(".").pop() ?? "jpg";
         const path = `${bookingId}/${phase}/${Date.now()}-${i}.${ext}`;
-        const { error } = await supabase.storage.from("trip-photos").upload(path, f, { upsert: false });
+        const { error } = await api.storage.from("trip-photos").upload(path, f, { upsert: false });
         if (error) throw error;
         paths.push(path);
       }

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -53,12 +53,12 @@ function DataDeletion() {
     setBusy(true);
     try {
       const [profile, bookings, hires, washes, txns, reviews] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("bookings").select("*").eq("customer_id", user.id),
-        supabase.from("driver_bookings").select("*").eq("customer_id", user.id),
-        supabase.from("wash_bookings").select("*").eq("customer_id", user.id),
-        supabase.from("wallet_transactions").select("*").eq("user_id", user.id),
-        supabase.from("reviews").select("*").eq("customer_id", user.id),
+        api.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        api.from("bookings").select("*").eq("customer_id", user.id),
+        api.from("driver_bookings").select("*").eq("customer_id", user.id),
+        api.from("wash_bookings").select("*").eq("customer_id", user.id),
+        api.from("wallet_transactions").select("*").eq("user_id", user.id),
+        api.from("reviews").select("*").eq("customer_id", user.id),
       ]);
       const payload = {
         exported_at: new Date().toISOString(),
@@ -89,7 +89,7 @@ function DataDeletion() {
     if (!user || !ack || confirm.trim().toUpperCase() !== "DELETE") return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("delete_my_account_data");
+      const { data, error } = await api.rpc("delete_my_account_data");
       if (error) throw error;
       const res = (data ?? {}) as { ok?: boolean; reason?: string; count?: number };
       if (!res.ok) {
@@ -101,7 +101,7 @@ function DataDeletion() {
         return;
       }
       setDone(true);
-      await supabase.auth.signOut();
+      await api.auth.signOut();
     } catch {
       toast.error("Deletion failed. Please try again or contact support.");
     } finally {

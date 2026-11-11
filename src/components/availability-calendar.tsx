@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,8 @@ export function AvailabilityCalendar({ vehicles }: { vehicles: Vehicle[] }) {
     if (!vehicleId) return setRanges([]);
     setRanges(null);
     const [{ data: blocks }, { data: bookings }] = await Promise.all([
-      supabase.from("availability_blocks").select("id,start_date,end_date,reason").eq("vehicle_id", vehicleId),
-      supabase.from("bookings").select("start_date,end_date,status").eq("vehicle_id", vehicleId).in("status", ["pending", "confirmed"]),
+      api.from("availability_blocks").select("id,start_date,end_date,reason").eq("vehicle_id", vehicleId),
+      api.from("bookings").select("start_date,end_date,status").eq("vehicle_id", vehicleId).in("status", ["pending", "confirmed"]),
     ]);
     setRanges([
       ...(blocks ?? []).map((b: any) => ({ ...b, kind: "blocked" as const })),
@@ -63,7 +63,7 @@ export function AvailabilityCalendar({ vehicles }: { vehicles: Vehicle[] }) {
     if (!vehicleId || !from || !to) return;
     if (to < from) return toast.error("End date must be after the start date.");
     setSaving(true);
-    const { error } = await supabase.from("availability_blocks").insert({
+    const { error } = await api.from("availability_blocks").insert({
       vehicle_id: vehicleId,
       start_date: from,
       end_date: to,
@@ -77,7 +77,7 @@ export function AvailabilityCalendar({ vehicles }: { vehicles: Vehicle[] }) {
   };
 
   const removeBlock = async (id: string) => {
-    const { error } = await supabase.from("availability_blocks").delete().eq("id", id);
+    const { error } = await api.from("availability_blocks").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Block removed");
     load();

@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 
 export const POPULAR_CITIES = [
   "Bengaluru",
@@ -72,7 +72,7 @@ export function CityPicker({
   const [activeCities, setActiveCities] = useState<string[]>([]);
 
   useEffect(() => {
-    supabase
+    api
       .from("cities")
       .select("name")
       .eq("active", true)

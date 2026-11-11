@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
 
   const loadLogs = async () => {
     if (!user) return;
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("vehicle_maintenance")
       .select("*, vehicles:vehicle_id(title)")
       .eq("vendor_id", user.id)
@@ -103,7 +103,7 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
     setSubmitting(true);
     const selectedVeh = vehicles.find((v) => v.id === selectedVehicleId);
 
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("vehicle_maintenance")
       .insert({
         vehicle_id: selectedVehicleId,
@@ -150,7 +150,7 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
   };
 
   const handleDeleteLog = async (id: string) => {
-    const { error } = await supabase.from("vehicle_maintenance").delete().eq("id", id);
+    const { error } = await api.from("vehicle_maintenance").delete().eq("id", id);
     if (error) {
       toast.error(error.message);
       return;

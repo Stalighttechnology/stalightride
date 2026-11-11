@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps, mapsBrowserKey } from "@/lib/gmaps";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation, MapPin, Play, Square, Radio } from "lucide-react";
@@ -18,7 +18,7 @@ interface Props {
 /**
  * Real-time GPS tracking for an active booking.
  * - Customer role: can start/stop broadcasting phone GPS every ~15s.
- * - Vendor/admin: sees the customer's live position on a map, updated via Supabase Realtime.
+ * - Vendor/admin: sees the customer's live position on a map, updated live over the WebSocket feed.
  */
 export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, className }: Props) {
   const key = mapsBrowserKey();
@@ -70,7 +70,7 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
       });
 
       // Load history
-      const { data: history } = await supabase
+      const { data: history } = await api
         .from("booking_locations")
         .select("lat,lng,created_at")
         .eq("booking_id", bookingId)
@@ -85,7 +85,7 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
       }
     })();
 
-    const channel = supabase
+    const channel = api
       .channel(`booking_locations:${bookingId}`)
       .on(
         "postgres_changes",
@@ -103,7 +103,7 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      api.removeChannel(channel);
       stopBroadcast();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -135,7 +135,7 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
     const pos = lastPos.current;
     if (!pos) return;
     const { latitude, longitude, accuracy, speed, heading } = pos.coords;
-    const { error } = await supabase.from("booking_locations").insert({
+    const { error } = await api.from("booking_locations").insert({
       booking_id: bookingId,
       user_id: userId,
       lat: latitude,

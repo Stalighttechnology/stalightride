@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,7 +31,7 @@ function AdminPage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.rpc("has_role", { _user_id: user.id, _role: "admin" as any }).then(({ data }) => setIsAdmin(!!data));
+    api.rpc("has_role", { _user_id: user.id, _role: "admin" as any }).then(({ data }) => setIsAdmin(!!data));
   }, [user?.id]);
 
   if (isAdmin === null) return <div className="min-h-screen"><SiteHeader /><div className="p-8"><Skeleton className="h-40" /></div></div>;
@@ -116,7 +116,7 @@ function AdminPage() {
 function VehicleQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const load = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("vehicles")
       .select("id,title,brand,model,year,city,vendor_id,rc_url,insurance_url,pollution_url,fitness_url,verification_status,rejection_reason,created_at,vendors:vendor_id(business_name,kyc_status)" as any)
       .order("created_at", { ascending: false })
@@ -136,7 +136,7 @@ function VehicleQueue() {
       reason = window.prompt("Rejection reason?") || null;
       if (!reason) return;
     }
-    const { error } = await supabase.from("vehicles").update({
+    const { error } = await api.from("vehicles").update({
       verification_status: status,
       rejection_reason: reason,
       verified_at: status === "approved" ? new Date().toISOString() : null,
@@ -182,7 +182,7 @@ function VehicleQueue() {
 function LicenceQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const load = async () => {
-    const { data } = await supabase
+    const { data } = await api
       .from("profiles")
       .select("id,full_name,dl_number,dl_expiry,dl_front_url,dl_back_url,dl_status,dl_rejection_reason" as any)
       .in("dl_status" as any, ["pending", "rejected", "approved"])
@@ -201,7 +201,7 @@ function LicenceQueue() {
       reason = window.prompt("Rejection reason?") || null;
       if (!reason) return;
     }
-    const { error } = await supabase.from("profiles").update({
+    const { error } = await api.from("profiles").update({
       dl_status: status, dl_rejection_reason: reason, dl_verified_at: status === "approved" ? new Date().toISOString() : null,
     } as any).eq("id", id);
     if (error) return toast.error(error.message);
@@ -250,7 +250,7 @@ function DocLink({ label, url }: { label: string; url: string | null | undefined
 function DisputeQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const load = async () => {
-    const { data } = await supabase
+    const { data } = await api
       .from("disputes")
       .select("*, bookings(id,vehicles(title))")
       .order("created_at", { ascending: false })
@@ -262,7 +262,7 @@ function DisputeQueue() {
   const resolve = async (id: string) => {
     const resolution = window.prompt("Resolution notes (visible to both parties)?");
     if (!resolution?.trim()) return;
-    const { error } = await supabase
+    const { error } = await api
       .from("disputes")
       .update({ status: "resolved", resolution: resolution.trim(), resolved_at: new Date().toISOString() } as any)
       .eq("id", id);
@@ -271,7 +271,7 @@ function DisputeQueue() {
     load();
   };
   const startReview = async (id: string) => {
-    const { error } = await supabase.from("disputes").update({ status: "in_review" } as any).eq("id", id);
+    const { error } = await api.from("disputes").update({ status: "in_review" } as any).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Marked in review");
     load();
@@ -331,7 +331,7 @@ function DisputeCard({ d, onResolve, onReview }: { d: any; onResolve: () => void
 function HostQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const load = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("vendors")
       .select("id,business_name,bio,kyc_status,id_document_url,payout_email,created_at")
       .order("created_at", { ascending: false })
@@ -345,7 +345,7 @@ function HostQueue() {
   const signed = useSignedUrls("kyc-docs", paths);
 
   const decide = async (id: string, status: "approved" | "rejected") => {
-    const { error } = await supabase.from("vendors").update({ kyc_status: status } as any).eq("id", id);
+    const { error } = await api.from("vendors").update({ kyc_status: status } as any).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Host ${status}`);
     load();
@@ -383,7 +383,7 @@ function HostQueue() {
 function DriverQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const load = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("drivers")
       .select("id,full_name,city,phone,experience_years,hourly_rate,daily_rate,dl_number,dl_expiry,dl_front_url,dl_back_url,id_document_url,verification_status,status,rejection_reason,created_at")
       .order("created_at", { ascending: false })
@@ -402,7 +402,7 @@ function DriverQueue() {
       reason = window.prompt("Rejection reason?") || null;
       if (!reason) return;
     }
-    const { error } = await supabase.from("drivers").update({
+    const { error } = await api.from("drivers").update({
       verification_status: status,
       rejection_reason: reason,
       verified_at: status === "approved" ? new Date().toISOString() : null,
@@ -455,12 +455,12 @@ function WashQueue() {
 
   const load = async () => {
     const [{ data, error }, { data: p }] = await Promise.all([
-      supabase
+      api
         .from("wash_bookings")
         .select("*, wash_services:service_id(name,duration_minutes,vehicle_category), wash_vendors:assigned_vendor_id(name,contact_phone,city)")
         .order("created_at", { ascending: false })
         .limit(200),
-      supabase.from("wash_vendors").select("id,name,city,daily_capacity,contact_phone,active").eq("active", true).order("name"),
+      api.from("wash_vendors").select("id,name,city,daily_capacity,contact_phone,active").eq("active", true).order("name"),
     ]);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
@@ -481,7 +481,7 @@ function WashQueue() {
       if (!note) return;
     }
     setBusy(b.id);
-    const { error } = await supabase.rpc("admin_decide_wash_booking", {
+    const { error } = await api.rpc("admin_decide_wash_booking", {
       _wash_booking_id: b.id,
       _decision: decision,
       _vendor_id: vendorId,
@@ -563,7 +563,7 @@ function CleanersQueue() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("cleaners")
       .select("*")
       .order("created_at", { ascending: false })
@@ -580,7 +580,7 @@ function CleanersQueue() {
       if (!reason) return;
     }
     setBusy(id);
-    const { error } = await supabase.rpc("verify_cleaner", {
+    const { error } = await api.rpc("verify_cleaner", {
       _cleaner_id: id,
       _decision: decision,
       _rejection_reason: reason,
@@ -651,7 +651,7 @@ function WashCentersQueue() {
 
   const load = async () => {
     // 1. Check wash_centers first
-    const { data: wcData } = await supabase
+    const { data: wcData } = await api
       .from("wash_centers")
       .select("*")
       .order("created_at", { ascending: false });
@@ -661,7 +661,7 @@ function WashCentersQueue() {
       return;
     }
 
-    const { data, error } = await supabase.from("wash_vendors").select("*").order("created_at", { ascending: false });
+    const { data, error } = await api.from("wash_vendors").select("*").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setCenters(data ?? []);
   };
@@ -674,7 +674,7 @@ function WashCentersQueue() {
       if (!reason) return;
     }
     setBusy(id);
-    const { error } = await supabase.rpc("verify_wash_center", {
+    const { error } = await api.rpc("verify_wash_center", {
       _center_id: id,
       _decision: decision,
       _rejection_reason: reason,
@@ -687,7 +687,7 @@ function WashCentersQueue() {
 
   const toggleActive = async (center: any) => {
     setBusy(center.id);
-    const { error } = await supabase.from("wash_vendors").update({ active: !center.active } as any).eq("id", center.id);
+    const { error } = await api.from("wash_vendors").update({ active: !center.active } as any).eq("id", center.id);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success(!center.active ? "Wash center verified & activated" : "Wash center deactivated");
@@ -697,7 +697,7 @@ function WashCentersQueue() {
   const addCenter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !city.trim()) return toast.error("Name and city are required");
-    const { error } = await supabase.from("wash_vendors").insert({
+    const { error } = await api.from("wash_vendors").insert({
       name: name.trim(),
       city: city.trim(),
       contact_phone: phone.trim() || null,

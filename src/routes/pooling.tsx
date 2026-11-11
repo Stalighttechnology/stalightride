@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { MapPicker } from "@/components/map-picker";
@@ -68,7 +68,7 @@ function PoolingPage() {
     setSearching(true);
     setResults(null);
     try {
-      let q = supabase
+      let q = api
         .from("pool_trips")
         .select("*")
         .eq("status", "scheduled")
@@ -92,7 +92,7 @@ function PoolingPage() {
       setResults(scored);
       const ids = [...new Set(scored.map((r) => r.trip.driver_id))];
       if (ids.length) {
-        const { data: profiles } = await supabase.from("public_profiles").select("*").in("id", ids);
+        const { data: profiles } = await api.from("public_profiles").select("*").in("id", ids);
         setDrivers(Object.fromEntries((profiles ?? []).map((p) => [p.id, p])));
       }
     } catch (e: any) {
@@ -107,7 +107,7 @@ function PoolingPage() {
     setJoining(trip.id);
     try {
       const match = matchScore(trip, { lat: pickup.lat!, lng: pickup.lng! }, { lat: drop.lat!, lng: drop.lng! });
-      const { error } = await supabase.from("pool_requests").insert({
+      const { error } = await api.from("pool_requests").insert({
         trip_id: trip.id,
         passenger_id: user.id,
         pickup_label: pickupLabel.trim(),

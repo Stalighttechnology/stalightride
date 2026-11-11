@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import { api } from "@/lib/api";
+import type { Tables } from "@/lib/db-types";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,10 +65,10 @@ function DriverProfile() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("public_drivers").select("*").eq("id", id).maybeSingle();
+      const { data } = await api.from("public_drivers").select("*").eq("id", id).maybeSingle();
       if (cancelled) return;
       setDriver(data ?? null);
-      const { data: rv } = await supabase
+      const { data: rv } = await api
         .from("driver_reviews")
         .select("id,rating,comment,created_at,customer_id,driver_response,driver_response_at")
         .eq("driver_id", id)
@@ -78,7 +78,7 @@ function DriverProfile() {
       const ids = Array.from(new Set((rv ?? []).map((r) => r.customer_id)));
       let names: Record<string, any> = {};
       if (ids.length) {
-        const { data: profs } = await supabase.from("public_profiles").select("id,full_name,avatar_url").in("id", ids);
+        const { data: profs } = await api.from("public_profiles").select("id,full_name,avatar_url").in("id", ids);
         names = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
       setReviews((rv ?? []).map((r) => ({ ...r, profile: names[r.customer_id] })));
@@ -88,14 +88,14 @@ function DriverProfile() {
 
   // Keep the customer's view of driver availability in sync in real time.
   useEffect(() => {
-    const channel = supabase
+    const channel = api
       .channel(`public_drivers:${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "public_drivers", filter: `id=eq.${id}` }, (payload) => {
         if (payload.eventType === "DELETE") setDriver(null);
         else setDriver(payload.new as Tables<"public_drivers">);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { api.removeChannel(channel); };
   }, [id]);
 
   useEffect(() => {
@@ -122,7 +122,7 @@ function DriverProfile() {
     if (!user) return navigate({ to: "/auth" });
     if (price.error || price.subtotal <= 0) return toast.error(price.error ?? "Choose a valid duration");
     setSubmitting(true);
-    const { error } = await supabase.from("driver_bookings").insert({
+    const { error } = await api.from("driver_bookings").insert({
       driver_id: id,
       customer_id: user.id,
       rate_type: rateType,

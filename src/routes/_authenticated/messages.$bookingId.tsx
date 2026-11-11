@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card } from "@/components/ui/card";
@@ -29,7 +29,7 @@ function MessagesPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data: b } = await supabase
+      const { data: b } = await api
         .from("bookings")
         .select("*, vehicles(title)")
         .eq("id", bookingId)
@@ -49,7 +49,7 @@ function MessagesPage() {
       }
       setBooking(b);
       setAllowed(true);
-      const { data: m } = await supabase
+      const { data: m } = await api
         .from("messages")
         .select("*")
         .eq("booking_id", bookingId)
@@ -58,7 +58,7 @@ function MessagesPage() {
       const senderIds = Array.from(new Set(rows.map((x: any) => x.sender_id)));
       let byId: Record<string, any> = {};
       if (senderIds.length) {
-        const { data: profs } = await supabase.from("public_profiles" as any).select("id,full_name,avatar_url").in("id", senderIds);
+        const { data: profs } = await api.from("public_profiles" as any).select("id,full_name,avatar_url").in("id", senderIds);
         byId = Object.fromEntries((profs ?? []).map((a: any) => [a.id, a]));
       }
       setMessages(rows.map((x: any) => ({ ...x, profiles: byId[x.sender_id] ?? null })));
@@ -67,14 +67,14 @@ function MessagesPage() {
 
   useEffect(() => {
     if (!allowed) return;
-    const ch = supabase.channel(`msgs-${bookingId}`)
+    const ch = api.channel(`msgs-${bookingId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `booking_id=eq.${bookingId}` },
         async (payload) => {
-          const { data: prof } = await supabase.from("public_profiles" as any).select("full_name,avatar_url").eq("id", (payload.new as any).sender_id).maybeSingle();
+          const { data: prof } = await api.from("public_profiles" as any).select("full_name,avatar_url").eq("id", (payload.new as any).sender_id).maybeSingle();
           setMessages((prev) => [...(prev ?? []), { ...(payload.new as any), profiles: prof }]);
         })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { api.removeChannel(ch); };
   }, [bookingId, allowed]);
 
   useEffect(() => { listRef.current?.scrollTo({ top: 999999 }); }, [messages]);
@@ -90,15 +90,15 @@ function MessagesPage() {
       if (pendingImage) {
         const ext = pendingImage.name.split(".").pop();
         const path = `${user.id}/msg-${bookingId}-${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("verification-docs").upload(path, pendingImage);
+        const { error: upErr } = await api.storage.from("verification-docs").upload(path, pendingImage);
         if (upErr) throw upErr;
-        const { data: signed, error: sErr } = await supabase.storage.from("verification-docs").createSignedUrl(path, 60 * 60 * 24 * 365);
+        const { data: signed, error: sErr } = await api.storage.from("verification-docs").createSignedUrl(path, 60 * 60 * 24 * 365);
         if (sErr || !signed) throw sErr ?? new Error("sign failed");
         image_url = signed.signedUrl;
       }
       const body = text.trim() || null;
       setText(""); setPendingImage(null);
-      const { error } = await supabase.from("messages").insert({ booking_id: bookingId, sender_id: user.id, body, image_url } as any);
+      const { error } = await api.from("messages").insert({ booking_id: bookingId, sender_id: user.id, body, image_url } as any);
       if (error) throw error;
     } catch (err: any) {
       toast.error(err.message ?? "Could not send");

@@ -76,7 +76,7 @@ function PitchPage() {
               <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-xl">{pitch.summary}</p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg" className="btn-gradient h-13 rounded-2xl px-6">
-                  <a href="/api/public/pitch-deck" download="synchoo-enterprise-pitch.pdf" target="_blank" rel="noopener">
+                  <a href="/downloads/synchoo-enterprise-pitch.pdf" download="synchoo-enterprise-pitch.pdf" target="_blank" rel="noopener">
                     <Download className="h-4 w-4" /> Download the deck
                   </a>
                 </Button>
@@ -273,7 +273,7 @@ function PitchPage() {
                   <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">{pitch.decision.detail}</p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-                  <Button asChild size="lg" className="btn-gradient h-13 rounded-2xl px-6"><a href="/api/public/pitch-deck" download="synchoo-enterprise-pitch.pdf" target="_blank" rel="noopener"><Download className="h-4 w-4" /> Download PDF</a></Button>
+                  <Button asChild size="lg" className="btn-gradient h-13 rounded-2xl px-6"><a href="/downloads/synchoo-enterprise-pitch.pdf" download="synchoo-enterprise-pitch.pdf" target="_blank" rel="noopener"><Download className="h-4 w-4" /> Download PDF</a></Button>
                   <Button asChild size="lg" variant="outline" className="h-13 rounded-2xl border-border bg-card/50 px-6"><Link to="/help">Read the product guide</Link></Button>
                 </div>
               </div>

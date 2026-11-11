@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ export function PaymentsRefundsTab() {
   const [processing, setProcessing] = useState(false);
 
   const loadTransactions = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("wallet_transactions")
       .select("*")
       .order("created_at", { ascending: false })
@@ -44,7 +44,7 @@ export function PaymentsRefundsTab() {
     }
     setProcessing(true);
     // Goes through wallet_apply on the server: ledger row, running balance, admin check.
-    const { error } = await supabase.rpc("admin_refund", {
+    const { error } = await api.rpc("admin_refund", {
       _email: refundUser.trim(),
       _amount: amt,
       _reason: refundReason.trim(),

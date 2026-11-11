@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BadgePercent, X } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { computeCharges } from "@/lib/charges";
@@ -25,7 +25,7 @@ export function CouponField({
     const trimmed = code.trim();
     if (!trimmed) return;
     setChecking(true);
-    const { data, error } = await supabase.rpc("validate_coupon", { _code: trimmed });
+    const { data, error } = await api.rpc("validate_coupon", { _code: trimmed });
     setChecking(false);
     const res = data as {
       valid?: boolean;

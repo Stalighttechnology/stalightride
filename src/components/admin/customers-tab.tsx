@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ export function CustomersTab() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("profiles")
       .select("id, full_name, phone, city, dl_status, dl_number, created_at, avatar_url")
       .order("created_at", { ascending: false })
@@ -35,7 +35,7 @@ export function CustomersTab() {
   const toggleStatus = async (customer: any) => {
     const nextStatus = customer.dl_status === "approved" ? "rejected" : "approved";
     setBusy(customer.id);
-    const { error } = await supabase
+    const { error } = await api
       .from("profiles")
       .update({
         dl_status: nextStatus as any,

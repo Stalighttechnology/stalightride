@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { QrCamera } from "@/components/qr-camera";
@@ -9,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
-import { resolveHandoverCode, confirmHandover } from "@/lib/handover.functions";
+import { resolveHandoverCode, confirmHandover } from "@/lib/actions";
 import { QrCode, ScanLine, CheckCircle2, RotateCcw, ClipboardCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/scan")({
@@ -34,8 +33,8 @@ function extractCode(text: string) {
 }
 
 function ScanPage() {
-  const resolve = useServerFn(resolveHandoverCode);
-  const confirm = useServerFn(confirmHandover);
+  const resolve = resolveHandoverCode;
+  const confirm = confirmHandover;
   const navigate = useNavigate();
   const [scanning, setScanning] = useState(true);
   const [manual, setManual] = useState("");

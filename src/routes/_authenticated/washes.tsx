@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +20,7 @@ import {
   CheckCircle2,
   CircleDot,
 } from "lucide-react";
-import { createWashRazorpayOrder, verifyWashRazorpayPayment } from "@/lib/wash-payments.functions";
+import { createWashRazorpayOrder, verifyWashRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 export const Route = createFileRoute("/_authenticated/washes")({
@@ -118,7 +117,7 @@ function WashReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () =
 
   const submit = async () => {
     setSubmitting(true);
-    const { error } = await supabase.from("wash_reviews").insert({
+    const { error } = await api.from("wash_reviews").insert({
       wash_booking_id: bookingId,
       rating,
       comment: comment.trim() || null,
@@ -153,19 +152,19 @@ function WashesPage() {
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
-  const createOrder = useServerFn(createWashRazorpayOrder);
-  const verifyPayment = useServerFn(verifyWashRazorpayPayment);
+  const createOrder = createWashRazorpayOrder;
+  const verifyPayment = verifyWashRazorpayPayment;
 
   const load = async () => {
     if (!user) return;
     const [{ data, error }, { data: w }, { data: revData }] = await Promise.all([
-      supabase
+      api
         .from("wash_bookings")
         .select("*, wash_services:service_id(name,duration_minutes,vehicle_category)")
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false }),
-      supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-      supabase.from("wash_reviews").select("wash_booking_id").eq("customer_id", user.id),
+      api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      api.from("wash_reviews").select("wash_booking_id").eq("customer_id", user.id),
     ]);
     if (error) toast.error(error.message);
     setItems(data ?? []);
@@ -190,7 +189,7 @@ function WashesPage() {
       : "Cancel this wash request?";
     if (!window.confirm(msg)) return;
     setBusy(b.id);
-    const { data, error } = await supabase.rpc("cancel_wash_booking", { _wash_booking_id: b.id, _reason: null } as any);
+    const { data, error } = await api.rpc("cancel_wash_booking", { _wash_booking_id: b.id, _reason: null } as any);
     setBusy(null);
     if (error) return toast.error(error.message);
     const refund = Number((data as any)?.refund ?? 0);
@@ -200,7 +199,7 @@ function WashesPage() {
 
   const payWallet = async (b: any) => {
     setBusy(b.id);
-    const { error } = await supabase.rpc("wallet_pay_wash_booking", { _wash_booking_id: b.id } as any);
+    const { error } = await api.rpc("wallet_pay_wash_booking", { _wash_booking_id: b.id } as any);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success("Paid from wallet");

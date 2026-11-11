@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SupportTicketForm } from "@/components/support-ticket-form";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,7 @@ export function SafetyCenterPage() {
 
   const loadTrustedContacts = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data } = await api
       .from("trusted_contacts")
       .select("*")
       .eq("user_id", user.id)
@@ -103,7 +103,7 @@ export function SafetyCenterPage() {
     }
     setSubmittingIncident(true);
 
-    const { error } = await supabase.from("incidents").insert({
+    const { error } = await api.from("incidents").insert({
       reporter_id: user.id,
       type: incidentType,
       booking_id: incidentBookingId.trim() || null,
@@ -134,7 +134,7 @@ export function SafetyCenterPage() {
     }
     setSubmittingLost(true);
 
-    const { error } = await supabase.from("incidents").insert({
+    const { error } = await api.from("incidents").insert({
       reporter_id: user.id,
       type: "lost_item",
       booking_id: lostTripId.trim() || null,
@@ -164,7 +164,7 @@ export function SafetyCenterPage() {
       return toast.error("Provide contact name and phone number");
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("trusted_contacts")
       .insert({
         user_id: user.id,
@@ -195,7 +195,7 @@ export function SafetyCenterPage() {
   };
 
   const removeContact = async (id: string) => {
-    const { error } = await supabase.from("trusted_contacts").delete().eq("id", id);
+    const { error } = await api.from("trusted_contacts").delete().eq("id", id);
     if (error) {
       toast.error(error.message);
       return;

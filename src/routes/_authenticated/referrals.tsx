@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +56,7 @@ export function ReferralsPage() {
 
     (async () => {
       // 1. Load user's referral code
-      const { data: profile } = await supabase
+      const { data: profile } = await api
         .from("profiles")
         .select("referral_code")
         .eq("id", user.id)
@@ -67,7 +67,7 @@ export function ReferralsPage() {
       }
 
       // 2. Load friends referred by this user
-      const { data: friends } = await supabase
+      const { data: friends } = await api
         .from("profiles")
         .select("id, full_name, created_at, referral_rewarded")
         .eq("referred_by", user.id)

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { PoolRouteMap } from "@/components/pool-route-map";
@@ -58,7 +58,7 @@ function PoolDriver() {
 
   const load = async () => {
     if (!user) return;
-    const { data: t } = await supabase
+    const { data: t } = await api
       .from("pool_trips")
       .select("*")
       .eq("driver_id", user.id)
@@ -66,7 +66,7 @@ function PoolDriver() {
     setTrips(t ?? []);
     const ids = (t ?? []).map((x) => x.id);
     if (!ids.length) return setRequests({});
-    const { data: r } = await supabase
+    const { data: r } = await api
       .from("pool_requests")
       .select("*")
       .in("trip_id", ids)
@@ -78,11 +78,11 @@ function PoolDriver() {
     setRequests(grouped);
     const pids = [...new Set((r ?? []).map((x) => x.passenger_id))];
     if (pids.length) {
-      const { data: p } = await supabase.from("public_profiles").select("*").in("id", pids);
+      const { data: p } = await api.from("public_profiles").select("*").in("id", pids);
       setProfiles(Object.fromEntries((p ?? []).map((x) => [x.id, x])));
     }
 
-    const { data: driverRatings } = await supabase
+    const { data: driverRatings } = await api
       .from("pool_ratings")
       .select("request_id")
       .eq("rater_id", user.id);
@@ -94,7 +94,7 @@ function PoolDriver() {
 
   const decide = async (req: any, status: "confirmed" | "rejected") => {
     setBusy(req.id);
-    const { error } = await supabase.from("pool_requests").update({ status } as any).eq("id", req.id);
+    const { error } = await api.from("pool_requests").update({ status } as any).eq("id", req.id);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success(status === "confirmed" ? "Rider accepted — seats updated" : "Rider declined");
@@ -112,7 +112,7 @@ function PoolDriver() {
       return toast.error("Please enter a valid rating between 1 and 5");
     }
     const comment = window.prompt("Optional feedback / comment:") || "";
-    const { error } = await supabase.from("pool_ratings").insert({
+    const { error } = await api.from("pool_ratings").insert({
       trip_id: trip.id,
       request_id: r.id,
       rater_id: user!.id,
@@ -132,7 +132,7 @@ function PoolDriver() {
     const reason = window.prompt("Reason for report / safety issue:");
     if (!reason?.trim()) return;
     const details = window.prompt("Additional details (optional):") || "";
-    const { error } = await supabase.from("user_reports").insert({
+    const { error } = await api.from("user_reports").insert({
       reporter_id: user!.id,
       reported_user_id: r.passenger_id,
       target_type: "pooling_request",
@@ -149,11 +149,11 @@ function PoolDriver() {
   const setTripStatus = async (trip: any, status: "started" | "completed" | "cancelled") => {
     if (status === "cancelled" && !window.confirm("Cancel this pooling trip? Accepted riders will be notified.")) return;
     setBusy(trip.id);
-    const { error } = await supabase.from("pool_trips").update({ status } as any).eq("id", trip.id);
+    const { error } = await api.from("pool_trips").update({ status } as any).eq("id", trip.id);
     if (!error && status !== "started") {
       const list = (requests[trip.id] ?? []).filter((r) => ["pending", "confirmed"].includes(r.status));
       for (const r of list) {
-        await supabase
+        await api
           .from("pool_requests")
           .update({ status: status === "completed" ? (r.status === "confirmed" ? "completed" : "rejected") : "cancelled" } as any)
           .eq("id", r.id);

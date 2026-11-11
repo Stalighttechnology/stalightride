@@ -23,6 +23,7 @@ import { Route as MembershipRouteImport } from './routes/membership'
 import { Route as PitchRouteImport } from './routes/pitch'
 import { Route as PoolingRouteImport } from './routes/pooling'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SafetyRouteImport } from './routes/safety'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WashRouteImport } from './routes/wash'
@@ -48,8 +49,6 @@ import { Route as AuthenticatedPoolingDriverRouteImport } from './routes/_authen
 import { Route as AuthenticatedPoolingMineRouteImport } from './routes/_authenticated/pooling.mine'
 import { Route as AuthenticatedPoolingNewRouteImport } from './routes/_authenticated/pooling.new'
 import { Route as AuthenticatedVendorIndexRouteImport } from './routes/_authenticated/vendor.index'
-import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
-import { Route as ApiPublicPitchDeckRouteImport } from './routes/api/public/pitch-deck'
 import { Route as BookingQrCodeRouteImport } from './routes/booking.qr.$code'
 import { Route as AuthenticatedBookingsIdDisputeRouteImport } from './routes/_authenticated/bookings.$id.dispute'
 import { Route as AuthenticatedBookingsIdTripRouteImport } from './routes/_authenticated/bookings.$id.trip'
@@ -123,6 +122,11 @@ const PoolingRoute = PoolingRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SafetyRoute = SafetyRouteImport.update({
@@ -258,16 +262,6 @@ const AuthenticatedVendorIndexRoute =
     path: '/vendor/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
-  id: '/api/cron/reminders',
-  path: '/api/cron/reminders',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicPitchDeckRoute = ApiPublicPitchDeckRouteImport.update({
-  id: '/api/public/pitch-deck',
-  path: '/api/public/pitch-deck',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const BookingQrCodeRoute = BookingQrCodeRouteImport.update({
   id: '/booking/qr/$code',
   path: '/booking/qr/$code',
@@ -312,6 +306,7 @@ export interface FileRoutesByFullPath {
   '/pitch': typeof PitchRoute
   '/pooling': typeof PoolingRoute
   '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/safety': typeof SafetyRoute
   '/terms': typeof TermsRoute
   '/wash': typeof WashRoute
@@ -335,8 +330,6 @@ export interface FileRoutesByFullPath {
   '/pooling/driver': typeof AuthenticatedPoolingDriverRoute
   '/pooling/mine': typeof AuthenticatedPoolingMineRoute
   '/pooling/new': typeof AuthenticatedPoolingNewRoute
-  '/api/cron/reminders': typeof ApiCronRemindersRoute
-  '/api/public/pitch-deck': typeof ApiPublicPitchDeckRoute
   '/booking/qr/$code': typeof BookingQrCodeRoute
   '/bookings/': typeof AuthenticatedBookingsIndexRoute
   '/vendor/': typeof AuthenticatedVendorIndexRoute
@@ -359,6 +352,7 @@ export interface FileRoutesByTo {
   '/pitch': typeof PitchRoute
   '/pooling': typeof PoolingRoute
   '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/safety': typeof SafetyRoute
   '/terms': typeof TermsRoute
   '/wash': typeof WashRoute
@@ -382,8 +376,6 @@ export interface FileRoutesByTo {
   '/pooling/driver': typeof AuthenticatedPoolingDriverRoute
   '/pooling/mine': typeof AuthenticatedPoolingMineRoute
   '/pooling/new': typeof AuthenticatedPoolingNewRoute
-  '/api/cron/reminders': typeof ApiCronRemindersRoute
-  '/api/public/pitch-deck': typeof ApiPublicPitchDeckRoute
   '/booking/qr/$code': typeof BookingQrCodeRoute
   '/bookings': typeof AuthenticatedBookingsIndexRoute
   '/vendor': typeof AuthenticatedVendorIndexRoute
@@ -408,6 +400,7 @@ export interface FileRoutesById {
   '/pitch': typeof PitchRoute
   '/pooling': typeof PoolingRoute
   '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/safety': typeof SafetyRoute
   '/terms': typeof TermsRoute
   '/wash': typeof WashRoute
@@ -431,8 +424,6 @@ export interface FileRoutesById {
   '/_authenticated/pooling/driver': typeof AuthenticatedPoolingDriverRoute
   '/_authenticated/pooling/mine': typeof AuthenticatedPoolingMineRoute
   '/_authenticated/pooling/new': typeof AuthenticatedPoolingNewRoute
-  '/api/cron/reminders': typeof ApiCronRemindersRoute
-  '/api/public/pitch-deck': typeof ApiPublicPitchDeckRoute
   '/booking/qr/$code': typeof BookingQrCodeRoute
   '/_authenticated/bookings/': typeof AuthenticatedBookingsIndexRoute
   '/_authenticated/vendor/': typeof AuthenticatedVendorIndexRoute
@@ -457,6 +448,7 @@ export interface FileRouteTypes {
     | '/pitch'
     | '/pooling'
     | '/privacy'
+    | '/reset-password'
     | '/safety'
     | '/terms'
     | '/wash'
@@ -480,8 +472,6 @@ export interface FileRouteTypes {
     | '/pooling/driver'
     | '/pooling/mine'
     | '/pooling/new'
-    | '/api/cron/reminders'
-    | '/api/public/pitch-deck'
     | '/booking/qr/$code'
     | '/bookings/'
     | '/vendor/'
@@ -504,6 +494,7 @@ export interface FileRouteTypes {
     | '/pitch'
     | '/pooling'
     | '/privacy'
+    | '/reset-password'
     | '/safety'
     | '/terms'
     | '/wash'
@@ -527,8 +518,6 @@ export interface FileRouteTypes {
     | '/pooling/driver'
     | '/pooling/mine'
     | '/pooling/new'
-    | '/api/cron/reminders'
-    | '/api/public/pitch-deck'
     | '/booking/qr/$code'
     | '/bookings'
     | '/vendor'
@@ -552,6 +541,7 @@ export interface FileRouteTypes {
     | '/pitch'
     | '/pooling'
     | '/privacy'
+    | '/reset-password'
     | '/safety'
     | '/terms'
     | '/wash'
@@ -575,8 +565,6 @@ export interface FileRouteTypes {
     | '/_authenticated/pooling/driver'
     | '/_authenticated/pooling/mine'
     | '/_authenticated/pooling/new'
-    | '/api/cron/reminders'
-    | '/api/public/pitch-deck'
     | '/booking/qr/$code'
     | '/_authenticated/bookings/'
     | '/_authenticated/vendor/'
@@ -601,13 +589,12 @@ export interface RootRouteChildren {
   PitchRoute: typeof PitchRoute
   PoolingRoute: typeof PoolingRoute
   PrivacyRoute: typeof PrivacyRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SafetyRoute: typeof SafetyRoute
   TermsRoute: typeof TermsRoute
   WashRoute: typeof WashRoute
   DriverIdRoute: typeof DriverIdRoute
   VehicleIdRoute: typeof VehicleIdRoute
-  ApiCronRemindersRoute: typeof ApiCronRemindersRoute
-  ApiPublicPitchDeckRoute: typeof ApiPublicPitchDeckRoute
   BookingQrCodeRoute: typeof BookingQrCodeRoute
 }
 
@@ -709,6 +696,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/safety': {
@@ -886,20 +880,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVendorIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/cron/reminders': {
-      id: '/api/cron/reminders'
-      path: '/api/cron/reminders'
-      fullPath: '/api/cron/reminders'
-      preLoaderRoute: typeof ApiCronRemindersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/pitch-deck': {
-      id: '/api/public/pitch-deck'
-      path: '/api/public/pitch-deck'
-      fullPath: '/api/public/pitch-deck'
-      preLoaderRoute: typeof ApiPublicPitchDeckRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/booking/qr/$code': {
       id: '/booking/qr/$code'
       path: '/booking/qr/$code'
@@ -1010,25 +990,14 @@ const rootRouteChildren: RootRouteChildren = {
   PitchRoute: PitchRoute,
   PoolingRoute: PoolingRoute,
   PrivacyRoute: PrivacyRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SafetyRoute: SafetyRoute,
   TermsRoute: TermsRoute,
   WashRoute: WashRoute,
   DriverIdRoute: DriverIdRoute,
   VehicleIdRoute: VehicleIdRoute,
-  ApiCronRemindersRoute: ApiCronRemindersRoute,
-  ApiPublicPitchDeckRoute: ApiPublicPitchDeckRoute,
   BookingQrCodeRoute: BookingQrCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -52,10 +52,10 @@ function Account() {
     let alive = true;
     (async () => {
       const [p, w, b, wl] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-        supabase.from("bookings").select("id,status").eq("customer_id", user.id),
-        supabase.from("wishlists").select("id").eq("user_id", user.id),
+        api.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        api.from("bookings").select("id,status").eq("customer_id", user.id),
+        api.from("wishlists").select("id").eq("user_id", user.id),
       ]);
       if (!alive) return;
       setProfile(p.data ?? { id: user.id });
@@ -71,7 +71,7 @@ function Account() {
   }, [user?.id]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await api.auth.signOut();
     navigate({ to: "/" });
   };
 

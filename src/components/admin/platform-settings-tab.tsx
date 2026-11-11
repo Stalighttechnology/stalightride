@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ export function PlatformSettingsTab() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase
+    api
       .from("platform_settings")
       .select("*")
       .eq("id", 1)
@@ -44,7 +44,7 @@ export function PlatformSettingsTab() {
     e.preventDefault();
     setSaving(true);
 
-    const { error } = await supabase
+    const { error } = await api
       .from("platform_settings")
       .update({
         maintenance_mode: maintenanceMode,

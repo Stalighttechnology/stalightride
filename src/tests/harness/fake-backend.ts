@@ -16,8 +16,8 @@
  * Every rule is expressed once here and asserted by the flow tests.
  *  - admin refunds and paid trip extensions (money phase 1b)
  *
- * Mirrors supabase/migrations/20261105120000_money_phase1.sql and
- * 20261107120000_money_phase1b.sql.
+ * Mirrors the money rules in backend/sql/schema.sql (wallet ledger, pricing,
+ * cancellation refunds, trip extensions).
  */
 
 import { computeCharges, round2, type Charges, type PlatformSettings as FeeSettings } from "@/lib/charges";

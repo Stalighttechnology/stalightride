@@ -1,6 +1,6 @@
 /**
  * Platform fees for a base amount. Mirrors public.compute_charges in
- * supabase/migrations/20261105120000_money_phase1.sql — the database is the
+ * backend/sql/schema.sql — the database is the
  * source of truth (it reprices every booking on insert); this is for previews
  * and the test harness. Keep both in sync.
  */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -71,7 +71,7 @@ export function NotificationBell({ className }: { className?: string }) {
     let cancelled = false;
 
     (async () => {
-      const { data } = await supabase
+      const { data } = await api
         .from("notifications")
         .select("id,title,body,link,read,created_at")
         .eq("user_id", user.id)
@@ -80,7 +80,7 @@ export function NotificationBell({ className }: { className?: string }) {
       if (!cancelled) setItems((data as Notification[]) ?? []);
     })();
 
-    const channel = supabase
+    const channel = api
       .channel(`notifications:${user.id}`)
       .on(
         "postgres_changes",
@@ -89,7 +89,7 @@ export function NotificationBell({ className }: { className?: string }) {
       )
       .subscribe();
 
-    return () => { cancelled = true; supabase.removeChannel(channel); };
+    return () => { cancelled = true; api.removeChannel(channel); };
   }, [user?.id]);
 
 
@@ -102,14 +102,14 @@ export function NotificationBell({ className }: { className?: string }) {
   const markAllRead = async () => {
     if (!user || unread === 0) return;
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
-    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    await api.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
   };
 
   const openItem = async (n: Notification) => {
     setOpen(false);
     if (!n.read) {
       setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
-      await supabase.from("notifications").update({ read: true }).eq("id", n.id);
+      await api.from("notifications").update({ read: true }).eq("id", n.id);
     }
   };
 

@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ export function WithdrawalQueue() {
 
   const load = async () => {
     setItems(null);
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("withdrawals")
       .select("*")
       .eq("status", filter)
@@ -46,7 +46,7 @@ export function WithdrawalQueue() {
       decision === "rejected"
         ? (window.prompt("Reason shown to the provider (optional)") ?? undefined)
         : undefined;
-    const { error } = await supabase.rpc("admin_decide_withdrawal", {
+    const { error } = await api.rpc("admin_decide_withdrawal", {
       _withdrawal_id: id,
       _decision: decision,
       _reference: reference?.trim() || undefined,
@@ -163,7 +163,7 @@ export function CouponManager() {
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("coupons")
       .select("*")
       .order("created_at", { ascending: false })
@@ -182,7 +182,7 @@ export function CouponManager() {
     if (!Number.isFinite(value) || value <= 0) return toast.error("Enter a discount value");
     if (form.kind === "percent" && value > 100) return toast.error("Percent off can't exceed 100");
     setSaving(true);
-    const { error } = await supabase.from("coupons").insert({
+    const { error } = await api.from("coupons").insert({
       code,
       percent_off: form.kind === "percent" ? value : null,
       amount_off: form.kind === "amount" ? value : null,
@@ -201,7 +201,7 @@ export function CouponManager() {
   };
 
   const toggle = async (c: any) => {
-    const { error } = await supabase.from("coupons").update({ active: !c.active }).eq("id", c.id);
+    const { error } = await api.from("coupons").update({ active: !c.active }).eq("id", c.id);
     if (error) return toast.error(error.message);
     load();
   };
@@ -310,7 +310,7 @@ export function PlatformSettingsForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase
+    api
       .from("platform_settings")
       .select("*")
       .eq("id", 1)
@@ -335,7 +335,7 @@ export function PlatformSettingsForm() {
       patch[f.key] = n;
     }
     setSaving(true);
-    const { error } = await supabase.from("platform_settings").update(patch).eq("id", 1);
+    const { error } = await api.from("platform_settings").update(patch).eq("id", 1);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Settings saved — they apply to new bookings");
@@ -385,7 +385,7 @@ export function GrantCreditForm() {
       return toast.error("Amount must be between 1 and 100000");
     if (!window.confirm(`Credit ${currency(amount)} to ${form.email.trim()}?`)) return;
     setSaving(true);
-    const { error } = await supabase.rpc("admin_grant_credit", {
+    const { error } = await api.rpc("admin_grant_credit", {
       _email: form.email.trim(),
       _amount: amount,
       _note: form.note.trim() || undefined,

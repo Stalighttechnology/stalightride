@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +17,7 @@ function Wishlist() {
   const [items, setItems] = useState<any[] | null>(null);
   const load = async () => {
     if (!user) return;
-    const { data } = await supabase.from("wishlists")
+    const { data } = await api.from("wishlists")
       .select("id, vehicles(id,title,brand,model,year,city,price_daily,category,vehicle_images(url,sort_order))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -26,7 +26,7 @@ function Wishlist() {
   useEffect(() => { load(); }, [user?.id]);
 
   const remove = async (id: string) => {
-    await supabase.from("wishlists").delete().eq("id", id);
+    await api.from("wishlists").delete().eq("id", id);
     load();
   };
 

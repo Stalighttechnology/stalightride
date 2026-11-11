@@ -1,7 +1,7 @@
 import { CityPicker } from "@/components/city-picker";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,7 +96,7 @@ function WashPage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
+    api
       .from("profiles")
       .select("city")
       .eq("id", user.id)
@@ -107,7 +107,7 @@ function WashPage() {
   }, [user]);
 
   useEffect(() => {
-    supabase
+    api
       .from("wash_services")
       .select("id,name,description,vehicle_category,price,duration_minutes,sort_order")
       .eq("active", true)
@@ -127,7 +127,7 @@ function WashPage() {
     if (!form.slot_date || !form.slot_time) return toast.error("Pick a slot date and time");
 
     setSaving(true);
-    const { error } = await supabase.from("wash_bookings").insert({
+    const { error } = await api.from("wash_bookings").insert({
       customer_id: user.id,
       service_id: service.id,
       city: form.city.trim(),

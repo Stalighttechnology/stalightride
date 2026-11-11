@@ -2,7 +2,7 @@ import { CityPicker } from "@/components/city-picker";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ function DriversPage() {
     let cancelled = false;
     setItems(null);
     (async () => {
-      let query = supabase
+      let query = api
         .from("public_drivers")
         .select("*", { count: "exact" })
         .order("avg_rating", { ascending: false })

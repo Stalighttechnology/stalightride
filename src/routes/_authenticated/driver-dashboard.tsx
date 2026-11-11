@@ -2,7 +2,7 @@ import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,9 +57,9 @@ function DriverDashboard() {
   const load = async () => {
     if (!user) return;
     const [{ data: d }, { data: h }, { data: r }] = await Promise.all([
-      supabase.from("drivers").select("*").eq("id", user.id).maybeSingle(),
-      supabase.from("driver_bookings").select("*").eq("driver_id", user.id).order("created_at", { ascending: false }).limit(50),
-      supabase.from("driver_reviews").select("*").eq("driver_id", user.id),
+      api.from("drivers").select("*").eq("id", user.id).maybeSingle(),
+      api.from("driver_bookings").select("*").eq("driver_id", user.id).order("created_at", { ascending: false }).limit(50),
+      api.from("driver_reviews").select("*").eq("driver_id", user.id),
     ]);
     setDriver(d ?? null);
     if (d) setForm({ ...emptyDriver, ...d, dl_expiry: d.dl_expiry ?? "", trip_types: d.trip_types ?? [], service_area: d.service_area ?? "" });
@@ -76,7 +76,7 @@ function DriverDashboard() {
     if (!user) return null;
     const ext = file.name.split(".").pop();
     const path = `${user.id}/driver-${kind}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("verification-docs").upload(path, file, { upsert: true });
+    const { error } = await api.storage.from("verification-docs").upload(path, file, { upsert: true });
     if (error) { toast.error(error.message); return null; }
     return path;
   };
@@ -85,9 +85,9 @@ function DriverDashboard() {
     if (!user) return;
     const ext = file.name.split(".").pop();
     const path = `${user.id}/driver-photo-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    const { error } = await api.storage.from("avatars").upload(path, file, { upsert: true });
     if (error) return toast.error(error.message);
-    const { data } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
+    const { data } = await api.storage.from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
     if (data?.signedUrl) setForm((f: any) => ({ ...f, photo_url: data.signedUrl }));
   };
 
@@ -120,7 +120,7 @@ function DriverDashboard() {
       trip_types: Array.isArray(form.trip_types) ? form.trip_types : [],
       service_area: form.service_area || null,
     };
-    const { error } = await supabase.from("drivers").upsert(payload);
+    const { error } = await api.from("drivers").upsert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success(driver ? "Profile updated" : "Profile submitted for verification");
@@ -129,14 +129,14 @@ function DriverDashboard() {
 
   const setStatus = async (active: boolean) => {
     if (!user) return;
-    const { error } = await supabase.from("drivers").update({ status: active ? "active" : "paused" }).eq("id", user.id);
+    const { error } = await api.from("drivers").update({ status: active ? "active" : "paused" }).eq("id", user.id);
     if (error) return toast.error(error.message);
     toast.success(active ? "You're live and bookable" : "Paused — you won't appear in search");
     load();
   };
 
   const decide = async (id: string, status: "confirmed" | "rejected" | "completed") => {
-    const { error } = await supabase.from("driver_bookings").update({ status }).eq("id", id);
+    const { error } = await api.from("driver_bookings").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Hire ${status}`);
     load();
@@ -147,7 +147,7 @@ function DriverDashboard() {
     if (!window.confirm(paid
       ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
       : "Cancel this hire?")) return;
-    const { data, error } = await supabase.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
+    const { data, error } = await api.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
     if (error) return toast.error(error.message);
     const refund = Number((data as { refund?: number } | null)?.refund ?? 0);
     toast.success(refund > 0 ? `Hire cancelled — ${currency(refund)} refunded to the customer` : "Hire cancelled");

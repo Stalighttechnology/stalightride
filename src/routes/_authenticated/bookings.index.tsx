@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +18,7 @@ import {
   MessageSquare, CreditCard, ClipboardCheck, AlertTriangle, Wallet as WalletIcon, ReceiptText,
   CircleSlash, CarFront, ArrowRight, CheckCircle2, CalendarDays, Clock,
   ScanLine } from "lucide-react";
-import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/razorpay.functions";
+import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 export const Route = createFileRoute("/_authenticated/bookings/")({ component: Bookings });
@@ -30,16 +29,16 @@ function Bookings() {
   const [asVendor, setAsVendor] = useState<any[] | null>(null);
   const [paying, setPaying] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const createOrder = useServerFn(createRazorpayOrder);
-  const verifyPayment = useServerFn(verifyRazorpayPayment);
+  const createOrder = createRazorpayOrder;
+  const verifyPayment = verifyRazorpayPayment;
 
   const load = async () => {
     if (!user) return;
     const sel = "*, vehicles(id,title,city,vehicle_images(url,sort_order))";
     const [c, v, w] = await Promise.all([
-      supabase.from("bookings").select(sel).eq("customer_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("bookings").select(sel).eq("vendor_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      api.from("bookings").select(sel).eq("customer_id", user.id).order("created_at", { ascending: false }),
+      api.from("bookings").select(sel).eq("vendor_id", user.id).order("created_at", { ascending: false }),
+      api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
     ]);
     setAsCustomer(c.data ?? []);
     setAsVendor(v.data ?? []);
@@ -62,7 +61,7 @@ function Bookings() {
         : `Cancel this booking? You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
     }
     if (!window.confirm(message)) return;
-    const { data, error } = await supabase.rpc("cancel_booking", { _booking_id: b.id });
+    const { data, error } = await api.rpc("cancel_booking", { _booking_id: b.id });
     if (error) return toast.error(error.message);
     const refund = Number((data as any)?.refund ?? 0);
     toast.success(refund > 0 ? `Booking cancelled · ${currency(refund)} refunded to wallet` : "Booking cancelled");
@@ -76,7 +75,7 @@ function Bookings() {
     }
     setAsVendor((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, status } : x)) : prev));
     setAsCustomer((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, status } : x)) : prev));
-    const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+    const { error } = await api.from("bookings").update({ status }).eq("id", id);
     if (error) {
       toast.error(error.message);
       load();
@@ -89,7 +88,7 @@ function Bookings() {
   const payWithWallet = async (b: any) => {
     setPaying(b.id);
     try {
-      const { error } = await supabase.rpc("wallet_pay_booking", { _booking_id: b.id });
+      const { error } = await api.rpc("wallet_pay_booking", { _booking_id: b.id });
       if (error) throw error;
       toast.success("Paid from wallet");
       setAsCustomer((prev) =>
@@ -141,7 +140,7 @@ function Bookings() {
           } catch (e: any) {
             console.warn("verifyPayment failed, falling back to direct update:", e);
             try {
-              await supabase
+              await api
                 .from("bookings")
                 .update({
                   payment_status: "paid",

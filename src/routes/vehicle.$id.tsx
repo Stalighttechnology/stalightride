@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -72,21 +72,21 @@ function VehiclePage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("vehicles")
+      const { data } = await api.from("vehicles")
         .select("*, vehicle_images(url,sort_order)")
         .eq("id", id).maybeSingle();
       setV(data);
       if (data) {
-        const { data: vend } = await supabase.from("public_vendors" as any).select("*").eq("id", data.vendor_id).maybeSingle();
+        const { data: vend } = await api.from("public_vendors" as any).select("*").eq("id", data.vendor_id).maybeSingle();
         setVendor(vend);
-        const { data: prof } = await supabase.from("public_profiles" as any).select("*").eq("id", data.vendor_id).maybeSingle();
+        const { data: prof } = await api.from("public_profiles" as any).select("*").eq("id", data.vendor_id).maybeSingle();
         setVendorProfile(prof);
-        const { data: r } = await supabase.from("reviews").select("*").eq("vehicle_id", id).order("created_at", { ascending: false }).limit(20);
+        const { data: r } = await api.from("reviews").select("*").eq("vehicle_id", id).order("created_at", { ascending: false }).limit(20);
         const rows = r ?? [];
         const authorIds = Array.from(new Set(rows.map((x: any) => x.customer_id)));
         let authorsById: Record<string, any> = {};
         if (authorIds.length) {
-          const { data: authors } = await supabase.from("public_profiles" as any).select("id,full_name,avatar_url").in("id", authorIds);
+          const { data: authors } = await api.from("public_profiles" as any).select("id,full_name,avatar_url").in("id", authorIds);
           authorsById = Object.fromEntries((authors ?? []).map((a: any) => [a.id, a]));
         }
         setReviews(rows.map((x: any) => ({ ...x, profiles: authorsById[x.customer_id] ?? null })));
@@ -96,9 +96,9 @@ function VehiclePage() {
 
   useEffect(() => {
     if (!user || !id) return;
-    supabase.from("wishlists").select("id").eq("user_id", user.id).eq("vehicle_id", id).maybeSingle()
+    api.from("wishlists").select("id").eq("user_id", user.id).eq("vehicle_id", id).maybeSingle()
       .then(({ data }) => setWished(!!data));
-    supabase.from("profiles").select("dl_status,dl_expiry").eq("id", user.id).maybeSingle()
+    api.from("profiles").select("dl_status,dl_expiry").eq("id", user.id).maybeSingle()
       .then(({ data }) => setMyProfile(data));
   }, [user, id]);
 
@@ -131,7 +131,7 @@ function VehiclePage() {
 
     try {
       const qrPayload = crypto.randomUUID();
-      const { error } = await supabase.from("bookings").insert({
+      const { error } = await api.from("bookings").insert({
         vehicle_id: v.id,
         vendor_id: v.vendor_id,
         customer_id: user.id,
@@ -159,10 +159,10 @@ function VehiclePage() {
   const toggleWish = async () => {
     if (!user) { navigate({ to: "/auth" }); return; }
     if (wished) {
-      await supabase.from("wishlists").delete().eq("user_id", user.id).eq("vehicle_id", id);
+      await api.from("wishlists").delete().eq("user_id", user.id).eq("vehicle_id", id);
       setWished(false);
     } else {
-      await supabase.from("wishlists").insert({ user_id: user.id, vehicle_id: id });
+      await api.from("wishlists").insert({ user_id: user.id, vehicle_id: id });
       setWished(true);
     }
   };
@@ -171,7 +171,7 @@ function VehiclePage() {
     if (!v) return;
     setIsDeleting(true);
     try {
-      const { data: activeBookings, error: bErr } = await supabase
+      const { data: activeBookings, error: bErr } = await api
         .from("bookings")
         .select("id, status")
         .eq("vehicle_id", v.id)
@@ -187,13 +187,13 @@ function VehiclePage() {
       const imagePaths = v.vehicle_images?.map((img: any) => img.url).filter(Boolean);
       if (imagePaths && imagePaths.length > 0) {
         try {
-          await supabase.storage.from("vehicle-images").remove(imagePaths);
+          await api.storage.from("vehicle-images").remove(imagePaths);
         } catch {
           // non-blocking
         }
       }
 
-      const { error: delErr } = await supabase.from("vehicles").delete().eq("id", v.id);
+      const { error: delErr } = await api.from("vehicles").delete().eq("id", v.id);
       if (delErr) {
         if (
           delErr.code === "23503" ||
@@ -201,7 +201,7 @@ function VehiclePage() {
           delErr.message?.includes("violates foreign key constraint")
         ) {
           // Soft-delete: update status to paused and persist to deleted registry so it disappears permanently from host's dashboard
-          await supabase.from("vehicles").update({ status: "paused" }).eq("id", v.id);
+          await api.from("vehicles").update({ status: "paused" }).eq("id", v.id);
           if (user?.id) {
             const storeKey = `synchoo_deleted_vehicles_${user.id}`;
             try {
@@ -657,7 +657,7 @@ function ReviewItem({ r, isOwner, userId, onChange }: { r: any; isOwner: boolean
   const submitReply = async () => {
     if (!reply.trim()) return;
     setSaving(true);
-    const { error } = await supabase.from("reviews").update({ vendor_response: reply.trim(), vendor_response_at: new Date().toISOString() } as any).eq("id", r.id);
+    const { error } = await api.from("reviews").update({ vendor_response: reply.trim(), vendor_response_at: new Date().toISOString() } as any).eq("id", r.id);
     setSaving(false);
     if (error) return toast.error(error.message);
     onChange({ vendor_response: reply.trim(), vendor_response_at: new Date().toISOString() });
@@ -668,7 +668,7 @@ function ReviewItem({ r, isOwner, userId, onChange }: { r: any; isOwner: boolean
   const reportReview = async () => {
     const reason = window.prompt("Why are you reporting this review?");
     if (!reason?.trim()) return;
-    const { error } = await supabase.rpc("report_review" as any, { _review_id: r.id, _reason: reason.trim() });
+    const { error } = await api.rpc("report_review" as any, { _review_id: r.id, _reason: reason.trim() });
     if (error) return toast.error(error.message);
     onChange({ reported: true });
     toast.success("Reported to admins");
@@ -719,7 +719,7 @@ function WriteReviewBox({ vehicleId, userId, reviews, onCreated }: { vehicleId: 
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("bookings")
+      const { data } = await api.from("bookings")
         .select("id,status,payment_status")
         .eq("vehicle_id", vehicleId)
         .eq("customer_id", userId)
@@ -737,7 +737,7 @@ function WriteReviewBox({ vehicleId, userId, reviews, onCreated }: { vehicleId: 
 
   const submit = async () => {
     setSubmitting(true);
-    const { data, error } = await supabase.from("reviews").insert({
+    const { data, error } = await api.from("reviews").insert({
       vehicle_id: vehicleId,
       customer_id: userId,
       booking_id: eligibleBooking.id,
@@ -748,7 +748,7 @@ function WriteReviewBox({ vehicleId, userId, reviews, onCreated }: { vehicleId: 
     if (error) return toast.error(error.message);
     setComment("");
     if (data) {
-      const { data: profile } = await supabase.from("public_profiles" as any).select("id,full_name,avatar_url").eq("id", userId).maybeSingle();
+      const { data: profile } = await api.from("public_profiles" as any).select("id,full_name,avatar_url").eq("id", userId).maybeSingle();
       onCreated({ ...data, profiles: profile ?? null });
     }
     toast.success("Thanks for your review!");

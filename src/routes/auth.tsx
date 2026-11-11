@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import synchooMark from "@/assets/synchoo-mark.png";
 import { landingPathForUser } from "@/lib/post-login";
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/auth")({
 function formatAuthError(err: any): string {
   const msg = (err?.message || (typeof err === "string" ? err : "")).trim();
   if (!msg || msg.toLowerCase().includes("failed to fetch")) {
-    return "Cannot connect to Supabase. The project may be paused in your Supabase dashboard or the backend URL is unreachable.";
+    return "Cannot reach the Synchoo server. Check that the backend is running and try again.";
   }
   return msg;
 }
@@ -53,13 +53,13 @@ function AuthPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
+    api.auth.getSession().then(async ({ data }) => {
       if (data.session) {
         navigate({ to: (await landingPathForUser(data.session.user.id)) as any });
       }
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = api.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         navigate({ to: (await landingPathForUser(session.user.id)) as any });
       }
@@ -80,7 +80,7 @@ function AuthPage() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await api.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
@@ -116,7 +116,7 @@ function AuthPage() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await api.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -158,7 +158,7 @@ function AuthPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      const { error } = await api.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/auth`,
       });
 
@@ -179,7 +179,7 @@ function AuthPage() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await api.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth`,

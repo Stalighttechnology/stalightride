@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ export function BroadcastsTab() {
     setSending(true);
     try {
       // Fetch a sample of profiles to receive broadcast notification
-      const { data: users } = await supabase.from("profiles").select("id").limit(100);
+      const { data: users } = await api.from("profiles").select("id").limit(100);
 
       if (users && users.length > 0) {
         const rows = users.map((u) => ({
@@ -57,7 +57,7 @@ export function BroadcastsTab() {
           body: message.trim(),
           link: "/browse",
         }));
-        await supabase.from("notifications").insert(rows as any);
+        await api.from("notifications").insert(rows as any);
       }
 
       const logEntry: BroadcastLog = {

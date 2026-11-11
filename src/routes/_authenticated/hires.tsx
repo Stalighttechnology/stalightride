@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { CreditCard, Wallet as WalletIcon, Star, UserRound, ReceiptText } from "lucide-react";
-import { createDriverRazorpayOrder, verifyDriverRazorpayPayment } from "@/lib/driver-payments.functions";
+import { createDriverRazorpayOrder, verifyDriverRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 export const Route = createFileRoute("/_authenticated/hires")({
@@ -46,26 +45,26 @@ function HiresPage() {
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const createOrder = useServerFn(createDriverRazorpayOrder);
-  const verifyPayment = useServerFn(verifyDriverRazorpayPayment);
+  const createOrder = createDriverRazorpayOrder;
+  const verifyPayment = verifyDriverRazorpayPayment;
 
   const load = async () => {
     if (!user) return;
     const [{ data }, { data: w }, { data: rv }] = await Promise.all([
-      supabase
+      api
         .from("driver_bookings")
         .select("*")
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false }),
-      supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-      supabase.from("driver_reviews").select("driver_booking_id").eq("customer_id", user.id),
+      api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      api.from("driver_reviews").select("driver_booking_id").eq("customer_id", user.id),
     ]);
     const rows = data ?? [];
     // Driver details come from the public directory view (the drivers table is
     // host-private), so hydrate names/photos separately instead of embedding.
     const ids = Array.from(new Set(rows.map((b: any) => b.driver_id)));
     const { data: drv } = ids.length
-      ? await supabase.from("public_drivers").select("id,full_name,photo_url,city").in("id", ids)
+      ? await api.from("public_drivers").select("id,full_name,photo_url,city").in("id", ids)
       : { data: [] as any[] };
     const byId = new Map((drv ?? []).map((d: any) => [d.id, d]));
     const reviewed = new Set((rv ?? []).map((r) => r.driver_booking_id));
@@ -88,7 +87,7 @@ function HiresPage() {
     if (!window.confirm(msg)) return;
 
     setBusy(b.id);
-    const { data, error } = await supabase.rpc("cancel_driver_booking", {
+    const { data, error } = await api.rpc("cancel_driver_booking", {
       _driver_booking_id: b.id,
       _reason: null,
     } as any);
@@ -101,7 +100,7 @@ function HiresPage() {
 
   const payWallet = async (b: any) => {
     setBusy(b.id);
-    const { error } = await supabase.rpc("wallet_pay_driver_booking", { _driver_booking_id: b.id } as any);
+    const { error } = await api.rpc("wallet_pay_driver_booking", { _driver_booking_id: b.id } as any);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success("Paid from wallet");
@@ -250,7 +249,7 @@ function ReviewBox({ bookingId, driverId, customerId, onDone }: { bookingId: str
 
   const submit = async () => {
     setSaving(true);
-    const { error } = await supabase.from("driver_reviews").insert({
+    const { error } = await api.from("driver_reviews").insert({
       driver_booking_id: bookingId, driver_id: driverId, customer_id: customerId, rating, comment: comment.trim() || null,
     } as any);
     setSaving(false);

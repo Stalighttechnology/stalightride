@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { MapPicker } from "@/components/map-picker";
@@ -76,7 +76,7 @@ function NewPoolTrip() {
     if (Number(fare) < 0) return toast.error("Fare cannot be negative");
 
     setSaving(true);
-    const { error } = await supabase.from("pool_trips").insert({
+    const { error } = await api.from("pool_trips").insert({
       driver_id: user.id,
       vehicle_label: vehicleLabel.trim(),
       origin_label: originLabel.trim(),

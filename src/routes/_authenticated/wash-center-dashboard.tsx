@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { CityPicker } from "@/components/city-picker";
@@ -117,7 +117,7 @@ export function WashCenterDashboard() {
 
     const loadData = async () => {
       // 1. Fetch center profile from database
-      const { data: centerData, error: centerErr } = await supabase
+      const { data: centerData, error: centerErr } = await api
         .from("wash_centers")
         .select("*")
         .eq("id", user.id)
@@ -155,7 +155,7 @@ export function WashCenterDashboard() {
         setClosingTime(loaded.closing_time);
 
         // Load packages
-        const { data: pkgData } = await supabase
+        const { data: pkgData } = await api
           .from("wash_center_packages")
           .select("*")
           .eq("center_id", user.id)
@@ -172,7 +172,7 @@ export function WashCenterDashboard() {
         }
 
         // Load staff
-        const { data: stData } = await supabase
+        const { data: stData } = await api
           .from("wash_center_staff")
           .select("*")
           .eq("center_id", user.id)
@@ -192,7 +192,7 @@ export function WashCenterDashboard() {
       }
 
       // Load wash bookings
-      const { data: bData } = await supabase
+      const { data: bData } = await api
         .from("wash_bookings")
         .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
         .order("created_at", { ascending: false })
@@ -223,7 +223,7 @@ export function WashCenterDashboard() {
       verification_status: center?.verification_status ?? ("pending" as const),
     };
 
-    const { error } = await supabase.from("wash_centers").upsert(centerPayload);
+    const { error } = await api.from("wash_centers").upsert(centerPayload);
     setSaving(false);
 
     if (error) {
@@ -263,7 +263,7 @@ export function WashCenterDashboard() {
       duration: Number(newPkgDuration) || 45,
     };
 
-    const { data, error } = await supabase.from("wash_center_packages").insert(payload).select().single();
+    const { data, error } = await api.from("wash_center_packages").insert(payload).select().single();
     if (error) return toast.error(error.message);
 
     setPackages([...packages, {
@@ -280,7 +280,7 @@ export function WashCenterDashboard() {
   };
 
   const deletePackage = async (id: string) => {
-    const { error } = await supabase.from("wash_center_packages").delete().eq("id", id);
+    const { error } = await api.from("wash_center_packages").delete().eq("id", id);
     if (error) return toast.error(error.message);
     setPackages(packages.filter((p) => p.id !== id));
     toast.success("Service package removed");
@@ -299,7 +299,7 @@ export function WashCenterDashboard() {
       active: true,
     };
 
-    const { data, error } = await supabase.from("wash_center_staff").insert(payload).select().single();
+    const { data, error } = await api.from("wash_center_staff").insert(payload).select().single();
     if (error) return toast.error(error.message);
 
     setStaff([...staff, {
@@ -316,14 +316,14 @@ export function WashCenterDashboard() {
   };
 
   const removeStaff = async (id: string) => {
-    const { error } = await supabase.from("wash_center_staff").delete().eq("id", id);
+    const { error } = await api.from("wash_center_staff").delete().eq("id", id);
     if (error) return toast.error(error.message);
     setStaff(staff.filter((s) => s.id !== id));
     toast.success("Staff member removed");
   };
 
   const updateBookingStatus = async (id: string, status: "confirmed" | "completed" | "rejected") => {
-    const { error } = await supabase
+    const { error } = await api
       .from("wash_bookings")
       .update({
         status,

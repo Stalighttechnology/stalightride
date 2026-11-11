@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -200,7 +200,7 @@ function feeLines(b: any): Line[] {
 
 async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
   if (kind === "vehicle") {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("bookings")
       .select("*, vehicles(title,brand,model,year,city,address)")
       .eq("id", id)
@@ -236,7 +236,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
   }
 
   if (kind === "driver") {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("driver_bookings")
       .select("*, drivers(full_name,city)")
       .eq("id", id)
@@ -270,7 +270,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
     };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await api
     .from("wash_bookings")
     .select("*, wash_services(name,duration_minutes,vehicle_category)")
     .eq("id", id)

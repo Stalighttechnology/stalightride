@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Banknote, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,10 +59,10 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
 
   const load = useCallback(async () => {
     const [v, d, c, wc] = await Promise.all([
-      supabase.from("vendors").select("id").eq("id", userId).maybeSingle(),
-      supabase.from("drivers").select("id").eq("id", userId).maybeSingle(),
-      supabase.from("cleaners").select("id").eq("id", userId).maybeSingle(),
-      supabase.from("wash_centers").select("id").eq("id", userId).maybeSingle(),
+      api.from("vendors").select("id").eq("id", userId).maybeSingle(),
+      api.from("drivers").select("id").eq("id", userId).maybeSingle(),
+      api.from("cleaners").select("id").eq("id", userId).maybeSingle(),
+      api.from("wash_centers").select("id").eq("id", userId).maybeSingle(),
     ]);
     const provider = !!v.data || !!d.data || !!c.data || !!wc.data;
     setIsProvider(provider);
@@ -70,26 +70,26 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
     // Wash jobs this user is paid for: as the cleaner, or as the center (a center's vendor id is its user id).
     const washFilter = `assigned_cleaner_id.eq.${userId},assigned_vendor_id.eq.${userId}`;
     const [w, hist, rentals, hires, washes] = await Promise.all([
-      supabase.rpc("withdrawable_balance", {}),
-      supabase
+      api.rpc("withdrawable_balance", {}),
+      api
         .from("withdrawals")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(20),
-      supabase
+      api
         .from("bookings")
         .select("provider_earning")
         .eq("vendor_id", userId)
         .eq("payment_status", "paid")
         .is("earning_credited_at", null),
-      supabase
+      api
         .from("driver_bookings")
         .select("provider_earning")
         .eq("driver_id", userId)
         .eq("payment_status", "paid")
         .is("earning_credited_at", null),
-      supabase
+      api
         .from("wash_bookings")
         .select("provider_earning")
         .or(washFilter)
@@ -115,7 +115,7 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
     if (amount > withdrawable)
       return toast.error(`You can withdraw at most ${currency(withdrawable)}`);
     setBusy(true);
-    const { error } = await supabase.rpc("request_withdrawal", {
+    const { error } = await api.rpc("request_withdrawal", {
       _amount: amount,
       _method: form.method,
       _upi_id: form.method === "upi" ? form.upi_id.trim() : undefined,

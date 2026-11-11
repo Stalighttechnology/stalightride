@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Heart, CalendarDays, LayoutDashboard, LogOut, User as UserIcon, ShieldCheck, Wallet as WalletIcon, UserRound, CarFront as Steering, Sparkles, Building2, ShieldAlert, Crown, Gift, Award, Briefcase } from "lucide-react";
 import {
@@ -30,7 +30,7 @@ export function SiteHeader() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await api.auth.signOut();
     navigate({ to: "/" });
   };
 

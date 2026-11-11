@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,8 @@ function DisputePage() {
 
   const load = async () => {
     const [{ data: bk }, { data: d }] = await Promise.all([
-      supabase.from("bookings").select("id,customer_id,vendor_id,vehicles(title)").eq("id", id).maybeSingle(),
-      supabase.from("disputes").select("*").eq("booking_id", id).order("created_at", { ascending: false }),
+      api.from("bookings").select("id,customer_id,vendor_id,vehicles(title)").eq("id", id).maybeSingle(),
+      api.from("disputes").select("*").eq("booking_id", id).order("created_at", { ascending: false }),
     ]);
     setB(bk);
     setDisputes(d ?? []);
@@ -66,11 +66,11 @@ function DisputePage() {
         const f = files[i];
         const ext = f.name.split(".").pop() ?? "jpg";
         const path = `${b.id}/dispute/${Date.now()}-${i}.${ext}`;
-        const { error } = await supabase.storage.from("trip-photos").upload(path, f, { upsert: false });
+        const { error } = await api.storage.from("trip-photos").upload(path, f, { upsert: false });
         if (error) throw error;
         paths.push(path);
       }
-      const { error } = await supabase.from("disputes").insert({
+      const { error } = await api.from("disputes").insert({
         booking_id: b.id,
         raised_by: user.id,
         category,

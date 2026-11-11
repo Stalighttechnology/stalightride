@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { getBookingByQr } from "@/lib/booking-qr.functions";
+import { getBookingByQr } from "@/lib/actions";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +25,7 @@ export const Route = createFileRoute("/booking/qr/$code")({
 
 function QrPage() {
   const { code } = Route.useParams();
-  const fetchBooking = useServerFn(getBookingByQr);
+  const fetchBooking = getBookingByQr;
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);

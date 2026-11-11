@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -180,9 +180,9 @@ function VendorDashboard() {
   const load = async () => {
     if (!user) return;
     const [{ data: vend }, { data: vhs }, { data: bks }] = await Promise.all([
-      supabase.from("vendors").select("*").eq("id", user.id).maybeSingle(),
-      supabase.from("vehicles").select("*, vehicle_images(url,sort_order)").eq("vendor_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(50),
+      api.from("vendors").select("*").eq("id", user.id).maybeSingle(),
+      api.from("vehicles").select("*, vehicle_images(url,sort_order)").eq("vendor_id", user.id).order("created_at", { ascending: false }),
+      api.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(50),
     ]);
     setVendor(vend);
     const storeKey = user ? `synchoo_deleted_vehicles_${user.id}` : "";
@@ -198,7 +198,7 @@ function VendorDashboard() {
     if (vend) { setBusinessName(vend.business_name); setBio(vend.bio ?? ""); }
 
     // Withdrawals (money phase 1 — admin-approved payouts)
-    const { data: pts } = await supabase
+    const { data: pts } = await api
       .from("withdrawals")
       .select("*")
       .eq("user_id", user.id)
@@ -209,7 +209,7 @@ function VendorDashboard() {
     // Reviews for all vendor vehicles
     const vehicleIds = (vhs ?? []).map((v: any) => v.id);
     if (vehicleIds.length > 0) {
-      const { data: rvs } = await supabase
+      const { data: rvs } = await api
         .from("reviews")
         .select("*, vehicles(title)")
         .in("vehicle_id", vehicleIds);
@@ -226,10 +226,10 @@ function VendorDashboard() {
     if (!user) return toast.error("Please sign in to register your host profile");
     setSaving(true);
     const payload = { id: user.id, business_name: businessName, bio };
-    const { error } = await supabase.from("vendors").upsert(payload);
+    const { error } = await api.from("vendors").upsert(payload);
     if (error) toast.error(error.message);
     else {
-      await supabase.from("user_roles").upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
+      await api.from("user_roles").upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
       toast.success("Host profile saved successfully!");
       setShowProfileForm(false);
       load();
@@ -256,7 +256,7 @@ function VendorDashboard() {
       setBookings((prev) =>
         prev ? prev.map((b) => (b.id === id ? { ...b, status } : b)) : prev,
       );
-      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+      const { error } = await api.from("bookings").update({ status }).eq("id", id);
       if (error) throw error;
       toast.success(
         status === "confirmed"
@@ -283,7 +283,7 @@ function VendorDashboard() {
       }
 
       // 1. Check for active or upcoming bookings
-      const { data: activeBookings, error: bErr } = await supabase
+      const { data: activeBookings, error: bErr } = await api
         .from("bookings")
         .select("id, status")
         .eq("vehicle_id", vehicleId)
@@ -301,14 +301,14 @@ function VendorDashboard() {
       const imagePaths = target?.vehicle_images?.map((img: any) => img.url).filter(Boolean);
       if (imagePaths && imagePaths.length > 0) {
         try {
-          await supabase.storage.from("vehicle-images").remove(imagePaths);
+          await api.storage.from("vehicle-images").remove(imagePaths);
         } catch {
           // non-blocking storage cleanup
         }
       }
 
       // 3. Delete vehicle from database (cascades to vehicle_images, availability_blocks, vehicle_features, etc.)
-      const { error: delErr } = await supabase.from("vehicles").delete().eq("id", vehicleId);
+      const { error: delErr } = await api.from("vehicles").delete().eq("id", vehicleId);
       if (delErr) {
         if (
           delErr.code === "23503" ||
@@ -316,7 +316,7 @@ function VendorDashboard() {
           delErr.message?.includes("violates foreign key constraint")
         ) {
           // Soft-delete to preserve historical booking records while removing it completely from host's listings
-          await supabase.from("vehicles").update({ status: "paused" }).eq("id", vehicleId);
+          await api.from("vehicles").update({ status: "paused" }).eq("id", vehicleId);
           if (user?.id) {
             const storeKey = `synchoo_deleted_vehicles_${user.id}`;
             try {
@@ -1103,9 +1103,9 @@ function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDo
   const upload = async (file: File) => {
     setUploading(true);
     const path = `${userId}/id-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-    const { error: upErr } = await supabase.storage.from("kyc-docs").upload(path, file, { upsert: true });
+    const { error: upErr } = await api.storage.from("kyc-docs").upload(path, file, { upsert: true });
     if (upErr) { setUploading(false); return toast.error(upErr.message); }
-    const { error } = await supabase.from("vendors").update({ id_document_url: path, kyc_status: "pending" } as any).eq("id", userId);
+    const { error } = await api.from("vendors").update({ id_document_url: path, kyc_status: "pending" } as any).eq("id", userId);
     setUploading(false);
     if (error) return toast.error(error.message);
     toast.success("Document submitted for verification");

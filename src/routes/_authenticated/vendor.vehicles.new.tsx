@@ -2,7 +2,7 @@ import { recommendPrice } from "@/lib/price-guide";
 import { CityPicker } from "@/components/city-picker";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -54,13 +54,13 @@ function NewVehicle() {
     if (!docs.rc || !docs.insurance || !docs.pollution) return toast.error("Upload RC, insurance and pollution certificate");
     setSaving(true);
     try {
-      await supabase.from("vendors").upsert({ id: user.id, business_name: user.user_metadata?.full_name || user.email || "Host" });
-      await supabase.from("user_roles").upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
+      await api.from("vendors").upsert({ id: user.id, business_name: user.user_metadata?.full_name || user.email || "Host" });
+      await api.from("user_roles").upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
 
       const uploadDoc = async (kind: string, file: File) => {
         const ext = file.name.split(".").pop();
         const path = `${user.id}/vehicles/${kind}-${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from("verification-docs").upload(path, file, { upsert: false });
+        const { error } = await api.storage.from("verification-docs").upload(path, file, { upsert: false });
         if (error) throw error;
         return path;
       };
@@ -97,16 +97,16 @@ function NewVehicle() {
         verification_status: "pending",
       };
 
-      const { data: vehicle, error } = await supabase.from("vehicles").insert(insertPayload as any).select("id").single();
+      const { data: vehicle, error } = await api.from("vehicles").insert(insertPayload as any).select("id").single();
       if (error) throw error;
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const ext = file.name.split(".").pop();
         const path = `${user.id}/${vehicle.id}/${Date.now()}-${i}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("vehicle-images").upload(path, file, { upsert: false });
+        const { error: upErr } = await api.storage.from("vehicle-images").upload(path, file, { upsert: false });
         if (upErr) throw upErr;
-        await supabase.from("vehicle_images").insert({ vehicle_id: vehicle.id, url: path, sort_order: i });
+        await api.from("vehicle_images").insert({ vehicle_id: vehicle.id, url: path, sort_order: i });
       }
 
       toast.success("Submitted for review — you'll be notified once approved.");

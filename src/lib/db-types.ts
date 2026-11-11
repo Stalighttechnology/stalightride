@@ -6,12 +6,8 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Row types for the public schema. Hand-maintained: update when backend/sql changes.
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       availability_blocks: {
@@ -2659,7 +2655,7 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Database
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 

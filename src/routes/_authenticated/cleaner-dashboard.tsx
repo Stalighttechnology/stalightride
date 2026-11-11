@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { CityPicker } from "@/components/city-picker";
@@ -88,7 +88,7 @@ export function CleanerDashboard() {
 
     const loadData = async () => {
       // 1. Load cleaner profile from database
-      const { data: cleanerData, error: cleanerErr } = await supabase
+      const { data: cleanerData, error: cleanerErr } = await api
         .from("cleaners")
         .select("*")
         .eq("id", user.id)
@@ -137,7 +137,7 @@ export function CleanerDashboard() {
 
   const refreshBookings = async (cleanerCity?: string) => {
     const city = cleanerCity || profile?.city;
-    const { data: bData } = await supabase
+    const { data: bData } = await api
       .from("wash_bookings")
       .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
       .order("created_at", { ascending: false })
@@ -166,7 +166,7 @@ export function CleanerDashboard() {
   const claimJob = async (jobId: string) => {
     if (!user) return;
     setActiveJobId(jobId);
-    const { error } = await supabase.rpc("claim_wash_job", {
+    const { error } = await api.rpc("claim_wash_job", {
       _wash_booking_id: jobId,
     });
     setActiveJobId(null);
@@ -198,7 +198,7 @@ export function CleanerDashboard() {
       services: selectedServices,
     };
 
-    const { error } = await supabase.from("cleaners").upsert(cleanerPayload);
+    const { error } = await api.from("cleaners").upsert(cleanerPayload);
     setSaving(false);
 
     if (error) {
@@ -227,7 +227,7 @@ export function CleanerDashboard() {
 
   const toggleAvailability = async (checked: boolean) => {
     if (!profile || !user) return;
-    const { error } = await supabase.from("cleaners").update({ available: checked }).eq("id", user.id);
+    const { error } = await api.from("cleaners").update({ available: checked }).eq("id", user.id);
     if (error) {
       toast.error(error.message);
       return;
@@ -245,7 +245,7 @@ export function CleanerDashboard() {
     setActiveJobId(jobId);
     // After photos are required on complete (WP-03)
     const cleanPhotos = photos && photos.length ? photos : nextStatus === "completed" ? ["https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60"] : [];
-    const { error } = await supabase.rpc("advance_wash_status", {
+    const { error } = await api.rpc("advance_wash_status", {
       _wash_booking_id: jobId,
       _next_status: nextStatus,
       _photos: cleanPhotos,
@@ -269,7 +269,7 @@ export function CleanerDashboard() {
 
   const updateJobStatus = async (jobId: string, nextStatus: "confirmed" | "completed", note?: string) => {
     setActiveJobId(jobId);
-    const { error } = await supabase
+    const { error } = await api
       .from("wash_bookings")
       .update({
         status: nextStatus,

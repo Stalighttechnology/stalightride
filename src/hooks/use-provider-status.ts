@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { useIsHost } from "@/hooks/use-is-host";
 
@@ -33,9 +33,9 @@ export function useProviderStatus(): ProviderStatus {
     async function fetchStatuses() {
       try {
         const [driverRes, cleanerRes, centerRes] = await Promise.all([
-          supabase.from("drivers").select("verification_status").eq("id", user!.id).maybeSingle(),
-          supabase.from("cleaners").select("verification_status").eq("id", user!.id).maybeSingle(),
-          supabase.from("wash_centers").select("verification_status").eq("id", user!.id).maybeSingle(),
+          api.from("drivers").select("verification_status").eq("id", user!.id).maybeSingle(),
+          api.from("cleaners").select("verification_status").eq("id", user!.id).maybeSingle(),
+          api.from("wash_centers").select("verification_status").eq("id", user!.id).maybeSingle(),
         ]);
 
         if (!isMounted) return;

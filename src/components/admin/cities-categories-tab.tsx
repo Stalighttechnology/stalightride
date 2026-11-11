@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ export function CitiesCategoriesTab() {
 
   const loadData = async () => {
     // 1. Load cities
-    const { data: cityRows, error: cityErr } = await supabase
+    const { data: cityRows, error: cityErr } = await api
       .from("cities")
       .select("*")
       .order("name", { ascending: true });
@@ -58,7 +58,7 @@ export function CitiesCategoriesTab() {
     }
 
     // 2. Load category rules
-    const { data: catRows, error: catErr } = await supabase
+    const { data: catRows, error: catErr } = await api
       .from("category_rules")
       .select("*")
       .order("category", { ascending: true });
@@ -84,7 +84,7 @@ export function CitiesCategoriesTab() {
 
   const toggleCityActive = async (id: string, currentActive: boolean) => {
     const next = !currentActive;
-    const { error } = await supabase
+    const { error } = await api
       .from("cities")
       .update({ active: next, updated_at: new Date().toISOString() })
       .eq("id", id);
@@ -101,7 +101,7 @@ export function CitiesCategoriesTab() {
   };
 
   const updateCitySurge = async (id: string, surge: number) => {
-    const { error } = await supabase
+    const { error } = await api
       .from("cities")
       .update({ surge_multiplier: surge, updated_at: new Date().toISOString() })
       .eq("id", id);
@@ -122,7 +122,7 @@ export function CitiesCategoriesTab() {
     if (!newCityName.trim()) return toast.error("Enter city name");
 
     setAddingCity(true);
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("cities")
       .insert({
         name: newCityName.trim(),
@@ -157,7 +157,7 @@ export function CitiesCategoriesTab() {
   };
 
   const updateCategoryRule = async (id: string, minDeposit: number, minWindowHours: number) => {
-    const { error } = await supabase
+    const { error } = await api
       .from("category_rules")
       .update({
         min_deposit: minDeposit,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 
 export function useIsHost() {
@@ -18,13 +18,13 @@ export function useIsHost() {
       if (!user) return;
       // Check both user_roles and vendors table
       const [{ data: roleData }, { data: vendorData }] = await Promise.all([
-        supabase
+        api
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
           .eq("role", "vendor")
           .maybeSingle(),
-        supabase
+        api
           .from("vendors")
           .select("id")
           .eq("id", user.id)

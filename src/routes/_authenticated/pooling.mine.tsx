@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { PoolRouteMap } from "@/components/pool-route-map";
@@ -47,14 +47,14 @@ function MyPooling() {
 
   const load = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data } = await api
       .from("pool_requests")
       .select("*, pool_trips(*)")
       .eq("passenger_id", user.id)
       .order("created_at", { ascending: false });
     setRows(data ?? []);
 
-    const { data: userRatings } = await supabase
+    const { data: userRatings } = await api
       .from("pool_ratings")
       .select("request_id")
       .eq("rater_id", user.id);
@@ -67,7 +67,7 @@ function MyPooling() {
   const cancel = async (r: any) => {
     if (!window.confirm("Cancel this pooling booking?")) return;
     setBusy(r.id);
-    const { error } = await supabase.from("pool_requests").update({ status: "cancelled" } as any).eq("id", r.id);
+    const { error } = await api.from("pool_requests").update({ status: "cancelled" } as any).eq("id", r.id);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success("Booking cancelled");
@@ -86,7 +86,7 @@ function MyPooling() {
       return toast.error("Please enter a valid rating between 1 and 5");
     }
     const comment = window.prompt("Optional review feedback / comment:") || "";
-    const { error } = await supabase.from("pool_ratings").insert({
+    const { error } = await api.from("pool_ratings").insert({
       trip_id: r.trip_id,
       request_id: r.id,
       rater_id: user!.id,
@@ -106,7 +106,7 @@ function MyPooling() {
     const reason = window.prompt("Reason for report / safety concern:");
     if (!reason?.trim()) return;
     const details = window.prompt("Additional details (optional):") || "";
-    const { error } = await supabase.from("user_reports").insert({
+    const { error } = await api.from("user_reports").insert({
       reporter_id: user!.id,
       reported_user_id: r.pool_trips?.driver_id || null,
       target_type: "pooling_trip",

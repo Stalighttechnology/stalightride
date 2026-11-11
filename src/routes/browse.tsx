@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -136,7 +136,7 @@ function Browse() {
       if (params.from || params.to) {
         const winStart = params.from || params.to!;
         const winEnd = params.to || params.from!;
-        const { data: booked } = await supabase.rpc("booked_vehicle_ids", {
+        const { data: booked } = await api.rpc("booked_vehicle_ids", {
           _start: winStart,
           _end: winEnd,
         });
@@ -147,7 +147,7 @@ function Browse() {
 
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      let q = supabase
+      let q = api
         .from("vehicles")
         .select(
           "id,title,brand,model,year,category,city,price_daily,price_hourly,seats,avg_rating,review_count,transmission,fuel,vehicle_images(url,sort_order)",
@@ -188,7 +188,7 @@ function Browse() {
   }, [params.category, params.transmission, params.fuel, params.city, params.q, params.max, params.from, params.to, page]);
 
   useEffect(() => {
-    supabase
+    api
       .from("vehicles")
       .select("city")
       .eq("status", "active")
@@ -198,7 +198,7 @@ function Browse() {
         const seen = new Map<string, string>();
         for (const c of CITIES) seen.set(c.toLowerCase(), c);
         for (const row of data ?? []) {
-          const raw = (row.city ?? "").trim();
+          const raw: string = (row.city ?? "").trim();
           if (!raw) continue;
           const key = raw.toLowerCase();
           if (!seen.has(key)) seen.set(key, raw.replace(/\b\w/g, (m) => m.toUpperCase()));

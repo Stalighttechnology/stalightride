@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import { currency } from "@/lib/format";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "sonner";
 import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Banknote, Gift, RotateCw } from "lucide-react";
-import { createWalletTopupOrder, verifyWalletTopup } from "@/lib/wallet.functions";
+import { createWalletTopupOrder, verifyWalletTopup } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { PayoutsCard } from "@/components/payouts-card";
 import { usePlatformSettings } from "@/hooks/use-platform-settings";
@@ -59,16 +58,16 @@ function WalletPage() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const createOrder = useServerFn(createWalletTopupOrder);
-  const verify = useServerFn(verifyWalletTopup);
+  const createOrder = createWalletTopupOrder;
+  const verify = verifyWalletTopup;
 
   const load = useCallback(async () => {
     if (!user) return;
     setRefreshing(true);
     try {
       const [w, t] = await Promise.all([
-        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-        supabase
+        api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        api
           .from("wallet_transactions")
           .select("*")
           .eq("user_id", user.id)
@@ -88,7 +87,7 @@ function WalletPage() {
     if (!user) return;
     load();
 
-    const channel = supabase
+    const channel = api
       .channel(`wallet_realtime_${user.id}`)
       .on(
         "postgres_changes",
@@ -107,7 +106,7 @@ function WalletPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      api.removeChannel(channel);
     };
   }, [user?.id, load]);
 

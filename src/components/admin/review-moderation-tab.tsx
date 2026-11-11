@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ export function ReviewModerationTab() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const loadReviews = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("reviews")
       .select("*, vehicles:vehicle_id(title)")
       .order("created_at", { ascending: false })
@@ -29,7 +29,7 @@ export function ReviewModerationTab() {
   };
 
   const loadReports = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from("user_reports")
       .select("*")
       .order("created_at", { ascending: false })
@@ -52,9 +52,9 @@ export function ReviewModerationTab() {
     setBusy(id);
 
     // Try admin RPC first, then fallback to direct delete
-    const { error: rpcErr } = await supabase.rpc("admin_remove_review", { _review_id: id });
+    const { error: rpcErr } = await api.rpc("admin_remove_review", { _review_id: id });
     if (rpcErr) {
-      const { error } = await supabase.from("reviews").delete().eq("id", id);
+      const { error } = await api.from("reviews").delete().eq("id", id);
       if (error) {
         setBusy(null);
         toast.error(error.message);
@@ -71,9 +71,9 @@ export function ReviewModerationTab() {
     setBusy(id);
 
     // Try admin RPC first, then fallback to direct update
-    const { error: rpcErr } = await supabase.rpc("admin_dismiss_review_report", { _review_id: id });
+    const { error: rpcErr } = await api.rpc("admin_dismiss_review_report", { _review_id: id });
     if (rpcErr) {
-      const { error } = await supabase
+      const { error } = await api
         .from("reviews")
         .update({ reported: false, report_reason: null } as any)
         .eq("id", id);
@@ -94,7 +94,7 @@ export function ReviewModerationTab() {
 
   const decideUserReport = async (id: string, decision: "resolved" | "dismissed") => {
     setBusy(id);
-    const { error } = await supabase
+    const { error } = await api
       .from("user_reports")
       .update({
         status: decision,

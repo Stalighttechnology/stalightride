@@ -2,7 +2,7 @@ import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +29,7 @@ function Profile() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
+    api.from("profiles").select("*").eq("id", user.id).maybeSingle()
       .then(({ data }) => setProfile(data ?? { id: user.id, full_name: "", phone: "", city: "", avatar_url: "" }));
   }, [user?.id]);
 
@@ -39,7 +39,7 @@ function Profile() {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").upsert({
+    const { error } = await api.from("profiles").upsert({
       id: user.id,
       full_name: profile.full_name,
       phone: profile.phone,
@@ -62,9 +62,9 @@ function Profile() {
     setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    const { error } = await api.storage.from("avatars").upload(path, file, { upsert: true });
     if (error) { toast.error(error.message); setUploading(false); return; }
-    const { data, error: sErr } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
+    const { data, error: sErr } = await api.storage.from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
     if (sErr || !data) { toast.error(sErr?.message ?? "Could not sign URL"); setUploading(false); return; }
     setProfile({ ...profile, avatar_url: data.signedUrl });
     setUploading(false);
@@ -74,7 +74,7 @@ function Profile() {
     if (!user) return null;
     const ext = file.name.split(".").pop();
     const path = `${user.id}/dl-${side}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("verification-docs").upload(path, file, { upsert: true });
+    const { error } = await api.storage.from("verification-docs").upload(path, file, { upsert: true });
     if (error) { toast.error(error.message); return null; }
     return path;
   };
@@ -85,7 +85,7 @@ function Profile() {
     if (!profile.dl_number || !profile.dl_expiry) return toast.error("Enter licence number and expiry");
     if (!profile.dl_front_url || !profile.dl_back_url) return toast.error("Upload both front and back images");
     setDlSaving(true);
-    const { error } = await supabase.from("profiles").update({
+    const { error } = await api.from("profiles").update({
       dl_number: profile.dl_number,
       dl_expiry: profile.dl_expiry,
       dl_front_url: profile.dl_front_url,

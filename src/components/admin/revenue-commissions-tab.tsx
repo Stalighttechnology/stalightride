@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ export function RevenueCommissionsTab() {
 
   const loadData = async () => {
     // 1. Fetch commission rates from platform_settings
-    const { data: settings } = await supabase
+    const { data: settings } = await api
       .from("platform_settings")
       .select("*")
       .eq("id", 1)
@@ -51,7 +51,7 @@ export function RevenueCommissionsTab() {
     }
 
     // 2. Fetch real aggregates via RPC or DB queries
-    const { data: agg, error } = await supabase.rpc("admin_revenue_aggregates");
+    const { data: agg, error } = await api.rpc("admin_revenue_aggregates");
 
     if (!error && agg) {
       const a = agg as any;
@@ -70,10 +70,10 @@ export function RevenueCommissionsTab() {
     } else {
       // Fallback: aggregate directly from tables if RPC is pending in local client
       const [bRes, dRes, wRes, pRes] = await Promise.all([
-        supabase.from("bookings").select("total_price, refund_amount, payment_status"),
-        supabase.from("driver_bookings").select("total_price, refund_amount, payment_status"),
-        supabase.from("wash_bookings").select("price, refund_amount, payment_status"),
-        supabase.from("payouts").select("amount, status"),
+        api.from("bookings").select("total_price, refund_amount, payment_status"),
+        api.from("driver_bookings").select("total_price, refund_amount, payment_status"),
+        api.from("wash_bookings").select("price, refund_amount, payment_status"),
+        api.from("payouts").select("amount, status"),
       ]);
 
       const rentalVol = (bRes.data || [])
@@ -128,7 +128,7 @@ export function RevenueCommissionsTab() {
     e.preventDefault();
     setSaving(true);
 
-    const { error } = await supabase
+    const { error } = await api
       .from("platform_settings")
       .update({
         commission_rental_pct: commissions.rental,

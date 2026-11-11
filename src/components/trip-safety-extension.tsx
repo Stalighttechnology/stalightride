@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables } from "@/lib/db-types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,7 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
   const openExt = ext && (ext.status === "pending" || ext.status === "accepted") ? ext : null;
 
   const loadExtension = async () => {
-    const { data } = await supabase
+    const { data } = await api
       .from("booking_extensions")
       .select("*")
       .eq("booking_id", booking.id)
@@ -71,7 +71,7 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
   const recordSosIncident = async (lat?: number, lng?: number, coordsText?: string, kind?: string) => {
     if (!user) return;
     try {
-      await supabase.from("incidents").insert({
+      await api.from("incidents").insert({
         reporter_id: user.id,
         type: "sos",
         booking_id: booking?.id || null,
@@ -121,7 +121,7 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
   const handleRequestExtension = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await supabase.rpc("request_booking_extension", {
+    const { error } = await api.rpc("request_booking_extension", {
       _booking_id: booking.id,
       _hours: selectedHours,
       _note: extensionNote.trim() || undefined,
@@ -192,24 +192,24 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
               {role === "vendor" && openExt.status === "pending" && (
                 <>
                   <Button size="sm" disabled={busy}
-                    onClick={() => runExtensionAction(() => supabase.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: true }), "Extension accepted")}>
+                    onClick={() => runExtensionAction(() => api.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: true }), "Extension accepted")}>
                     Accept
                   </Button>
                   <Button size="sm" variant="outline" disabled={busy}
-                    onClick={() => runExtensionAction(() => supabase.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: false }), "Extension declined")}>
+                    onClick={() => runExtensionAction(() => api.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: false }), "Extension declined")}>
                     Decline
                   </Button>
                 </>
               )}
               {role === "customer" && openExt.status === "accepted" && (
                 <Button size="sm" disabled={busy}
-                  onClick={() => runExtensionAction(() => supabase.rpc("wallet_pay_extension", { _extension_id: openExt.id }), "Paid. Your trip is extended")}>
+                  onClick={() => runExtensionAction(() => api.rpc("wallet_pay_extension", { _extension_id: openExt.id }), "Paid. Your trip is extended")}>
                   Pay {currency(openExt.extra_total)} from wallet
                 </Button>
               )}
               {role === "customer" && (
                 <Button size="sm" variant="ghost" disabled={busy}
-                  onClick={() => runExtensionAction(() => supabase.rpc("cancel_booking_extension", { _extension_id: openExt.id }), "Extension request withdrawn")}>
+                  onClick={() => runExtensionAction(() => api.rpc("cancel_booking_extension", { _extension_id: openExt.id }), "Extension request withdrawn")}>
                   Withdraw
                 </Button>
               )}
