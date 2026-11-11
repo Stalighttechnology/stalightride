@@ -9,7 +9,6 @@ import {
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import synchooMark from "@/assets/synchoo-mark.png";
 import { InstallPwaButton } from "@/components/install-pwa-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -42,12 +41,11 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <SidebarTrigger className="-ml-1 shrink-0" aria-label="Toggle navigation" />
-          <Link to="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2 md:hidden">
+          <Link to="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2 mr-2">
             <img src={synchooMark} alt="Synchoo" width={32} height={32} className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 object-contain" />
             <span className="truncate font-display text-sm sm:text-base font-bold tracking-tight text-foreground">Synchoo</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1 ml-2">
+          <nav className="hidden md:flex items-center gap-1 ml-1">
             {NAV_PILLS.map((item) => {
               const active = item.to === "/browse"
                 ? pathname.startsWith("/browse") || pathname.startsWith("/vehicle")

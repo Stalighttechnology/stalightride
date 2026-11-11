@@ -31,6 +31,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCleanerDashboardRouteImport } from './routes/_authenticated/cleaner-dashboard'
 import { Route as AuthenticatedDriverDashboardRouteImport } from './routes/_authenticated/driver-dashboard'
 import { Route as AuthenticatedHiresRouteImport } from './routes/_authenticated/hires'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
 import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
@@ -164,6 +165,11 @@ const AuthenticatedDriverDashboardRoute =
 const AuthenticatedHiresRoute = AuthenticatedHiresRouteImport.update({
   id: '/hires',
   path: '/hires',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
@@ -314,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
@@ -360,6 +367,7 @@ export interface FileRoutesByTo {
   '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
@@ -408,6 +416,7 @@ export interface FileRoutesById {
   '/_authenticated/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/_authenticated/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/_authenticated/hires': typeof AuthenticatedHiresRoute
+  '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
   '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
@@ -456,6 +465,7 @@ export interface FileRouteTypes {
     | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
+    | '/history'
     | '/profile'
     | '/referrals'
     | '/rewards'
@@ -502,6 +512,7 @@ export interface FileRouteTypes {
     | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
+    | '/history'
     | '/profile'
     | '/referrals'
     | '/rewards'
@@ -549,6 +560,7 @@ export interface FileRouteTypes {
     | '/_authenticated/cleaner-dashboard'
     | '/_authenticated/driver-dashboard'
     | '/_authenticated/hires'
+    | '/_authenticated/history'
     | '/_authenticated/profile'
     | '/_authenticated/referrals'
     | '/_authenticated/rewards'
@@ -755,6 +767,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHiresRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -925,6 +944,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCleanerDashboardRoute: typeof AuthenticatedCleanerDashboardRoute
   AuthenticatedDriverDashboardRoute: typeof AuthenticatedDriverDashboardRoute
   AuthenticatedHiresRoute: typeof AuthenticatedHiresRoute
+  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
   AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
@@ -951,6 +971,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCleanerDashboardRoute: AuthenticatedCleanerDashboardRoute,
   AuthenticatedDriverDashboardRoute: AuthenticatedDriverDashboardRoute,
   AuthenticatedHiresRoute: AuthenticatedHiresRoute,
+  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
   AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,

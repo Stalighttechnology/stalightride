@@ -9,8 +9,6 @@ import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { landingPathForUser } from "@/lib/post-login";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { SiteFooter } from "@/components/site-footer";
 
@@ -125,16 +123,11 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full">
-          <AppSidebar />
-          <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
-            <div className="flex-1"><Outlet /></div>
-            <SiteFooter />
-          </SidebarInset>
-        </div>
-        <MobileBottomNav />
-      </SidebarProvider>
+      <div className="flex min-h-screen w-full flex-col pb-24 md:pb-0">
+        <div className="flex-1"><Outlet /></div>
+        <SiteFooter />
+      </div>
+      <MobileBottomNav />
       <Toaster />
     </QueryClientProvider>
   );
