@@ -380,7 +380,7 @@ export function datesOverlap(aStart: string, aEnd: string, bStart: string, bEnd:
 let seq = 0;
 const id = (p: string) => `${p}_${++seq}`;
 
-const EARNING_KINDS = ["booking_earning", "driver_earning", "driver_refund_reversal"];
+const EARNING_KINDS = ["booking_earning", "driver_earning", "driver_refund_reversal", "wash_earning"];
 
 export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSettings: FeeSettings = ZERO_FEES) {
   const clock = { now };
@@ -492,7 +492,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     return { ...c, base_price: c.base, coupon_code: code, earning_credited_at: null };
   };
 
-  const isProvider = (user: string) => hosts.has(user) || drivers.has(user);
+  const isProvider = (user: string) => hosts.has(user) || drivers.has(user) || cleaners.has(user) || washCenters.has(user);
 
   /** Earnings and deposit are released when a paid booking completes (tg_money_settle_*). */
   const settleRental = (b: Booking) => {
@@ -1471,6 +1471,13 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
 
       w.progress = nextStatus;
       w.status = nextStatus;
+      // tg_wash_settle: a paid wash pays the cleaner, else the registered center, once.
+      if (nextStatus === "completed" && w.payment_status === "paid" && !w.earning_credited_at) {
+        const payee = w.assigned_cleaner_id ?? (washCenters.has(w.assigned_vendor_id ?? "") ? w.assigned_vendor_id : null);
+        if (payee && payee !== w.customer_id && w.provider_earning > 0)
+          wallet.apply(payee, w.provider_earning, "wash_earning");
+        w.earning_credited_at = clock.now.toISOString();
+      }
       notify(w.customer_id, `Wash status updated to ${nextStatus}`);
       return w;
     },
@@ -1960,7 +1967,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     withdrawable,
     /** public.request_withdrawal */
     requestWithdrawal(actor: string, amount: number, method: "upi" | "bank", details: { upi_id?: string; account_number?: string; ifsc?: string; account_name?: string }) {
-      if (!isProvider(actor)) throw new RuleError("Only hosts and drivers can withdraw earnings");
+      if (!isProvider(actor)) throw new RuleError("Only hosts, drivers, cleaners and washing centers can withdraw earnings");
       const amt = round2(amount);
       if (amt <= 0 || amt < settings.min_withdrawal) throw new RuleError(`Minimum withdrawal is Rs ${settings.min_withdrawal}`);
       const avail = withdrawable(actor);

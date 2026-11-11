@@ -495,3 +495,56 @@ describe("wash reviews & rating trigger (WR-01, WR-02)", () => {
     expect(() => be.reviewWash(customer, w.id, 4, "Trying to review again")).toThrow(/already been reviewed/);
   });
 });
+
+describe("wash provider payouts (tg_wash_settle)", () => {
+  const cleanerProfile = (id: string) => ({
+    id,
+    full_name: "Cleaner Pay",
+    city: "Bangalore",
+    experience_years: 2,
+    available: true,
+    services: ["Doorstep Car Wash"],
+  });
+
+  test("completing a paid wash pays the cleaner once, and the earning is withdrawable", () => {
+    const { be, admin, customer } = setup();
+    const cleaner = be.registerCustomer();
+    be.registerCleaner(cleanerProfile(cleaner));
+    be.verifyCleaner(admin, cleaner, "approved");
+    const job = be.createConfirmedWash(customer, "2026-08-22", "Bangalore", 499);
+    expect(job.provider_earning).toBeGreaterThan(0);
+
+    be.claimWashJob(cleaner, job.id);
+    be.advanceWashStatus(cleaner, job.id, "on_the_way");
+    be.advanceWashStatus(cleaner, job.id, "started");
+    expect(be.wallet.balance(cleaner)).toBe(0);
+    be.advanceWashStatus(cleaner, job.id, "completed", ["after.jpg"]);
+
+    expect(be.wallet.balance(cleaner)).toBe(job.provider_earning);
+    expect(be.withdrawable(cleaner)).toBe(job.provider_earning);
+    expect(() => be.advanceWashStatus(cleaner, job.id, "completed", ["again.jpg"])).toThrow(/backwards or to the same/);
+    expect(be.wallet.balance(cleaner)).toBe(job.provider_earning);
+  });
+
+  test("a registered center is paid for its jobs; a platform partner that is not a center is not", () => {
+    const { be, admin, customer, vendor } = setup();
+    const center = be.registerCustomer();
+    be.registerWashCenter({ id: center, name: "Sparkle Hub", city: "Bangalore", daily_capacity: 15 });
+    be.verifyWashCenter(admin, center, "approved");
+
+    const run = (assignee: string) => {
+      const w = be.bookWash(customer, "2026-08-22");
+      be.adminDecideWash(admin, w.id, "confirmed", assignee);
+      be.wallet.topup(customer, w.price);
+      be.payWashWithWallet(customer, w.id);
+      be.advanceWashStatus(admin, w.id, "completed", ["after.jpg"]);
+      return w;
+    };
+
+    const centerJob = run(center);
+    expect(be.wallet.balance(center)).toBe(centerJob.provider_earning);
+
+    run(vendor);
+    expect(be.wallet.balance(vendor)).toBe(0);
+  });
+});
