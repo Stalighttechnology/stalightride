@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, CarFront, Droplets, Building2, Sparkles, Bike, Wrench,
-  ArrowLeftRight, Sun, Sofa, CalendarRange, ShieldCheck, Wallet, Clock, CheckCircle2,
+  ArrowLeftRight, Sun, Sofa, CalendarRange, ShieldCheck, Wallet, Clock, CheckCircle2, ShieldAlert,
 } from "lucide-react";
+import { useProviderStatus } from "@/hooks/use-provider-status";
 
 export const Route = createFileRoute("/earn")({
   component: EarnPage,
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/earn")({
 
 const PRIMARY = [
   {
+    id: "host",
     icon: LayoutDashboard,
     title: "Host your vehicle",
     tag: "Most popular",
@@ -34,6 +36,7 @@ const PRIMARY = [
     to: "/vendor",
   },
   {
+    id: "driver",
     icon: CarFront,
     title: "Drive for customers",
     tag: "Flexible hours",
@@ -44,6 +47,7 @@ const PRIMARY = [
     to: "/driver-dashboard",
   },
   {
+    id: "cleaner",
     icon: Droplets,
     title: "Become a car cleaner",
     tag: "New",
@@ -55,9 +59,10 @@ const PRIMARY = [
       "Paid per car, settled same day",
     ],
     cta: "Join as a cleaner",
-    to: "/wash",
+    to: "/cleaner-dashboard",
   },
   {
+    id: "center",
     icon: Building2,
     title: "Enroll your washing center",
     tag: "For businesses",
@@ -69,7 +74,7 @@ const PRIMARY = [
       "Contact details and slot-wise bookings",
     ],
     cta: "Enroll your center",
-    to: "/wash",
+    to: "/wash-center-dashboard",
   },
 ];
 
@@ -91,6 +96,84 @@ const STEPS = [
 ];
 
 function EarnPage() {
+  const { isHost, driverStatus, cleanerStatus, washCenterStatus, hasAnyVerifiedRole } = useProviderStatus();
+
+  const getStatusInfo = (id: string, fallbackTag: string, fallbackCta: string) => {
+    if (id === "host") {
+      if (isHost) {
+        return {
+          badge: <Badge className="bg-emerald-600 text-white gap-1"><ShieldCheck className="h-3 w-3" />Verified Host</Badge>,
+          cta: "Open host dashboard",
+        };
+      }
+      return { badge: <Badge variant="outline">{fallbackTag}</Badge>, cta: "Register vehicle to host" };
+    }
+    if (id === "driver") {
+      if (driverStatus === "approved") {
+        return {
+          badge: <Badge className="bg-emerald-600 text-white gap-1"><ShieldCheck className="h-3 w-3" />Verified Driver</Badge>,
+          cta: "Open driver dashboard",
+        };
+      }
+      if (driverStatus === "pending") {
+        return {
+          badge: <Badge variant="outline" className="border-amber-300 text-amber-600 gap-1"><Clock className="h-3 w-3" />Under review</Badge>,
+          cta: "Check driver status",
+        };
+      }
+      if (driverStatus === "rejected") {
+        return {
+          badge: <Badge variant="destructive" className="gap-1"><ShieldAlert className="h-3 w-3" />Needs revision</Badge>,
+          cta: "Update driver details",
+        };
+      }
+      return { badge: <Badge variant="outline">{fallbackTag}</Badge>, cta: fallbackCta };
+    }
+    if (id === "cleaner") {
+      if (cleanerStatus === "approved") {
+        return {
+          badge: <Badge className="bg-emerald-600 text-white gap-1"><ShieldCheck className="h-3 w-3" />Verified Cleaner</Badge>,
+          cta: "Open cleaner dashboard",
+        };
+      }
+      if (cleanerStatus === "pending") {
+        return {
+          badge: <Badge variant="outline" className="border-amber-300 text-amber-600 gap-1"><Clock className="h-3 w-3" />Under review</Badge>,
+          cta: "Check cleaner status",
+        };
+      }
+      if (cleanerStatus === "rejected") {
+        return {
+          badge: <Badge variant="destructive" className="gap-1"><ShieldAlert className="h-3 w-3" />Needs revision</Badge>,
+          cta: "Update cleaner profile",
+        };
+      }
+      return { badge: <Badge variant="outline">{fallbackTag}</Badge>, cta: fallbackCta };
+    }
+    if (id === "center") {
+      if (washCenterStatus === "approved") {
+        return {
+          badge: <Badge className="bg-emerald-600 text-white gap-1"><ShieldCheck className="h-3 w-3" />Verified Center</Badge>,
+          cta: "Open center dashboard",
+        };
+      }
+      if (washCenterStatus === "pending") {
+        return {
+          badge: <Badge variant="outline" className="border-amber-300 text-amber-600 gap-1"><Clock className="h-3 w-3" />Under review</Badge>,
+          cta: "Check center status",
+        };
+      }
+      if (washCenterStatus === "rejected") {
+        return {
+          badge: <Badge variant="destructive" className="gap-1"><ShieldAlert className="h-3 w-3" />Needs revision</Badge>,
+          cta: "Update center profile",
+        };
+      }
+      return { badge: <Badge variant="outline">{fallbackTag}</Badge>, cta: fallbackCta };
+    }
+    return { badge: <Badge variant="outline">{fallbackTag}</Badge>, cta: fallbackCta };
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -104,40 +187,55 @@ function EarnPage() {
           </p>
         </header>
 
+        {hasAnyVerifiedRole && (
+          <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-50/50 p-4 dark:bg-emerald-950/20">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Verified Provider Active</p>
+                <p className="text-xs text-muted-foreground">You are verified for provider services on Synchoo. Access your active dashboard(s) below.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <section className="mt-8 grid gap-4 sm:grid-cols-2">
-          {PRIMARY.map((p) => (
-            <Card key={p.title} className="rounded-2xl">
-              <CardContent className="flex h-full flex-col gap-4 p-5 sm:p-6">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
-                      <p.icon className="h-5 w-5" />
+          {PRIMARY.map((p) => {
+            const statusInfo = getStatusInfo(p.id, p.tag, p.cta);
+            return (
+              <Card key={p.title} className="rounded-2xl">
+                <CardContent className="flex h-full flex-col gap-4 p-5 sm:p-6">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+                        <p.icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="truncate font-display text-lg font-semibold">{p.title}</h2>
+                        <p className="text-sm font-medium text-primary">{p.payout}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h2 className="truncate font-display text-lg font-semibold">{p.title}</h2>
-                      <p className="text-sm font-medium text-primary">{p.payout}</p>
-                    </div>
+                    {statusInfo.badge}
                   </div>
-                  <Badge variant="outline" className="shrink-0">{p.tag}</Badge>
-                </div>
 
-                <p className="text-sm text-muted-foreground">{p.blurb}</p>
+                  <p className="text-sm text-muted-foreground">{p.blurb}</p>
 
-                <ul className="space-y-1.5 text-sm">
-                  {p.points.map((pt) => (
-                    <li key={pt} className="flex gap-2">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      <span className="text-muted-foreground">{pt}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <ul className="space-y-1.5 text-sm">
+                    {p.points.map((pt) => (
+                      <li key={pt} className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <span className="text-muted-foreground">{pt}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-                <Button asChild className="mt-auto w-full rounded-xl">
-                  <Link to={p.to as any}>{p.cta}</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Button asChild className="mt-auto w-full rounded-xl">
+                    <Link to={p.to as any}>{statusInfo.cta}</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </section>
 
         <section className="mt-12">
