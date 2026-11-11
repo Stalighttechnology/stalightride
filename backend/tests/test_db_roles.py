@@ -24,10 +24,25 @@ def make_user(email):
     return uid
 
 
-def test_baseline_loaded():
-    tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND rowsecurity")[0][0]
-    policies = q("SELECT count(*) FROM pg_policies WHERE schemaname = 'public'")[0][0]
-    assert tables >= 35 and policies >= 95
+APP_SCHEMAS = ['public', 'auth', 'storage']
+DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
+
+
+def test_schema_matches_the_original_migrations():
+    """Counts taken from the 51 original migration files loaded on 2026-11-11, plus the
+    realtime trigger (one function, six triggers) and the admin location policy from
+    drizzle/. A change here means the schema changed."""
+    tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = ANY(%s) AND NOT (schemaname = 'public' AND tablename ~ %s)",
+               [APP_SCHEMAS, DJANGO_TABLE])[0][0]
+    functions = q("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = ANY(%s)",
+                  [APP_SCHEMAS])[0][0]
+    triggers = q("""SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+                    JOIN pg_namespace n ON n.oid = c.relnamespace WHERE NOT t.tgisinternal AND n.nspname = ANY(%s)""",
+                 [APP_SCHEMAS])[0][0]
+    policies = q("SELECT count(*) FROM pg_policies")[0][0]
+    grants = q("""SELECT count(*) FROM information_schema.role_table_grants
+                  WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
+    assert (tables, functions, triggers, policies, grants) == (49, 94, 83, 137, 980)
 
 
 def test_signup_trigger_creates_profile_and_role():
