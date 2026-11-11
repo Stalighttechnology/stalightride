@@ -28,7 +28,6 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WashRouteImport } from './routes/wash'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedBookingsRouteImport } from './routes/_authenticated/bookings'
 import { Route as AuthenticatedCleanerDashboardRouteImport } from './routes/_authenticated/cleaner-dashboard'
 import { Route as AuthenticatedDriverDashboardRouteImport } from './routes/_authenticated/driver-dashboard'
 import { Route as AuthenticatedHiresRouteImport } from './routes/_authenticated/hires'
@@ -42,6 +41,7 @@ import { Route as AuthenticatedWashesRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedWishlistRouteImport } from './routes/_authenticated/wishlist'
 import { Route as DriverIdRouteImport } from './routes/driver.$id'
 import { Route as VehicleIdRouteImport } from './routes/vehicle.$id'
+import { Route as AuthenticatedBookingsIndexRouteImport } from './routes/_authenticated/bookings.index'
 import { Route as AuthenticatedMessagesBookingIdRouteImport } from './routes/_authenticated/messages.$bookingId'
 import { Route as AuthenticatedPoolingDriverRouteImport } from './routes/_authenticated/pooling.driver'
 import { Route as AuthenticatedPoolingMineRouteImport } from './routes/_authenticated/pooling.mine'
@@ -149,11 +149,6 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedBookingsRoute = AuthenticatedBookingsRouteImport.update({
-  id: '/bookings',
-  path: '/bookings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedCleanerDashboardRoute =
   AuthenticatedCleanerDashboardRouteImport.update({
     id: '/cleaner-dashboard',
@@ -222,6 +217,12 @@ const VehicleIdRoute = VehicleIdRouteImport.update({
   path: '/vehicle/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedBookingsIndexRoute =
+  AuthenticatedBookingsIndexRouteImport.update({
+    id: '/bookings/',
+    path: '/bookings/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMessagesBookingIdRoute =
   AuthenticatedMessagesBookingIdRouteImport.update({
     id: '/messages/$bookingId',
@@ -268,15 +269,15 @@ const BookingQrCodeRoute = BookingQrCodeRouteImport.update({
 } as any)
 const AuthenticatedBookingsIdDisputeRoute =
   AuthenticatedBookingsIdDisputeRouteImport.update({
-    id: '/$id/dispute',
-    path: '/$id/dispute',
-    getParentRoute: () => AuthenticatedBookingsRoute,
+    id: '/bookings/$id/dispute',
+    path: '/bookings/$id/dispute',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedBookingsIdTripRoute =
   AuthenticatedBookingsIdTripRouteImport.update({
-    id: '/$id/trip',
-    path: '/$id/trip',
-    getParentRoute: () => AuthenticatedBookingsRoute,
+    id: '/bookings/$id/trip',
+    path: '/bookings/$id/trip',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedReceiptKindIdRoute =
   AuthenticatedReceiptKindIdRouteImport.update({
@@ -310,7 +311,6 @@ export interface FileRoutesByFullPath {
   '/wash': typeof WashRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/bookings': typeof AuthenticatedBookingsRouteWithChildren
   '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
@@ -331,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/public/pitch-deck': typeof ApiPublicPitchDeckRoute
   '/booking/qr/$code': typeof BookingQrCodeRoute
+  '/bookings/': typeof AuthenticatedBookingsIndexRoute
   '/vendor/': typeof AuthenticatedVendorIndexRoute
   '/bookings/$id/dispute': typeof AuthenticatedBookingsIdDisputeRoute
   '/bookings/$id/trip': typeof AuthenticatedBookingsIdTripRoute
@@ -356,7 +357,6 @@ export interface FileRoutesByTo {
   '/wash': typeof WashRoute
   '/account': typeof AuthenticatedAccountRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/bookings': typeof AuthenticatedBookingsRouteWithChildren
   '/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/hires': typeof AuthenticatedHiresRoute
@@ -377,6 +377,7 @@ export interface FileRoutesByTo {
   '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/public/pitch-deck': typeof ApiPublicPitchDeckRoute
   '/booking/qr/$code': typeof BookingQrCodeRoute
+  '/bookings': typeof AuthenticatedBookingsIndexRoute
   '/vendor': typeof AuthenticatedVendorIndexRoute
   '/bookings/$id/dispute': typeof AuthenticatedBookingsIdDisputeRoute
   '/bookings/$id/trip': typeof AuthenticatedBookingsIdTripRoute
@@ -404,7 +405,6 @@ export interface FileRoutesById {
   '/wash': typeof WashRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
-  '/_authenticated/bookings': typeof AuthenticatedBookingsRouteWithChildren
   '/_authenticated/cleaner-dashboard': typeof AuthenticatedCleanerDashboardRoute
   '/_authenticated/driver-dashboard': typeof AuthenticatedDriverDashboardRoute
   '/_authenticated/hires': typeof AuthenticatedHiresRoute
@@ -425,6 +425,7 @@ export interface FileRoutesById {
   '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/public/pitch-deck': typeof ApiPublicPitchDeckRoute
   '/booking/qr/$code': typeof BookingQrCodeRoute
+  '/_authenticated/bookings/': typeof AuthenticatedBookingsIndexRoute
   '/_authenticated/vendor/': typeof AuthenticatedVendorIndexRoute
   '/_authenticated/bookings/$id/dispute': typeof AuthenticatedBookingsIdDisputeRoute
   '/_authenticated/bookings/$id/trip': typeof AuthenticatedBookingsIdTripRoute
@@ -452,7 +453,6 @@ export interface FileRouteTypes {
     | '/wash'
     | '/account'
     | '/admin'
-    | '/bookings'
     | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
@@ -473,6 +473,7 @@ export interface FileRouteTypes {
     | '/api/cron/reminders'
     | '/api/public/pitch-deck'
     | '/booking/qr/$code'
+    | '/bookings/'
     | '/vendor/'
     | '/bookings/$id/dispute'
     | '/bookings/$id/trip'
@@ -498,7 +499,6 @@ export interface FileRouteTypes {
     | '/wash'
     | '/account'
     | '/admin'
-    | '/bookings'
     | '/cleaner-dashboard'
     | '/driver-dashboard'
     | '/hires'
@@ -519,6 +519,7 @@ export interface FileRouteTypes {
     | '/api/cron/reminders'
     | '/api/public/pitch-deck'
     | '/booking/qr/$code'
+    | '/bookings'
     | '/vendor'
     | '/bookings/$id/dispute'
     | '/bookings/$id/trip'
@@ -545,7 +546,6 @@ export interface FileRouteTypes {
     | '/wash'
     | '/_authenticated/account'
     | '/_authenticated/admin'
-    | '/_authenticated/bookings'
     | '/_authenticated/cleaner-dashboard'
     | '/_authenticated/driver-dashboard'
     | '/_authenticated/hires'
@@ -566,6 +566,7 @@ export interface FileRouteTypes {
     | '/api/cron/reminders'
     | '/api/public/pitch-deck'
     | '/booking/qr/$code'
+    | '/_authenticated/bookings/'
     | '/_authenticated/vendor/'
     | '/_authenticated/bookings/$id/dispute'
     | '/_authenticated/bookings/$id/trip'
@@ -733,13 +734,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/bookings': {
-      id: '/_authenticated/bookings'
-      path: '/bookings'
-      fullPath: '/bookings'
-      preLoaderRoute: typeof AuthenticatedBookingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/cleaner-dashboard': {
       id: '/_authenticated/cleaner-dashboard'
       path: '/cleaner-dashboard'
@@ -831,6 +825,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VehicleIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/bookings/': {
+      id: '/_authenticated/bookings/'
+      path: '/bookings'
+      fullPath: '/bookings/'
+      preLoaderRoute: typeof AuthenticatedBookingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/messages/$bookingId': {
       id: '/_authenticated/messages/$bookingId'
       path: '/messages/$bookingId'
@@ -889,17 +890,17 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/bookings/$id/dispute': {
       id: '/_authenticated/bookings/$id/dispute'
-      path: '/$id/dispute'
+      path: '/bookings/$id/dispute'
       fullPath: '/bookings/$id/dispute'
       preLoaderRoute: typeof AuthenticatedBookingsIdDisputeRouteImport
-      parentRoute: typeof AuthenticatedBookingsRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/bookings/$id/trip': {
       id: '/_authenticated/bookings/$id/trip'
-      path: '/$id/trip'
+      path: '/bookings/$id/trip'
       fullPath: '/bookings/$id/trip'
       preLoaderRoute: typeof AuthenticatedBookingsIdTripRouteImport
-      parentRoute: typeof AuthenticatedBookingsRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/receipt/$kind/$id': {
       id: '/_authenticated/receipt/$kind/$id'
@@ -918,25 +919,9 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedBookingsRouteChildren {
-  AuthenticatedBookingsIdDisputeRoute: typeof AuthenticatedBookingsIdDisputeRoute
-  AuthenticatedBookingsIdTripRoute: typeof AuthenticatedBookingsIdTripRoute
-}
-
-const AuthenticatedBookingsRouteChildren: AuthenticatedBookingsRouteChildren = {
-  AuthenticatedBookingsIdDisputeRoute: AuthenticatedBookingsIdDisputeRoute,
-  AuthenticatedBookingsIdTripRoute: AuthenticatedBookingsIdTripRoute,
-}
-
-const AuthenticatedBookingsRouteWithChildren =
-  AuthenticatedBookingsRoute._addFileChildren(
-    AuthenticatedBookingsRouteChildren,
-  )
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
-  AuthenticatedBookingsRoute: typeof AuthenticatedBookingsRouteWithChildren
   AuthenticatedCleanerDashboardRoute: typeof AuthenticatedCleanerDashboardRoute
   AuthenticatedDriverDashboardRoute: typeof AuthenticatedDriverDashboardRoute
   AuthenticatedHiresRoute: typeof AuthenticatedHiresRoute
@@ -952,7 +937,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPoolingDriverRoute: typeof AuthenticatedPoolingDriverRoute
   AuthenticatedPoolingMineRoute: typeof AuthenticatedPoolingMineRoute
   AuthenticatedPoolingNewRoute: typeof AuthenticatedPoolingNewRoute
+  AuthenticatedBookingsIndexRoute: typeof AuthenticatedBookingsIndexRoute
   AuthenticatedVendorIndexRoute: typeof AuthenticatedVendorIndexRoute
+  AuthenticatedBookingsIdDisputeRoute: typeof AuthenticatedBookingsIdDisputeRoute
+  AuthenticatedBookingsIdTripRoute: typeof AuthenticatedBookingsIdTripRoute
   AuthenticatedReceiptKindIdRoute: typeof AuthenticatedReceiptKindIdRoute
   AuthenticatedVendorVehiclesNewRoute: typeof AuthenticatedVendorVehiclesNewRoute
 }
@@ -960,7 +948,6 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
-  AuthenticatedBookingsRoute: AuthenticatedBookingsRouteWithChildren,
   AuthenticatedCleanerDashboardRoute: AuthenticatedCleanerDashboardRoute,
   AuthenticatedDriverDashboardRoute: AuthenticatedDriverDashboardRoute,
   AuthenticatedHiresRoute: AuthenticatedHiresRoute,
@@ -976,7 +963,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPoolingDriverRoute: AuthenticatedPoolingDriverRoute,
   AuthenticatedPoolingMineRoute: AuthenticatedPoolingMineRoute,
   AuthenticatedPoolingNewRoute: AuthenticatedPoolingNewRoute,
+  AuthenticatedBookingsIndexRoute: AuthenticatedBookingsIndexRoute,
   AuthenticatedVendorIndexRoute: AuthenticatedVendorIndexRoute,
+  AuthenticatedBookingsIdDisputeRoute: AuthenticatedBookingsIdDisputeRoute,
+  AuthenticatedBookingsIdTripRoute: AuthenticatedBookingsIdTripRoute,
   AuthenticatedReceiptKindIdRoute: AuthenticatedReceiptKindIdRoute,
   AuthenticatedVendorVehiclesNewRoute: AuthenticatedVendorVehiclesNewRoute,
 }

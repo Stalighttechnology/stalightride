@@ -22,7 +22,7 @@ import {
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/razorpay.functions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
-export const Route = createFileRoute("/_authenticated/bookings")({ component: Bookings });
+export const Route = createFileRoute("/_authenticated/bookings/")({ component: Bookings });
 
 function Bookings() {
   const { user } = useSession();

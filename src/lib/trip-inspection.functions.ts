@@ -56,7 +56,8 @@ export const submitInspection = createServerFn({ method: "POST" })
     if (data.phase === "return" && booking.pickup_odometer != null && data.odo < booking.pickup_odometer) {
       throw new Error("Return odometer can't be lower than the pickup reading.");
     }
-    if (data.phase === "pickup" && !gate.canCheckin && !pickupScanned) {
+    const isPaid = (booking.payment_status === "paid" || !!(booking as any).paid_at) && booking.status === "confirmed";
+    if (data.phase === "pickup" && !gate.canCheckin && !pickupScanned && !isPaid) {
       throw new Error(gate.checkinReason ?? "Check-in is not available yet.");
     }
     if (data.phase === "return" && !gate.canCheckout && !returnScanned) {

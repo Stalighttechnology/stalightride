@@ -100,7 +100,8 @@ function TripInspection() {
   // Checklist is "done" once readings exist; a QR scan alone only stamps the handover time.
   const pickupDone = b.pickup_odometer != null;
   const returnDone = b.return_odometer != null;
-  const canCheckin = !pickupDone && (gate.canCheckin || !!b.pickup_checked_at);
+  const isPaid = (b.payment_status === "paid" || !!b.paid_at) && b.status === "confirmed";
+  const canCheckin = !pickupDone && (gate.canCheckin || !!b.pickup_checked_at || isPaid);
   const canCheckout = pickupDone && !returnDone && (gate.canCheckout || !!b.return_checked_at);
   const tripActive = !!b.pickup_checked_at && !b.return_checked_at && b.status === "confirmed";
 
