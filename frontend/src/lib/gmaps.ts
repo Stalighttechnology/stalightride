@@ -22,8 +22,7 @@ export function mapsBrowserKey(): string | undefined {
     (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ||
     (import.meta.env.VITE_MAPS_API_KEY as string | undefined) ||
     (import.meta.env.VITE_GOOGLE_MAP_API_KEY as string | undefined) ||
-    (import.meta.env.VITE_GMAPS_API_KEY as string | undefined) ||
-    (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined)
+    (import.meta.env.VITE_GMAPS_API_KEY as string | undefined)
   );
 }
 
@@ -35,7 +34,6 @@ export function loadGoogleMaps(): Promise<void> {
 
   const key = mapsBrowserKey();
   if (!key) return Promise.reject(new Error("Maps key missing"));
-  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 
   w.__gmapsLoader__ = new Promise<void>((resolve, reject) => {
     w[CALLBACK] = () => resolve();
@@ -46,7 +44,6 @@ export function loadGoogleMaps(): Promise<void> {
       libraries: "marker,places,geometry,geocoding",
       v: "weekly",
     });
-    if (channel) params.set("channel", channel);
     const s = document.createElement("script");
     s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
     s.async = true;

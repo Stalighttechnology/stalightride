@@ -105,7 +105,7 @@ Then check that nothing is left: `git grep -n -i supabase -- frontend/src` shoul
 New SQL now goes into a Django migration, not a `.sql` file in `supabase/migrations/`.
 
 1. Find the latest migration number: `ls backend/core/migrations/`.
-2. Create `backend/core/migrations/0003_<short_name>.py` (next number):
+2. Create `backend/core/migrations/0004_<short_name>.py` (next number):
 
    ```python
    from django.db import migrations
@@ -115,7 +115,7 @@ New SQL now goes into a Django migration, not a `.sql` file in `supabase/migrati
    """
 
    class Migration(migrations.Migration):
-       dependencies = [("core", "0002_realtime")]   # the previous migration's name
+       dependencies = [("core", "0003_admin_read_booking_locations")]   # the previous migration's name
        operations = [migrations.RunSQL(SQL)]
    ```
 
