@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { CityPicker } from "@/components/city-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
   IndianRupee,
   Star,
   CheckCircle2,
+  CircleSlash,
   Users,
   Settings2,
   Clock,
@@ -320,7 +322,7 @@ export function WashCenterDashboard() {
     toast.success("Staff member removed");
   };
 
-  const updateBookingStatus = async (id: string, status: "confirmed" | "completed") => {
+  const updateBookingStatus = async (id: string, status: "confirmed" | "completed" | "rejected") => {
     const { error } = await supabase
       .from("wash_bookings")
       .update({
@@ -329,7 +331,7 @@ export function WashCenterDashboard() {
       } as any)
       .eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success(`Booking updated to ${status}`);
+    toast.success(`Booking ${status === "confirmed" ? "approved" : status}`);
     setCenterBookings((prev) =>
       prev.map((b) => (b.id === id ? { ...b, status, completed_at: status === "completed" ? new Date().toISOString() : null } : b))
     );
@@ -415,13 +417,13 @@ export function WashCenterDashboard() {
                     <Label htmlFor="w-cap">Daily Bay Capacity (Cars/day)</Label>
                     <Input id="w-cap" type="number" min="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} required />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 min-w-0">
                     <Label htmlFor="w-open">Opens At</Label>
-                    <Input id="w-open" type="time" value={openingTime} onChange={(e) => setOpeningTime(e.target.value)} />
+                    <TimePicker id="w-open" value={openingTime} onChange={setOpeningTime} placeholder="Opens at" />
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 min-w-0">
                     <Label htmlFor="w-close">Closes At</Label>
-                    <Input id="w-close" type="time" value={closingTime} onChange={(e) => setClosingTime(e.target.value)} />
+                    <TimePicker id="w-close" value={closingTime} onChange={setClosingTime} placeholder="Closes at" />
                   </div>
                 </div>
 
@@ -644,9 +646,29 @@ export function WashCenterDashboard() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={() => updateBookingStatus(b.id, "completed")}>
-                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Mark Completed
-                      </Button>
+                      {b.status === "pending" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs"
+                            onClick={() => updateBookingStatus(b.id, "confirmed")}
+                          >
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg"
+                            onClick={() => updateBookingStatus(b.id, "rejected")}
+                          >
+                            <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" onClick={() => updateBookingStatus(b.id, "completed")}>
+                          <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Mark Completed
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -805,13 +827,13 @@ export function WashCenterDashboard() {
                     <Label className="text-xs">Daily Bays Capacity</Label>
                     <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} required />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <Label className="text-xs">Opens At</Label>
-                    <Input type="time" value={openingTime} onChange={(e) => setOpeningTime(e.target.value)} />
+                    <TimePicker value={openingTime} onChange={setOpeningTime} placeholder="Opens at" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <Label className="text-xs">Closes At</Label>
-                    <Input type="time" value={closingTime} onChange={(e) => setClosingTime(e.target.value)} />
+                    <TimePicker value={closingTime} onChange={setClosingTime} placeholder="Closes at" />
                   </div>
                 </div>
                 <Button type="submit" size="sm" disabled={saving}>

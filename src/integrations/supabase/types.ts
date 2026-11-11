@@ -832,33 +832,6 @@ export type Database = {
           },
         ]
       }
-      platform_settings: {
-        Row: {
-          commission_pct: number
-          gst_pct: number
-          id: number
-          min_withdrawal: number
-          service_fee_pct: number
-          updated_at: string
-        }
-        Insert: {
-          commission_pct?: number
-          gst_pct?: number
-          id?: number
-          min_withdrawal?: number
-          service_fee_pct?: number
-          updated_at?: string
-        }
-        Update: {
-          commission_pct?: number
-          gst_pct?: number
-          id?: number
-          min_withdrawal?: number
-          service_fee_pct?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       pool_ratings: {
         Row: {
           comment: string | null
@@ -2162,7 +2135,6 @@ export type Database = {
         }
         Relationships: []
       }
-    }
       category_rules: {
         Row: {
           advance_notice_hours: number
@@ -2437,51 +2409,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_reports: {
-        Row: {
-          admin_notes: string | null
-          created_at: string
-          id: string
-          reason: string
-          reported_user_id: string | null
-          reporter_id: string
-          resolved_at: string | null
-          resolved_by: string | null
-          status: string
-          target_id: string | null
-          target_type: string
-          updated_at: string
-        }
-        Insert: {
-          admin_notes?: string | null
-          created_at?: string
-          id?: string
-          reason: string
-          reported_user_id?: string | null
-          reporter_id: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-          target_id?: string | null
-          target_type: string
-          updated_at?: string
-        }
-        Update: {
-          admin_notes?: string | null
-          created_at?: string
-          id?: string
-          reason?: string
-          reported_user_id?: string | null
-          reporter_id?: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-          target_id?: string | null
-          target_type?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       vehicle_maintenance: {
         Row: {
           cost: number
@@ -2529,6 +2456,7 @@ export type Database = {
           }
         ]
       }
+    }
     Views: {
       [_ in never]: never
     }

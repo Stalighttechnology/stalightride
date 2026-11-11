@@ -11,9 +11,16 @@ import { z } from "zod";
 export const getBookingByQr = createServerFn({ method: "GET" })
   .inputValidator((raw) => z.object({ code: z.string().min(8).max(128) }).parse(raw))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let client: any;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      client = supabaseAdmin;
+    } catch {
+      const { supabase } = await import("@/integrations/supabase/client");
+      client = supabase;
+    }
 
-    const { data: booking, error } = await supabaseAdmin
+    let { data: booking, error } = await client
       .from("bookings")
       .select(
         "id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, base_price, security_deposit, total_price, paid_at, vehicle_id, customer_id, vendor_id, pickup_fuel_pct, return_fuel_pct, pickup_odometer, return_odometer, pickup_checked_at, return_checked_at",
@@ -21,13 +28,24 @@ export const getBookingByQr = createServerFn({ method: "GET" })
       .eq("qr_code", data.code)
       .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (!booking) {
+      const { data: byId } = await client
+        .from("bookings")
+        .select(
+          "id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, base_price, security_deposit, total_price, paid_at, vehicle_id, customer_id, vendor_id, pickup_fuel_pct, return_fuel_pct, pickup_odometer, return_odometer, pickup_checked_at, return_checked_at",
+        )
+        .eq("id", data.code)
+        .maybeSingle();
+      booking = byId;
+    }
+
+    if (error && !booking) throw new Error(error.message);
     if (!booking) return null;
 
     const [{ data: vehicle }, { data: customer }, { data: vendor }] = await Promise.all([
-      supabaseAdmin.from("vehicles").select("title, brand, model, year, city, address, lat, lng, category, fuel, transmission").eq("id", booking.vehicle_id).maybeSingle(),
-      supabaseAdmin.from("profiles").select("full_name, avatar_url").eq("id", booking.customer_id).maybeSingle(),
-      supabaseAdmin.from("profiles").select("full_name, avatar_url").eq("id", booking.vendor_id).maybeSingle(),
+      client.from("vehicles").select("title, brand, model, year, city, address, lat, lng, category, fuel, transmission").eq("id", booking.vehicle_id).maybeSingle(),
+      client.from("profiles").select("full_name, avatar_url").eq("id", booking.customer_id).maybeSingle(),
+      client.from("profiles").select("full_name, avatar_url").eq("id", booking.vendor_id).maybeSingle(),
     ]);
 
     return {

@@ -58,7 +58,7 @@ function AdminPage() {
         </div>
 
         <Tabs defaultValue="vehicles" className="space-y-4">
-          <TabsList className="flex w-full flex-wrap justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted">
+          <TabsList className="flex w-full items-center justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted overflow-x-auto no-scrollbar">
             {/* Verification Queues */}
             <TabsTrigger value="vehicles" className="text-xs px-2.5 py-1.5">Vehicles</TabsTrigger>
             <TabsTrigger value="hosts" className="text-xs px-2.5 py-1.5">Hosts (KYC)</TabsTrigger>

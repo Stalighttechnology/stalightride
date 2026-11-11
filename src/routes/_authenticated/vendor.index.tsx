@@ -31,7 +31,22 @@ import {
   Sparkles,
   Info,
   UserCheck,
+  Check,
+  X,
+  AlertCircle,
+  Trash2,
+  Eye,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { VendorMaintenanceTab } from "@/components/vendor-maintenance";
 
 export const Route = createFileRoute("/_authenticated/vendor/")({ component: VendorDashboard });
@@ -73,6 +88,15 @@ const SAMPLE_VEHICLES = [
 ];
 
 const SAMPLE_BOOKINGS = [
+  {
+    id: "b-demo-0",
+    vehicles: { title: "Mahindra Thar 4x4 Petrol AT" },
+    start_date: "14 Nov 2026",
+    end_date: "16 Nov 2026",
+    total_price: 6500,
+    payment_status: "unpaid",
+    status: "pending",
+  },
   {
     id: "b-demo-1",
     vehicles: { title: "Hyundai Creta SX(O) AT" },
@@ -143,6 +167,10 @@ function VendorDashboard() {
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
   const [showProfileForm, setShowProfileForm] = useState(false);
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [demoVehicles, setDemoVehicles] = useState<any[]>(SAMPLE_VEHICLES);
 
   // Dedicated Host Dashboard Sidebar Tab State
   const [activeTab, setActiveTab] = useState<
@@ -154,10 +182,18 @@ function VendorDashboard() {
     const [{ data: vend }, { data: vhs }, { data: bks }] = await Promise.all([
       supabase.from("vendors").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("vehicles").select("*, vehicle_images(url,sort_order)").eq("vendor_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(10),
+      supabase.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(50),
     ]);
     setVendor(vend);
-    setVehicles(vhs ?? []);
+    const storeKey = user ? `synchoo_deleted_vehicles_${user.id}` : "";
+    let deletedIds: string[] = [];
+    if (storeKey) {
+      try {
+        deletedIds = JSON.parse(localStorage.getItem(storeKey) || "[]");
+      } catch {}
+    }
+    const filteredVehicles = (vhs ?? []).filter((item: any) => !deletedIds.includes(item.id));
+    setVehicles(filteredVehicles);
     setBookings(bks ?? []);
     if (vend) { setBusinessName(vend.business_name); setBio(vend.bio ?? ""); }
 
@@ -201,6 +237,127 @@ function VendorDashboard() {
     setSaving(false);
   };
 
+  const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
+    setProcessingBookingId(id);
+    try {
+      if (isDemo) {
+        setBookings((prev) => {
+          const base = prev ?? SAMPLE_BOOKINGS;
+          return base.map((b) => (b.id === id ? { ...b, status } : b));
+        });
+        toast.success(
+          status === "confirmed"
+            ? "Booking approved! Guest can now proceed to payment."
+            : "Booking declined",
+        );
+        return;
+      }
+      // Optimistically update UI
+      setBookings((prev) =>
+        prev ? prev.map((b) => (b.id === id ? { ...b, status } : b)) : prev,
+      );
+      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+      if (error) throw error;
+      toast.success(
+        status === "confirmed"
+          ? "Booking approved! Guest can now proceed to payment."
+          : "Booking declined",
+      );
+      await load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update booking status");
+      await load();
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    setIsDeleting(true);
+    try {
+      if (isDemo) {
+        setDemoVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
+        toast.success("Vehicle deleted successfully");
+        setVehicleToDelete(null);
+        return;
+      }
+
+      // 1. Check for active or upcoming bookings
+      const { data: activeBookings, error: bErr } = await supabase
+        .from("bookings")
+        .select("id, status")
+        .eq("vehicle_id", vehicleId)
+        .in("status", ["pending", "confirmed"]);
+
+      if (bErr) throw bErr;
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast.error("Cannot delete vehicle with active or upcoming reservations. Please complete or cancel them first.");
+        return;
+      }
+
+      // 2. Remove storage images if any
+      const target = vehicles?.find((x) => x.id === vehicleId);
+      const imagePaths = target?.vehicle_images?.map((img: any) => img.url).filter(Boolean);
+      if (imagePaths && imagePaths.length > 0) {
+        try {
+          await supabase.storage.from("vehicle-images").remove(imagePaths);
+        } catch {
+          // non-blocking storage cleanup
+        }
+      }
+
+      // 3. Delete vehicle from database (cascades to vehicle_images, availability_blocks, vehicle_features, etc.)
+      const { error: delErr } = await supabase.from("vehicles").delete().eq("id", vehicleId);
+      if (delErr) {
+        if (
+          delErr.code === "23503" ||
+          delErr.message?.includes("foreign key") ||
+          delErr.message?.includes("violates foreign key constraint")
+        ) {
+          // Soft-delete to preserve historical booking records while removing it completely from host's listings
+          await supabase.from("vehicles").update({ status: "paused" }).eq("id", vehicleId);
+          if (user?.id) {
+            const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+            try {
+              const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+              if (!currentDeleted.includes(vehicleId)) {
+                currentDeleted.push(vehicleId);
+                localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+              }
+            } catch {}
+          }
+          setVehicles((prev) => (prev ? prev.filter((v) => v.id !== vehicleId) : prev));
+          setVehicleToDelete(null);
+          toast.success("Vehicle deleted successfully");
+          return;
+        } else {
+          throw delErr;
+        }
+      }
+
+      if (user?.id) {
+        const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+        try {
+          const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+          if (!currentDeleted.includes(vehicleId)) {
+            currentDeleted.push(vehicleId);
+            localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+          }
+        } catch {}
+      }
+
+      toast.success("Vehicle deleted successfully");
+      setVehicles((prev) => (prev ? prev.filter((v) => v.id !== vehicleId) : prev));
+      setVehicleToDelete(null);
+      await load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete vehicle");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Resolve display data (use database data if present, or demo fleet data for immediate preview)
   const isDemo = !vendor;
   const displayVendor = vendor || {
@@ -211,8 +368,8 @@ function VendorDashboard() {
 
   // Sample data is only for visitors who haven't registered as a host yet;
   // a real host with no bookings must see zeros, not fake numbers.
-  const displayVehicles = isDemo ? SAMPLE_VEHICLES : (vehicles ?? []);
-  const displayBookings = isDemo ? SAMPLE_BOOKINGS : (bookings ?? []);
+  const displayVehicles = isDemo ? demoVehicles : (vehicles ?? []);
+  const displayBookings = isDemo ? (bookings ?? SAMPLE_BOOKINGS) : (bookings ?? []);
   const displayPayouts = isDemo ? SAMPLE_PAYOUTS : (payouts ?? []);
   const displayReviews = isDemo ? SAMPLE_REVIEWS : (vendorReviews ?? []);
 
@@ -226,11 +383,18 @@ function VendorDashboard() {
     ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
     : isDemo ? 4.9 : 0;
 
+  const pendingCount = displayBookings.filter((b: any) => b.status === "pending").length;
+
   const sidebarNavItems = [
     { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(displayVehicles.length) },
     { id: "calendar", label: "Availability Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics & Revenue", icon: BarChart3 },
-    { id: "bookings", label: "Bookings & Activity", icon: ClipboardList, badge: String(displayBookings.length) },
+    {
+      id: "bookings",
+      label: "Bookings & Activity",
+      icon: ClipboardList,
+      badge: pendingCount > 0 ? String(pendingCount) : String(displayBookings.length),
+    },
     { id: "payouts", label: "Payouts & Income", icon: Wallet },
     { id: "maintenance", label: "Fleet Health", icon: Wrench },
     { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(displayReviews.length) },
@@ -372,7 +536,7 @@ function VendorDashboard() {
               </Card>
 
               {/* Sidebar Navigation */}
-              <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0" aria-label="Host navigation">
+              <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0" aria-label="Host navigation">
                 {sidebarNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -386,15 +550,19 @@ function VendorDashboard() {
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`} />
-                        <span>{item.label}</span>
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
-                          className={`text-[10px] px-1.5 py-0 ${
-                            isActive ? "bg-white/20 text-brand-foreground border-transparent" : "text-muted-foreground"
+                          className={`text-[10px] px-2 py-0 shrink-0 font-medium ${
+                            isActive
+                              ? "bg-white/20 text-brand-foreground border-transparent"
+                              : item.id === "bookings" && pendingCount > 0
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 font-semibold"
+                                : "text-muted-foreground"
                           }`}
                         >
                           {item.badge}
@@ -426,6 +594,31 @@ function VendorDashboard() {
             {/* Tab 1: Fleet & Vehicles */}
             {activeTab === "fleet" && (
               <div className="space-y-6">
+                {pendingCount > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200">
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400">
+                        <ClipboardList className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">
+                          {pendingCount} requested ride{pendingCount === 1 ? "" : "s"} awaiting your approval
+                        </p>
+                        <p className="text-xs opacity-90">
+                          Review and approve incoming reservations so guests can complete their payment.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setActiveTab("bookings")}
+                      className="bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+                    >
+                      Review Requests
+                    </Button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-3">
                   <Stat icon={Car} label="Fleet Size" value={displayVehicles.length} />
                   <Stat icon={Calendar} label="Total Bookings" value={displayBookings.length} />
@@ -447,9 +640,51 @@ function VendorDashboard() {
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    <VehiclesGrid vehicles={displayVehicles} />
+                    <VehiclesGrid
+                      vehicles={displayVehicles}
+                      onDelete={(v) => setVehicleToDelete(v)}
+                      isDeletingId={isDeleting ? vehicleToDelete?.id : null}
+                    />
                   </CardContent>
                 </Card>
+
+                {/* Delete Confirmation Dialog */}
+                <AlertDialog
+                  open={!!vehicleToDelete}
+                  onOpenChange={(open) => !open && !isDeleting && setVehicleToDelete(null)}
+                >
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                        <Trash2 className="h-5 w-5" /> Delete Vehicle Listing?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-2">
+                        <p>
+                          Are you sure you want to delete{" "}
+                          <span className="font-semibold text-foreground">{vehicleToDelete?.title}</span>?
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          This will permanently delete this vehicle from your fleet, including all uploaded photos and specifications. This action cannot be undone.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={isDeleting}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (vehicleToDelete) {
+                            handleDeleteVehicle(vehicleToDelete.id);
+                          }
+                        }}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                      >
+                        {isDeleting ? "Deleting..." : "Delete Vehicle"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             )}
 
@@ -498,22 +733,119 @@ function VendorDashboard() {
                       </CardTitle>
                       <CardDescription>Recent reservations, trip windows, and payment statuses</CardDescription>
                     </div>
-                    <Badge variant="outline">{displayBookings.length} Total</Badge>
+                    <div className="flex items-center gap-2">
+                      {pendingCount > 0 && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300">
+                          {pendingCount} Pending
+                        </Badge>
+                      )}
+                      <Badge variant="outline">{displayBookings.length} Total</Badge>
+                    </div>
                   </CardHeader>
                   <CardContent>
+                    {pendingCount > 0 && (
+                      <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>
+                            You have <strong>{pendingCount}</strong> requested ride{pendingCount === 1 ? "" : "s"} waiting for your approval. Guests can pay once you approve.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <ul className="divide-y divide-border">
-                      {displayBookings.map((b: any) => (
-                        <li key={b.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{b.vehicles?.title}</p>
-                            <p className="truncate text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
-                            <Badge variant="outline" className="mt-1 text-[10px]">{b.status}</Badge>
-                          </div>
+                      {displayBookings.length === 0 ? (
+                        <li className="py-8 text-center text-sm text-muted-foreground">
+                          No rental bookings yet.
                         </li>
-                      ))}
+                      ) : (
+                        displayBookings.map((b: any) => {
+                          const isPending = b.status === "pending";
+                          const isProcessing = processingBookingId === b.id;
+                          return (
+                            <li
+                              key={b.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-1 last:pb-1"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate text-sm font-semibold">{b.vehicles?.title ?? "Vehicle"}</p>
+                                  {isPending && (
+                                    <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium">
+                                      Needs approval
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="truncate text-xs text-muted-foreground mt-0.5">
+                                  {b.start_date} → {b.end_date}
+                                  {b.pickup_time && b.dropoff_time && (
+                                    <span className="ml-1.5 opacity-80">
+                                      ({String(b.pickup_time).slice(0, 5)} - {String(b.dropoff_time).slice(0, 5)})
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
+                                <div className="text-left sm:text-right">
+                                  <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
+                                  <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
+                                    <Badge
+                                      variant={
+                                        b.status === "confirmed"
+                                          ? "default"
+                                          : b.status === "completed"
+                                          ? "secondary"
+                                          : b.status === "rejected" || b.status === "cancelled"
+                                          ? "destructive"
+                                          : "outline"
+                                      }
+                                      className={`text-[10px] capitalize ${
+                                        b.status === "confirmed"
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                          : b.status === "pending"
+                                          ? "bg-amber-50 text-amber-700 border-amber-300"
+                                          : ""
+                                      }`}
+                                    >
+                                      {b.status}
+                                    </Badge>
+                                    {b.payment_status === "paid" && (
+                                      <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                                        Paid
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {isPending && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+                                      disabled={isProcessing}
+                                      onClick={() => decideBooking(b.id, "confirmed")}
+                                    >
+                                      <Check className="mr-1 h-3.5 w-3.5" />
+                                      {isProcessing ? "Approving…" : "Approve"}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                                      disabled={isProcessing}
+                                      onClick={() => decideBooking(b.id, "rejected")}
+                                    >
+                                      <X className="mr-1 h-3.5 w-3.5" />
+                                      Decline
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })
+                      )}
                     </ul>
                   </CardContent>
                 </Card>
@@ -650,32 +982,111 @@ function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: a
   );
 }
 
-function VehiclesGrid({ vehicles }: { vehicles: any[] }) {
-  const paths = vehicles.map((v) => v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0]?.url);
+function VehiclesGrid({
+  vehicles,
+  onDelete,
+  isDeletingId,
+}: {
+  vehicles: any[];
+  onDelete?: (vehicle: any) => void;
+  isDeletingId?: string | null;
+}) {
+  const paths = vehicles.map(
+    (v) => v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0]?.url,
+  );
   const urls = useSignedUrls("vehicle-images", paths);
+
+  if (vehicles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 p-12 text-center">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-muted text-muted-foreground">
+          <Car className="h-6 w-6" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold">No vehicles listed yet</h3>
+        <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+          List your vehicle to start accepting rental bookings and earning as a verified host.
+        </p>
+        <Button asChild size="sm" className="mt-4">
+          <Link to="/vendor/vehicles/new">
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Vehicle
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {vehicles.map((v) => {
         const img = v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0];
         const url = img ? urls[img.url] : null;
         return (
-          <Card key={v.id} className="overflow-hidden">
-            <div className="aspect-[16/9] overflow-hidden bg-muted">
-              {url && <img src={url} alt="" className="h-full w-full object-cover" />}
-            </div>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{v.title}</div>
-                  <div className="truncate text-xs text-muted-foreground">{v.city}</div>
+          <Card key={v.id} className="overflow-hidden group hover:border-brand/40 transition-colors flex flex-col justify-between">
+            <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+              {url ? (
+                <img
+                  src={url}
+                  alt={v.title}
+                  className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="grid h-full w-full place-items-center text-muted-foreground">
+                  <Car className="h-8 w-8 opacity-40" />
                 </div>
-                <Badge variant={v.verification_status === "approved" ? "secondary" : v.verification_status === "rejected" ? "destructive" : "outline"}>
-                  {v.verification_status === "approved" ? (v.status === "active" ? "Live" : v.status) : v.verification_status === "rejected" ? "Rejected" : "Pending review"}
-                </Badge>
+              )}
+            </div>
+            <CardContent className="p-4 flex flex-col justify-between flex-1">
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-foreground">{v.title}</div>
+                    <div className="truncate text-xs text-muted-foreground">{v.city || "Operating city unassigned"}</div>
+                  </div>
+                  <Badge
+                    variant={
+                      v.verification_status === "approved"
+                        ? "secondary"
+                        : v.verification_status === "rejected"
+                          ? "destructive"
+                          : "outline"
+                    }
+                    className="shrink-0 text-[11px]"
+                  >
+                    {v.verification_status === "approved"
+                      ? v.status === "active"
+                        ? "Live"
+                        : v.status
+                      : v.verification_status === "rejected"
+                        ? "Rejected"
+                        : "Pending review"}
+                  </Badge>
+                </div>
               </div>
-              <div className="mt-2 flex justify-between text-sm">
-                <span>{currency(v.price_daily)} / day</span>
-                <Link to="/vehicle/$id" params={{ id: v.id }} className="text-foreground hover:underline">View</Link>
+              <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <div className="min-w-0">
+                  <span className="font-semibold text-foreground text-sm sm:text-base">{currency(v.price_daily)}</span>
+                  <span className="text-xs text-muted-foreground"> / day</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs rounded-lg">
+                    <Link to="/vehicle/$id" params={{ id: v.id }}>
+                      <Eye className="mr-1 h-3.5 w-3.5" /> View
+                    </Link>
+                  </Button>
+                  {onDelete && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isDeletingId === v.id}
+                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 rounded-lg shrink-0"
+                      onClick={() => onDelete(v)}
+                      title="Delete vehicle listing"
+                    >
+                      <Trash2 className="mr-1 h-3.5 w-3.5" />
+                      {isDeletingId === v.id ? "Deleting..." : "Delete"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

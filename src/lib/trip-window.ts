@@ -8,6 +8,7 @@ const CHECKIN_LEAD_MINUTES = 30;
 type TripBooking = {
   status?: string | null;
   payment_status?: string | null;
+  paid_at?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   pickup_time?: string | null;
@@ -48,7 +49,7 @@ export type HandoverGate = {
 };
 
 export function getHandoverGate(b: TripBooking, now: Date = new Date()): HandoverGate {
-  const paid = b.status === "confirmed" && b.payment_status === "paid";
+  const paid = b.status === "confirmed" && (b.payment_status === "paid" || !!b.paid_at);
   const start = combineDateTime(b.start_date, b.pickup_time);
   const end = combineDateTime(b.end_date, b.dropoff_time);
   const opensAt = start ? new Date(start.getTime() - CHECKIN_LEAD_MINUTES * 60_000) : null;

@@ -1,4 +1,5 @@
 import { CityPicker } from "@/components/city-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldAlert, Clock, Upload, IndianRupee, CalendarCheck, Star } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Clock, Upload, IndianRupee, CalendarCheck, Star, CheckCircle2, CircleSlash } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/driver-dashboard")({
@@ -163,6 +164,7 @@ function DriverDashboard() {
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);
+  const pendingHires = (hires ?? []).filter((h) => h.status === "pending");
   const upcomingHires = (hires ?? []).filter((h) => h.status === "confirmed" && h.start_date >= today);
   const historyHires = (hires ?? []).filter((h) => h.status === "completed" || h.status === "cancelled");
 
@@ -185,6 +187,28 @@ function DriverDashboard() {
           </div>
           <VerifyBadge status={vs} />
         </div>
+
+        {/* Pending Hires Action Banner */}
+        {pendingHires.length > 0 && (
+          <div className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 shadow-xs dark:border-amber-900/50 dark:bg-amber-950/25">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-foreground">
+                    {pendingHires.length} driver hire request{pendingHires.length > 1 ? "s" : ""} awaiting your approval
+                  </p>
+                  <p className="text-xs text-muted-foreground">Review trip dates and reporting location below to approve or decline.</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 font-semibold">
+                Action Required
+              </Badge>
+            </div>
+          </div>
+        )}
 
         {driver && (
           <div className="grid gap-4 sm:grid-cols-3">
@@ -283,7 +307,17 @@ function DriverDashboard() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div><Label>Licence number</Label><Input value={form.dl_number ?? ""} disabled={locked} onChange={(e) => setForm({ ...form, dl_number: e.target.value })} /></div>
-              <div><Label>Licence expiry</Label><Input type="date" value={form.dl_expiry ?? ""} disabled={locked} onChange={(e) => setForm({ ...form, dl_expiry: e.target.value })} /></div>
+              <div>
+                <Label>Licence expiry</Label>
+                <DatePicker
+                  value={form.dl_expiry ?? ""}
+                  disabled={locked}
+                  onChange={(d) => setForm({ ...form, dl_expiry: d })}
+                  minDate={new Date()}
+                  placeholder="Select licence expiry"
+                  className="mt-1.5"
+                />
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
@@ -419,8 +453,21 @@ function DriverDashboard() {
                       <Badge variant="outline">{h.status}</Badge>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => decide(h.id, "confirmed")}>Accept</Button>
-                      <Button size="sm" variant="outline" onClick={() => decide(h.id, "rejected")}>Decline</Button>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs"
+                        onClick={() => decide(h.id, "confirmed")}
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve Hire
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg"
+                        onClick={() => decide(h.id, "rejected")}
+                      >
+                        <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
+                      </Button>
                     </div>
                   </CardContent></Card>
                 ))}

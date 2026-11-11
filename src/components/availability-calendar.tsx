@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { CalendarDays, ChevronLeft, ChevronRight, Ban, Trash2 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 type Vehicle = { id: string; title: string };
 type Range = { id?: string; start_date: string; end_date: string; reason?: string | null; kind: "booked" | "blocked" };
@@ -154,13 +155,25 @@ export function AvailabilityCalendar({ vehicles }: { vehicles: Vehicle[] }) {
         )}
 
         <form onSubmit={addBlock} className="grid gap-3 rounded-xl border border-border bg-muted/40 p-4 sm:grid-cols-4">
-          <div>
+          <div className="space-y-1">
             <Label className="text-xs">Block from</Label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} required className="rounded-xl" />
+            <DatePicker
+              value={from}
+              onChange={setFrom}
+              minDate={new Date()}
+              placeholder="dd-mm-yyyy"
+              className="h-10 rounded-xl"
+            />
           </div>
-          <div>
+          <div className="space-y-1">
             <Label className="text-xs">Until</Label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} required className="rounded-xl" />
+            <DatePicker
+              value={to}
+              onChange={setTo}
+              minDate={from || new Date()}
+              placeholder="dd-mm-yyyy"
+              className="h-10 rounded-xl"
+            />
           </div>
           <div>
             <Label className="text-xs">Reason (optional)</Label>

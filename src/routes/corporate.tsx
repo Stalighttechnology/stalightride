@@ -354,7 +354,7 @@ export function CorporatePage() {
                 </Card>
 
                 {/* Sidebar Navigation Menu */}
-                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0" aria-label="Corporate navigation">
+                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0" aria-label="Corporate navigation">
                   {sidebarNavItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;

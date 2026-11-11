@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
+import { CityPicker } from "@/components/city-picker";
+import { useSelectedCity } from "@/components/city-selector";
 import {
   ShieldCheck,
   MapPin,
@@ -16,7 +18,7 @@ import {
   Navigation,
   QrCode,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CategoryIcon } from "@/components/category-icon";
 import { HeroIllustration } from "@/components/hero-illustration";
 
@@ -51,17 +53,23 @@ const CATS = [
   { key: "ev", label: "Electric", desc: "Zero-emission rides" },
   { key: "motorcycle", label: "Motorcycles", desc: "Cruisers & sport" },
   { key: "scooter", label: "Scooters", desc: "Zip through the city" },
-  { key: "bike", label: "Bicycles", desc: "Pedal on your terms" },
 ] as const;
 
 function Index() {
   const navigate = useNavigate();
-  const [city, setCity] = useState("");
+  const { city: savedCity, select: saveCity } = useSelectedCity();
+  const [city, setCity] = useState(savedCity ?? "");
   const [service, setService] = useState<"rental" | "driver" | "wash">("rental");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("10:00");
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("10:00");
+
+  useEffect(() => {
+    if (savedCity && !city) {
+      setCity(savedCity);
+    }
+  }, [savedCity]);
 
   const search = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,14 +78,21 @@ function Index() {
         to: "/browse",
         search: {
           city: city || undefined,
-          start: pickupDate || undefined,
-          end: returnDate || undefined,
+          from: pickupDate || undefined,
+          to: returnDate || undefined,
         } as any,
       });
     } else if (service === "driver") {
       navigate({ to: "/drivers", search: { city: city || undefined } as any });
     } else {
-      navigate({ to: "/wash" });
+      navigate({
+        to: "/wash",
+        search: {
+          city: city || undefined,
+          date: pickupDate || undefined,
+          slot: pickupTime || undefined,
+        } as any,
+      });
     }
   };
 
@@ -107,45 +122,55 @@ function Index() {
                 <button
                   type="button"
                   onClick={() => setService("rental")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
                     service === "rental"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Car className="h-4 w-4" /> Vehicle Rental
+                  <Car className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Vehicle Rental</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setService("driver")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
                     service === "driver"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <UserRound className="h-4 w-4" /> Hire Driver
+                  <UserRound className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Hire Driver</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setService("wash")}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all sm:text-sm ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
                     service === "wash"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Droplets className="h-4 w-4" /> Doorstep Wash
+                  <Droplets className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Doorstep Wash</span>
                 </button>
               </div>
 
               <form onSubmit={search} className="flex flex-col gap-2.5">
-                <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
+                <div className="relative min-w-0">
+                  <CityPicker
                     id="hero-city"
                     value={city}
-                    onChange={(e) => setCity(e.target.value)}
+                    onChange={(nextCity) => {
+                      setCity(nextCity);
+                      if (nextCity) {
+                        saveCity(nextCity);
+                      } else {
+                        saveCity(null);
+                      }
+                    }}
+                    allowClear
                     placeholder={
                       service === "rental"
                         ? "Where are you riding? (e.g. Bangalore, Mumbai)"
@@ -153,41 +178,45 @@ function Index() {
                         ? "City where you need a driver"
                         : "City for doorstep wash"
                     }
-                    className="h-11 rounded-xl border-border/70 bg-background/90 pl-10 text-sm"
+                    className="h-11 rounded-xl border-border/70 bg-background/90 px-3.5 text-sm shadow-xs hover:bg-background/95 transition-colors"
                   />
                 </div>
 
                 {service === "rental" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">Pickup</label>
-                      <div className="grid grid-cols-[1.4fr_1fr] gap-1.5">
+                      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={pickupDate}
                           onChange={setPickupDate}
                           minDate={new Date()}
-                          placeholder="Pickup date"
+                          placeholder="dd-mm-yyyy"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                         <TimePicker
                           value={pickupTime}
                           onChange={setPickupTime}
                           placeholder="Time"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                       </div>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">Return</label>
-                      <div className="grid grid-cols-[1.4fr_1fr] gap-1.5">
+                      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={returnDate}
                           onChange={setReturnDate}
                           minDate={pickupDate || new Date()}
-                          placeholder="Return date"
+                          placeholder="dd-mm-yyyy"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                         <TimePicker
                           value={returnTime}
                           onChange={setReturnTime}
                           placeholder="Time"
+                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                         />
                       </div>
                     </div>
@@ -195,19 +224,42 @@ function Index() {
                 )}
 
                 {service === "driver" && (
-                  <div className="space-y-1 text-xs">
+                  <div className="space-y-1.5 text-xs min-w-0">
                     <label className="text-[11px] font-medium text-muted-foreground">When do you need the driver?</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                       <DatePicker
                         value={pickupDate}
                         onChange={setPickupDate}
                         minDate={new Date()}
-                        placeholder="Reporting date"
+                        placeholder="dd-mm-yyyy"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                       />
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Reporting time"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {service === "wash" && (
+                  <div className="space-y-1.5 text-xs min-w-0">
+                    <label className="text-[11px] font-medium text-muted-foreground">Preferred wash schedule</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                      <DatePicker
+                        value={pickupDate}
+                        onChange={setPickupDate}
+                        minDate={new Date()}
+                        placeholder="dd-mm-yyyy"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                      />
+                      <TimePicker
+                        value={pickupTime}
+                        onChange={setPickupTime}
+                        placeholder="Preferred time"
+                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
                       />
                     </div>
                   </div>

@@ -288,11 +288,11 @@ function DriverProfile() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">Start date</Label>
-                    <DatePicker value={startDate} onChange={setStartDate} minDate={new Date()} placeholder="Select date" />
+                    <DatePicker value={startDate} onChange={setStartDate} minDate={new Date()} placeholder="dd-mm-yyyy" />
                   </div>
                   <div>
                     <Label className="text-xs">End date</Label>
-                    <DatePicker value={rateType === "hourly" ? startDate : endDate} onChange={setEndDate} minDate={startDate || new Date()} disabled={rateType === "hourly"} placeholder="Select date" />
+                    <DatePicker value={rateType === "hourly" ? startDate : endDate} onChange={setEndDate} minDate={startDate || new Date()} disabled={rateType === "hourly"} placeholder="dd-mm-yyyy" />
                   </div>
                   <div>
                     <Label className="text-xs">Start time</Label>

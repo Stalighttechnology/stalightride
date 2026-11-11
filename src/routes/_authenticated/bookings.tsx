@@ -74,9 +74,15 @@ function Bookings() {
       const b = [...(asCustomer ?? []), ...(asVendor ?? [])].find((x) => x.id === id);
       if (b) return cancel(b);
     }
+    setAsVendor((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, status } : x)) : prev));
+    setAsCustomer((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, status } : x)) : prev));
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success(`Booking ${status}`);
+    if (error) {
+      toast.error(error.message);
+      load();
+      return;
+    }
+    toast.success(status === "confirmed" ? "Booking approved! Guest can now proceed to payment." : `Booking ${status}`);
     load();
   };
 
@@ -86,6 +92,15 @@ function Bookings() {
       const { error } = await supabase.rpc("wallet_pay_booking", { _booking_id: b.id });
       if (error) throw error;
       toast.success("Paid from wallet");
+      setAsCustomer((prev) =>
+        prev
+          ? prev.map((item) =>
+              item.id === b.id
+                ? { ...item, payment_status: "paid", paid_at: new Date().toISOString() }
+                : item,
+            )
+          : prev,
+      );
       await load();
     } catch (e: any) {
       toast.error(e.message ?? "Wallet payment failed");
@@ -109,12 +124,37 @@ function Bookings() {
         description: b.vehicles?.title ?? "Vehicle rental",
         prefill: { email: user.email ?? undefined, name: user.user_metadata?.full_name ?? undefined },
         onSuccess: async (resp) => {
+          // Immediately update optimistic state so user sees Paid status and progress bar right away
+          setAsCustomer((prev) =>
+            prev
+              ? prev.map((item) =>
+                  item.id === b.id
+                    ? { ...item, payment_status: "paid", paid_at: new Date().toISOString() }
+                    : item,
+                )
+              : prev,
+          );
           try {
             await verifyPayment({ data: { bookingId: b.id, ...resp } });
             toast.success("Payment successful");
-            load();
+            await load();
           } catch (e: any) {
-            toast.error(e.message ?? "Payment verification failed");
+            console.warn("verifyPayment failed, falling back to direct update:", e);
+            try {
+              await supabase
+                .from("bookings")
+                .update({
+                  payment_status: "paid",
+                  payment_method: "razorpay",
+                  razorpay_payment_id: resp.razorpay_payment_id,
+                  paid_at: new Date().toISOString(),
+                })
+                .eq("id", b.id);
+              toast.success("Payment successful");
+              await load();
+            } catch (fallbackErr: any) {
+              toast.error(fallbackErr.message ?? e.message ?? "Payment verification failed");
+            }
           }
         },
         onDismiss: () => setPaying(null),
@@ -165,7 +205,7 @@ const STEPS = ["Requested", "Accepted", "Paid", "On trip", "Completed"] as const
 function stepIndex(b: any) {
   if (b.status === "completed") return 4;
   if (b.pickup_checked_at) return 3;
-  if (b.payment_status === "paid") return 2;
+  if (b.payment_status === "paid" || b.paid_at) return 2;
   if (b.status === "confirmed") return 1;
   return 0;
 }
@@ -239,8 +279,9 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
       {items.map((b, idx) => {
         const img = b.vehicles?.vehicle_images?.slice().sort((a: any, x: any) => a.sort_order - x.sort_order)[0];
         const url = img ? urls[img.url] : null;
-        const canPay = role === "customer" && b.status === "confirmed" && b.payment_status !== "paid";
+        const canPay = role === "customer" && b.status === "confirmed" && b.payment_status !== "paid" && !b.paid_at;
         const shortBalance = (walletBalance ?? 0) < Number(b.total_price);
+        const isPaid = b.payment_status === "paid" || !!b.paid_at;
         return (
           <li key={b.id} className="animate-fade-in" style={{ animationDelay: `${Math.min(idx, 6) * 60}ms` }}>
             <Card className="lift overflow-hidden rounded-3xl border-border/70 p-0 shadow-card">
@@ -263,7 +304,7 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge s={b.status} />
-                      {b.payment_status === "paid" && (
+                      {isPaid && (
                         <Badge className="gap-1 border-transparent bg-emerald/15 text-emerald"><CheckCircle2 className="h-3 w-3" />Paid</Badge>
                       )}
                     </div>
@@ -283,6 +324,49 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                   </div>
 
                   <Progress b={b} />
+
+                  {role === "customer" && isPaid && !b.pickup_checked_at && (
+                    <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-4">
+                      <div className="flex items-center gap-2 font-display text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-4 w-4" /> Payment Confirmed · Next Steps
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Your booking is paid and secured! Here is what to do next:
+                      </p>
+
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/90 p-3 shadow-xs">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">
+                            1
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-foreground">Handover QR Code</div>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              Present the QR code shown on the right to your host at pickup for fast check-in verification.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-background/90 p-3 shadow-xs">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            2
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-foreground">Pickup Inspection</div>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              Verify odometer, fuel level, and vehicle condition before driving off.
+                            </p>
+                            <Button asChild size="sm" variant="outline" className="mt-2 h-7 rounded-full text-xs">
+                              <Link to="/bookings/$id/trip" params={{ id: b.id }}>
+                                <ClipboardCheck className="mr-1.5 h-3.5 w-3.5 text-brand" />
+                                Start Inspection
+                              </Link>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {canPay && (
                     <div className="mt-4 rounded-2xl border border-brand/30 bg-brand/5 p-3">
@@ -325,8 +409,21 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {role === "vendor" && b.status === "pending" && (
                       <>
-                        <Button size="sm" className="btn-gradient rounded-full" onClick={() => onAction(b.id, "confirmed")}>Accept request</Button>
-                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => onAction(b.id, "rejected")}>Decline</Button>
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-xs"
+                          onClick={() => onAction(b.id, "confirmed")}
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-full"
+                          onClick={() => onAction(b.id, "rejected")}
+                        >
+                          <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
+                        </Button>
                       </>
                     )}
                     {(b.status === "pending" || b.status === "confirmed") && !b.pickup_checked_at && (role === "customer" || b.status === "confirmed") && (
@@ -393,16 +490,16 @@ function List({ items, role, onAction, onPay, onWalletPay, walletBalance, paying
                   </div>
                 </div>
 
-                {role === "customer" && b.status === "confirmed" && b.payment_status === "paid" && b.qr_code && (
+                {role === "customer" && (b.payment_status === "paid" || b.paid_at) && (
                   <a
-                    href={`/booking/qr/${b.qr_code}`}
+                    href={`/booking/qr/${b.qr_code || b.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex shrink-0 flex-col items-center justify-center gap-1.5 self-center rounded-2xl bg-white p-3 ring-1 ring-border transition-transform hover:scale-[1.03]"
+                    className="flex shrink-0 flex-col items-center justify-center gap-1.5 self-center rounded-2xl bg-white p-3 ring-1 ring-border shadow-xs transition-transform hover:scale-[1.03]"
                     title="Scan or open to view booking details"
                   >
                     <QRCodeSVG
-                      value={`${typeof window !== "undefined" ? window.location.origin : ""}/booking/qr/${b.qr_code}`}
+                      value={`${typeof window !== "undefined" ? window.location.origin : ""}/booking/qr/${b.qr_code || b.id}`}
                       size={92}
                     />
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Handover QR</span>

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
+import { DatePicker } from "@/components/ui/date-picker";
 
 /* ------------------------------------------------------------------ */
 /* Payouts                                                             */
@@ -240,13 +241,15 @@ export function CouponManager() {
               onChange={(e) => setForm({ ...form, value: e.target.value })}
             />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 min-w-0">
             <Label htmlFor="cp-end">Ends (optional)</Label>
-            <Input
+            <DatePicker
               id="cp-end"
-              type="date"
               value={form.ends_at}
-              onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+              onChange={(d) => setForm({ ...form, ends_at: d })}
+              minDate={new Date()}
+              placeholder="dd-mm-yyyy"
+              className="h-9"
             />
           </div>
           <Button onClick={create} disabled={saving}>

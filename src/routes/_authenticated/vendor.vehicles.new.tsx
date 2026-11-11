@@ -135,7 +135,6 @@ function NewVehicle() {
                     <SelectContent>
                       <SelectItem value="car">Car</SelectItem><SelectItem value="ev">EV</SelectItem>
                       <SelectItem value="motorcycle">Motorcycle</SelectItem><SelectItem value="scooter">Scooter</SelectItem>
-                      <SelectItem value="bike">Bike</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>

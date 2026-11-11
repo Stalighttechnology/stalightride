@@ -18,7 +18,18 @@ import { toast } from "sonner";
 import {
   Star, MapPin, Users, Fuel, Cog, Gauge, Heart, ShieldCheck,
   Clock, CalendarDays, CircleAlert, Loader2, ArrowRight, QrCode, Navigation, ImageOff, MessageSquareQuote,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSession } from "@/hooks/use-session";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -55,6 +66,8 @@ function VehiclePage() {
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [booking, setBooking] = useState(false);
   const [wished, setWished] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   useEffect(() => {
@@ -154,6 +167,79 @@ function VehiclePage() {
     }
   };
 
+  const handleDeleteVehicle = async () => {
+    if (!v) return;
+    setIsDeleting(true);
+    try {
+      const { data: activeBookings, error: bErr } = await supabase
+        .from("bookings")
+        .select("id, status")
+        .eq("vehicle_id", v.id)
+        .in("status", ["pending", "confirmed"]);
+
+      if (bErr) throw bErr;
+
+      if (activeBookings && activeBookings.length > 0) {
+        toast.error("Cannot delete vehicle with active or upcoming reservations. Please complete or cancel them first.");
+        return;
+      }
+
+      const imagePaths = v.vehicle_images?.map((img: any) => img.url).filter(Boolean);
+      if (imagePaths && imagePaths.length > 0) {
+        try {
+          await supabase.storage.from("vehicle-images").remove(imagePaths);
+        } catch {
+          // non-blocking
+        }
+      }
+
+      const { error: delErr } = await supabase.from("vehicles").delete().eq("id", v.id);
+      if (delErr) {
+        if (
+          delErr.code === "23503" ||
+          delErr.message?.includes("foreign key") ||
+          delErr.message?.includes("violates foreign key constraint")
+        ) {
+          // Soft-delete: update status to paused and persist to deleted registry so it disappears permanently from host's dashboard
+          await supabase.from("vehicles").update({ status: "paused" }).eq("id", v.id);
+          if (user?.id) {
+            const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+            try {
+              const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+              if (!currentDeleted.includes(v.id)) {
+                currentDeleted.push(v.id);
+                localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+              }
+            } catch {}
+          }
+          toast.success("Vehicle deleted successfully");
+          navigate({ to: "/vendor" });
+          return;
+        } else {
+          throw delErr;
+        }
+      }
+
+      if (user?.id) {
+        const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+        try {
+          const currentDeleted: string[] = JSON.parse(localStorage.getItem(storeKey) || "[]");
+          if (!currentDeleted.includes(v.id)) {
+            currentDeleted.push(v.id);
+            localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
+          }
+        } catch {}
+      }
+
+      toast.success("Vehicle deleted successfully");
+      navigate({ to: "/vendor" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete vehicle");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   if (!v) return (
     <div className="min-h-screen bg-background"><SiteHeader />
@@ -195,10 +281,22 @@ function VehiclePage() {
             <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
             <p className="text-sm text-muted-foreground">{v.brand} {v.model} · {v.year}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={toggleWish}>
-            <Heart className={`mr-2 h-4 w-4 ${wished ? "fill-foreground text-foreground" : ""}`} />
-            {wished ? "Saved" : "Save"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={toggleWish}>
+              <Heart className={`mr-2 h-4 w-4 ${wished ? "fill-foreground text-foreground" : ""}`} />
+              {wished ? "Saved" : "Save"}
+            </Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" /> Delete Vehicle
+              </Button>
+            )}
+          </div>
         </div>
 
         {isOwner && v.verification_status !== "approved" && (
@@ -224,7 +322,9 @@ function VehiclePage() {
                   </div>
                 )}
                 <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
-                <Badge className="absolute left-4 top-4 rounded-full bg-background/85 capitalize text-foreground backdrop-blur">{v.category}</Badge>
+                <Badge className="absolute left-4 top-4 rounded-full bg-background/85 capitalize text-foreground backdrop-blur">
+                  {v.category === "bike" ? "Motorcycle" : v.category}
+                </Badge>
                 {images.length > 1 && (
                   <span className="absolute bottom-4 right-4 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium backdrop-blur">
                     {activeImg + 1} / {images.length}
@@ -232,7 +332,7 @@ function VehiclePage() {
                 )}
               </div>
               {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto p-3">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar inapp-scroll p-3">
                   {images.map((im: any, i: number) => (
                     <button
                       key={i}
@@ -350,18 +450,40 @@ function VehiclePage() {
                   <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/60">
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={CalendarDays} label="Pickup date">
-                        <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} min={new Date().toISOString().slice(0, 10)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <DatePicker
+                          value={start}
+                          onChange={(d) => setStart(d)}
+                          minDate={new Date()}
+                          placeholder="dd-mm-yyyy"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                       <SlotField icon={CalendarDays} label="Return date">
-                        <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} min={start || new Date().toISOString().slice(0, 10)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <DatePicker
+                          value={end}
+                          onChange={(d) => setEnd(d)}
+                          minDate={start || new Date()}
+                          placeholder="dd-mm-yyyy"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
                       <SlotField icon={Clock} label="Pickup time">
-                        <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <TimePicker
+                          value={pickupTime}
+                          onChange={(t) => setPickupTime(t)}
+                          placeholder="Select time"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                       <SlotField icon={Clock} label="Drop-off time">
-                        <Input type="time" value={dropoffTime} onChange={(e) => setDropoffTime(e.target.value)} className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0" />
+                        <TimePicker
+                          value={dropoffTime}
+                          onChange={(t) => setDropoffTime(t)}
+                          placeholder="Select time"
+                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
+                        />
                       </SlotField>
                     </div>
                   </div>
@@ -456,6 +578,38 @@ function VehiclePage() {
 
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => !open && !isDeleting && setShowDeleteDialog(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> Delete Vehicle Listing?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to delete <span className="font-semibold text-foreground">{v.title}</span>?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This will permanently delete this vehicle from your fleet, including all photos, documents, and specifications. This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteVehicle();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {isDeleting ? "Deleting..." : "Delete Vehicle"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
