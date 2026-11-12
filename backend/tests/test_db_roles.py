@@ -1,5 +1,6 @@
 """The load-bearing piece: queries run as the right role, and RLS follows."""
 
+import json
 import uuid
 
 import pytest
@@ -51,6 +52,22 @@ def test_signup_trigger_creates_profile_and_role():
     assert q("SELECT role::text FROM public.user_roles WHERE user_id = %s", [uid]) == [("customer",)]
 
 
+def test_signup_trigger_referral_code_handles_shared_uuid_prefix():
+    uid1 = uuid.UUID("c0000000-0000-4000-8000-000000000001")
+    uid2 = uuid.UUID("c0000000-0000-4000-8000-000000000002")
+    q("INSERT INTO auth.users (id, email) VALUES (%s, %s) RETURNING id", [uid1, "c1@example.com"])
+    q("INSERT INTO auth.users (id, email) VALUES (%s, %s) RETURNING id", [uid2, "c2@example.com"])
+    rows = q(
+        "SELECT id, referral_code FROM public.profiles WHERE id = ANY(%s) ORDER BY id",
+        [[uid1, uid2]],
+    )
+    assert len(rows) == 2
+    code1, code2 = rows[0][1], rows[1][1]
+    assert code1 and code1.startswith("SYN-") and len(code1) >= 16
+    assert code2 and code2.startswith("SYN-") and len(code2) >= 16
+    assert code1 != code2
+
+
 def test_rls_follows_the_role():
     a, b = make_user("a@example.com"), make_user("b@example.com")
 
@@ -89,3 +106,51 @@ def test_middleware_starts_every_request_as_anon(rf):
 
     DbRoleMiddleware(view)(rf.get("/"))
     assert seen == ["anon"]
+
+
+def test_wash_booking_status_and_advance_wash_status():
+    customer = make_user("wash-customer@example.com")
+    cleaner = make_user("wash-cleaner@example.com")
+    service_id = q("SELECT id FROM public.wash_services WHERE active LIMIT 1")[0][0]
+    booking_id = q(
+        """
+        INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
+        VALUES (%s, %s, 'Bengaluru', '123 MG Road', CURRENT_DATE + 1, '10:00', 499)
+        RETURNING id
+        """,
+        [customer, service_id],
+    )[0][0]
+
+    # Confirm and assign cleaner (tests tg_notify_wash_booking & enforce_wash_booking_forward_progress)
+    q(
+        "UPDATE public.wash_bookings SET status = 'confirmed', assigned_cleaner_id = %s WHERE id = %s RETURNING id",
+        [cleaner, booking_id],
+    )
+    q(
+        "UPDATE public.wash_bookings SET progress = 'assigned' WHERE id = %s RETURNING id",
+        [booking_id],
+    )
+
+    with db_role("authenticated", cleaner):
+        res1 = json.loads(q("SELECT public.advance_wash_status(%s, 'on_the_way')", [booking_id])[0][0])
+        assert res1["progress"] == "on_the_way"
+        res2 = json.loads(
+            q(
+                "SELECT public.advance_wash_status(%s, 'started', ARRAY['before.jpg'])",
+                [booking_id],
+            )[0][0]
+        )
+        assert res2["progress"] == "started"
+        res3 = json.loads(
+            q(
+                "SELECT public.advance_wash_status(%s, 'completed', ARRAY['after.jpg'])",
+                [booking_id],
+            )[0][0]
+        )
+        assert res3["progress"] == "completed"
+
+    status, progress = q(
+        "SELECT status::text, progress::text FROM public.wash_bookings WHERE id = %s",
+        [booking_id],
+    )[0]
+    assert (status, progress) == ("completed", "completed")
