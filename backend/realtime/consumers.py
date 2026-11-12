@@ -84,6 +84,8 @@ class ChangesConsumer(AsyncJsonWebsocketConsumer):
             try:
                 self.user_id = str(AccessToken(token)["sub"])
             except TokenError:
+                # accept first: closing before accept is a bare 403 and the browser sees 1006, not 4001
+                await self.accept()
                 await self.close(code=4001)  # client refreshes its token and reconnects
                 return
         await self.accept()
