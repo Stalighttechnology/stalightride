@@ -6,6 +6,7 @@ user = {id, email, created_at, user_metadata}.
 """
 
 import json
+import logging
 
 import jwt
 from django.conf import settings
@@ -25,6 +26,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.db import as_owner
 
 User = get_user_model()
+log = logging.getLogger(__name__)
 MIN_PASSWORD = 6
 _google_keys = jwt.PyJWKClient("https://www.googleapis.com/oauth2/v3/certs", cache_keys=True)
 
@@ -140,9 +142,14 @@ def google(request):
         key = _google_keys.get_signing_key_from_jwt(token)
         claims = jwt.decode(token, key.key, algorithms=["RS256"], audience=settings.GOOGLE_CLIENT_ID,
                             issuer=["https://accounts.google.com", "accounts.google.com"])
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        log.warning("Google sign-in rejected: %s: %s", type(e).__name__, e)
         return _error("Invalid Google sign-in", "bad_oauth_callback", 401)
     if claims.get("nonce") != request.data.get("nonce") or not claims.get("email_verified"):
+        log.warning("Google sign-in rejected: nonce %s, email_verified=%s",
+                    "missing" if not request.data.get("nonce") else
+                    "ok" if claims.get("nonce") == request.data.get("nonce") else "mismatch",
+                    claims.get("email_verified"))
         return _error("Invalid Google sign-in", "bad_oauth_callback", 401)
     email = claims["email"].lower()
     with as_owner():

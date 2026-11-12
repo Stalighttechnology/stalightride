@@ -10,7 +10,10 @@ if _env.exists():
     for _line in _env.read_text().splitlines():
         if "=" in _line and not _line.lstrip().startswith("#"):
             _k, _v = _line.split("=", 1)
-            os.environ.setdefault(_k.strip(), _v.strip())
+            _v = _v.strip()
+            if len(_v) >= 2 and _v[0] == _v[-1] and _v[0] in "\"'":  # KEY="value" like python-dotenv
+                _v = _v[1:-1]
+            os.environ.setdefault(_k.strip(), _v)
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or ("dev-only-insecure-key" if DEBUG else None)
