@@ -521,7 +521,11 @@ BEGIN
 
   UPDATE public.wash_bookings
      SET progress = norm_next::public.wash_status,
-         status = norm_next,
+         status = CASE
+           WHEN norm_next IN ('confirmed', 'completed', 'cancelled', 'rejected') THEN norm_next::public.booking_status
+           WHEN norm_next = 'requested' THEN 'pending'::public.booking_status
+           ELSE b.status
+         END,
          before_photos = new_before,
          after_photos = new_after,
          completed_at = CASE WHEN norm_next = 'completed' THEN now() ELSE b.completed_at END,
@@ -1561,7 +1565,11 @@ BEGIN
         NEW.progress := norm_next::public.wash_status;
       END IF;
     ELSIF NEW.progress IS DISTINCT FROM OLD.progress AND NEW.status IS NOT DISTINCT FROM OLD.status THEN
-      NEW.status := norm_next;
+      IF norm_next IN ('confirmed', 'completed', 'cancelled', 'rejected') THEN
+        NEW.status := norm_next::public.booking_status;
+      ELSIF norm_next = 'requested' THEN
+        NEW.status := 'pending'::public.booking_status;
+      END IF;
     END IF;
   END IF;
 
@@ -2301,12 +2309,26 @@ END; $$;
 --
 
 CREATE FUNCTION public.tg_generate_referral_code() RETURNS trigger
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
+DECLARE
+  candidate text;
+  attempt int := 0;
 BEGIN
   IF NEW.referral_code IS NULL THEN
-    NEW.referral_code := 'SYN-' || upper(substring(NEW.id::text from 1 for 6));
+    LOOP
+      IF attempt = 0 THEN
+        candidate := 'SYN-' || upper(substring(md5(NEW.id::text) from 1 for 12));
+      ELSE
+        candidate := 'SYN-' || upper(substring(md5(NEW.id::text || ':' || attempt::text || ':' || random()::text) from 1 for 12));
+      END IF;
+      EXIT WHEN NOT EXISTS (
+        SELECT 1 FROM public.profiles WHERE referral_code = candidate
+      );
+      attempt := attempt + 1;
+    END LOOP;
+    NEW.referral_code := candidate;
   END IF;
   RETURN NEW;
 END;
@@ -2745,9 +2767,9 @@ BEGIN
   END IF;
 
   IF (NEW.status IS DISTINCT FROM OLD.status OR NEW.progress IS DISTINCT FROM OLD.progress) THEN
-    IF NEW.progress = 'on_the_way' OR NEW.status = 'on_the_way' THEN
+    IF NEW.progress = 'on_the_way' THEN
       PERFORM public.notify_user(NEW.customer_id, 'Cleaner on the way', 'Your cleaner is heading to your address.', '/washes');
-    ELSIF NEW.progress = 'started' OR NEW.status = 'started' THEN
+    ELSIF NEW.progress = 'started' THEN
       PERFORM public.notify_user(NEW.customer_id, 'Wash started', 'Your vehicle wash is now in progress.', '/washes');
     ELSIF NEW.status = 'confirmed' OR NEW.progress = 'confirmed' THEN
       PERFORM public.notify_user(NEW.customer_id, 'Wash slot approved', 'Pay now to confirm your doorstep wash.', '/washes');
