@@ -1258,6 +1258,10 @@ CREATE FUNCTION public.enforce_driver_verification_guard() RETURNS trigger
     SET search_path TO 'public'
     AS $$
 BEGIN
+  IF current_setting('app.recomputing_driver_rating', true) = '1' THEN
+    RETURN NEW;
+  END IF;
+
   IF public.has_role(auth.uid(), 'admin') THEN
     IF NEW.verification_status = 'approved' THEN
       NEW.verified_at = COALESCE(NEW.verified_at, now());
@@ -1972,10 +1976,12 @@ CREATE FUNCTION public.recompute_driver_rating() RETURNS trigger
 DECLARE did UUID;
 BEGIN
   did := COALESCE(NEW.driver_id, OLD.driver_id);
+  PERFORM set_config('app.recomputing_driver_rating', '1', true);
   UPDATE public.drivers SET
     avg_rating = COALESCE((SELECT AVG(rating)::numeric(3,2) FROM public.driver_reviews WHERE driver_id = did), 0),
     review_count = (SELECT COUNT(*) FROM public.driver_reviews WHERE driver_id = did)
   WHERE id = did;
+  PERFORM set_config('app.recomputing_driver_rating', '0', true);
   UPDATE public.public_drivers SET
     avg_rating = COALESCE((SELECT AVG(rating)::numeric(3,2) FROM public.driver_reviews WHERE driver_id = did), 0),
     review_count = (SELECT COUNT(*) FROM public.driver_reviews WHERE driver_id = did)
@@ -3984,6 +3990,7 @@ CREATE TABLE public.user_reports (
     target_type text NOT NULL,
     target_id text,
     reason text NOT NULL,
+    details text,
     status text DEFAULT 'pending'::text NOT NULL,
     admin_notes text,
     resolved_by uuid,
