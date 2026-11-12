@@ -10,12 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
 import { Upload, X, ShieldAlert } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/bookings/$id/dispute")({ component: DisputePage });
+export const Route = createFileRoute("/_authenticated/bookings/$id/dispute")({
+  component: DisputePage,
+});
 
 function DisputePage() {
   const { id } = Route.useParams();
@@ -32,8 +40,16 @@ function DisputePage() {
 
   const load = async () => {
     const [{ data: bk }, { data: d }] = await Promise.all([
-      api.from("bookings").select("id,customer_id,vendor_id,vehicles(title)").eq("id", id).maybeSingle(),
-      api.from("disputes").select("*").eq("booking_id", id).order("created_at", { ascending: false }),
+      api
+        .from("bookings")
+        .select("id,customer_id,vendor_id,vehicles(title)")
+        .eq("id", id)
+        .maybeSingle(),
+      api
+        .from("disputes")
+        .select("*")
+        .eq("booking_id", id)
+        .order("created_at", { ascending: false }),
     ]);
     setB(bk);
     setDisputes(d ?? []);
@@ -108,7 +124,9 @@ function DisputePage() {
         <SiteHeader />
         <div className="mx-auto max-w-md p-8 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">You don't have access to this booking.</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            You don't have access to this booking.
+          </p>
         </div>
       </div>
     );
@@ -154,7 +172,12 @@ function DisputePage() {
             </div>
             <div>
               <Label>Details</Label>
-              <Textarea rows={5} value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="What happened and when?" />
+              <Textarea
+                rows={5}
+                value={detail}
+                onChange={(e) => setDetail(e.target.value)}
+                placeholder="What happened and when?"
+              />
             </div>
             <div>
               <Label>Photos / evidence</Label>
@@ -234,7 +257,13 @@ function DisputeItem({ d }: { d: any }) {
       {d.photos && d.photos.length > 0 && (
         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {d.photos.map((p: string) => (
-            <a key={p} href={urls[p] ?? "#"} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-lg border">
+            <a
+              key={p}
+              href={urls[p] ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="block aspect-square overflow-hidden rounded-lg border"
+            >
               {urls[p] && <img src={urls[p]!} alt="" className="h-full w-full object-cover" />}
             </a>
           ))}
@@ -242,7 +271,9 @@ function DisputeItem({ d }: { d: any }) {
       )}
       {d.resolution && (
         <div className="mt-3 rounded-md bg-muted p-3 text-sm">
-          <span className="text-xs font-semibold uppercase text-muted-foreground">Admin resolution</span>
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            Admin resolution
+          </span>
           <p className="mt-1 whitespace-pre-line">{d.resolution}</p>
         </div>
       )}

@@ -32,7 +32,11 @@ export const Route = createFileRoute("/_authenticated/rewards")({
   head: () => ({
     meta: [
       { title: "Synchoo Rewards & Points" },
-      { name: "description", content: "Earn 1 Synchoo Point for every ₹20 spent. Redeem points for fuel cards, free doorstep washes, and rental discounts." },
+      {
+        name: "description",
+        content:
+          "Earn 1 Synchoo Point for every ₹20 spent. Redeem points for fuel cards, free doorstep washes, and rental discounts.",
+      },
     ],
   }),
 });
@@ -116,7 +120,9 @@ const INITIAL_CLAIMED: ClaimedVoucher[] = [
 
 export function RewardsPage() {
   const { user } = useSession();
-  const [activeTab, setActiveTab] = useState<"catalog" | "redeemed" | "earn-guide" | "tiers">("catalog");
+  const [activeTab, setActiveTab] = useState<"catalog" | "redeemed" | "earn-guide" | "tiers">(
+    "catalog",
+  );
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const [pointsBalance, setPointsBalance] = useState<number>(850);
@@ -127,7 +133,9 @@ export function RewardsPage() {
     comingSoon();
     return;
     if (pointsBalance < voucher.pointsCost) {
-      return toast.error(`Insufficient points. You need ${voucher.pointsCost - pointsBalance} more points.`);
+      return toast.error(
+        `Insufficient points. You need ${voucher.pointsCost - pointsBalance} more points.`,
+      );
     }
 
     setPointsBalance((prev) => prev - voucher.pointsCost);
@@ -153,7 +161,7 @@ export function RewardsPage() {
   };
 
   const filteredCatalog = REWARDS_CATALOG.filter(
-    (v) => selectedCategory === "All" || v.category === selectedCategory
+    (v) => selectedCategory === "All" || v.category === selectedCategory,
   );
 
   const sidebarNavItems = [
@@ -173,10 +181,16 @@ export function RewardsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40">
+              <Badge
+                variant="outline"
+                className="border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40"
+              >
                 <Sparkles className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Loyalty Club
               </Badge>
-              <Badge variant="secondary" className="text-amber-800 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300">
+              <Badge
+                variant="secondary"
+                className="text-amber-800 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300"
+              >
                 Gold Tier Member
               </Badge>
               <Badge variant="outline" className="text-xs border-amber-300/60">
@@ -187,7 +201,8 @@ export function RewardsPage() {
               Synchoo Rewards & Point Hub
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Earn 5% back in points on every self-drive rental, driver booking, and car wash. 1 Point = ₹1.
+              Earn 5% back in points on every self-drive rental, driver booking, and car wash. 1
+              Point = ₹1.
             </p>
           </div>
 
@@ -197,7 +212,11 @@ export function RewardsPage() {
                 <Gift className="mr-1.5 h-3.5 w-3.5 text-brand" /> Refer & Earn ₹500
               </Link>
             </Button>
-            <Button size="sm" onClick={() => setActiveTab("catalog")} className="bg-brand text-brand-foreground hover:bg-brand/90">
+            <Button
+              size="sm"
+              onClick={() => setActiveTab("catalog")}
+              className="bg-brand text-brand-foreground hover:bg-brand/90"
+            >
               <Award className="mr-1.5 h-3.5 w-3.5" /> Redeem Points
             </Button>
           </div>
@@ -215,10 +234,13 @@ export function RewardsPage() {
                   <Sparkles className="h-4 w-4 text-amber-500 fill-amber-400" />
                 </div>
                 <div className="font-display text-3xl font-extrabold text-amber-600 mt-1">
-                  {pointsBalance} <span className="text-xs font-normal text-muted-foreground">Points</span>
+                  {pointsBalance}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">Points</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Worth <span className="font-semibold text-foreground">{currency(pointsBalance)}</span> in savings
+                  Worth{" "}
+                  <span className="font-semibold text-foreground">{currency(pointsBalance)}</span>{" "}
+                  in savings
                 </p>
 
                 <div className="mt-3 pt-3 border-t border-border/80 space-y-1.5">
@@ -229,12 +251,17 @@ export function RewardsPage() {
                   <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-amber-500 rounded-full" style={{ width: "85%" }} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Earn 150 more points to unlock 1.5x Multiplier</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Earn 150 more points to unlock 1.5x Multiplier
+                  </p>
                 </div>
               </Card>
 
               {/* Sidebar Navigation */}
-              <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0" aria-label="Rewards navigation">
+              <nav
+                className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0"
+                aria-label="Rewards navigation"
+              >
                 {sidebarNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -249,14 +276,18 @@ export function RewardsPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`} />
+                        <Icon
+                          className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`}
+                        />
                         <span>{item.label}</span>
                       </div>
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
                           className={`text-[10px] px-1.5 py-0 ${
-                            isActive ? "bg-white/20 text-brand-foreground border-transparent" : "text-muted-foreground"
+                            isActive
+                              ? "bg-white/20 text-brand-foreground border-transparent"
+                              : "text-muted-foreground"
                           }`}
                         >
                           {item.badge}
@@ -275,7 +306,10 @@ export function RewardsPage() {
                     <Gift className="h-4 w-4 shrink-0 text-brand" />
                     <span>Refer & Earn</span>
                   </div>
-                  <Badge variant="outline" className="text-[10px] text-brand bg-brand/10 border-brand/30">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-brand bg-brand/10 border-brand/30"
+                  >
                     ₹500 Bonus
                   </Badge>
                 </Link>
@@ -284,7 +318,8 @@ export function RewardsPage() {
               {/* Quick Info Box in Sidebar */}
               <Card className="hidden lg:block p-3.5 text-xs text-muted-foreground bg-muted/30">
                 <p className="font-semibold text-foreground mb-1">Instant Redemption</p>
-                Claimed vouchers appear immediately in your account and can be applied during booking checkout.
+                Claimed vouchers appear immediately in your account and can be applied during
+                booking checkout.
               </Card>
             </div>
           </aside>
@@ -316,27 +351,36 @@ export function RewardsPage() {
                     const canAfford = pointsBalance >= v.pointsCost;
 
                     return (
-                      <Card key={v.id} className="p-4 flex flex-col justify-between hover:border-brand/40 transition-colors">
+                      <Card
+                        key={v.id}
+                        className="p-4 flex flex-col justify-between hover:border-brand/40 transition-colors"
+                      >
                         <div className="flex items-start gap-3">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground">
                             <Icon className="h-5 w-5 text-brand" />
                           </div>
                           <div>
                             <p className="font-semibold text-sm">{v.title}</p>
-                            <Badge variant="outline" className="text-[10px] mt-1">{v.category}</Badge>
+                            <Badge variant="outline" className="text-[10px] mt-1">
+                              {v.category}
+                            </Badge>
                             <p className="text-xs text-muted-foreground mt-1.5">{v.description}</p>
                           </div>
                         </div>
 
                         <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                          <span className="font-bold text-sm text-amber-600">{v.pointsCost} Points</span>
+                          <span className="font-bold text-sm text-amber-600">
+                            {v.pointsCost} Points
+                          </span>
                           <Button
                             size="sm"
                             disabled={!canAfford}
                             onClick={() => handleRedeem(v)}
                             className="text-xs"
                           >
-                            {canAfford ? "Redeem Voucher" : `Need ${v.pointsCost - pointsBalance} Pts`}
+                            {canAfford
+                              ? "Redeem Voucher"
+                              : `Need ${v.pointsCost - pointsBalance} Pts`}
                           </Button>
                         </div>
                       </Card>
@@ -355,7 +399,9 @@ export function RewardsPage() {
                       <CardTitle className="text-base flex items-center gap-2">
                         <Tag className="h-4 w-4 text-brand" /> Claimed Reward Coupons & Vouchers
                       </CardTitle>
-                      <CardDescription>Copy your promo code to apply on your next trip or booking</CardDescription>
+                      <CardDescription>
+                        Copy your promo code to apply on your next trip or booking
+                      </CardDescription>
                     </div>
                     <Badge variant="outline">{claimedList.length} Active Vouchers</Badge>
                   </CardHeader>
@@ -369,14 +415,19 @@ export function RewardsPage() {
                         const Icon = v.icon;
                         const isCopied = copiedCode === v.code;
                         return (
-                          <div key={v.id} className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div
+                            key={v.id}
+                            className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
                             <div className="flex items-center gap-3">
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
                                 <Icon className="h-5 w-5" />
                               </div>
                               <div>
                                 <p className="font-semibold text-sm">{v.title}</p>
-                                <p className="text-xs text-muted-foreground">Claimed: {v.claimedAt} · Valid {v.expiresAt}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Claimed: {v.claimedAt} · Valid {v.expiresAt}
+                                </p>
                               </div>
                             </div>
 
@@ -384,7 +435,12 @@ export function RewardsPage() {
                               <div className="font-mono text-xs font-bold bg-muted px-2.5 py-1.5 rounded-lg border border-border">
                                 {v.code}
                               </div>
-                              <Button size="sm" variant="outline" onClick={() => copyCode(v.code)} className="h-8 text-xs">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copyCode(v.code)}
+                                className="h-8 text-xs"
+                              >
                                 <Copy className="mr-1 h-3.5 w-3.5" /> {isCopied ? "Copied" : "Copy"}
                               </Button>
                             </div>
@@ -405,7 +461,9 @@ export function RewardsPage() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <Zap className="h-4 w-4 text-brand" /> Points Earning Schedule
                     </CardTitle>
-                    <CardDescription>Earn points on every rupee spent across all mobility services</CardDescription>
+                    <CardDescription>
+                      Earn points on every rupee spent across all mobility services
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -415,7 +473,8 @@ export function RewardsPage() {
                           <p className="font-semibold text-sm">Self-Drive Rentals & EVs</p>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Earn 50 Points for every ₹1,000 spent. Multiplier applied automatically for Gold & Platinum tiers.
+                          Earn 50 Points for every ₹1,000 spent. Multiplier applied automatically
+                          for Gold & Platinum tiers.
                         </p>
                       </div>
 
@@ -435,7 +494,8 @@ export function RewardsPage() {
                           <p className="font-semibold text-sm">Doorstep Vehicle Wash</p>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Earn 30 Points flat on every completed exterior or interior doorstep wash booking.
+                          Earn 30 Points flat on every completed exterior or interior doorstep wash
+                          booking.
                         </p>
                       </div>
 
@@ -445,7 +505,8 @@ export function RewardsPage() {
                           <p className="font-semibold text-sm">Trip Reviews & Ratings</p>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Earn 20 Points on every helpful vehicle or driver review submitted after trip completion.
+                          Earn 20 Points on every helpful vehicle or driver review submitted after
+                          trip completion.
                         </p>
                       </div>
                     </div>
@@ -462,7 +523,9 @@ export function RewardsPage() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <Crown className="h-4 w-4 text-brand" /> Synchoo Membership Tiers & Privileges
                     </CardTitle>
-                    <CardDescription>Higher tiers earn bonus multipliers and enjoy priority vehicle dispatch</CardDescription>
+                    <CardDescription>
+                      Higher tiers earn bonus multipliers and enjoy priority vehicle dispatch
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -471,7 +534,9 @@ export function RewardsPage() {
                           <span className="font-bold text-sm">Explorer Tier</span>
                           <Badge variant="outline">0 - 2 Trips</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">Base 1x point accrual rate · Standard customer support.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Base 1x point accrual rate · Standard customer support.
+                        </p>
                       </div>
 
                       <div className="p-4 rounded-xl border border-border bg-card space-y-1.5">
@@ -479,23 +544,35 @@ export function RewardsPage() {
                           <span className="font-bold text-sm text-cyan-600">Silver Tier</span>
                           <Badge variant="outline">3 - 9 Trips</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">1.1x Points Multiplier · Free cancellation up to 6 hours before trip.</p>
+                        <p className="text-xs text-muted-foreground">
+                          1.1x Points Multiplier · Free cancellation up to 6 hours before trip.
+                        </p>
                       </div>
 
                       <div className="p-4 rounded-xl border-2 border-amber-400 bg-amber-500/5 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-sm text-amber-700">Gold Tier (Your Current Tier)</span>
+                          <span className="font-bold text-sm text-amber-700">
+                            Gold Tier (Your Current Tier)
+                          </span>
                           <Badge className="bg-amber-500 text-white">10 - 24 Trips</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">1.25x Points Multiplier · Priority vehicle delivery · 1 Free wash voucher/quarter.</p>
+                        <p className="text-xs text-muted-foreground">
+                          1.25x Points Multiplier · Priority vehicle delivery · 1 Free wash
+                          voucher/quarter.
+                        </p>
                       </div>
 
                       <div className="p-4 rounded-xl border border-violet-500/30 bg-violet-500/5 space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-sm text-violet-600">Platinum VIP</span>
-                          <Badge variant="secondary" className="bg-violet-100 text-violet-800">25+ Trips</Badge>
+                          <Badge variant="secondary" className="bg-violet-100 text-violet-800">
+                            25+ Trips
+                          </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">1.5x Points Multiplier · Zero security deposit · Dedicated fleet relationship manager.</p>
+                        <p className="text-xs text-muted-foreground">
+                          1.5x Points Multiplier · Zero security deposit · Dedicated fleet
+                          relationship manager.
+                        </p>
                       </div>
                     </div>
                   </CardContent>

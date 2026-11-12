@@ -13,7 +13,12 @@ import { toast } from "sonner";
 import { ShieldCheck, ShieldAlert, ExternalLink, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CouponManager, GrantCreditForm, PlatformSettingsForm, WithdrawalQueue } from "@/components/admin/money-tabs";
+import {
+  CouponManager,
+  GrantCreditForm,
+  PlatformSettingsForm,
+  WithdrawalQueue,
+} from "@/components/admin/money-tabs";
 import { CustomersTab } from "@/components/admin/customers-tab";
 import { BookingsMonitorTab } from "@/components/admin/bookings-monitor-tab";
 import { CitiesCategoriesTab } from "@/components/admin/cities-categories-tab";
@@ -31,18 +36,30 @@ function AdminPage() {
 
   useEffect(() => {
     if (!user) return;
-    api.rpc("has_role", { _user_id: user.id, _role: "admin" as any }).then(({ data }) => setIsAdmin(!!data));
+    api
+      .rpc("has_role", { _user_id: user.id, _role: "admin" as any })
+      .then(({ data }) => setIsAdmin(!!data));
   }, [user?.id]);
 
-  if (isAdmin === null) return <div className="min-h-screen"><SiteHeader /><div className="p-8"><Skeleton className="h-40" /></div></div>;
-  if (!isAdmin) return (
-    <div className="min-h-screen"><SiteHeader />
-      <div className="mx-auto max-w-md p-8 text-center">
-        <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">Admins only.</p>
+  if (isAdmin === null)
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <div className="p-8">
+          <Skeleton className="h-40" />
+        </div>
       </div>
-    </div>
-  );
+    );
+  if (!isAdmin)
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <div className="mx-auto max-w-md p-8 text-center">
+          <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
+          <p className="mt-3 text-sm text-muted-foreground">Admins only.</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="min-h-screen">
@@ -52,7 +69,8 @@ function AdminPage() {
           <div>
             <h1 className="font-display text-3xl font-semibold">Super Admin Console</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Platform-wide verifications, customer management, booking monitoring, financial reports, and system settings.
+              Platform-wide verifications, customer management, booking monitoring, financial
+              reports, and system settings.
             </p>
           </div>
         </div>
@@ -60,54 +78,133 @@ function AdminPage() {
         <Tabs defaultValue="vehicles" className="space-y-4">
           <TabsList className="flex w-full items-center justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted overflow-x-auto no-scrollbar">
             {/* Verification Queues */}
-            <TabsTrigger value="vehicles" className="text-xs px-2.5 py-1.5">Vehicles</TabsTrigger>
-            <TabsTrigger value="hosts" className="text-xs px-2.5 py-1.5">Hosts (KYC)</TabsTrigger>
-            <TabsTrigger value="drivers" className="text-xs px-2.5 py-1.5">Drivers</TabsTrigger>
-            <TabsTrigger value="licences" className="text-xs px-2.5 py-1.5">Licences</TabsTrigger>
-            <TabsTrigger value="cleaners" className="text-xs px-2.5 py-1.5">Cleaners</TabsTrigger>
-            <TabsTrigger value="wash-centers" className="text-xs px-2.5 py-1.5">Wash Centers</TabsTrigger>
-            <TabsTrigger value="washes" className="text-xs px-2.5 py-1.5">Wash Orders</TabsTrigger>
-            <TabsTrigger value="disputes" className="text-xs px-2.5 py-1.5">Disputes</TabsTrigger>
+            <TabsTrigger value="vehicles" className="text-xs px-2.5 py-1.5">
+              Vehicles
+            </TabsTrigger>
+            <TabsTrigger value="hosts" className="text-xs px-2.5 py-1.5">
+              Hosts (KYC)
+            </TabsTrigger>
+            <TabsTrigger value="drivers" className="text-xs px-2.5 py-1.5">
+              Drivers
+            </TabsTrigger>
+            <TabsTrigger value="licences" className="text-xs px-2.5 py-1.5">
+              Licences
+            </TabsTrigger>
+            <TabsTrigger value="cleaners" className="text-xs px-2.5 py-1.5">
+              Cleaners
+            </TabsTrigger>
+            <TabsTrigger value="wash-centers" className="text-xs px-2.5 py-1.5">
+              Wash Centers
+            </TabsTrigger>
+            <TabsTrigger value="washes" className="text-xs px-2.5 py-1.5">
+              Wash Orders
+            </TabsTrigger>
+            <TabsTrigger value="disputes" className="text-xs px-2.5 py-1.5">
+              Disputes
+            </TabsTrigger>
 
             {/* Super Admin Management */}
-            <TabsTrigger value="customers" className="text-xs px-2.5 py-1.5 font-medium">Customers</TabsTrigger>
-            <TabsTrigger value="bookings" className="text-xs px-2.5 py-1.5 font-medium">Bookings Monitor</TabsTrigger>
-            <TabsTrigger value="payouts" className="text-xs px-2.5 py-1.5 font-medium">Payouts</TabsTrigger>
-            <TabsTrigger value="revenue" className="text-xs px-2.5 py-1.5 font-medium">Revenue & Fees</TabsTrigger>
-            <TabsTrigger value="payments" className="text-xs px-2.5 py-1.5 font-medium">Payments & Refunds</TabsTrigger>
-            <TabsTrigger value="cities" className="text-xs px-2.5 py-1.5 font-medium">Cities & Categories</TabsTrigger>
-            <TabsTrigger value="coupons" className="text-xs px-2.5 py-1.5 font-medium">Coupons</TabsTrigger>
-            <TabsTrigger value="credits" className="text-xs px-2.5 py-1.5 font-medium">Promo credit</TabsTrigger>
-            <TabsTrigger value="moderation" className="text-xs px-2.5 py-1.5 font-medium">Reviews</TabsTrigger>
-            <TabsTrigger value="broadcasts" className="text-xs px-2.5 py-1.5 font-medium">Broadcasts</TabsTrigger>
-            <TabsTrigger value="support" className="text-xs px-2.5 py-1.5 font-medium">Support Tickets</TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs px-2.5 py-1.5 font-medium">Fees & settings</TabsTrigger>
+            <TabsTrigger value="customers" className="text-xs px-2.5 py-1.5 font-medium">
+              Customers
+            </TabsTrigger>
+            <TabsTrigger value="bookings" className="text-xs px-2.5 py-1.5 font-medium">
+              Bookings Monitor
+            </TabsTrigger>
+            <TabsTrigger value="payouts" className="text-xs px-2.5 py-1.5 font-medium">
+              Payouts
+            </TabsTrigger>
+            <TabsTrigger value="revenue" className="text-xs px-2.5 py-1.5 font-medium">
+              Revenue & Fees
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs px-2.5 py-1.5 font-medium">
+              Payments & Refunds
+            </TabsTrigger>
+            <TabsTrigger value="cities" className="text-xs px-2.5 py-1.5 font-medium">
+              Cities & Categories
+            </TabsTrigger>
+            <TabsTrigger value="coupons" className="text-xs px-2.5 py-1.5 font-medium">
+              Coupons
+            </TabsTrigger>
+            <TabsTrigger value="credits" className="text-xs px-2.5 py-1.5 font-medium">
+              Promo credit
+            </TabsTrigger>
+            <TabsTrigger value="moderation" className="text-xs px-2.5 py-1.5 font-medium">
+              Reviews
+            </TabsTrigger>
+            <TabsTrigger value="broadcasts" className="text-xs px-2.5 py-1.5 font-medium">
+              Broadcasts
+            </TabsTrigger>
+            <TabsTrigger value="support" className="text-xs px-2.5 py-1.5 font-medium">
+              Support Tickets
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs px-2.5 py-1.5 font-medium">
+              Fees & settings
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="vehicles"><VehicleQueue /></TabsContent>
-          <TabsContent value="hosts"><HostQueue /></TabsContent>
-          <TabsContent value="drivers"><DriverQueue /></TabsContent>
-          <TabsContent value="licences"><LicenceQueue /></TabsContent>
-          <TabsContent value="cleaners"><CleanersQueue /></TabsContent>
-          <TabsContent value="wash-centers"><WashCentersQueue /></TabsContent>
-          <TabsContent value="washes"><WashQueue /></TabsContent>
-          <TabsContent value="disputes"><DisputeQueue /></TabsContent>
+          <TabsContent value="vehicles">
+            <VehicleQueue />
+          </TabsContent>
+          <TabsContent value="hosts">
+            <HostQueue />
+          </TabsContent>
+          <TabsContent value="drivers">
+            <DriverQueue />
+          </TabsContent>
+          <TabsContent value="licences">
+            <LicenceQueue />
+          </TabsContent>
+          <TabsContent value="cleaners">
+            <CleanersQueue />
+          </TabsContent>
+          <TabsContent value="wash-centers">
+            <WashCentersQueue />
+          </TabsContent>
+          <TabsContent value="washes">
+            <WashQueue />
+          </TabsContent>
+          <TabsContent value="disputes">
+            <DisputeQueue />
+          </TabsContent>
 
           {/* Super Admin Content Panels */}
-          <TabsContent value="customers"><CustomersTab /></TabsContent>
-          <TabsContent value="bookings"><BookingsMonitorTab /></TabsContent>
-          <TabsContent value="payouts"><WithdrawalQueue /></TabsContent>
-          <TabsContent value="revenue"><RevenueCommissionsTab /></TabsContent>
-          <TabsContent value="payments"><PaymentsRefundsTab /></TabsContent>
-          <TabsContent value="cities"><CitiesCategoriesTab /></TabsContent>
-          <TabsContent value="coupons"><CouponManager /></TabsContent>
-          <TabsContent value="credits"><GrantCreditForm /></TabsContent>
-          <TabsContent value="moderation"><ReviewModerationTab /></TabsContent>
-          <TabsContent value="broadcasts"><BroadcastsTab /></TabsContent>
-          <TabsContent value="support"><SupportTicketsTab /></TabsContent>
-          <TabsContent value="settings"><PlatformSettingsForm /></TabsContent>
+          <TabsContent value="customers">
+            <CustomersTab />
+          </TabsContent>
+          <TabsContent value="bookings">
+            <BookingsMonitorTab />
+          </TabsContent>
+          <TabsContent value="payouts">
+            <WithdrawalQueue />
+          </TabsContent>
+          <TabsContent value="revenue">
+            <RevenueCommissionsTab />
+          </TabsContent>
+          <TabsContent value="payments">
+            <PaymentsRefundsTab />
+          </TabsContent>
+          <TabsContent value="cities">
+            <CitiesCategoriesTab />
+          </TabsContent>
+          <TabsContent value="coupons">
+            <CouponManager />
+          </TabsContent>
+          <TabsContent value="credits">
+            <GrantCreditForm />
+          </TabsContent>
+          <TabsContent value="moderation">
+            <ReviewModerationTab />
+          </TabsContent>
+          <TabsContent value="broadcasts">
+            <BroadcastsTab />
+          </TabsContent>
+          <TabsContent value="support">
+            <SupportTicketsTab />
+          </TabsContent>
+          <TabsContent value="settings">
+            <PlatformSettingsForm />
+          </TabsContent>
         </Tabs>
-
       </div>
     </div>
   );
@@ -118,16 +215,21 @@ function VehicleQueue() {
   const load = async () => {
     const { data, error } = await api
       .from("vehicles")
-      .select("id,title,brand,model,year,city,vendor_id,rc_url,insurance_url,pollution_url,fitness_url,verification_status,rejection_reason,created_at,vendors:vendor_id(business_name,kyc_status)" as any)
+      .select(
+        "id,title,brand,model,year,city,vendor_id,rc_url,insurance_url,pollution_url,fitness_url,verification_status,rejection_reason,created_at,vendors:vendor_id(business_name,kyc_status)" as any,
+      )
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
-
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const paths = (items ?? []).flatMap((v) => [v.rc_url, v.insurance_url, v.pollution_url, v.fitness_url].filter(Boolean));
+  const paths = (items ?? []).flatMap((v) =>
+    [v.rc_url, v.insurance_url, v.pollution_url, v.fitness_url].filter(Boolean),
+  );
   const signed = useSignedUrls("verification-docs", paths);
 
   const decide = async (id: string, status: "approved" | "rejected") => {
@@ -136,44 +238,69 @@ function VehicleQueue() {
       reason = window.prompt("Rejection reason?") || null;
       if (!reason) return;
     }
-    const { error } = await api.from("vehicles").update({
-      verification_status: status,
-      rejection_reason: reason,
-      verified_at: status === "approved" ? new Date().toISOString() : null,
-      status: status === "approved" ? "active" : "draft",
-    } as any).eq("id", id);
+    const { error } = await api
+      .from("vehicles")
+      .update({
+        verification_status: status,
+        rejection_reason: reason,
+        verified_at: status === "approved" ? new Date().toISOString() : null,
+        status: status === "approved" ? "active" : "draft",
+      } as any)
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Vehicle ${status}`);
     load();
   };
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
-  if (items.length === 0) return <p className="mt-6 text-sm text-muted-foreground">Nothing to review.</p>;
+  if (items.length === 0)
+    return <p className="mt-6 text-sm text-muted-foreground">Nothing to review.</p>;
 
   return (
     <div className="mt-4 space-y-3">
       {items.map((v) => (
-        <Card key={v.id}><CardContent className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Link to="/vehicle/$id" params={{ id: v.id }} className="font-medium hover:underline">{v.title}</Link>
-                <StatusBadge status={v.verification_status} />
+        <Card key={v.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/vehicle/$id"
+                    params={{ id: v.id }}
+                    className="font-medium hover:underline"
+                  >
+                    {v.title}
+                  </Link>
+                  <StatusBadge status={v.verification_status} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {v.brand} {v.model} · {v.year} · {v.city} · Host:{" "}
+                  {v.vendors?.business_name ?? v.vendor_id.slice(0, 8)} · KYC:{" "}
+                  {v.vendors?.kyc_status ?? "—"}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">{v.brand} {v.model} · {v.year} · {v.city} · Host: {v.vendors?.business_name ?? v.vendor_id.slice(0, 8)} · KYC: {v.vendors?.kyc_status ?? "—"}</p>
+              <div className="flex gap-2">
+                {v.verification_status !== "approved" && (
+                  <Button size="sm" onClick={() => decide(v.id, "approved")}>
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    Approve
+                  </Button>
+                )}
+                {v.verification_status !== "rejected" && (
+                  <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>
+                    Reject
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2">
-              {v.verification_status !== "approved" && <Button size="sm" onClick={() => decide(v.id, "approved")}><ShieldCheck className="mr-1 h-3 w-3" />Approve</Button>}
-              {v.verification_status !== "rejected" && <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>Reject</Button>}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <DocLink label="RC" url={v.rc_url ? signed[v.rc_url] : null} />
+              <DocLink label="Insurance" url={v.insurance_url ? signed[v.insurance_url] : null} />
+              <DocLink label="Pollution" url={v.pollution_url ? signed[v.pollution_url] : null} />
+              <DocLink label="Fitness" url={v.fitness_url ? signed[v.fitness_url] : null} />
             </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <DocLink label="RC" url={v.rc_url ? signed[v.rc_url] : null} />
-            <DocLink label="Insurance" url={v.insurance_url ? signed[v.insurance_url] : null} />
-            <DocLink label="Pollution" url={v.pollution_url ? signed[v.pollution_url] : null} />
-            <DocLink label="Fitness" url={v.fitness_url ? signed[v.fitness_url] : null} />
-          </div>
-        </CardContent></Card>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -184,13 +311,17 @@ function LicenceQueue() {
   const load = async () => {
     const { data } = await api
       .from("profiles")
-      .select("id,full_name,dl_number,dl_expiry,dl_front_url,dl_back_url,dl_status,dl_rejection_reason" as any)
+      .select(
+        "id,full_name,dl_number,dl_expiry,dl_front_url,dl_back_url,dl_status,dl_rejection_reason" as any,
+      )
       .in("dl_status" as any, ["pending", "rejected", "approved"])
       .order("dl_status", { ascending: true } as any)
       .limit(200);
     setItems((data as any) ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const paths = (items ?? []).flatMap((p) => [p.dl_front_url, p.dl_back_url].filter(Boolean));
   const signed = useSignedUrls("verification-docs", paths);
@@ -201,9 +332,14 @@ function LicenceQueue() {
       reason = window.prompt("Rejection reason?") || null;
       if (!reason) return;
     }
-    const { error } = await api.from("profiles").update({
-      dl_status: status, dl_rejection_reason: reason, dl_verified_at: status === "approved" ? new Date().toISOString() : null,
-    } as any).eq("id", id);
+    const { error } = await api
+      .from("profiles")
+      .update({
+        dl_status: status,
+        dl_rejection_reason: reason,
+        dl_verified_at: status === "approved" ? new Date().toISOString() : null,
+      } as any)
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Licence ${status}`);
     load();
@@ -211,40 +347,86 @@ function LicenceQueue() {
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
   const pending = items.filter((p) => p.dl_status === "pending");
-  if (pending.length === 0) return <p className="mt-6 text-sm text-muted-foreground">Nothing pending.</p>;
+  if (pending.length === 0)
+    return <p className="mt-6 text-sm text-muted-foreground">Nothing pending.</p>;
 
   return (
     <div className="mt-4 space-y-3">
       {pending.map((p) => (
-        <Card key={p.id}><CardContent className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-medium">{p.full_name || p.id.slice(0, 8)}</p>
-              <p className="text-xs text-muted-foreground">Licence: {p.dl_number} · Expiry: {p.dl_expiry}</p>
+        <Card key={p.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">{p.full_name || p.id.slice(0, 8)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Licence: {p.dl_number} · Expiry: {p.dl_expiry}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => decide(p.id, "approved")}>
+                  <ShieldCheck className="mr-1 h-3 w-3" />
+                  Approve
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => decide(p.id, "rejected")}>
+                  Reject
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => decide(p.id, "approved")}><ShieldCheck className="mr-1 h-3 w-3" />Approve</Button>
-              <Button size="sm" variant="outline" onClick={() => decide(p.id, "rejected")}>Reject</Button>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {p.dl_front_url && signed[p.dl_front_url] && (
+                <a href={signed[p.dl_front_url]} target="_blank" rel="noreferrer">
+                  <img
+                    src={signed[p.dl_front_url]}
+                    className="aspect-[16/10] w-full rounded-md border object-cover"
+                    alt="front"
+                  />
+                </a>
+              )}
+              {p.dl_back_url && signed[p.dl_back_url] && (
+                <a href={signed[p.dl_back_url]} target="_blank" rel="noreferrer">
+                  <img
+                    src={signed[p.dl_back_url]}
+                    className="aspect-[16/10] w-full rounded-md border object-cover"
+                    alt="back"
+                  />
+                </a>
+              )}
             </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {p.dl_front_url && signed[p.dl_front_url] && <a href={signed[p.dl_front_url]} target="_blank" rel="noreferrer"><img src={signed[p.dl_front_url]} className="aspect-[16/10] w-full rounded-md border object-cover" alt="front" /></a>}
-            {p.dl_back_url && signed[p.dl_back_url] && <a href={signed[p.dl_back_url]} target="_blank" rel="noreferrer"><img src={signed[p.dl_back_url]} className="aspect-[16/10] w-full rounded-md border object-cover" alt="back" /></a>}
-          </div>
-        </CardContent></Card>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "approved") return <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">Approved</Badge>;
+  if (status === "approved")
+    return (
+      <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+        Approved
+      </Badge>
+    );
   if (status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
   return <Badge variant="outline">Pending</Badge>;
 }
 function DocLink({ label, url }: { label: string; url: string | null | undefined }) {
-  if (!url) return <span className="rounded border border-dashed border-border px-2 py-1 text-muted-foreground">{label}: —</span>;
-  return <a className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 hover:bg-accent" href={url} target="_blank" rel="noreferrer">{label}<ExternalLink className="h-3 w-3" /></a>;
+  if (!url)
+    return (
+      <span className="rounded border border-dashed border-border px-2 py-1 text-muted-foreground">
+        {label}: —
+      </span>
+    );
+  return (
+    <a
+      className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 hover:bg-accent"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {label}
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  );
 }
 
 function DisputeQueue() {
@@ -257,39 +439,62 @@ function DisputeQueue() {
       .limit(200);
     setItems((data as any) ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const resolve = async (id: string) => {
     const resolution = window.prompt("Resolution notes (visible to both parties)?");
     if (!resolution?.trim()) return;
     const { error } = await api
       .from("disputes")
-      .update({ status: "resolved", resolution: resolution.trim(), resolved_at: new Date().toISOString() } as any)
+      .update({
+        status: "resolved",
+        resolution: resolution.trim(),
+        resolved_at: new Date().toISOString(),
+      } as any)
       .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Dispute resolved");
     load();
   };
   const startReview = async (id: string) => {
-    const { error } = await api.from("disputes").update({ status: "in_review" } as any).eq("id", id);
+    const { error } = await api
+      .from("disputes")
+      .update({ status: "in_review" } as any)
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Marked in review");
     load();
   };
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
-  if (items.length === 0) return <p className="mt-6 text-sm text-muted-foreground">No disputes filed.</p>;
+  if (items.length === 0)
+    return <p className="mt-6 text-sm text-muted-foreground">No disputes filed.</p>;
 
   return (
     <div className="mt-4 space-y-3">
       {items.map((d) => (
-        <DisputeCard key={d.id} d={d} onResolve={() => resolve(d.id)} onReview={() => startReview(d.id)} />
+        <DisputeCard
+          key={d.id}
+          d={d}
+          onResolve={() => resolve(d.id)}
+          onReview={() => startReview(d.id)}
+        />
       ))}
     </div>
   );
 }
 
-function DisputeCard({ d, onResolve, onReview }: { d: any; onResolve: () => void; onReview: () => void }) {
+function DisputeCard({
+  d,
+  onResolve,
+  onReview,
+}: {
+  d: any;
+  onResolve: () => void;
+  onReview: () => void;
+}) {
   const urls = useSignedUrls("trip-photos", d.photos ?? []);
   return (
     <Card>
@@ -298,20 +503,36 @@ function DisputeCard({ d, onResolve, onReview }: { d: any; onResolve: () => void
           <div>
             <p className="font-medium">{d.subject}</p>
             <p className="text-xs text-muted-foreground">
-              {d.category} · {d.bookings?.vehicles?.title ?? "—"} · {new Date(d.created_at).toLocaleString()}
+              {d.category} · {d.bookings?.vehicles?.title ?? "—"} ·{" "}
+              {new Date(d.created_at).toLocaleString()}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={d.status === "resolved" ? "secondary" : "outline"}>{d.status}</Badge>
-            {d.status === "open" && <Button size="sm" variant="outline" onClick={onReview}>Mark in review</Button>}
-            {d.status !== "resolved" && <Button size="sm" onClick={onResolve}><ShieldCheck className="mr-1 h-3 w-3" />Resolve</Button>}
+            {d.status === "open" && (
+              <Button size="sm" variant="outline" onClick={onReview}>
+                Mark in review
+              </Button>
+            )}
+            {d.status !== "resolved" && (
+              <Button size="sm" onClick={onResolve}>
+                <ShieldCheck className="mr-1 h-3 w-3" />
+                Resolve
+              </Button>
+            )}
           </div>
         </div>
         <p className="mt-2 whitespace-pre-line text-sm">{d.detail}</p>
         {d.photos && d.photos.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
             {d.photos.map((p: string) => (
-              <a key={p} href={urls[p] ?? "#"} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-lg border">
+              <a
+                key={p}
+                href={urls[p] ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="block aspect-square overflow-hidden rounded-lg border"
+              >
                 {urls[p] && <img src={urls[p]!} alt="" className="h-full w-full object-cover" />}
               </a>
             ))}
@@ -319,7 +540,9 @@ function DisputeCard({ d, onResolve, onReview }: { d: any; onResolve: () => void
         )}
         {d.resolution && (
           <div className="mt-3 rounded-md bg-muted p-3 text-sm">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">Resolution</span>
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
+              Resolution
+            </span>
             <p className="mt-1 whitespace-pre-line">{d.resolution}</p>
           </div>
         )}
@@ -339,42 +562,74 @@ function HostQueue() {
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const paths = (items ?? []).map((v) => v.id_document_url).filter(Boolean);
   const signed = useSignedUrls("kyc-docs", paths);
 
   const decide = async (id: string, status: "approved" | "rejected") => {
-    const { error } = await api.from("vendors").update({ kyc_status: status } as any).eq("id", id);
+    const { error } = await api
+      .from("vendors")
+      .update({ kyc_status: status } as any)
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Host ${status}`);
     load();
   };
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
-  if (items.length === 0) return <p className="mt-6 text-sm text-muted-foreground">No hosts yet.</p>;
+  if (items.length === 0)
+    return <p className="mt-6 text-sm text-muted-foreground">No hosts yet.</p>;
 
   return (
     <div className="mt-4 space-y-3">
       {items.map((v) => (
-        <Card key={v.id}><CardContent className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium">{v.business_name}</p>
-                <Badge variant={v.kyc_status === "approved" ? "secondary" : v.kyc_status === "rejected" ? "destructive" : "outline"}>{v.kyc_status}</Badge>
+        <Card key={v.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{v.business_name}</p>
+                  <Badge
+                    variant={
+                      v.kyc_status === "approved"
+                        ? "secondary"
+                        : v.kyc_status === "rejected"
+                          ? "destructive"
+                          : "outline"
+                    }
+                  >
+                    {v.kyc_status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {v.bio || "No bio"} · Joined {new Date(v.created_at).toLocaleDateString()}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">{v.bio || "No bio"} · Joined {new Date(v.created_at).toLocaleDateString()}</p>
+              <div className="flex gap-2">
+                {v.kyc_status !== "approved" && (
+                  <Button size="sm" onClick={() => decide(v.id, "approved")}>
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    Approve host
+                  </Button>
+                )}
+                {v.kyc_status !== "rejected" && (
+                  <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>
+                    Reject
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2">
-              {v.kyc_status !== "approved" && <Button size="sm" onClick={() => decide(v.id, "approved")}><ShieldCheck className="mr-1 h-3 w-3" />Approve host</Button>}
-              {v.kyc_status !== "rejected" && <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>Reject</Button>}
+            <div className="mt-3 text-xs">
+              <DocLink
+                label="ID document"
+                url={v.id_document_url ? signed[v.id_document_url] : null}
+              />
             </div>
-          </div>
-          <div className="mt-3 text-xs">
-            <DocLink label="ID document" url={v.id_document_url ? signed[v.id_document_url] : null} />
-          </div>
-        </CardContent></Card>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -385,15 +640,21 @@ function DriverQueue() {
   const load = async () => {
     const { data, error } = await api
       .from("drivers")
-      .select("id,full_name,city,phone,experience_years,hourly_rate,daily_rate,dl_number,dl_expiry,dl_front_url,dl_back_url,id_document_url,verification_status,status,rejection_reason,created_at")
+      .select(
+        "id,full_name,city,phone,experience_years,hourly_rate,daily_rate,dl_number,dl_expiry,dl_front_url,dl_back_url,id_document_url,verification_status,status,rejection_reason,created_at",
+      )
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const paths = (items ?? []).flatMap((d) => [d.dl_front_url, d.dl_back_url, d.id_document_url].filter(Boolean));
+  const paths = (items ?? []).flatMap((d) =>
+    [d.dl_front_url, d.dl_back_url, d.id_document_url].filter(Boolean),
+  );
   const signed = useSignedUrls("verification-docs", paths);
 
   const decide = async (id: string, status: "approved" | "rejected") => {
@@ -402,46 +663,65 @@ function DriverQueue() {
       reason = window.prompt("Rejection reason?") || null;
       if (!reason) return;
     }
-    const { error } = await api.from("drivers").update({
-      verification_status: status,
-      rejection_reason: reason,
-      verified_at: status === "approved" ? new Date().toISOString() : null,
-      status: status === "approved" ? "active" : "draft",
-    } as any).eq("id", id);
+    const { error } = await api
+      .from("drivers")
+      .update({
+        verification_status: status,
+        rejection_reason: reason,
+        verified_at: status === "approved" ? new Date().toISOString() : null,
+        status: status === "approved" ? "active" : "draft",
+      } as any)
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Driver ${status}`);
     load();
   };
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
-  if (items.length === 0) return <p className="mt-6 text-sm text-muted-foreground">No driver applications yet.</p>;
+  if (items.length === 0)
+    return <p className="mt-6 text-sm text-muted-foreground">No driver applications yet.</p>;
 
   return (
     <div className="mt-4 space-y-3">
       {items.map((d) => (
-        <Card key={d.id}><CardContent className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium">{d.full_name}</p>
-                <StatusBadge status={d.verification_status} />
-                <Badge variant="outline">{d.status}</Badge>
+        <Card key={d.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{d.full_name}</p>
+                  <StatusBadge status={d.verification_status} />
+                  <Badge variant="outline">{d.status}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {d.city} · {d.experience_years} yrs · ₹{d.hourly_rate}/hr · ₹{d.daily_rate}/day ·
+                  Licence {d.dl_number ?? "—"} (exp {d.dl_expiry ?? "—"})
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {d.city} · {d.experience_years} yrs · ₹{d.hourly_rate}/hr · ₹{d.daily_rate}/day · Licence {d.dl_number ?? "—"} (exp {d.dl_expiry ?? "—"})
-              </p>
+              <div className="flex gap-2">
+                {d.verification_status !== "approved" && (
+                  <Button size="sm" onClick={() => decide(d.id, "approved")}>
+                    <ShieldCheck className="mr-1 h-3 w-3" />
+                    Approve
+                  </Button>
+                )}
+                {d.verification_status !== "rejected" && (
+                  <Button size="sm" variant="outline" onClick={() => decide(d.id, "rejected")}>
+                    Reject
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2">
-              {d.verification_status !== "approved" && <Button size="sm" onClick={() => decide(d.id, "approved")}><ShieldCheck className="mr-1 h-3 w-3" />Approve</Button>}
-              {d.verification_status !== "rejected" && <Button size="sm" variant="outline" onClick={() => decide(d.id, "rejected")}>Reject</Button>}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <DocLink label="Licence front" url={d.dl_front_url ? signed[d.dl_front_url] : null} />
+              <DocLink label="Licence back" url={d.dl_back_url ? signed[d.dl_back_url] : null} />
+              <DocLink
+                label="Government ID"
+                url={d.id_document_url ? signed[d.id_document_url] : null}
+              />
             </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <DocLink label="Licence front" url={d.dl_front_url ? signed[d.dl_front_url] : null} />
-            <DocLink label="Licence back" url={d.dl_back_url ? signed[d.dl_back_url] : null} />
-            <DocLink label="Government ID" url={d.id_document_url ? signed[d.id_document_url] : null} />
-          </div>
-        </CardContent></Card>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -457,16 +737,24 @@ function WashQueue() {
     const [{ data, error }, { data: p }] = await Promise.all([
       api
         .from("wash_bookings")
-        .select("*, wash_services:service_id(name,duration_minutes,vehicle_category), wash_vendors:assigned_vendor_id(name,contact_phone,city)")
+        .select(
+          "*, wash_services:service_id(name,duration_minutes,vehicle_category), wash_vendors:assigned_vendor_id(name,contact_phone,city)",
+        )
         .order("created_at", { ascending: false })
         .limit(200),
-      api.from("wash_vendors").select("id,name,city,daily_capacity,contact_phone,active").eq("active", true).order("name"),
+      api
+        .from("wash_vendors")
+        .select("id,name,city,daily_capacity,contact_phone,active")
+        .eq("active", true)
+        .order("name"),
     ]);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
     setPartners((p as any) ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const decide = async (b: any, decision: "confirmed" | "rejected" | "completed") => {
     let note: string | null = null;
@@ -489,7 +777,13 @@ function WashQueue() {
     } as any);
     setBusy(null);
     if (error) return toast.error(error.message);
-    toast.success(decision === "confirmed" ? "Approved — customer can pay now" : decision === "rejected" ? "Rejected" : "Marked completed");
+    toast.success(
+      decision === "confirmed"
+        ? "Approved — customer can pay now"
+        : decision === "rejected"
+          ? "Rejected"
+          : "Marked completed",
+    );
     load();
   };
 
@@ -499,64 +793,122 @@ function WashQueue() {
     <div className="mt-4 space-y-3">
       {partners.length === 0 && (
         <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-          No active washer partners yet — add them in the backend `wash_vendors` table to approve bookings.
+          No active washer partners yet — add them in the backend `wash_vendors` table to approve
+          bookings.
         </p>
       )}
-      {items.length === 0 && <p className="mt-6 text-sm text-muted-foreground">No wash bookings yet.</p>}
+      {items.length === 0 && (
+        <p className="mt-6 text-sm text-muted-foreground">No wash bookings yet.</p>
+      )}
       {items.map((b) => (
-        <Card key={b.id}><CardContent className="p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium">{b.wash_services?.name ?? "Vehicle wash"}</p>
-                <Badge variant={b.status === "confirmed" ? "secondary" : b.status === "rejected" ? "destructive" : "outline"}>{b.status}</Badge>
-                {b.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
-                {(b.payment_status === "refunded" || b.payment_status === "partially_refunded") && <Badge variant="outline">{b.payment_status}</Badge>}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {b.slot_date} at {String(b.slot_time).slice(0, 5)} · {b.city} · ₹{b.price}
-                {b.wash_vendors?.name ? ` · Partner: ${b.wash_vendors.name}` : ""}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">📍 {b.address}{b.vehicle_label ? ` · ${b.vehicle_label}` : ""}</p>
-              {b.notes && <p className="mt-1 text-xs">📝 {b.notes}</p>}
-              {b.rejection_reason && <p className="mt-1 text-xs text-destructive">Rejected: {b.rejection_reason}</p>}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {b.status === "pending" && (
-                <>
-                  <select
-                    aria-label="Assign washer partner"
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                    value={assign[b.id] ?? ""}
-                    onChange={(e) => setAssign({ ...assign, [b.id]: e.target.value })}
+        <Card key={b.id}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{b.wash_services?.name ?? "Vehicle wash"}</p>
+                  <Badge
+                    variant={
+                      b.status === "confirmed"
+                        ? "secondary"
+                        : b.status === "rejected"
+                          ? "destructive"
+                          : "outline"
+                    }
                   >
-                    <option value="">Assign washer…</option>
-                    {partners.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} · {p.city} ({p.daily_capacity}/day)</option>
-                    ))}
-                  </select>
-                  <Button size="sm" disabled={busy === b.id} onClick={() => decide(b, "confirmed")}>
-                    <ShieldCheck className="mr-1 h-3 w-3" />Approve
-                  </Button>
-                  <Button size="sm" variant="outline" disabled={busy === b.id} onClick={() => decide(b, "rejected")}>Reject</Button>
-                </>
-              )}
-              {b.status === "confirmed" && (
-                <>
-                  {b.payment_status === "paid"
-                    ? <Button size="sm" disabled={busy === b.id} onClick={() => decide(b, "completed")}>Mark completed</Button>
-                    : <span className="text-xs text-muted-foreground">Waiting for customer payment</span>}
-                  <Button size="sm" variant="outline" disabled={busy === b.id} onClick={() => decide(b, "rejected")}>Cancel & refund</Button>
-                </>
-              )}
+                    {b.status}
+                  </Badge>
+                  {b.payment_status === "paid" && (
+                    <Badge className="bg-emerald-600 text-white">Paid</Badge>
+                  )}
+                  {(b.payment_status === "refunded" ||
+                    b.payment_status === "partially_refunded") && (
+                    <Badge variant="outline">{b.payment_status}</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {b.slot_date} at {String(b.slot_time).slice(0, 5)} · {b.city} · ₹{b.price}
+                  {b.wash_vendors?.name ? ` · Partner: ${b.wash_vendors.name}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  📍 {b.address}
+                  {b.vehicle_label ? ` · ${b.vehicle_label}` : ""}
+                </p>
+                {b.notes && <p className="mt-1 text-xs">📝 {b.notes}</p>}
+                {b.rejection_reason && (
+                  <p className="mt-1 text-xs text-destructive">Rejected: {b.rejection_reason}</p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {b.status === "pending" && (
+                  <>
+                    <select
+                      aria-label="Assign washer partner"
+                      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      value={assign[b.id] ?? ""}
+                      onChange={(e) => setAssign({ ...assign, [b.id]: e.target.value })}
+                    >
+                      <option value="">Assign washer…</option>
+                      <option value="00000000-0000-0000-0000-000000000000">
+                        Doorstep Cleaners Pool (Open for Cleaners)
+                      </option>
+                      {partners.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · {p.city} ({p.daily_capacity}/day)
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      disabled={busy === b.id}
+                      onClick={() => decide(b, "confirmed")}
+                    >
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy === b.id}
+                      onClick={() => decide(b, "rejected")}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
+                {b.status === "confirmed" && (
+                  <>
+                    {b.payment_status === "paid" ? (
+                      <Button
+                        size="sm"
+                        disabled={busy === b.id}
+                        onClick={() => decide(b, "completed")}
+                      >
+                        Mark completed
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Waiting for customer payment
+                      </span>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy === b.id}
+                      onClick={() => decide(b, "rejected")}
+                    >
+                      Cancel & refund
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </CardContent></Card>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
 }
-
 
 function CleanersQueue() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -571,7 +923,9 @@ function CleanersQueue() {
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const decide = async (id: string, decision: "approved" | "rejected") => {
     let reason: string | null = null;
@@ -592,7 +946,10 @@ function CleanersQueue() {
   };
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
-  if (items.length === 0) return <p className="mt-6 text-sm text-muted-foreground">No cleaner partner applications yet.</p>;
+  if (items.length === 0)
+    return (
+      <p className="mt-6 text-sm text-muted-foreground">No cleaner partner applications yet.</p>
+    );
 
   return (
     <div className="mt-4 space-y-3">
@@ -604,30 +961,41 @@ function CleanersQueue() {
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{c.full_name}</p>
                   <StatusBadge status={c.verification_status} />
-                  <Badge variant={c.available ? "secondary" : "outline"} className={c.available ? "bg-emerald-50 text-emerald-700" : ""}>
+                  <Badge
+                    variant={c.available ? "secondary" : "outline"}
+                    className={c.available ? "bg-emerald-50 text-emerald-700" : ""}
+                  >
                     {c.available ? "Online" : "Offline"}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {c.city} · {c.experience_years} yrs exp · Area: {c.service_area || "Citywide"} {c.phone ? `· ${c.phone}` : ""}
+                  {c.city} · {c.experience_years} yrs exp · Area: {c.service_area || "Citywide"}{" "}
+                  {c.phone ? `· ${c.phone}` : ""}
                 </p>
-                {c.bio && (
-                  <p className="text-xs text-muted-foreground mt-1 italic">
-                    "{c.bio}"
-                  </p>
-                )}
+                {c.bio && <p className="text-xs text-muted-foreground mt-1 italic">"{c.bio}"</p>}
                 {c.rejection_reason && (
-                  <p className="text-xs text-red-500 mt-1">Rejection reason: {c.rejection_reason}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    Rejection reason: {c.rejection_reason}
+                  </p>
                 )}
               </div>
               <div className="flex gap-2">
                 {c.verification_status !== "approved" && (
-                  <Button size="sm" disabled={busy === c.id} onClick={() => decide(c.id, "approved")}>
+                  <Button
+                    size="sm"
+                    disabled={busy === c.id}
+                    onClick={() => decide(c.id, "approved")}
+                  >
                     <ShieldCheck className="mr-1 h-3 w-3" /> Approve
                   </Button>
                 )}
                 {c.verification_status !== "rejected" && (
-                  <Button size="sm" variant="outline" disabled={busy === c.id} onClick={() => decide(c.id, "rejected")}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy === c.id}
+                    onClick={() => decide(c.id, "rejected")}
+                  >
                     Reject
                   </Button>
                 )}
@@ -661,11 +1029,16 @@ function WashCentersQueue() {
       return;
     }
 
-    const { data, error } = await api.from("wash_vendors").select("*").order("created_at", { ascending: false });
+    const { data, error } = await api
+      .from("wash_vendors")
+      .select("*")
+      .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setCenters(data ?? []);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const decideCenter = async (id: string, decision: "approved" | "rejected") => {
     let reason: string | null = null;
@@ -687,7 +1060,10 @@ function WashCentersQueue() {
 
   const toggleActive = async (center: any) => {
     setBusy(center.id);
-    const { error } = await api.from("wash_vendors").update({ active: !center.active } as any).eq("id", center.id);
+    const { error } = await api
+      .from("wash_vendors")
+      .update({ active: !center.active } as any)
+      .eq("id", center.id);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success(!center.active ? "Wash center verified & activated" : "Wash center deactivated");
@@ -706,7 +1082,10 @@ function WashCentersQueue() {
     } as any);
     if (error) return toast.error(error.message);
     toast.success("Washing center added and verified");
-    setName(""); setCity(""); setPhone(""); setShowAdd(false);
+    setName("");
+    setCity("");
+    setPhone("");
+    setShowAdd(false);
     load();
   };
 
@@ -715,36 +1094,64 @@ function WashCentersQueue() {
   return (
     <div className="mt-4 space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">{centers.length} registered washing center{centers.length === 1 ? "" : "s"}</p>
+        <p className="text-sm text-muted-foreground">
+          {centers.length} registered washing center{centers.length === 1 ? "" : "s"}
+        </p>
         <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
           <Plus className="mr-1.5 h-4 w-4" /> Add washing center
         </Button>
       </div>
 
       {showAdd && (
-        <Card><CardContent className="p-4">
-          <form onSubmit={addCenter} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
-            <div>
-              <Label className="text-xs">Center Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="AutoShine Hub" required />
-            </div>
-            <div>
-              <Label className="text-xs">City</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bangalore" required />
-            </div>
-            <div>
-              <Label className="text-xs">Contact Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 9876543210" />
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Label className="text-xs">Daily Capacity</Label>
-                <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} min={1} />
+        <Card>
+          <CardContent className="p-4">
+            <form
+              onSubmit={addCenter}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end"
+            >
+              <div>
+                <Label className="text-xs">Center Name</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="AutoShine Hub"
+                  required
+                />
               </div>
-              <Button type="submit" className="mt-auto">Save</Button>
-            </div>
-          </form>
-        </CardContent></Card>
+              <div>
+                <Label className="text-xs">City</Label>
+                <Input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Bangalore"
+                  required
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Contact Phone</Label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 9876543210"
+                />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Label className="text-xs">Daily Capacity</Label>
+                  <Input
+                    type="number"
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    min={1}
+                  />
+                </div>
+                <Button type="submit" className="mt-auto">
+                  Save
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       {centers.length === 0 ? (
@@ -752,51 +1159,68 @@ function WashCentersQueue() {
       ) : (
         <div className="grid gap-3">
           {centers.map((c) => (
-            <Card key={c.id}><CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm">{c.name}</p>
-                  {c.verification_status ? (
-                    <StatusBadge status={c.verification_status} />
-                  ) : (
-                    <Badge variant={c.active ? "secondary" : "outline"} className={c.active ? "bg-emerald-50 text-emerald-700" : ""}>
-                      {c.active ? "Verified / Active" : "Inactive"}
-                    </Badge>
+            <Card key={c.id}>
+              <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm">{c.name}</p>
+                    {c.verification_status ? (
+                      <StatusBadge status={c.verification_status} />
+                    ) : (
+                      <Badge
+                        variant={c.active ? "secondary" : "outline"}
+                        className={c.active ? "bg-emerald-50 text-emerald-700" : ""}
+                      >
+                        {c.active ? "Verified / Active" : "Inactive"}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    City: {c.city} · Capacity: {c.daily_capacity} washes/day{" "}
+                    {c.contact_phone ? `· ${c.contact_phone}` : ""}
+                  </p>
+                  {c.rejection_reason && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Rejection reason: {c.rejection_reason}
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  City: {c.city} · Capacity: {c.daily_capacity} washes/day {c.contact_phone ? `· ${c.contact_phone}` : ""}
-                </p>
-                {c.rejection_reason && (
-                  <p className="text-xs text-red-500 mt-1">Rejection reason: {c.rejection_reason}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {c.verification_status ? (
-                  <>
-                    {c.verification_status !== "approved" && (
-                      <Button size="sm" disabled={busy === c.id} onClick={() => decideCenter(c.id, "approved")}>
-                        <ShieldCheck className="mr-1 h-3 w-3" /> Approve
-                      </Button>
-                    )}
-                    {c.verification_status !== "rejected" && (
-                      <Button size="sm" variant="outline" disabled={busy === c.id} onClick={() => decideCenter(c.id, "rejected")}>
-                        Reject
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant={c.active ? "outline" : "default"}
-                    disabled={busy === c.id}
-                    onClick={() => toggleActive(c)}
-                  >
-                    {c.active ? "Deactivate" : "Approve & Activate"}
-                  </Button>
-                )}
-              </div>
-            </CardContent></Card>
+                <div className="flex gap-2">
+                  {c.verification_status ? (
+                    <>
+                      {c.verification_status !== "approved" && (
+                        <Button
+                          size="sm"
+                          disabled={busy === c.id}
+                          onClick={() => decideCenter(c.id, "approved")}
+                        >
+                          <ShieldCheck className="mr-1 h-3 w-3" /> Approve
+                        </Button>
+                      )}
+                      {c.verification_status !== "rejected" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy === c.id}
+                          onClick={() => decideCenter(c.id, "rejected")}
+                        >
+                          Reject
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant={c.active ? "outline" : "default"}
+                      disabled={busy === c.id}
+                      onClick={() => toggleActive(c)}
+                    >
+                      {c.active ? "Deactivate" : "Approve & Activate"}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

@@ -128,7 +128,9 @@ describe("M8: Driver hire localhost integration and acceptance tests (DH-01 to D
     expect(b.payment_status).toBe("paid");
     expect(be.wallet.balance(customer)).toBe(0);
     expect(be.wallet.balance(driver.id)).toBe(1600);
-    expect(be.notifications.some((n) => n.user_id === driver.id && /payment/i.test(n.title))).toBe(true);
+    expect(be.notifications.some((n) => n.user_id === driver.id && /payment/i.test(n.title))).toBe(
+      true,
+    );
   });
 
   // DH-07: Pending hire -> Driver declines -> Customer notified, payment blocked
@@ -149,7 +151,9 @@ describe("M8: Driver hire localhost integration and acceptance tests (DH-01 to D
 
     be.driverDecide(driver.id, b.id, "rejected");
     expect(b.status).toBe("rejected");
-    expect(be.notifications.some((n) => n.user_id === customer && /declined/i.test(n.title))).toBe(true);
+    expect(be.notifications.some((n) => n.user_id === customer && /declined/i.test(n.title))).toBe(
+      true,
+    );
     expect(() => be.payDriverBookingWithWallet(customer, b.id)).toThrow(/accepted/i);
   });
 

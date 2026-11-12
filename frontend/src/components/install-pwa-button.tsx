@@ -11,8 +11,14 @@ export function InstallPwaButton({ className }: { className?: string }) {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
-    const onPrompt = (e: Event) => { e.preventDefault(); setDeferred(e); };
-    const onInstalled = () => { setInstalled(true); setDeferred(null); };
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferred(e);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setDeferred(null);
+    };
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
@@ -30,7 +36,11 @@ export function InstallPwaButton({ className }: { className?: string }) {
       className={className}
       onClick={async () => {
         deferred.prompt();
-        try { await deferred.userChoice; } catch { /* ignore */ }
+        try {
+          await deferred.userChoice;
+        } catch {
+          /* ignore */
+        }
         setDeferred(null);
       }}
     >

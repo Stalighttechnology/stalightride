@@ -21,7 +21,12 @@ export type ApiError = {
   hint?: string | null;
   status?: number;
 };
-export type Result<T = any> = { data: T; error: ApiError | null; count?: number | null; status?: number };
+export type Result<T = any> = {
+  data: T;
+  error: ApiError | null;
+  count?: number | null;
+  status?: number;
+};
 export type User = {
   id: string;
   email: string;
@@ -38,7 +43,13 @@ export type Session = {
   expires_at: number;
   user: User;
 };
-export type AuthEvent = "INITIAL_SESSION" | "SIGNED_IN" | "SIGNED_OUT" | "TOKEN_REFRESHED" | "USER_UPDATED" | "PASSWORD_RECOVERY";
+export type AuthEvent =
+  | "INITIAL_SESSION"
+  | "SIGNED_IN"
+  | "SIGNED_OUT"
+  | "TOKEN_REFRESHED"
+  | "USER_UPDATED"
+  | "PASSWORD_RECOVERY";
 type Listener = (event: AuthEvent, session: Session | null) => void;
 
 const hasWindow = typeof window !== "undefined";
@@ -102,7 +113,12 @@ async function validSession(): Promise<Session | null> {
 
 type Raw = { ok: boolean; status: number; body: any };
 
-async function request(path: string, body?: unknown, form?: FormData, retried = false): Promise<Raw> {
+async function request(
+  path: string,
+  body?: unknown,
+  form?: FormData,
+  retried = false,
+): Promise<Raw> {
   const s = await validSession();
   const headers: Record<string, string> = {};
   if (!form) headers["content-type"] = "application/json";
@@ -117,7 +133,8 @@ async function request(path: string, body?: unknown, form?: FormData, retried = 
   } catch (e: any) {
     return { ok: false, status: 0, body: { message: e?.message || "Failed to fetch" } };
   }
-  if (res.status === 401 && s && !retried && (await refreshSession())) return request(path, body, form, true);
+  if (res.status === 401 && s && !retried && (await refreshSession()))
+    return request(path, body, form, true);
   const text = await res.text();
   let parsed: any = null;
   try {
@@ -150,7 +167,10 @@ export class Query<R = any[]> implements PromiseLike<Result<R>> {
     this.q = { table, action: "select", select: "*", filters: [] as Filter[], order: [] };
   }
 
-  select(columns = "*", opts?: { count?: "exact" | "planned" | "estimated"; head?: boolean }): Query<R> {
+  select(
+    columns = "*",
+    opts?: { count?: "exact" | "planned" | "estimated"; head?: boolean },
+  ): Query<R> {
     this.q.select = columns;
     if (opts?.count) this.q.count = opts.count;
     if (opts?.head) this.q.head = true;
@@ -165,7 +185,10 @@ export class Query<R = any[]> implements PromiseLike<Result<R>> {
     return this.write("insert", values);
   }
   upsert(values: any, opts?: { onConflict?: string; ignoreDuplicates?: boolean }): Query<R> {
-    return this.write("upsert", values, { onConflict: opts?.onConflict, ignoreDuplicates: opts?.ignoreDuplicates });
+    return this.write("upsert", values, {
+      onConflict: opts?.onConflict,
+      ignoreDuplicates: opts?.ignoreDuplicates,
+    });
   }
   update(values: any, _opts?: unknown): Query<R> {
     return this.write("update", values);
@@ -178,22 +201,54 @@ export class Query<R = any[]> implements PromiseLike<Result<R>> {
     this.q.filters.push(f);
     return this;
   }
-  eq(col: string, value: unknown) { return this.add([col, "eq", value]); }
-  neq(col: string, value: unknown) { return this.add([col, "neq", value]); }
-  gt(col: string, value: unknown) { return this.add([col, "gt", value]); }
-  gte(col: string, value: unknown) { return this.add([col, "gte", value]); }
-  lt(col: string, value: unknown) { return this.add([col, "lt", value]); }
-  lte(col: string, value: unknown) { return this.add([col, "lte", value]); }
-  like(col: string, pattern: string) { return this.add([col, "like", pattern]); }
-  ilike(col: string, pattern: string) { return this.add([col, "ilike", pattern]); }
-  is(col: string, value: null | boolean) { return this.add([col, "is", value]); }
-  in(col: string, values: readonly unknown[]) { return this.add([col, "in", [...values]]); }
-  contains(col: string, value: unknown) { return this.add([col, "cs", value]); }
-  containedBy(col: string, value: unknown) { return this.add([col, "cd", value]); }
-  overlaps(col: string, value: unknown) { return this.add([col, "ov", value]); }
-  filter(col: string, op: string, value: unknown) { return this.add([col, op, value]); }
-  not(col: string, op: string, value: unknown) { return this.add(["not", col, op, value]); }
-  or(filters: string) { return this.add(["or", filters]); }
+  eq(col: string, value: unknown) {
+    return this.add([col, "eq", value]);
+  }
+  neq(col: string, value: unknown) {
+    return this.add([col, "neq", value]);
+  }
+  gt(col: string, value: unknown) {
+    return this.add([col, "gt", value]);
+  }
+  gte(col: string, value: unknown) {
+    return this.add([col, "gte", value]);
+  }
+  lt(col: string, value: unknown) {
+    return this.add([col, "lt", value]);
+  }
+  lte(col: string, value: unknown) {
+    return this.add([col, "lte", value]);
+  }
+  like(col: string, pattern: string) {
+    return this.add([col, "like", pattern]);
+  }
+  ilike(col: string, pattern: string) {
+    return this.add([col, "ilike", pattern]);
+  }
+  is(col: string, value: null | boolean) {
+    return this.add([col, "is", value]);
+  }
+  in(col: string, values: readonly unknown[]) {
+    return this.add([col, "in", [...values]]);
+  }
+  contains(col: string, value: unknown) {
+    return this.add([col, "cs", value]);
+  }
+  containedBy(col: string, value: unknown) {
+    return this.add([col, "cd", value]);
+  }
+  overlaps(col: string, value: unknown) {
+    return this.add([col, "ov", value]);
+  }
+  filter(col: string, op: string, value: unknown) {
+    return this.add([col, op, value]);
+  }
+  not(col: string, op: string, value: unknown) {
+    return this.add(["not", col, op, value]);
+  }
+  or(filters: string) {
+    return this.add(["or", filters]);
+  }
   match(values: Record<string, unknown>) {
     Object.entries(values).forEach(([k, v]) => this.add([k, "eq", v]));
     return this;
@@ -224,7 +279,12 @@ export class Query<R = any[]> implements PromiseLike<Result<R>> {
   async execute(): Promise<Result<R>> {
     const raw = await request("/api/query/", this.q);
     if (!raw.ok) return { data: null as R, error: toError(raw), count: null, status: raw.status };
-    return { data: raw.body.data as R, error: null, count: raw.body.count ?? null, status: raw.status };
+    return {
+      data: raw.body.data as R,
+      error: null,
+      count: raw.body.count ?? null,
+      status: raw.status,
+    };
   }
 
   then<A = Result<R>, B = never>(
@@ -244,28 +304,43 @@ function absolute(path: string) {
 function bucketApi(bucket: string) {
   const b = encodeURIComponent(bucket);
   return {
-    async upload(path: string, file: Blob, opts?: { upsert?: boolean; contentType?: string; cacheControl?: string }) {
+    async upload(
+      path: string,
+      file: Blob,
+      opts?: { upsert?: boolean; contentType?: string; cacheControl?: string },
+    ) {
       const form = new FormData();
       form.append("path", path);
       form.append("file", file);
       form.append("upsert", String(!!opts?.upsert));
       const raw = await request(`/api/storage/${b}/upload/`, undefined, form);
-      return raw.ok ? { data: raw.body as { path: string; fullPath: string }, error: null } : { data: null, error: toError(raw) };
+      return raw.ok
+        ? { data: raw.body as { path: string; fullPath: string }, error: null }
+        : { data: null, error: toError(raw) };
     },
     async remove(paths: string[]) {
       const raw = await request(`/api/storage/${b}/remove/`, { paths });
-      return raw.ok ? { data: raw.body as any[], error: null } : { data: null, error: toError(raw) };
+      return raw.ok
+        ? { data: raw.body as any[], error: null }
+        : { data: null, error: toError(raw) };
     },
     async createSignedUrls(paths: string[], expiresIn: number) {
       const raw = await request(`/api/storage/${b}/sign/`, { paths, expiresIn });
       if (!raw.ok) return { data: null, error: toError(raw) };
-      return { data: raw.body as { path: string; signedUrl: string | null; error: string | null }[], error: null };
+      return {
+        data: raw.body as { path: string; signedUrl: string | null; error: string | null }[],
+        error: null,
+      };
     },
     async createSignedUrl(path: string, expiresIn: number) {
       const { data, error } = await this.createSignedUrls([path], expiresIn);
       if (error) return { data: null, error };
       const item = data?.[0];
-      if (!item?.signedUrl) return { data: null, error: { message: item?.error || "Object not found", status: 404 } as ApiError };
+      if (!item?.signedUrl)
+        return {
+          data: null,
+          error: { message: item?.error || "Object not found", status: 404 } as ApiError,
+        };
       return { data: { signedUrl: item.signedUrl }, error: null };
     },
     getPublicUrl(path: string) {
@@ -277,8 +352,19 @@ function bucketApi(bucket: string) {
 
 // -- live updates ------------------------------------------------------------------
 
-type ChangeSpec = { event: "*" | "INSERT" | "UPDATE" | "DELETE"; schema?: string; table: string; filter?: string };
-type ChangeHandler = (payload: { eventType: string; new: any; old: any; table: string; schema: string }) => void;
+type ChangeSpec = {
+  event: "*" | "INSERT" | "UPDATE" | "DELETE";
+  schema?: string;
+  table: string;
+  filter?: string;
+};
+type ChangeHandler = (payload: {
+  eventType: string;
+  new: any;
+  old: any;
+  table: string;
+  schema: string;
+}) => void;
 
 const realtime = (() => {
   const subs = new Map<string, { spec: ChangeSpec; cb: ChangeHandler }>();
@@ -299,7 +385,9 @@ const realtime = (() => {
   });
 
   function url() {
-    const base = BASE ? BASE.replace(/^http/, "ws") : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+    const base = BASE
+      ? BASE.replace(/^http/, "ws")
+      : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
     return `${base}/ws/${session ? `?token=${encodeURIComponent(session.access_token)}` : ""}`;
   }
 
@@ -402,14 +490,18 @@ const auth = {
     return { data: { session: await validSession() }, error: null };
   },
   async getUser(): Promise<{ data: { user: User | null }; error: ApiError | null }> {
-    if (!(await validSession())) return { data: { user: null }, error: { message: "Auth session missing!" } };
-    const res = await fetch(`${BASE}/api/auth/user/`, { headers: { Authorization: `Bearer ${session!.access_token}` } }).catch(
-      () => null,
-    );
+    if (!(await validSession()))
+      return { data: { user: null }, error: { message: "Auth session missing!" } };
+    const res = await fetch(`${BASE}/api/auth/user/`, {
+      headers: { Authorization: `Bearer ${session!.access_token}` },
+    }).catch(() => null);
     if (!res) return { data: { user: session?.user ?? null }, error: null }; // offline: trust the stored session
     if (res.status === 401 || res.status === 403) {
       setSession(null, "SIGNED_OUT");
-      return { data: { user: null }, error: { message: "Auth session missing!", status: res.status } };
+      return {
+        data: { user: null },
+        error: { message: "Auth session missing!", status: res.status },
+      };
     }
     const user = (await res.json()) as User;
     return { data: { user }, error: null };
@@ -417,7 +509,10 @@ const auth = {
   async getClaims() {
     const s = await validSession();
     const claims = s ? decodeClaims(s.access_token) : null;
-    return { data: claims ? { claims } : null, error: claims ? null : { message: "Auth session missing!" } };
+    return {
+      data: claims ? { claims } : null,
+      error: claims ? null : { message: "Auth session missing!" },
+    };
   },
   onAuthStateChange(cb: Listener) {
     listeners.add(cb);
@@ -427,8 +522,16 @@ const auth = {
   signInWithPassword(creds: { email: string; password: string }) {
     return authCall("/api/auth/signin/", creds);
   },
-  signUp(creds: { email: string; password: string; options?: { data?: Record<string, unknown>; emailRedirectTo?: string } }) {
-    return authCall("/api/auth/signup/", { email: creds.email, password: creds.password, data: creds.options?.data ?? {} });
+  signUp(creds: {
+    email: string;
+    password: string;
+    options?: { data?: Record<string, unknown>; emailRedirectTo?: string };
+  }) {
+    return authCall("/api/auth/signup/", {
+      email: creds.email,
+      password: creds.password,
+      data: creds.options?.data ?? {},
+    });
   },
   async signOut() {
     const refresh = session?.refresh_token;
@@ -460,7 +563,11 @@ const auth = {
   },
   /** Finish a reset from the emailed link; signs the user in. */
   confirmPasswordReset(uid: string, token: string, password: string) {
-    return authCall("/api/auth/password-reset/confirm/", { uid, token, password }, "PASSWORD_RECOVERY");
+    return authCall(
+      "/api/auth/password-reset/confirm/",
+      { uid, token, password },
+      "PASSWORD_RECOVERY",
+    );
   },
 };
 
@@ -482,7 +589,9 @@ export const api = {
   from: (table: string) => new Query(table),
   async rpc(name: string, args?: Record<string, unknown>): Promise<Result<any>> {
     const raw = await request(`/api/rpc/${encodeURIComponent(name)}/`, args ?? {});
-    return raw.ok ? { data: raw.body.data, error: null, status: raw.status } : { data: null, error: toError(raw), status: raw.status };
+    return raw.ok
+      ? { data: raw.body.data, error: null, status: raw.status }
+      : { data: null, error: toError(raw), status: raw.status };
   },
   /** Server actions (payments, handover). Throws on failure, like the old server functions. */
   async fn<T = any>(name: string, data?: unknown): Promise<T> {

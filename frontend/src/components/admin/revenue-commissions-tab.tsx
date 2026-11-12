@@ -160,7 +160,9 @@ export function RevenueCommissionsTab() {
           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <TrendingUp className="h-4 w-4 text-emerald-500" /> Gross Booking Volume (GMV)
           </div>
-          <p className="font-display text-2xl font-bold mt-1 text-foreground">{currency(revenueStats.gmv)}</p>
+          <p className="font-display text-2xl font-bold mt-1 text-foreground">
+            {currency(revenueStats.gmv)}
+          </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">Live booking total</p>
         </Card>
 
@@ -168,7 +170,9 @@ export function RevenueCommissionsTab() {
           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <IndianRupee className="h-4 w-4 text-brand" /> Net Synchoo Revenue
           </div>
-          <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(revenueStats.platformRevenue)}</p>
+          <p className="font-display text-2xl font-bold mt-1 text-brand">
+            {currency(revenueStats.platformRevenue)}
+          </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">From platform commission</p>
         </Card>
 
@@ -176,7 +180,9 @@ export function RevenueCommissionsTab() {
           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <Wallet className="h-4 w-4 text-blue-500" /> Host & Driver Payouts
           </div>
-          <p className="font-display text-2xl font-bold mt-1 text-foreground">{currency(revenueStats.providerPayouts)}</p>
+          <p className="font-display text-2xl font-bold mt-1 text-foreground">
+            {currency(revenueStats.providerPayouts)}
+          </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">Disbursed to partners</p>
         </Card>
 
@@ -184,7 +190,9 @@ export function RevenueCommissionsTab() {
           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <Percent className="h-4 w-4 text-amber-500" /> Refunded / Disputes
           </div>
-          <p className="font-display text-2xl font-bold mt-1 text-foreground">{currency(revenueStats.refunds)}</p>
+          <p className="font-display text-2xl font-bold mt-1 text-foreground">
+            {currency(revenueStats.refunds)}
+          </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">Total refunded volume</p>
         </Card>
       </div>
@@ -197,7 +205,8 @@ export function RevenueCommissionsTab() {
               <Percent className="h-4 w-4 text-brand" /> Commission Rates by Service
             </CardTitle>
             <CardDescription>
-              Set platform deduction percentages applied automatically on completed customer bookings.
+              Set platform deduction percentages applied automatically on completed customer
+              bookings.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -213,7 +222,9 @@ export function RevenueCommissionsTab() {
                     min="0"
                     max="50"
                     value={commissions.rental}
-                    onChange={(e) => setCommissions({ ...commissions, rental: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setCommissions({ ...commissions, rental: Number(e.target.value) })
+                    }
                     className="h-8 text-xs text-right"
                   />
                   <span className="text-xs font-semibold text-muted-foreground">%</span>
@@ -231,7 +242,9 @@ export function RevenueCommissionsTab() {
                     min="0"
                     max="50"
                     value={commissions.driver}
-                    onChange={(e) => setCommissions({ ...commissions, driver: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setCommissions({ ...commissions, driver: Number(e.target.value) })
+                    }
                     className="h-8 text-xs text-right"
                   />
                   <span className="text-xs font-semibold text-muted-foreground">%</span>
@@ -249,7 +262,9 @@ export function RevenueCommissionsTab() {
                     min="0"
                     max="50"
                     value={commissions.wash}
-                    onChange={(e) => setCommissions({ ...commissions, wash: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setCommissions({ ...commissions, wash: Number(e.target.value) })
+                    }
                     className="h-8 text-xs text-right"
                   />
                   <span className="text-xs font-semibold text-muted-foreground">%</span>
@@ -267,7 +282,9 @@ export function RevenueCommissionsTab() {
                     min="0"
                     max="50"
                     value={commissions.pooling}
-                    onChange={(e) => setCommissions({ ...commissions, pooling: Number(e.target.value) })}
+                    onChange={(e) =>
+                      setCommissions({ ...commissions, pooling: Number(e.target.value) })
+                    }
                     className="h-8 text-xs text-right"
                   />
                   <span className="text-xs font-semibold text-muted-foreground">%</span>
@@ -276,7 +293,8 @@ export function RevenueCommissionsTab() {
 
               <div className="pt-2">
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={saving}>
-                  <Save className="mr-1.5 h-3.5 w-3.5" /> {saving ? "Saving..." : "Update Commissions"}
+                  <Save className="mr-1.5 h-3.5 w-3.5" />{" "}
+                  {saving ? "Saving..." : "Update Commissions"}
                 </Button>
               </div>
             </form>
@@ -295,7 +313,9 @@ export function RevenueCommissionsTab() {
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs">
                 <span className="font-medium">Self-Drive Rentals</span>
-                <span className="font-semibold">{currency(revenueStats.serviceBreakdown.rentals)}</span>
+                <span className="font-semibold">
+                  {currency(revenueStats.serviceBreakdown.rentals)}
+                </span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
@@ -310,7 +330,9 @@ export function RevenueCommissionsTab() {
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs">
                 <span className="font-medium">Chauffeur / Driver Hires</span>
-                <span className="font-semibold">{currency(revenueStats.serviceBreakdown.driverHires)}</span>
+                <span className="font-semibold">
+                  {currency(revenueStats.serviceBreakdown.driverHires)}
+                </span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
@@ -325,7 +347,9 @@ export function RevenueCommissionsTab() {
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs">
                 <span className="font-medium">Doorstep Vehicle Washes</span>
-                <span className="font-semibold">{currency(revenueStats.serviceBreakdown.washes)}</span>
+                <span className="font-semibold">
+                  {currency(revenueStats.serviceBreakdown.washes)}
+                </span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
@@ -340,7 +364,9 @@ export function RevenueCommissionsTab() {
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs">
                 <span className="font-medium">Carpooling Seat Split</span>
-                <span className="font-semibold">{currency(revenueStats.serviceBreakdown.carpooling)}</span>
+                <span className="font-semibold">
+                  {currency(revenueStats.serviceBreakdown.carpooling)}
+                </span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div

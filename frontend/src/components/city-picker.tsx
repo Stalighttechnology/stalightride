@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -42,14 +49,73 @@ export const CITY_ALIASES: Record<string, string[]> = {
 };
 
 export const INDIAN_CITIES = [
-  "Agra", "Ahmedabad", "Ajmer", "Allahabad", "Amritsar", "Aurangabad", "Bengaluru", "Bhopal",
-  "Bhubaneswar", "Chandigarh", "Chennai", "Coimbatore", "Dehradun", "Delhi", "Dhanbad", "Faridabad",
-  "Ghaziabad", "Goa", "Gurugram", "Guwahati", "Gwalior", "Howrah", "Hubli", "Hyderabad", "Indore",
-  "Jabalpur", "Jaipur", "Jalandhar", "Jammu", "Jamshedpur", "Jodhpur", "Kanpur", "Kochi", "Kolhapur",
-  "Kolkata", "Kota", "Kozhikode", "Lucknow", "Ludhiana", "Madurai", "Mangaluru", "Meerut", "Mumbai",
-  "Mysuru", "Nagpur", "Nashik", "Navi Mumbai", "Noida", "Patna", "Puducherry", "Pune", "Raipur",
-  "Rajkot", "Ranchi", "Salem", "Shimla", "Srinagar", "Surat", "Thane", "Thiruvananthapuram",
-  "Tiruchirappalli", "Udaipur", "Vadodara", "Varanasi", "Vijayawada", "Visakhapatnam", "Warangal",
+  "Agra",
+  "Ahmedabad",
+  "Ajmer",
+  "Allahabad",
+  "Amritsar",
+  "Aurangabad",
+  "Bengaluru",
+  "Bhopal",
+  "Bhubaneswar",
+  "Chandigarh",
+  "Chennai",
+  "Coimbatore",
+  "Dehradun",
+  "Delhi",
+  "Dhanbad",
+  "Faridabad",
+  "Ghaziabad",
+  "Goa",
+  "Gurugram",
+  "Guwahati",
+  "Gwalior",
+  "Howrah",
+  "Hubli",
+  "Hyderabad",
+  "Indore",
+  "Jabalpur",
+  "Jaipur",
+  "Jalandhar",
+  "Jammu",
+  "Jamshedpur",
+  "Jodhpur",
+  "Kanpur",
+  "Kochi",
+  "Kolhapur",
+  "Kolkata",
+  "Kota",
+  "Kozhikode",
+  "Lucknow",
+  "Ludhiana",
+  "Madurai",
+  "Mangaluru",
+  "Meerut",
+  "Mumbai",
+  "Mysuru",
+  "Nagpur",
+  "Nashik",
+  "Navi Mumbai",
+  "Noida",
+  "Patna",
+  "Puducherry",
+  "Pune",
+  "Raipur",
+  "Rajkot",
+  "Ranchi",
+  "Salem",
+  "Shimla",
+  "Srinagar",
+  "Surat",
+  "Thane",
+  "Thiruvananthapuram",
+  "Tiruchirappalli",
+  "Udaipur",
+  "Vadodara",
+  "Varanasi",
+  "Vijayawada",
+  "Visakhapatnam",
+  "Warangal",
 ];
 
 export function CityPicker({
@@ -87,7 +153,11 @@ export function CityPicker({
   const popularSet = new Set(POPULAR_CITIES);
   const mergedIndianCities = Array.from(new Set([...activeCities, ...INDIAN_CITIES]));
   const otherCities = mergedIndianCities.filter((c) => !popularSet.has(c));
-  const isCustomValue = value && !INDIAN_CITIES.includes(value) && !POPULAR_CITIES.includes(value) && !activeCities.includes(value);
+  const isCustomValue =
+    value &&
+    !INDIAN_CITIES.includes(value) &&
+    !POPULAR_CITIES.includes(value) &&
+    !activeCities.includes(value);
 
   const handleSelect = (selectedCity: string) => {
     onChange(selectedCity);
@@ -113,7 +183,7 @@ export function CityPicker({
           className={cn(
             "w-full justify-between font-normal text-left",
             !value && "text-muted-foreground",
-            className
+            className,
           )}
         >
           <span className="flex min-w-0 items-center gap-2.5">
@@ -128,11 +198,7 @@ export function CityPicker({
         align="start"
       >
         <Command>
-          <CommandInput
-            placeholder="Search city..."
-            value={search}
-            onValueChange={setSearch}
-          />
+          <CommandInput placeholder="Search city..." value={search} onValueChange={setSearch} />
           <CommandList className="max-h-64 overflow-y-auto">
             <CommandEmpty>
               <div className="py-2 text-center text-xs text-muted-foreground px-2">
@@ -193,10 +259,7 @@ export function CityPicker({
                     <span>{c}</span>
                   </div>
                   <Check
-                    className={cn(
-                      "h-4 w-4 text-brand",
-                      value === c ? "opacity-100" : "opacity-0"
-                    )}
+                    className={cn("h-4 w-4 text-brand", value === c ? "opacity-100" : "opacity-0")}
                   />
                 </CommandItem>
               ))}
@@ -216,10 +279,7 @@ export function CityPicker({
                     <span>{c}</span>
                   </div>
                   <Check
-                    className={cn(
-                      "h-4 w-4 text-brand",
-                      value === c ? "opacity-100" : "opacity-0"
-                    )}
+                    className={cn("h-4 w-4 text-brand", value === c ? "opacity-100" : "opacity-0")}
                   />
                 </CommandItem>
               ))}

@@ -1,7 +1,11 @@
 import { api } from "@/lib/api";
 
 export const currency = (n: number | null | undefined) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(n ?? 0));
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(n ?? 0));
 
 export const daysBetween = (start: string | Date, end: string | Date) => {
   const s = new Date(start);
@@ -31,7 +35,12 @@ export type RentalPriceBreakdown = {
 
 const toMoney = (n: number | string | null | undefined) => Number(n ?? 0);
 
-export const rentalDurationHours = (startDate: string, endDate: string, pickupTime: string, dropoffTime: string) => {
+export const rentalDurationHours = (
+  startDate: string,
+  endDate: string,
+  pickupTime: string,
+  dropoffTime: string,
+) => {
   if (!startDate || !endDate || !pickupTime || !dropoffTime) return 0;
   const start = new Date(`${startDate}T${pickupTime}`);
   const end = new Date(`${endDate}T${dropoffTime}`);
@@ -40,7 +49,12 @@ export const rentalDurationHours = (startDate: string, endDate: string, pickupTi
 };
 
 export const calculateRentalPrice = (input: RentalPriceInput): RentalPriceBreakdown => {
-  const hours = rentalDurationHours(input.startDate, input.endDate, input.pickupTime, input.dropoffTime);
+  const hours = rentalDurationHours(
+    input.startDate,
+    input.endDate,
+    input.pickupTime,
+    input.dropoffTime,
+  );
   const hourly = toMoney(input.priceHourly);
   const daily = toMoney(input.priceDaily);
   const weekly = toMoney(input.priceWeekly);
@@ -52,7 +66,10 @@ export const calculateRentalPrice = (input: RentalPriceInput): RentalPriceBreakd
   if (hours < 24 && hourly > 0) {
     const billedHours = Math.ceil(hours);
     subtotal = billedHours * hourly;
-    lines.push({ label: `${currency(hourly)} × ${billedHours} hour${billedHours === 1 ? "" : "s"}`, value: subtotal });
+    lines.push({
+      label: `${currency(hourly)} × ${billedHours} hour${billedHours === 1 ? "" : "s"}`,
+      value: subtotal,
+    });
     return { hours, weeks: 0, days: 0, remainingHours: billedHours, subtotal, lines };
   }
 
@@ -90,6 +107,8 @@ export async function signImageUrls(bucket: string, paths: string[], expiresIn =
   const { data, error } = await api.storage.from(bucket).createSignedUrls(unique, expiresIn);
   if (error || !data) return {};
   const map: Record<string, string> = {};
-  data.forEach((d, i) => { if (d.signedUrl) map[unique[i]] = d.signedUrl; });
+  data.forEach((d, i) => {
+    if (d.signedUrl) map[unique[i]] = d.signedUrl;
+  });
   return map;
 }

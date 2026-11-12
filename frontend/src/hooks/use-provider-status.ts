@@ -41,8 +41,12 @@ export function useProviderStatus(): ProviderStatus {
         if (!isMounted) return;
 
         setDriverStatus((driverRes.data?.verification_status as RoleVerificationStatus) || "none");
-        setCleanerStatus((cleanerRes.data?.verification_status as RoleVerificationStatus) || "none");
-        setWashCenterStatus((centerRes.data?.verification_status as RoleVerificationStatus) || "none");
+        setCleanerStatus(
+          (cleanerRes.data?.verification_status as RoleVerificationStatus) || "none",
+        );
+        setWashCenterStatus(
+          (centerRes.data?.verification_status as RoleVerificationStatus) || "none",
+        );
       } catch {
         // ignore errors
       }

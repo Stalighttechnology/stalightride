@@ -78,7 +78,7 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
           workshop: row.workshop || "Authorized Workshop",
           odometer: Number(row.odometer || 0),
           notes: row.notes || "",
-        }))
+        })),
       );
     }
     setLoading(false);
@@ -177,7 +177,9 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
           <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <IndianRupee className="h-4 w-4 text-emerald-500" /> Total Maintenance Cost
           </div>
-          <p className="font-display text-2xl font-bold mt-1 text-foreground">{currency(totalMaintenanceSpent)}</p>
+          <p className="font-display text-2xl font-bold mt-1 text-foreground">
+            {currency(totalMaintenanceSpent)}
+          </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">Tax deductible fleet expense</p>
         </Card>
 
@@ -196,7 +198,9 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
           <h3 className="font-semibold text-base flex items-center gap-2">
             <Wrench className="h-4 w-4 text-brand" /> Vehicle Service History & Health Log
           </h3>
-          <p className="text-xs text-muted-foreground">Keep an accurate log of oil changes, brake pads, and repairs.</p>
+          <p className="text-xs text-muted-foreground">
+            Keep an accurate log of oil changes, brake pads, and repairs.
+          </p>
         </div>
         <Button size="sm" onClick={() => setShowAddForm(!showAddForm)} className="text-xs">
           <Plus className="mr-1 h-3.5 w-3.5" /> {showAddForm ? "Cancel" : "Add Service Entry"}
@@ -208,7 +212,9 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
         <Card className="border-brand/40 bg-brand/5">
           <CardHeader>
             <CardTitle className="text-sm">Log New Vehicle Service</CardTitle>
-            <CardDescription className="text-xs">Enter workshop invoice details to keep vehicle records updated.</CardDescription>
+            <CardDescription className="text-xs">
+              Enter workshop invoice details to keep vehicle records updated.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAddLog} className="space-y-4">
@@ -301,7 +307,13 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)} className="text-xs">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddForm(false)}
+                  className="text-xs"
+                >
                   Cancel
                 </Button>
                 <Button type="submit" size="sm" className="text-xs" disabled={submitting}>
@@ -331,7 +343,8 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
                     <span className="font-semibold text-xs text-foreground">{log.serviceType}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Workshop: <span className="font-medium text-foreground">{log.workshop}</span> · Odometer: {log.odometer.toLocaleString()} km
+                    Workshop: <span className="font-medium text-foreground">{log.workshop}</span> ·
+                    Odometer: {log.odometer.toLocaleString()} km
                   </p>
                   {log.notes && (
                     <p className="text-xs text-foreground bg-muted/40 p-2 rounded-md mt-1">
@@ -345,7 +358,9 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="font-display text-sm font-bold text-foreground">{currency(log.cost)}</p>
+                    <p className="font-display text-sm font-bold text-foreground">
+                      {currency(log.cost)}
+                    </p>
                     <p className="text-[10px] text-muted-foreground">Paid</p>
                   </div>
                   <Button

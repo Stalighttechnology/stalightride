@@ -181,8 +181,17 @@ function VendorDashboard() {
     if (!user) return;
     const [{ data: vend }, { data: vhs }, { data: bks }] = await Promise.all([
       api.from("vendors").select("*").eq("id", user.id).maybeSingle(),
-      api.from("vehicles").select("*, vehicle_images(url,sort_order)").eq("vendor_id", user.id).order("created_at", { ascending: false }),
-      api.from("bookings").select("*, vehicles(title)").eq("vendor_id", user.id).order("created_at", { ascending: false }).limit(50),
+      api
+        .from("vehicles")
+        .select("*, vehicle_images(url,sort_order)")
+        .eq("vendor_id", user.id)
+        .order("created_at", { ascending: false }),
+      api
+        .from("bookings")
+        .select("*, vehicles(title)")
+        .eq("vendor_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
     ]);
     setVendor(vend);
     const storeKey = user ? `synchoo_deleted_vehicles_${user.id}` : "";
@@ -195,7 +204,10 @@ function VendorDashboard() {
     const filteredVehicles = (vhs ?? []).filter((item: any) => !deletedIds.includes(item.id));
     setVehicles(filteredVehicles);
     setBookings(bks ?? []);
-    if (vend) { setBusinessName(vend.business_name); setBio(vend.bio ?? ""); }
+    if (vend) {
+      setBusinessName(vend.business_name);
+      setBio(vend.bio ?? "");
+    }
 
     // Withdrawals (money phase 1 — admin-approved payouts)
     const { data: pts } = await api
@@ -219,7 +231,9 @@ function VendorDashboard() {
     }
   };
 
-  useEffect(() => { load(); }, [user?.id]);
+  useEffect(() => {
+    load();
+  }, [user?.id]);
 
   const saveVendor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,7 +243,9 @@ function VendorDashboard() {
     const { error } = await api.from("vendors").upsert(payload);
     if (error) toast.error(error.message);
     else {
-      await api.from("user_roles").upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
+      await api
+        .from("user_roles")
+        .upsert({ user_id: user.id, role: "vendor" as const }, { onConflict: "user_id,role" });
       toast.success("Host profile saved successfully!");
       setShowProfileForm(false);
       load();
@@ -253,9 +269,7 @@ function VendorDashboard() {
         return;
       }
       // Optimistically update UI
-      setBookings((prev) =>
-        prev ? prev.map((b) => (b.id === id ? { ...b, status } : b)) : prev,
-      );
+      setBookings((prev) => (prev ? prev.map((b) => (b.id === id ? { ...b, status } : b)) : prev));
       const { error } = await api.from("bookings").update({ status }).eq("id", id);
       if (error) throw error;
       toast.success(
@@ -292,7 +306,9 @@ function VendorDashboard() {
       if (bErr) throw bErr;
 
       if (activeBookings && activeBookings.length > 0) {
-        toast.error("Cannot delete vehicle with active or upcoming reservations. Please complete or cancel them first.");
+        toast.error(
+          "Cannot delete vehicle with active or upcoming reservations. Please complete or cancel them first.",
+        );
         return;
       }
 
@@ -381,7 +397,9 @@ function VendorDashboard() {
   const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
     ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
-    : isDemo ? 4.9 : 0;
+    : isDemo
+      ? 4.9
+      : 0;
 
   const pendingCount = displayBookings.filter((b: any) => b.status === "pending").length;
 
@@ -398,7 +416,12 @@ function VendorDashboard() {
     { id: "payouts", label: "Payouts & Income", icon: Wallet },
     { id: "maintenance", label: "Fleet Health", icon: Wrench },
     { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(displayReviews.length) },
-    { id: "kyc", label: "Host Verification", icon: ShieldCheck, badge: displayVendor.kyc_status === "approved" ? "Verified" : "Pending" },
+    {
+      id: "kyc",
+      label: "Host Verification",
+      icon: ShieldCheck,
+      badge: displayVendor.kyc_status === "approved" ? "Verified" : "Pending",
+    },
   ] as const;
 
   return (
@@ -416,7 +439,8 @@ function VendorDashboard() {
                   Host Dashboard Demo Mode Active
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Explore how fleet management, live availability, payouts, and bookings work. Click below to register your own listings.
+                  Explore how fleet management, live availability, payouts, and bookings work. Click
+                  below to register your own listings.
                 </p>
               </div>
             </div>
@@ -436,7 +460,9 @@ function VendorDashboard() {
           <Card className="border-brand/40 shadow-md">
             <CardHeader>
               <CardTitle className="text-base">Set Up Your Synchoo Host Profile</CardTitle>
-              <CardDescription>Enter your business or display name to begin publishing vehicle listings.</CardDescription>
+              <CardDescription>
+                Enter your business or display name to begin publishing vehicle listings.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveVendor} className="space-y-4 max-w-xl">
@@ -462,7 +488,12 @@ function VendorDashboard() {
                   <Button type="submit" disabled={saving} size="sm">
                     {saving ? "Saving…" : "Save Live Host Profile"}
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowProfileForm(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowProfileForm(false)}
+                  >
                     Cancel
                   </Button>
                 </div>
@@ -479,7 +510,10 @@ function VendorDashboard() {
                 <LayoutDashboard className="mr-1 h-3.5 w-3.5" /> Host Console
               </Badge>
               {displayVendor.kyc_status === "approved" ? (
-                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                <Badge
+                  variant="secondary"
+                  className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                >
                   <ShieldCheck className="mr-1 h-3 w-3" /> Verified Host
                 </Badge>
               ) : (
@@ -492,7 +526,8 @@ function VendorDashboard() {
               {displayVendor.business_name}
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Manage your fleet, view real-time trip handovers, track earnings, and maintain vehicle health.
+              Manage your fleet, view real-time trip handovers, track earnings, and maintain vehicle
+              health.
             </p>
           </div>
 
@@ -502,7 +537,11 @@ function VendorDashboard() {
                 <ScanLine className="mr-1.5 h-4 w-4" /> Scan QR Handover
               </Link>
             </Button>
-            <Button asChild size="sm" className="rounded-xl bg-brand text-brand-foreground hover:bg-brand/90">
+            <Button
+              asChild
+              size="sm"
+              className="rounded-xl bg-brand text-brand-foreground hover:bg-brand/90"
+            >
               <Link to="/vendor/vehicles/new">
                 <Plus className="mr-1.5 h-4 w-4" /> Add Vehicle
               </Link>
@@ -536,7 +575,10 @@ function VendorDashboard() {
               </Card>
 
               {/* Sidebar Navigation */}
-              <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0" aria-label="Host navigation">
+              <nav
+                className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0"
+                aria-label="Host navigation"
+              >
                 {sidebarNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
@@ -551,7 +593,9 @@ function VendorDashboard() {
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`} />
+                        <Icon
+                          className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`}
+                        />
                         <span className="truncate">{item.label}</span>
                       </div>
                       {"badge" in item && (
@@ -575,12 +619,22 @@ function VendorDashboard() {
 
               {/* Quick Actions in Sidebar */}
               <div className="hidden lg:grid gap-2 pt-2 border-t border-border/60">
-                <Button asChild variant="outline" size="sm" className="w-full justify-start text-xs">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                >
                   <Link to="/vendor/vehicles/new">
                     <Plus className="mr-2 h-3.5 w-3.5 text-brand" /> Add New Vehicle
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="sm" className="w-full justify-start text-xs">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                >
                   <Link to="/scan">
                     <ScanLine className="mr-2 h-3.5 w-3.5 text-brand" /> Scan QR Handover
                   </Link>
@@ -602,10 +656,12 @@ function VendorDashboard() {
                       </div>
                       <div>
                         <p className="font-semibold text-sm">
-                          {pendingCount} requested ride{pendingCount === 1 ? "" : "s"} awaiting your approval
+                          {pendingCount} requested ride{pendingCount === 1 ? "" : "s"} awaiting your
+                          approval
                         </p>
                         <p className="text-xs opacity-90">
-                          Review and approve incoming reservations so guests can complete their payment.
+                          Review and approve incoming reservations so guests can complete their
+                          payment.
                         </p>
                       </div>
                     </div>
@@ -631,7 +687,9 @@ function VendorDashboard() {
                       <CardTitle className="text-base flex items-center gap-2">
                         <Car className="h-4 w-4 text-brand" /> Your Listed Vehicles
                       </CardTitle>
-                      <CardDescription>Live status, daily rental pricing, and guest booking links</CardDescription>
+                      <CardDescription>
+                        Live status, daily rental pricing, and guest booking links
+                      </CardDescription>
                     </div>
                     <Button asChild size="sm">
                       <Link to="/vendor/vehicles/new">
@@ -661,10 +719,14 @@ function VendorDashboard() {
                       <AlertDialogDescription className="space-y-2">
                         <p>
                           Are you sure you want to delete{" "}
-                          <span className="font-semibold text-foreground">{vehicleToDelete?.title}</span>?
+                          <span className="font-semibold text-foreground">
+                            {vehicleToDelete?.title}
+                          </span>
+                          ?
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          This will permanently delete this vehicle from your fleet, including all uploaded photos and specifications. This action cannot be undone.
+                          This will permanently delete this vehicle from your fleet, including all
+                          uploaded photos and specifications. This action cannot be undone.
                         </p>
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -694,12 +756,17 @@ function VendorDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-brand" /> Fleet Availability & Blackout Dates
+                      <Calendar className="h-4 w-4 text-brand" /> Fleet Availability & Blackout
+                      Dates
                     </CardTitle>
-                    <CardDescription>Block off dates for maintenance or personal use</CardDescription>
+                    <CardDescription>
+                      Block off dates for maintenance or personal use
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <AvailabilityCalendar vehicles={displayVehicles.map((v: any) => ({ id: v.id, title: v.title }))} />
+                    <AvailabilityCalendar
+                      vehicles={displayVehicles.map((v: any) => ({ id: v.id, title: v.title }))}
+                    />
                   </CardContent>
                 </Card>
               </div>
@@ -713,7 +780,9 @@ function VendorDashboard() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <BarChart3 className="h-4 w-4 text-brand" /> Host Revenue & Performance
                     </CardTitle>
-                    <CardDescription>Monthly bookings breakdown, revenue progression, and ratings</CardDescription>
+                    <CardDescription>
+                      Monthly bookings breakdown, revenue progression, and ratings
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <HostAnalytics bookings={displayBookings} avgRating={avgRating} />
@@ -729,13 +798,19 @@ function VendorDashboard() {
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <ClipboardList className="h-4 w-4 text-brand" /> Rental Bookings & Guest Activity
+                        <ClipboardList className="h-4 w-4 text-brand" /> Rental Bookings & Guest
+                        Activity
                       </CardTitle>
-                      <CardDescription>Recent reservations, trip windows, and payment statuses</CardDescription>
+                      <CardDescription>
+                        Recent reservations, trip windows, and payment statuses
+                      </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
                       {pendingCount > 0 && (
-                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300">
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-500/10 text-amber-700 border-amber-300"
+                        >
                           {pendingCount} Pending
                         </Badge>
                       )}
@@ -748,7 +823,9 @@ function VendorDashboard() {
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
                           <span>
-                            You have <strong>{pendingCount}</strong> requested ride{pendingCount === 1 ? "" : "s"} waiting for your approval. Guests can pay once you approve.
+                            You have <strong>{pendingCount}</strong> requested ride
+                            {pendingCount === 1 ? "" : "s"} waiting for your approval. Guests can
+                            pay once you approve.
                           </span>
                         </div>
                       </div>
@@ -769,9 +846,14 @@ function VendorDashboard() {
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                  <p className="truncate text-sm font-semibold">{b.vehicles?.title ?? "Vehicle"}</p>
+                                  <p className="truncate text-sm font-semibold">
+                                    {b.vehicles?.title ?? "Vehicle"}
+                                  </p>
                                   {isPending && (
-                                    <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium"
+                                    >
                                       Needs approval
                                     </Badge>
                                   )}
@@ -780,7 +862,8 @@ function VendorDashboard() {
                                   {b.start_date} → {b.end_date}
                                   {b.pickup_time && b.dropoff_time && (
                                     <span className="ml-1.5 opacity-80">
-                                      ({String(b.pickup_time).slice(0, 5)} - {String(b.dropoff_time).slice(0, 5)})
+                                      ({String(b.pickup_time).slice(0, 5)} -{" "}
+                                      {String(b.dropoff_time).slice(0, 5)})
                                     </span>
                                   )}
                                 </p>
@@ -788,30 +871,35 @@ function VendorDashboard() {
 
                               <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
                                 <div className="text-left sm:text-right">
-                                  <p className="text-sm font-bold text-foreground">{currency(b.total_price)}</p>
+                                  <p className="text-sm font-bold text-foreground">
+                                    {currency(b.total_price)}
+                                  </p>
                                   <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                                     <Badge
                                       variant={
                                         b.status === "confirmed"
                                           ? "default"
                                           : b.status === "completed"
-                                          ? "secondary"
-                                          : b.status === "rejected" || b.status === "cancelled"
-                                          ? "destructive"
-                                          : "outline"
+                                            ? "secondary"
+                                            : b.status === "rejected" || b.status === "cancelled"
+                                              ? "destructive"
+                                              : "outline"
                                       }
                                       className={`text-[10px] capitalize ${
                                         b.status === "confirmed"
                                           ? "bg-emerald-50 text-emerald-700 border-emerald-300"
                                           : b.status === "pending"
-                                          ? "bg-amber-50 text-amber-700 border-amber-300"
-                                          : ""
+                                            ? "bg-amber-50 text-amber-700 border-amber-300"
+                                            : ""
                                       }`}
                                     >
                                       {b.status}
                                     </Badge>
                                     {b.payment_status === "paid" && (
-                                      <Badge variant="secondary" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300"
+                                      >
                                         Paid
                                       </Badge>
                                     )}
@@ -861,24 +949,46 @@ function VendorDashboard() {
                       <Wallet className="h-4 w-4 text-brand" /> Withdrawals
                     </CardTitle>
                     <CardDescription>
-                      Earnings are credited to your wallet when each trip completes. Withdraw them from the{" "}
-                      <Link to="/wallet" className="underline">Wallet</Link>.
+                      Earnings are credited to your wallet when each trip completes. Withdraw them
+                      from the{" "}
+                      <Link to="/wallet" className="underline">
+                        Wallet
+                      </Link>
+                      .
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {displayPayouts.length === 0 && <p className="text-sm text-muted-foreground">No withdrawals yet.</p>}
+                    {displayPayouts.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No withdrawals yet.</p>
+                    )}
                     <ul className="divide-y divide-border">
                       {displayPayouts.map((p: any) => (
-                        <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5">
+                        <li
+                          key={p.id}
+                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3.5"
+                        >
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-emerald-600">{currency(p.amount)}</p>
+                            <p className="text-sm font-bold text-emerald-600">
+                              {currency(p.amount)}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               {new Date(p.created_at).toLocaleDateString()}
                               {p.method && ` · ${p.method === "upi" ? p.upi_id : "Bank transfer"}`}
                               {p.reference && ` · Ref ${p.reference}`}
                             </p>
                           </div>
-                          <Badge variant={p.status === "paid" ? "secondary" : p.status === "rejected" ? "destructive" : "outline"} className="text-[10px]">{p.status}</Badge>
+                          <Badge
+                            variant={
+                              p.status === "paid"
+                                ? "secondary"
+                                : p.status === "rejected"
+                                  ? "destructive"
+                                  : "outline"
+                            }
+                            className="text-[10px]"
+                          >
+                            {p.status}
+                          </Badge>
                         </li>
                       ))}
                     </ul>
@@ -895,7 +1005,9 @@ function VendorDashboard() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-brand" /> Fleet Maintenance & Document Health
                     </CardTitle>
-                    <CardDescription>Track insurance, fitness, permit expiry dates and service logs</CardDescription>
+                    <CardDescription>
+                      Track insurance, fitness, permit expiry dates and service logs
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <VendorMaintenanceTab vehicles={displayVehicles} />
@@ -911,9 +1023,12 @@ function VendorDashboard() {
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Star className="h-4 w-4 text-amber-500 fill-amber-400" /> Renter Reviews & Ratings
+                        <Star className="h-4 w-4 text-amber-500 fill-amber-400" /> Renter Reviews &
+                        Ratings
                       </CardTitle>
-                      <CardDescription>Customer feedback on vehicle cleanliness, performance, and communication</CardDescription>
+                      <CardDescription>
+                        Customer feedback on vehicle cleanliness, performance, and communication
+                      </CardDescription>
                     </div>
                     <Badge variant="secondary" className="text-amber-700 bg-amber-50">
                       ⭐ {avgRating.toFixed(1)} Average
@@ -922,8 +1037,13 @@ function VendorDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {displayReviews.map((r: any) => (
-                        <div key={r.id} className="p-3.5 rounded-xl border border-border bg-card space-y-1.5">
-                          <p className="text-xs font-semibold text-foreground">{(r.vehicles as any)?.title}</p>
+                        <div
+                          key={r.id}
+                          className="p-3.5 rounded-xl border border-border bg-card space-y-1.5"
+                        >
+                          <p className="text-xs font-semibold text-foreground">
+                            {(r.vehicles as any)?.title}
+                          </p>
                           <div className="flex items-center gap-1">
                             {Array.from({ length: 5 }).map((_, i) => (
                               <Star
@@ -933,8 +1053,12 @@ function VendorDashboard() {
                             ))}
                             <span className="ml-1 text-xs font-semibold">{r.rating}</span>
                           </div>
-                          {r.comment && <p className="text-xs text-muted-foreground">{r.comment}</p>}
-                          <p className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</p>
+                          {r.comment && (
+                            <p className="text-xs text-muted-foreground">{r.comment}</p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -949,12 +1073,19 @@ function VendorDashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-brand" /> Host Identity & KYC Verification
+                      <ShieldCheck className="h-4 w-4 text-brand" /> Host Identity & KYC
+                      Verification
                     </CardTitle>
-                    <CardDescription>Verified hosts enjoy priority search ranking and instant payout approval</CardDescription>
+                    <CardDescription>
+                      Verified hosts enjoy priority search ranking and instant payout approval
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <KycCard vendor={displayVendor} userId={user?.id || "demo-host"} onDone={load} />
+                    <KycCard
+                      vendor={displayVendor}
+                      userId={user?.id || "demo-host"}
+                      onDone={load}
+                    />
                   </CardContent>
                 </Card>
               </div>
@@ -1018,10 +1149,15 @@ function VehiclesGrid({
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {vehicles.map((v) => {
-        const img = v.vehicle_images?.slice().sort((a: any, b: any) => a.sort_order - b.sort_order)[0];
+        const img = v.vehicle_images
+          ?.slice()
+          .sort((a: any, b: any) => a.sort_order - b.sort_order)[0];
         const url = img ? urls[img.url] : null;
         return (
-          <Card key={v.id} className="overflow-hidden group hover:border-brand/40 transition-colors flex flex-col justify-between">
+          <Card
+            key={v.id}
+            className="overflow-hidden group hover:border-brand/40 transition-colors flex flex-col justify-between"
+          >
             <div className="relative aspect-[16/9] overflow-hidden bg-muted">
               {url ? (
                 <img
@@ -1040,7 +1176,9 @@ function VehiclesGrid({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold text-foreground">{v.title}</div>
-                    <div className="truncate text-xs text-muted-foreground">{v.city || "Operating city unassigned"}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {v.city || "Operating city unassigned"}
+                    </div>
                   </div>
                   <Badge
                     variant={
@@ -1064,11 +1202,18 @@ function VehiclesGrid({
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-sm">
                 <div className="min-w-0">
-                  <span className="font-semibold text-foreground text-sm sm:text-base">{currency(v.price_daily)}</span>
+                  <span className="font-semibold text-foreground text-sm sm:text-base">
+                    {currency(v.price_daily)}
+                  </span>
                   <span className="text-xs text-muted-foreground"> / day</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs rounded-lg">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs rounded-lg"
+                  >
                     <Link to="/vehicle/$id" params={{ id: v.id }}>
                       <Eye className="mr-1 h-3.5 w-3.5" /> View
                     </Link>
@@ -1103,9 +1248,17 @@ function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDo
   const upload = async (file: File) => {
     setUploading(true);
     const path = `${userId}/id-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-    const { error: upErr } = await api.storage.from("kyc-docs").upload(path, file, { upsert: true });
-    if (upErr) { setUploading(false); return toast.error(upErr.message); }
-    const { error } = await api.from("vendors").update({ id_document_url: path, kyc_status: "pending" } as any).eq("id", userId);
+    const { error: upErr } = await api.storage
+      .from("kyc-docs")
+      .upload(path, file, { upsert: true });
+    if (upErr) {
+      setUploading(false);
+      return toast.error(upErr.message);
+    }
+    const { error } = await api
+      .from("vendors")
+      .update({ id_document_url: path, kyc_status: "pending" } as any)
+      .eq("id", userId);
     setUploading(false);
     if (error) return toast.error(error.message);
     toast.success("Document submitted for verification");
@@ -1118,7 +1271,9 @@ function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDo
         <ShieldCheck className="h-5 w-5 text-emerald-500" />
         <div>
           <p className="text-sm font-medium">Verified host</p>
-          <p className="text-xs text-muted-foreground">Your identity has been approved by our team.</p>
+          <p className="text-xs text-muted-foreground">
+            Your identity has been approved by our team.
+          </p>
         </div>
       </div>
     );
@@ -1138,7 +1293,11 @@ function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDo
                 ? "Our team is reviewing your document. Listings stay in draft until approval."
                 : "Upload a government ID (Aadhaar / passport / driving licence) to get verified."}
             </p>
-            {status === "rejected" && <p className="text-xs text-destructive">Rejected — please upload a clearer document.</p>}
+            {status === "rejected" && (
+              <p className="text-xs text-destructive">
+                Rejected — please upload a clearer document.
+              </p>
+            )}
           </div>
         </div>
         {status !== "pending" && (
@@ -1147,7 +1306,10 @@ function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDo
               type="file"
               accept="image/*,application/pdf"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) upload(f);
+              }}
             />
             <span className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
               {uploading ? "Uploading…" : "Upload ID"}

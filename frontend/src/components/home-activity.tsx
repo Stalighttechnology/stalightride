@@ -50,7 +50,9 @@ export function HomeActivity() {
           .limit(3),
         api
           .from("driver_bookings")
-          .select("id, start_date, end_date, status, payment_status, total_price, drivers(full_name)")
+          .select(
+            "id, start_date, end_date, status, payment_status, total_price, drivers(full_name)",
+          )
           .eq("customer_id", user.id)
           .order("created_at", { ascending: false })
           .limit(3),
@@ -120,10 +122,12 @@ export function HomeActivity() {
       <section className="cv-auto border-b border-border py-12 sm:py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="glass glow-border p-6 sm:p-8">
-            <h2 className="font-display text-2xl font-bold sm:text-3xl">Your bookings, all in one place</h2>
+            <h2 className="font-display text-2xl font-bold sm:text-3xl">
+              Your bookings, all in one place
+            </h2>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              Sign in to see your rentals, driver hires and wash slots, track live trips, download bills and pay from your
-              Synchoo wallet.
+              Sign in to see your rentals, driver hires and wash slots, track live trips, download
+              bills and pay from your Synchoo wallet.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <Button asChild className="btn-gradient">
@@ -139,14 +143,15 @@ export function HomeActivity() {
     );
   }
 
-
   return (
     <section className="cv-auto border-b border-border py-12 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <h2 className="font-display text-2xl font-bold sm:text-3xl">Your bookings</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Recent rentals, driver hires and wash slots.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Recent rentals, driver hires and wash slots.
+            </p>
           </div>
           <Link
             to="/wallet"
@@ -185,7 +190,9 @@ export function HomeActivity() {
                       <div className="truncate font-semibold">{it.title}</div>
                       <div className="truncate text-xs text-muted-foreground">{it.when}</div>
                     </div>
-                    <span className="font-display text-base font-bold sm:text-lg">{currency(it.total)}</span>
+                    <span className="font-display text-base font-bold sm:text-lg">
+                      {currency(it.total)}
+                    </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
                     <StatusBadge s={it.status} />
@@ -197,7 +204,15 @@ export function HomeActivity() {
                         <Button asChild size="sm" variant="ghost">
                           <Link
                             to="/receipt/$kind/$id"
-                            params={{ kind: it.kind === "rental" ? "vehicle" : it.kind === "hire" ? "driver" : "wash", id: it.id }}
+                            params={{
+                              kind:
+                                it.kind === "rental"
+                                  ? "vehicle"
+                                  : it.kind === "hire"
+                                    ? "driver"
+                                    : "wash",
+                              id: it.id,
+                            }}
                           >
                             <ReceiptText className="h-4 w-4" aria-hidden />
                             <span className="sr-only">Receipt</span>
@@ -215,4 +230,3 @@ export function HomeActivity() {
     </section>
   );
 }
-

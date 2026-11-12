@@ -21,7 +21,11 @@ export const Route = createFileRoute("/_authenticated/pooling/new")({
   head: () => ({
     meta: [
       { title: "Offer a car pooling ride — Synchoo" },
-      { name: "description", content: "Publish your route, seats and fare per passenger, then approve the riders you want to travel with." },
+      {
+        name: "description",
+        content:
+          "Publish your route, seats and fare per passenger, then approve the riders you want to travel with.",
+      },
       { property: "og:title", content: "Offer a car pooling ride — Synchoo" },
       { property: "og:description", content: "Share your route and fill empty seats on Synchoo." },
       { property: "og:type", content: "website" },
@@ -59,7 +63,9 @@ function NewPoolTrip() {
     origin.lat != null && dest.lat != null
       ? [
           { lat: origin.lat, lng: origin.lng! },
-          ...stops.filter((s) => s.point.lat != null).map((s) => ({ lat: s.point.lat!, lng: s.point.lng! })),
+          ...stops
+            .filter((s) => s.point.lat != null)
+            .map((s) => ({ lat: s.point.lat!, lng: s.point.lng! })),
           { lat: dest.lat, lng: dest.lng! },
         ].reduce((sum, p, i, arr) => (i === 0 ? 0 : sum + haversineKm(arr[i - 1]!, p)), 0)
       : null;
@@ -67,11 +73,14 @@ function NewPoolTrip() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!originLabel.trim() || origin.lat == null) return toast.error("Pick your starting point on the map");
-    if (!destLabel.trim() || dest.lat == null) return toast.error("Pick your destination on the map");
+    if (!originLabel.trim() || origin.lat == null)
+      return toast.error("Pick your starting point on the map");
+    if (!destLabel.trim() || dest.lat == null)
+      return toast.error("Pick your destination on the map");
     if (!vehicleLabel.trim()) return toast.error("Tell riders which vehicle you'll drive");
     if (!departAt) return toast.error("Choose a departure date and time");
-    if (new Date(departAt).getTime() <= Date.now()) return toast.error("Departure must be in the future");
+    if (new Date(departAt).getTime() <= Date.now())
+      return toast.error("Departure must be in the future");
     if (seats < 1 || seats > 8) return toast.error("Seats must be between 1 and 8");
     if (Number(fare) < 0) return toast.error("Fare cannot be negative");
 
@@ -105,10 +114,16 @@ function NewPoolTrip() {
       <SiteHeader />
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <Button asChild variant="ghost" size="sm" className="mb-3 rounded-full">
-          <Link to="/pooling"><ArrowLeft className="mr-1.5 h-4 w-4" /> Back to pooling</Link>
+          <Link to="/pooling">
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to pooling
+          </Link>
         </Button>
-        <Badge variant="secondary" className="rounded-full">Car pooling</Badge>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">Offer a ride on your route</h1>
+        <Badge variant="secondary" className="rounded-full">
+          Car pooling
+        </Badge>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">
+          Offer a ride on your route
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Add waypoints so riders travelling part of your route can match with you.
         </p>
@@ -121,7 +136,10 @@ function NewPoolTrip() {
                 <MapPicker
                   value={origin}
                   address={originLabel}
-                  onChange={(v) => { setOrigin({ lat: v.lat, lng: v.lng }); if (v.address) setOriginLabel(v.address); }}
+                  onChange={(v) => {
+                    setOrigin({ lat: v.lat, lng: v.lng });
+                    if (v.address) setOriginLabel(v.address);
+                  }}
                   onAddressChange={setOriginLabel}
                   mapHeight="h-44"
                 />
@@ -131,7 +149,10 @@ function NewPoolTrip() {
                 <MapPicker
                   value={dest}
                   address={destLabel}
-                  onChange={(v) => { setDest({ lat: v.lat, lng: v.lng }); if (v.address) setDestLabel(v.address); }}
+                  onChange={(v) => {
+                    setDest({ lat: v.lat, lng: v.lng });
+                    if (v.address) setDestLabel(v.address);
+                  }}
                   onAddressChange={setDestLabel}
                   mapHeight="h-44"
                 />
@@ -143,20 +164,38 @@ function NewPoolTrip() {
             <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <Label className="flex items-center gap-2"><RouteIcon className="h-4 w-4" /> Route waypoints</Label>
-                  <p className="text-xs text-muted-foreground">Optional — towns or highway stops you pass through.</p>
+                  <Label className="flex items-center gap-2">
+                    <RouteIcon className="h-4 w-4" /> Route waypoints
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Optional — towns or highway stops you pass through.
+                  </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="rounded-full"
-                  onClick={() => setStops((s) => [...s, { label: "", point: { lat: null, lng: null } }])}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() =>
+                    setStops((s) => [...s, { label: "", point: { lat: null, lng: null } }])
+                  }
+                >
                   <Plus className="mr-1.5 h-4 w-4" /> Add waypoint
                 </Button>
               </div>
               {stops.map((stop, i) => (
                 <div key={i} className="rounded-xl border border-border p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">Waypoint {i + 1}</span>
-                    <Button type="button" variant="ghost" size="sm" className="rounded-full"
-                      onClick={() => setStops((s) => s.filter((_, x) => x !== i))}>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Waypoint {i + 1}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setStops((s) => s.filter((_, x) => x !== i))}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -164,15 +203,25 @@ function NewPoolTrip() {
                     value={stop.point}
                     address={stop.label}
                     onChange={(v) =>
-                      setStops((s) => s.map((x, idx) => (idx === i ? { label: v.address ?? x.label, point: { lat: v.lat, lng: v.lng } } : x)))
+                      setStops((s) =>
+                        s.map((x, idx) =>
+                          idx === i
+                            ? { label: v.address ?? x.label, point: { lat: v.lat, lng: v.lng } }
+                            : x,
+                        ),
+                      )
                     }
-                    onAddressChange={(label) => setStops((s) => s.map((x, idx) => (idx === i ? { ...x, label } : x)))}
+                    onAddressChange={(label) =>
+                      setStops((s) => s.map((x, idx) => (idx === i ? { ...x, label } : x)))
+                    }
                     mapHeight="h-40"
                   />
                 </div>
               ))}
               {distanceKm != null && (
-                <p className="text-xs text-muted-foreground">Approx route length: {distanceKm.toFixed(0)} km</p>
+                <p className="text-xs text-muted-foreground">
+                  Approx route length: {distanceKm.toFixed(0)} km
+                </p>
               )}
             </CardContent>
           </Card>
@@ -182,27 +231,61 @@ function NewPoolTrip() {
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="depart">Departure date & time</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <DatePicker value={departDate} onChange={setDepartDate} minDate={new Date()} placeholder="dd-mm-yyyy" />
-                  <TimePicker value={departTime} onChange={setDepartTime} placeholder="Departure time" />
+                  <DatePicker
+                    value={departDate}
+                    onChange={setDepartDate}
+                    minDate={new Date()}
+                    placeholder="dd-mm-yyyy"
+                  />
+                  <TimePicker
+                    value={departTime}
+                    onChange={setDepartTime}
+                    placeholder="Departure time"
+                  />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="vehicle">Vehicle</Label>
-                <Input id="vehicle" value={vehicleLabel} onChange={(e) => setVehicleLabel(e.target.value)} placeholder="Hyundai Creta · White" />
+                <Input
+                  id="vehicle"
+                  value={vehicleLabel}
+                  onChange={(e) => setVehicleLabel(e.target.value)}
+                  placeholder="Hyundai Creta · White"
+                />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="seats" className="flex items-center gap-2"><Users className="h-4 w-4" /> Seats offered</Label>
-                <Input id="seats" type="number" min={1} max={8} value={seats}
-                  onChange={(e) => setSeats(Math.max(1, Math.min(8, Number(e.target.value) || 1)))} />
+                <Label htmlFor="seats" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Seats offered
+                </Label>
+                <Input
+                  id="seats"
+                  type="number"
+                  min={1}
+                  max={8}
+                  value={seats}
+                  onChange={(e) => setSeats(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="fare">Fare per passenger (₹)</Label>
-                <Input id="fare" type="number" min={0} step={10} value={fare} onChange={(e) => setFare(Number(e.target.value))} />
+                <Input
+                  id="fare"
+                  type="number"
+                  min={0}
+                  step={10}
+                  value={fare}
+                  onChange={(e) => setFare(Number(e.target.value))}
+                />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="notes">Notes for riders</Label>
-                <Textarea id="notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Boot space for one bag each, no smoking." />
+                <Textarea
+                  id="notes"
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Boot space for one bag each, no smoking."
+                />
               </div>
             </CardContent>
           </Card>

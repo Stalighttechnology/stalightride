@@ -67,7 +67,10 @@ export function NotificationBell({ className }: { className?: string }) {
 
   /* ── Load DB notifications ── */
   useEffect(() => {
-    if (!user) { setItems([]); return; }
+    if (!user) {
+      setItems([]);
+      return;
+    }
     let cancelled = false;
 
     (async () => {
@@ -84,18 +87,25 @@ export function NotificationBell({ className }: { className?: string }) {
       .channel(`notifications:${user.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
         (payload: any) => setItems((prev) => [payload.new as Notification, ...prev].slice(0, 25)),
       )
       .subscribe();
 
-    return () => { cancelled = true; api.removeChannel(channel); };
+    return () => {
+      cancelled = true;
+      api.removeChannel(channel);
+    };
   }, [user?.id]);
-
 
   /* ── Merge & sort ── */
   const allItems = [...items].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
   const unread = allItems.filter((n) => !n.read).length;
 
@@ -118,7 +128,12 @@ export function NotificationBell({ className }: { className?: string }) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className={`relative rounded-full ${className ?? ""}`} aria-label="Notifications">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`relative rounded-full ${className ?? ""}`}
+          aria-label="Notifications"
+        >
           <Bell className="h-[18px] w-[18px]" />
           {unread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground">
@@ -131,25 +146,37 @@ export function NotificationBell({ className }: { className?: string }) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <p className="font-display text-sm font-semibold">Notifications</p>
           {unread > 0 && (
-            <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <CheckCheck className="h-3.5 w-3.5" />Mark all read
+            <button
+              onClick={markAllRead}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              Mark all read
             </button>
           )}
         </div>
         <div className="max-h-[60vh] overflow-y-auto">
           {allItems.length === 0 && (
-            <p className="px-4 py-8 text-center text-sm text-muted-foreground">You're all caught up.</p>
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              You're all caught up.
+            </p>
           )}
           {allItems.map((n) => {
             const inner = (
-              <div className={`flex gap-3 px-4 py-3 transition-colors hover:bg-muted/60 ${n.read ? "" : "bg-brand/5"}`}>
+              <div
+                className={`flex gap-3 px-4 py-3 transition-colors hover:bg-muted/60 ${n.read ? "" : "bg-brand/5"}`}
+              >
                 <span className="mt-1.5 shrink-0">
-                  <span className={`block h-2 w-2 rounded-full ${n.read ? "bg-border" : "bg-brand"}`} />
+                  <span
+                    className={`block h-2 w-2 rounded-full ${n.read ? "bg-border" : "bg-brand"}`}
+                  />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{n.title}</p>
                   {n.body && <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>}
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">{timeAgo(n.created_at)}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {timeAgo(n.created_at)}
+                  </p>
                 </div>
               </div>
             );

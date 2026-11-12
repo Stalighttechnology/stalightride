@@ -12,16 +12,34 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
-import { Users, CalendarClock, MapPin, PlusCircle, Check, X, CircleSlash, Flag, Star, AlertTriangle } from "lucide-react";
+import {
+  Users,
+  CalendarClock,
+  MapPin,
+  PlusCircle,
+  Check,
+  X,
+  CircleSlash,
+  Flag,
+  Star,
+  AlertTriangle,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pooling/driver")({
   component: PoolDriver,
   head: () => ({
     meta: [
       { title: "My pooling trips — Synchoo" },
-      { name: "description", content: "Manage the car pooling trips you offer: approve or decline riders, track seats and close the trip." },
+      {
+        name: "description",
+        content:
+          "Manage the car pooling trips you offer: approve or decline riders, track seats and close the trip.",
+      },
       { property: "og:title", content: "My pooling trips — Synchoo" },
-      { property: "og:description", content: "Approve riders and manage seats on your pooling trips." },
+      {
+        property: "og:description",
+        content: "Approve riders and manage seats on your pooling trips.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -45,7 +63,12 @@ const LABEL: Record<string, string> = {
 };
 
 function whenLabel(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function PoolDriver() {
@@ -90,11 +113,16 @@ function PoolDriver() {
       setRatedRiders(new Set(driverRatings.map((x) => x.request_id).filter(Boolean) as string[]));
     }
   };
-  useEffect(() => { load(); }, [user?.id]);
+  useEffect(() => {
+    load();
+  }, [user?.id]);
 
   const decide = async (req: any, status: "confirmed" | "rejected") => {
     setBusy(req.id);
-    const { error } = await api.from("pool_requests").update({ status } as any).eq("id", req.id);
+    const { error } = await api
+      .from("pool_requests")
+      .update({ status } as any)
+      .eq("id", req.id);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success(status === "confirmed" ? "Rider accepted — seats updated" : "Rider declined");
@@ -147,21 +175,43 @@ function PoolDriver() {
   };
 
   const setTripStatus = async (trip: any, status: "started" | "completed" | "cancelled") => {
-    if (status === "cancelled" && !window.confirm("Cancel this pooling trip? Accepted riders will be notified.")) return;
+    if (
+      status === "cancelled" &&
+      !window.confirm("Cancel this pooling trip? Accepted riders will be notified.")
+    )
+      return;
     setBusy(trip.id);
-    const { error } = await api.from("pool_trips").update({ status } as any).eq("id", trip.id);
+    const { error } = await api
+      .from("pool_trips")
+      .update({ status } as any)
+      .eq("id", trip.id);
     if (!error && status !== "started") {
-      const list = (requests[trip.id] ?? []).filter((r) => ["pending", "confirmed"].includes(r.status));
+      const list = (requests[trip.id] ?? []).filter((r) =>
+        ["pending", "confirmed"].includes(r.status),
+      );
       for (const r of list) {
         await api
           .from("pool_requests")
-          .update({ status: status === "completed" ? (r.status === "confirmed" ? "completed" : "rejected") : "cancelled" } as any)
+          .update({
+            status:
+              status === "completed"
+                ? r.status === "confirmed"
+                  ? "completed"
+                  : "rejected"
+                : "cancelled",
+          } as any)
           .eq("id", r.id);
       }
     }
     setBusy(null);
     if (error) return toast.error(error.message);
-    toast.success(status === "started" ? "Trip marked as started" : status === "completed" ? "Trip completed" : "Trip cancelled");
+    toast.success(
+      status === "started"
+        ? "Trip marked as started"
+        : status === "completed"
+          ? "Trip completed"
+          : "Trip cancelled",
+    );
     load();
   };
 
@@ -182,19 +232,26 @@ function PoolDriver() {
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <Badge variant="secondary" className="rounded-full">Car pooling</Badge>
+            <Badge variant="secondary" className="rounded-full">
+              Car pooling
+            </Badge>
             <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">Trips you offer</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Accept riders whose route matches yours and keep seats in sync.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Accept riders whose route matches yours and keep seats in sync.
+            </p>
           </div>
           <Button asChild className="rounded-full">
-            <Link to="/pooling/new"><PlusCircle className="mr-1.5 h-4 w-4" /> Offer a ride</Link>
+            <Link to="/pooling/new">
+              <PlusCircle className="mr-1.5 h-4 w-4" /> Offer a ride
+            </Link>
           </Button>
         </div>
 
         {trips.length === 0 && (
           <Card className="mt-6">
             <CardContent className="p-6 text-sm text-muted-foreground">
-              You haven't published a pooling trip yet. Share your next drive and split the fuel cost.
+              You haven't published a pooling trip yet. Share your next drive and split the fuel
+              cost.
             </CardContent>
           </Card>
         )}
@@ -209,22 +266,34 @@ function PoolDriver() {
                   <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={trip.status === "scheduled" ? "default" : "secondary"} className="rounded-full capitalize">
+                        <Badge
+                          variant={trip.status === "scheduled" ? "default" : "secondary"}
+                          className="rounded-full capitalize"
+                        >
                           {trip.status}
                         </Badge>
                         <span className="text-xs text-muted-foreground">{trip.vehicle_label}</span>
                         {pending.length > 0 && (
-                          <Badge variant="secondary" className="rounded-full">{pending.length} awaiting reply</Badge>
+                          <Badge variant="secondary" className="rounded-full">
+                            {pending.length} awaiting reply
+                          </Badge>
                         )}
                       </div>
-                      <p className="flex items-start gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" /><span className="break-words">{trip.origin_label}</span></p>
-                      <p className="flex items-start gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><span className="break-words">{trip.dest_label}</span></p>
+                      <p className="flex items-start gap-2 text-sm">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                        <span className="break-words">{trip.origin_label}</span>
+                      </p>
+                      <p className="flex items-start gap-2 text-sm">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="break-words">{trip.dest_label}</span>
+                      </p>
                       <div className="flex flex-wrap gap-2 text-xs">
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
                           <CalendarClock className="h-3.5 w-3.5" /> {whenLabel(trip.depart_at)}
                         </span>
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
-                          <Users className="h-3.5 w-3.5" /> {trip.seats_available}/{trip.seats_total} seats free
+                          <Users className="h-3.5 w-3.5" /> {trip.seats_available}/
+                          {trip.seats_total} seats free
                         </span>
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 font-semibold">
                           {currency(Number(trip.fare_per_seat))} / passenger
@@ -232,19 +301,34 @@ function PoolDriver() {
                       </div>
                       {trip.status === "scheduled" && (
                         <div className="flex flex-wrap gap-2 pt-1">
-                          <Button size="sm" variant="outline" className="rounded-full" disabled={busy === trip.id}
-                            onClick={() => setTripStatus(trip, "started")}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full"
+                            disabled={busy === trip.id}
+                            onClick={() => setTripStatus(trip, "started")}
+                          >
                             <Flag className="mr-1.5 h-4 w-4" /> Start trip
                           </Button>
-                          <Button size="sm" variant="ghost" className="rounded-full" disabled={busy === trip.id}
-                            onClick={() => setTripStatus(trip, "cancelled")}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="rounded-full"
+                            disabled={busy === trip.id}
+                            onClick={() => setTripStatus(trip, "cancelled")}
+                          >
                             <CircleSlash className="mr-1.5 h-4 w-4" /> Cancel trip
                           </Button>
                         </div>
                       )}
                       {trip.status === "started" && (
-                        <Button size="sm" variant="outline" className="rounded-full" disabled={busy === trip.id}
-                          onClick={() => setTripStatus(trip, "completed")}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full"
+                          disabled={busy === trip.id}
+                          onClick={() => setTripStatus(trip, "completed")}
+                        >
                           <Check className="mr-1.5 h-4 w-4" /> Mark completed
                         </Button>
                       )}
@@ -253,38 +337,64 @@ function PoolDriver() {
                   </div>
 
                   <div className="space-y-2 border-t border-border pt-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rider requests</p>
-                    {list.length === 0 && <p className="text-sm text-muted-foreground">No requests yet.</p>}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Rider requests
+                    </p>
+                    {list.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No requests yet.</p>
+                    )}
                     {list.map((r) => {
                       const p = profiles[r.passenger_id];
                       return (
-                        <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3">
+                        <div
+                          key={r.id}
+                          className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3"
+                        >
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={p?.avatar_url ?? undefined} />
-                            <AvatarFallback>{(p?.full_name ?? "R").charAt(0).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback>
+                              {(p?.full_name ?? "R").charAt(0).toUpperCase()}
+                            </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">{p?.full_name ?? "Rider"}</p>
+                            <p className="truncate text-sm font-semibold">
+                              {p?.full_name ?? "Rider"}
+                            </p>
                             <p className="truncate text-xs text-muted-foreground">
                               {r.pickup_label} → {r.drop_label}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {r.seats} seat{r.seats > 1 ? "s" : ""} · {currency(Number(r.fare_total))} · {Number(r.match_score)}% match
+                              {r.seats} seat{r.seats > 1 ? "s" : ""} ·{" "}
+                              {currency(Number(r.fare_total))} · {Number(r.match_score)}% match
                             </p>
                             {r.emergency_contact && (
                               <p className="text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground">SOS contact:</span> {r.emergency_contact}
+                                <span className="font-medium text-foreground">SOS contact:</span>{" "}
+                                {r.emergency_contact}
                               </p>
                             )}
                             {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
                           </div>
-                          <Badge variant={STATUS_TONE[r.status] as any} className="rounded-full">{LABEL[r.status]}</Badge>
+                          <Badge variant={STATUS_TONE[r.status] as any} className="rounded-full">
+                            {LABEL[r.status]}
+                          </Badge>
                           {r.status === "pending" && trip.status === "scheduled" && (
                             <div className="flex gap-2">
-                              <Button size="sm" className="rounded-full" disabled={busy === r.id} onClick={() => decide(r, "confirmed")}>
+                              <Button
+                                size="sm"
+                                className="rounded-full"
+                                disabled={busy === r.id}
+                                onClick={() => decide(r, "confirmed")}
+                              >
                                 <Check className="mr-1.5 h-4 w-4" /> Accept
                               </Button>
-                              <Button size="sm" variant="outline" className="rounded-full" disabled={busy === r.id} onClick={() => decide(r, "rejected")}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-full"
+                                disabled={busy === r.id}
+                                onClick={() => decide(r, "rejected")}
+                              >
                                 <X className="mr-1.5 h-4 w-4" /> Reject
                               </Button>
                             </div>
@@ -292,11 +402,21 @@ function PoolDriver() {
                           {trip.status === "completed" && r.status === "completed" && (
                             <div className="flex gap-1.5">
                               {!ratedRiders.has(r.id) && (
-                                <Button size="sm" variant="outline" className="rounded-full h-8 text-xs" onClick={() => ratePassenger(trip, r)}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-full h-8 text-xs"
+                                  onClick={() => ratePassenger(trip, r)}
+                                >
                                   <Star className="mr-1 h-3.5 w-3.5 text-amber-500" /> Rate rider
                                 </Button>
                               )}
-                              <Button size="sm" variant="ghost" className="rounded-full h-8 text-xs text-muted-foreground hover:text-destructive" onClick={() => reportPassenger(trip, r)}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="rounded-full h-8 text-xs text-muted-foreground hover:text-destructive"
+                                onClick={() => reportPassenger(trip, r)}
+                              >
                                 <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Report
                               </Button>
                             </div>

@@ -38,14 +38,28 @@ export const Route = createFileRoute("/wash")({
           "Book a doorstep bike, scooter, car or EV wash slot in minutes. Our team confirms a washer partner for your slot, then you pay by wallet or card.",
       },
       { property: "og:title", content: "Vehicle wash & detailing — Synchoo" },
-      { property: "og:description", content: "Doorstep vehicle wash slots, confirmed by our team before you pay." },
+      {
+        property: "og:description",
+        content: "Doorstep vehicle wash slots, confirmed by our team before you pay.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
 });
 
-const SLOTS = ["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+const SLOTS = [
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+];
 
 const CATEGORY_LABEL: Record<string, string> = {
   bike: "Bike",
@@ -118,7 +132,10 @@ function WashPage() {
       });
   }, []);
 
-  const service = useMemo(() => (services ?? []).find((s) => s.id === selected) ?? null, [services, selected]);
+  const service = useMemo(
+    () => (services ?? []).find((s) => s.id === selected) ?? null,
+    [services, selected],
+  );
 
   const submit = async () => {
     if (!user) return navigate({ to: "/auth" });
@@ -156,16 +173,30 @@ function WashPage() {
           <Badge variant="outline" className="mb-3 gap-1.5">
             <Droplets className="h-3.5 w-3.5" /> Doorstep service
           </Badge>
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">Vehicle wash & detailing</h1>
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">
+            Vehicle wash & detailing
+          </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Pick a package and a slot. Our team assigns a verified washer partner and confirms availability — you only pay
-            after the slot is approved.
+            Pick a package and a slot. Our team assigns a verified washer partner and confirms
+            availability — you only pay after the slot is approved.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
-              { icon: CalendarClock, t: "1. Request a slot", d: "Choose package, date, time and address." },
-              { icon: ShieldCheck, t: "2. Team approval", d: "We assign a washer partner and approve it." },
-              { icon: Droplets, t: "3. Pay & relax", d: "Pay by wallet or card, then we clean it." },
+              {
+                icon: CalendarClock,
+                t: "1. Request a slot",
+                d: "Choose package, date, time and address.",
+              },
+              {
+                icon: ShieldCheck,
+                t: "2. Team approval",
+                d: "We assign a washer partner and approve it.",
+              },
+              {
+                icon: Droplets,
+                t: "3. Pay & relax",
+                d: "Pay by wallet or card, then we clean it.",
+              },
             ].map((s) => (
               <div key={s.t} className="rounded-2xl border border-border bg-card p-4">
                 <s.icon className="h-5 w-5 text-primary" />
@@ -188,7 +219,9 @@ function WashPage() {
             </div>
           )}
           {services && services.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground">No wash packages are available right now.</p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              No wash packages are available right now.
+            </p>
           )}
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {(services ?? []).map((s) => {
@@ -205,7 +238,9 @@ function WashPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-medium">{s.name}</p>
-                    <Badge variant="secondary">{CATEGORY_LABEL[s.vehicle_category] ?? s.vehicle_category}</Badge>
+                    <Badge variant="secondary">
+                      {CATEGORY_LABEL[s.vehicle_category] ?? s.vehicle_category}
+                    </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{s.description}</p>
                   <div className="mt-3 flex items-center justify-between text-sm">
@@ -225,13 +260,19 @@ function WashPage() {
           <CardContent className="p-5">
             <h2 className="font-display text-lg font-semibold">Book your slot</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {service ? `${service.name} · ${currency(service.price)}` : "Select a package to continue"}
+              {service
+                ? `${service.name} · ${currency(service.price)}`
+                : "Select a package to continue"}
             </p>
 
             <div className="mt-4 grid gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="wash-city">City</Label>
-                <CityPicker id="wash-city" value={form.city} onChange={(c) => setForm({ ...form, city: c })} />
+                <CityPicker
+                  id="wash-city"
+                  value={form.city}
+                  onChange={(c) => setForm({ ...form, city: c })}
+                />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="wash-address">Address where we should come</Label>
@@ -293,16 +334,23 @@ function WashPage() {
 
             {service && (
               <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm">
-                <div className="flex items-center justify-between"><span>{service.name}</span><span className="tabular-nums">{currency(service.price)}</span></div>
-                <div className="mt-1.5"><ChargeLines base={Number(service.price)} coupon={coupon} /></div>
-                <div className="mt-3"><CouponField value={coupon} onChange={setCoupon} /></div>
+                <div className="flex items-center justify-between">
+                  <span>{service.name}</span>
+                  <span className="tabular-nums">{currency(service.price)}</span>
+                </div>
+                <div className="mt-1.5">
+                  <ChargeLines base={Number(service.price)} coupon={coupon} />
+                </div>
+                <div className="mt-3">
+                  <CouponField value={coupon} onChange={setCoupon} />
+                </div>
               </div>
             )}
 
             <div className="mt-4 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
               <MapPin className="mb-1 h-3.5 w-3.5" />
-              No payment now. Once our team confirms a washer partner for your slot, pay from your wallet or by card on the
-              “My washes” page.
+              No payment now. Once our team confirms a washer partner for your slot, pay from your
+              wallet or by card on the “My washes” page.
             </div>
 
             {user ? (

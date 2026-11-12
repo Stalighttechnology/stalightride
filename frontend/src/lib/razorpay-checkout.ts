@@ -28,7 +28,11 @@ export interface RazorpayCheckoutOptions {
   name: string;
   description?: string;
   prefill?: { name?: string; email?: string; contact?: string };
-  onSuccess: (r: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => void;
+  onSuccess: (r: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => void;
   onDismiss?: () => void;
 }
 
@@ -36,7 +40,10 @@ export async function openRazorpayCheckout(opts: RazorpayCheckoutOptions) {
   const ok = await loadRazorpayScript();
   if (!ok) throw new Error("Failed to load Razorpay Checkout");
   const w = window as any;
-  const key = opts.keyId || (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) || "";
+  const key =
+    opts.keyId ||
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) ||
+    "";
   const rzp = new w.Razorpay({
     key,
     amount: opts.amount,

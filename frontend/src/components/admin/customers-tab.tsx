@@ -100,7 +100,9 @@ export function CustomersTab() {
       {/* Customer List */}
       <div className="grid gap-3">
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No customers matching your filter.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No customers matching your filter.
+          </p>
         ) : (
           filtered.map((c) => (
             <Card key={c.id}>
@@ -117,12 +119,20 @@ export function CustomersTab() {
                           c.dl_status === "approved"
                             ? "secondary"
                             : c.dl_status === "pending"
-                            ? "outline"
-                            : "destructive"
+                              ? "outline"
+                              : "destructive"
                         }
-                        className={c.dl_status === "approved" ? "bg-emerald-50 text-emerald-700 text-[10px]" : "text-[10px]"}
+                        className={
+                          c.dl_status === "approved"
+                            ? "bg-emerald-50 text-emerald-700 text-[10px]"
+                            : "text-[10px]"
+                        }
                       >
-                        {c.dl_status === "approved" ? "Verified Rider" : c.dl_status === "pending" ? "DL Pending" : "Unverified"}
+                        {c.dl_status === "approved"
+                          ? "Verified Rider"
+                          : c.dl_status === "pending"
+                            ? "DL Pending"
+                            : "Unverified"}
                       </Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5">
@@ -169,4 +179,3 @@ export function CustomersTab() {
     </div>
   );
 }
-

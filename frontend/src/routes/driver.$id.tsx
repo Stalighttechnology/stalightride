@@ -19,16 +19,34 @@ import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charg
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { toast } from "sonner";
-import { Star, MapPin, BadgeCheck, Clock, ShieldCheck, Languages, Car, Compass, Route as RouteIcon } from "lucide-react";
+import {
+  Star,
+  MapPin,
+  BadgeCheck,
+  Clock,
+  ShieldCheck,
+  Languages,
+  Car,
+  Compass,
+  Route as RouteIcon,
+} from "lucide-react";
 
 export const Route = createFileRoute("/driver/$id")({
   component: DriverProfile,
   head: () => ({
     meta: [
       { title: "Driver profile — Hire a verified driver | Synchoo" },
-      { name: "description", content: "View a verified Synchoo driver's experience, languages, rating and rates, then book them by the hour or day." },
+      {
+        name: "description",
+        content:
+          "View a verified Synchoo driver's experience, languages, rating and rates, then book them by the hour or day.",
+      },
       { property: "og:title", content: "Driver profile — Hire a verified driver | Synchoo" },
-      { property: "og:description", content: "View a verified Synchoo driver's experience, languages, rating and rates, then book them." },
+      {
+        property: "og:description",
+        content:
+          "View a verified Synchoo driver's experience, languages, rating and rates, then book them.",
+      },
       { property: "og:type", content: "profile" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -78,24 +96,35 @@ function DriverProfile() {
       const ids = Array.from(new Set((rv ?? []).map((r) => r.customer_id)));
       let names: Record<string, any> = {};
       if (ids.length) {
-        const { data: profs } = await api.from("public_profiles").select("id,full_name,avatar_url").in("id", ids);
+        const { data: profs } = await api
+          .from("public_profiles")
+          .select("id,full_name,avatar_url")
+          .in("id", ids);
         names = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
       setReviews((rv ?? []).map((r) => ({ ...r, profile: names[r.customer_id] })));
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // Keep the customer's view of driver availability in sync in real time.
   useEffect(() => {
     const channel = api
       .channel(`public_drivers:${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "public_drivers", filter: `id=eq.${id}` }, (payload) => {
-        if (payload.eventType === "DELETE") setDriver(null);
-        else setDriver(payload.new as Tables<"public_drivers">);
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "public_drivers", filter: `id=eq.${id}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") setDriver(null);
+          else setDriver(payload.new as Tables<"public_drivers">);
+        },
+      )
       .subscribe();
-    return () => { api.removeChannel(channel); };
+    return () => {
+      api.removeChannel(channel);
+    };
   }, [id]);
 
   useEffect(() => {
@@ -120,7 +149,8 @@ function DriverProfile() {
 
   const hire = async () => {
     if (!user) return navigate({ to: "/auth" });
-    if (price.error || price.subtotal <= 0) return toast.error(price.error ?? "Choose a valid duration");
+    if (price.error || price.subtotal <= 0)
+      return toast.error(price.error ?? "Choose a valid duration");
     setSubmitting(true);
     const { error } = await api.from("driver_bookings").insert({
       driver_id: id,
@@ -147,20 +177,27 @@ function DriverProfile() {
 
   if (driver === undefined) {
     return (
-      <div className="min-h-screen"><SiteHeader />
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6"><Skeleton className="h-64 rounded-2xl" /></div>
+      <div className="min-h-screen">
+        <SiteHeader />
+        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
       </div>
     );
   }
   if (driver === null) {
     return (
-      <div className="min-h-screen"><SiteHeader />
+      <div className="min-h-screen">
+        <SiteHeader />
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <p className="font-medium">This driver is currently offline</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            They've paused new hires or are not accepting bookings right now. Plenty of verified drivers are available.
+            They've paused new hires or are not accepting bookings right now. Plenty of verified
+            drivers are available.
           </p>
-          <Button asChild className="mt-4"><Link to="/drivers">See available drivers</Link></Button>
+          <Button asChild className="mt-4">
+            <Link to="/drivers">See available drivers</Link>
+          </Button>
         </div>
       </div>
     );
@@ -172,170 +209,260 @@ function DriverProfile() {
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
           <div className="space-y-6">
-            <Card><CardContent className="p-6">
-              <div className="flex flex-wrap items-start gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={driver.photo_url ?? undefined} alt={driver.full_name} />
-                  <AvatarFallback className="text-xl">{driver.full_name?.charAt(0)?.toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="font-display text-2xl font-semibold">{driver.full_name}</h1>
-                    <Badge variant="secondary" className="gap-1 bg-emerald-50 text-emerald-700">
-                      <BadgeCheck className="h-3 w-3" />Verified
-                    </Badge>
-                    <Badge variant="outline" className="gap-1.5 border-emerald-500/40 text-emerald-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Available for hire
-                    </Badge>
-                  </div>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{driver.city}</span>
-                    <span>{driver.experience_years} yr{driver.experience_years === 1 ? "" : "s"} experience</span>
-                    <span className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                      {Number(driver.avg_rating).toFixed(1)} ({driver.review_count})
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {driver.bio && <p className="mt-4 whitespace-pre-line text-sm">{driver.bio}</p>}
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <InfoRow icon={Languages} label="Languages" value={(driver.languages ?? []).join(", ") || "—"} />
-                <InfoRow icon={Car} label="Drives" value={(driver.vehicle_types ?? []).join(", ") || "—"} />
-                {driver.service_area && (
-                  <InfoRow icon={Compass} label="Service area" value={driver.service_area} />
-                )}
-                {Array.isArray(driver.trip_types) && driver.trip_types.length > 0 && (
-                  <InfoRow icon={RouteIcon} label="Trip types" value={driver.trip_types.join(", ")} />
-                )}
-              </div>
-
-              <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                Driving licence and identity documents verified by the Synchoo team before this profile went live.
-              </div>
-            </CardContent></Card>
-
-            <Card><CardContent className="p-6">
-              <h2 className="font-display text-lg font-semibold">Reviews</h2>
-              {!reviews && <Skeleton className="mt-4 h-24" />}
-              {reviews && reviews.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No reviews yet.</p>}
-              <ul className="mt-4 space-y-4">
-                {(reviews ?? []).map((r) => (
-                  <li key={r.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage src={r.profile?.avatar_url ?? undefined} />
-                        <AvatarFallback className="text-[10px]">{(r.profile?.full_name ?? "U").charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{r.profile?.full_name ?? "Rider"}</span>
-                      <span className="flex items-center gap-0.5 text-xs">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={`h-3 w-3 ${i < r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`} />
-                        ))}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-wrap items-start gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={driver.photo_url ?? undefined} alt={driver.full_name} />
+                    <AvatarFallback className="text-xl">
+                      {driver.full_name?.charAt(0)?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="font-display text-2xl font-semibold">{driver.full_name}</h1>
+                      <Badge variant="secondary" className="gap-1 bg-emerald-50 text-emerald-700">
+                        <BadgeCheck className="h-3 w-3" />
+                        Verified
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="gap-1.5 border-emerald-500/40 text-emerald-600"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        Available for hire
+                      </Badge>
                     </div>
-                    {r.comment && <p className="mt-1.5 text-sm">{r.comment}</p>}
-                    {r.driver_response && (
-                      <div className="mt-2 rounded-md bg-muted p-2 text-xs">
-                        <span className="font-medium">Driver replied:</span> {r.driver_response}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {driver.city}
+                      </span>
+                      <span>
+                        {driver.experience_years} yr{driver.experience_years === 1 ? "" : "s"}{" "}
+                        experience
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        {Number(driver.avg_rating).toFixed(1)} ({driver.review_count})
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {driver.bio && <p className="mt-4 whitespace-pre-line text-sm">{driver.bio}</p>}
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <InfoRow
+                    icon={Languages}
+                    label="Languages"
+                    value={(driver.languages ?? []).join(", ") || "—"}
+                  />
+                  <InfoRow
+                    icon={Car}
+                    label="Drives"
+                    value={(driver.vehicle_types ?? []).join(", ") || "—"}
+                  />
+                  {driver.service_area && (
+                    <InfoRow icon={Compass} label="Service area" value={driver.service_area} />
+                  )}
+                  {Array.isArray(driver.trip_types) && driver.trip_types.length > 0 && (
+                    <InfoRow
+                      icon={RouteIcon}
+                      label="Trip types"
+                      value={driver.trip_types.join(", ")}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  Driving licence and identity documents verified by the Synchoo team before this
+                  profile went live.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="font-display text-lg font-semibold">Reviews</h2>
+                {!reviews && <Skeleton className="mt-4 h-24" />}
+                {reviews && reviews.length === 0 && (
+                  <p className="mt-2 text-sm text-muted-foreground">No reviews yet.</p>
+                )}
+                <ul className="mt-4 space-y-4">
+                  {(reviews ?? []).map((r) => (
+                    <li key={r.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={r.profile?.avatar_url ?? undefined} />
+                          <AvatarFallback className="text-[10px]">
+                            {(r.profile?.full_name ?? "U").charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">
+                          {r.profile?.full_name ?? "Rider"}
+                        </span>
+                        <span className="flex items-center gap-0.5 text-xs">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-3 w-3 ${i < r.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"}`}
+                            />
+                          ))}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(r.created_at).toLocaleDateString()}
+                        </span>
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </CardContent></Card>
+                      {r.comment && <p className="mt-1.5 text-sm">{r.comment}</p>}
+                      {r.driver_response && (
+                        <div className="mt-2 rounded-md bg-muted p-2 text-xs">
+                          <span className="font-medium">Driver replied:</span> {r.driver_response}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           </div>
 
           <div>
-            <Card className="lg:sticky lg:top-20"><CardContent className="p-5">
-              <div className="flex items-baseline justify-between">
-                <p className="text-xl font-semibold">{currency(driver.daily_rate)}<span className="text-sm font-normal text-muted-foreground">/day</span></p>
-                {Number(driver.hourly_rate) > 0 && (
-                  <p className="flex items-center gap-1 text-sm text-muted-foreground"><Clock className="h-3.5 w-3.5" />{currency(driver.hourly_rate)}/hr</p>
-                )}
-              </div>
+            <Card className="lg:sticky lg:top-20">
+              <CardContent className="p-5">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-xl font-semibold">
+                    {currency(driver.daily_rate)}
+                    <span className="text-sm font-normal text-muted-foreground">/day</span>
+                  </p>
+                  {Number(driver.hourly_rate) > 0 && (
+                    <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      {currency(driver.hourly_rate)}/hr
+                    </p>
+                  )}
+                </div>
 
-              <Tabs value={rateType} onValueChange={(v) => setRateType(v as DriverRateType)} className="mt-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="daily">By day</TabsTrigger>
-                  <TabsTrigger value="hourly" disabled={!(Number(driver.hourly_rate) > 0)}>By hour</TabsTrigger>
-                </TabsList>
-              </Tabs>
+                <Tabs
+                  value={rateType}
+                  onValueChange={(v) => setRateType(v as DriverRateType)}
+                  className="mt-4"
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="daily">By day</TabsTrigger>
+                    <TabsTrigger value="hourly" disabled={!(Number(driver.hourly_rate) > 0)}>
+                      By hour
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-              <div className="mt-4 space-y-3">
-                <div>
-                  <Label className="text-xs">Trip type</Label>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {TRIP_TYPES.map((t) => (
-                      <Button
-                        key={t.id}
-                        type="button"
-                        size="sm"
-                        variant={tripType === t.id ? "default" : "outline"}
-                        className="h-7 text-xs"
-                        onClick={() => setTripType(t.id)}
-                      >
-                        {t.label}
-                      </Button>
-                    ))}
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <Label className="text-xs">Trip type</Label>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {TRIP_TYPES.map((t) => (
+                        <Button
+                          key={t.id}
+                          type="button"
+                          size="sm"
+                          variant={tripType === t.id ? "default" : "outline"}
+                          className="h-7 text-xs"
+                          onClick={() => setTripType(t.id)}
+                        >
+                          {t.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label className="text-xs">Start date</Label>
+                      <DatePicker
+                        value={startDate}
+                        onChange={setStartDate}
+                        minDate={new Date()}
+                        placeholder="dd-mm-yyyy"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">End date</Label>
+                      <DatePicker
+                        value={rateType === "hourly" ? startDate : endDate}
+                        onChange={setEndDate}
+                        minDate={startDate || new Date()}
+                        disabled={rateType === "hourly"}
+                        placeholder="dd-mm-yyyy"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Start time</Label>
+                      <TimePicker
+                        value={startTime}
+                        onChange={setStartTime}
+                        placeholder="Select time"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">End time</Label>
+                      <TimePicker value={endTime} onChange={setEndTime} placeholder="Select time" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Pickup address</Label>
+                    <Input
+                      value={pickupAddress}
+                      onChange={(e) => setPickupAddress(e.target.value)}
+                      placeholder="Where should the driver report?"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Notes (optional)</Label>
+                    <Textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Trip details, vehicle type, luggage…"
+                    />
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-xs">Start date</Label>
-                    <DatePicker value={startDate} onChange={setStartDate} minDate={new Date()} placeholder="dd-mm-yyyy" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">End date</Label>
-                    <DatePicker value={rateType === "hourly" ? startDate : endDate} onChange={setEndDate} minDate={startDate || new Date()} disabled={rateType === "hourly"} placeholder="dd-mm-yyyy" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Start time</Label>
-                    <TimePicker value={startTime} onChange={setStartTime} placeholder="Select time" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">End time</Label>
-                    <TimePicker value={endTime} onChange={setEndTime} placeholder="Select time" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">Pickup address</Label>
-                  <Input value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="Where should the driver report?" />
-                </div>
-                <div>
-                  <Label className="text-xs">Notes (optional)</Label>
-                  <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Trip details, vehicle type, luggage…" />
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-1 rounded-lg bg-muted/60 p-3 text-sm">
-                {price.error ? (
-                  <p className="text-xs text-destructive">{price.error}</p>
-                ) : (
-                  <>
-                    {price.lines.map((l) => (
-                      <div key={l.label} className="flex justify-between text-muted-foreground">
-                        <span>{l.label}</span><span>{currency(l.value)}</span>
+                <div className="mt-4 space-y-1 rounded-lg bg-muted/60 p-3 text-sm">
+                  {price.error ? (
+                    <p className="text-xs text-destructive">{price.error}</p>
+                  ) : (
+                    <>
+                      {price.lines.map((l) => (
+                        <div key={l.label} className="flex justify-between text-muted-foreground">
+                          <span>{l.label}</span>
+                          <span>{currency(l.value)}</span>
+                        </div>
+                      ))}
+                      <ChargeLines base={price.subtotal} coupon={coupon} totalLabel="Total" />
+                      <div className="pt-2">
+                        <CouponField value={coupon} onChange={setCoupon} />
                       </div>
-                    ))}
-                    <ChargeLines base={price.subtotal} coupon={coupon} totalLabel="Total" />
-                    <div className="pt-2"><CouponField value={coupon} onChange={setCoupon} /></div>
-                  </>
-                )}
-              </div>
+                    </>
+                  )}
+                </div>
 
-              <Button className="mt-4 w-full" disabled={submitting || !!price.error} onClick={hire}>
-                {!user ? "Sign in to hire" : submitting ? "Sending request…" : "Request this driver"}
-              </Button>
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                No charge until the driver accepts your request.
-              </p>
-            </CardContent></Card>
+                <Button
+                  className="mt-4 w-full"
+                  disabled={submitting || !!price.error}
+                  onClick={hire}
+                >
+                  {!user
+                    ? "Sign in to hire"
+                    : submitting
+                      ? "Sending request…"
+                      : "Request this driver"}
+                </Button>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  No charge until the driver accepts your request.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

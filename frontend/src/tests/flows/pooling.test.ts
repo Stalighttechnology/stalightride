@@ -5,7 +5,11 @@ import { matchScore, isMatch, MATCH_THRESHOLD, haversineKm } from "@/lib/pool-ma
 function setup(seats = 3) {
   const be = createBackend(new Date("2026-08-15T10:00:00Z"));
   const driver = be.registerCustomer();
-  const trip = be.createTrip(driver, { depart_at: "2026-08-20T08:00:00Z", seats_total: seats, fare_per_seat: 250 });
+  const trip = be.createTrip(driver, {
+    depart_at: "2026-08-20T08:00:00Z",
+    seats_total: seats,
+    fare_per_seat: 250,
+  });
   const p1 = be.registerCustomer();
   const p2 = be.registerCustomer();
   return { be, driver, trip, p1, p2 };
@@ -43,32 +47,44 @@ describe("pooling route matching", () => {
 describe("seat requests", () => {
   test("a passenger cannot request more seats than are free", () => {
     const { be, trip, p1 } = setup(2);
-    expect(() => be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 3, match_score: 95 })).toThrow(/Not enough seats/);
+    expect(() =>
+      be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 3, match_score: 95 }),
+    ).toThrow(/Not enough seats/);
   });
 
   test("low match scores are rejected", () => {
     const { be, trip, p1 } = setup();
-    expect(() => be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 60 })).toThrow(/match/);
+    expect(() =>
+      be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 60 }),
+    ).toThrow(/match/);
   });
 
   test("the driver cannot join their own trip", () => {
     const { be, trip, driver } = setup();
-    expect(() => be.requestSeat({ passenger_id: driver, trip_id: trip.id, seats: 1, match_score: 99 })).toThrow(/own trip/);
+    expect(() =>
+      be.requestSeat({ passenger_id: driver, trip_id: trip.id, seats: 1, match_score: 99 }),
+    ).toThrow(/own trip/);
   });
 
   test("duplicate active requests are blocked, and allowed again after cancelling", () => {
     const { be, trip, p1 } = setup();
     const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
-    expect(() => be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 })).toThrow(/already have an active request/);
+    expect(() =>
+      be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 }),
+    ).toThrow(/already have an active request/);
     be.cancelPoolRequest(p1, r.id);
-    expect(be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 }).status).toBe("pending");
+    expect(
+      be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 }).status,
+    ).toBe("pending");
   });
 
   test("a rejected passenger may request again", () => {
     const { be, driver, trip, p1 } = setup();
     const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
     be.poolDecide(driver, r.id, "rejected");
-    expect(be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 }).status).toBe("pending");
+    expect(
+      be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 }).status,
+    ).toBe("pending");
   });
 });
 
@@ -79,7 +95,9 @@ describe("driver accept / decline and seat accounting", () => {
     const r2 = be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 88 });
     expect(be.poolDecide(driver, r1.id, "confirmed").trip.seats_available).toBe(1);
     expect(be.poolDecide(driver, r2.id, "rejected").trip.seats_available).toBe(1);
-    expect(be.notifications.filter((n) => n.user_id === p2 && /declined/.test(n.title))).toHaveLength(1);
+    expect(
+      be.notifications.filter((n) => n.user_id === p2 && /declined/.test(n.title)),
+    ).toHaveLength(1);
   });
 
   test("seats cannot be oversold", () => {
@@ -95,7 +113,9 @@ describe("driver accept / decline and seat accounting", () => {
     const { be, driver, trip, p1, p2 } = setup(1);
     const r1 = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 95 });
     be.poolDecide(driver, r1.id, "confirmed");
-    expect(() => be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 95 })).toThrow(/Not enough seats/);
+    expect(() =>
+      be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 95 }),
+    ).toThrow(/Not enough seats/);
   });
 
   test("only the trip owner can decide, and only once", () => {
@@ -136,7 +156,9 @@ describe("trip lifecycle", () => {
     be.poolDecide(driver, r1.id, "confirmed");
     be.setTripStatus(driver, trip.id, "cancelled");
     expect(be.tables.poolRequests.get(r1.id)!.status).toBe("cancelled");
-    expect(() => be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 95 })).toThrow(/no longer open/);
+    expect(() =>
+      be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 95 }),
+    ).toThrow(/no longer open/);
   });
 });
 
@@ -266,7 +288,12 @@ describe("pooling ratings and reports (PR-01, PR-02, Task 2.8)", () => {
     expect(be.tables.userReports.get(report.id)).toBeDefined();
 
     // Admin moderates report
-    const resolved = be.adminDecideUserReport(admin, report.id, "resolved", "Driver issued speed warning");
+    const resolved = be.adminDecideUserReport(
+      admin,
+      report.id,
+      "resolved",
+      "Driver issued speed warning",
+    );
     expect(resolved.status).toBe("resolved");
     expect(resolved.admin_notes).toBe("Driver issued speed warning");
 

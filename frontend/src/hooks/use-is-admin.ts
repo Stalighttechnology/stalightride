@@ -6,8 +6,16 @@ export function useIsAdmin() {
   const { user } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
-    if (!user) { setIsAdmin(false); return; }
-    api.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle()
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    api
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle()
       .then(({ data }) => setIsAdmin(!!data));
   }, [user?.id]);
   return isAdmin;

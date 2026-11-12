@@ -40,7 +40,11 @@ export const Route = createFileRoute("/_authenticated/wash-center-dashboard")({
   head: () => ({
     meta: [
       { title: "Washing Center Dashboard — Synchoo" },
-      { name: "description", content: "Manage your auto spa and washing center, service packages, calendar, staff and payouts on Synchoo." },
+      {
+        name: "description",
+        content:
+          "Manage your auto spa and washing center, service packages, calendar, staff and payouts on Synchoo.",
+      },
     ],
   }),
 });
@@ -161,14 +165,16 @@ export function WashCenterDashboard() {
           .eq("center_id", user.id)
           .order("created_at", { ascending: true });
         if (pkgData) {
-          setPackages(pkgData.map((p) => ({
-            id: p.id,
-            center_id: p.center_id,
-            name: p.name,
-            category: p.category,
-            price: Number(p.price),
-            duration: p.duration,
-          })));
+          setPackages(
+            pkgData.map((p) => ({
+              id: p.id,
+              center_id: p.center_id,
+              name: p.name,
+              category: p.category,
+              price: Number(p.price),
+              duration: p.duration,
+            })),
+          );
         }
 
         // Load staff
@@ -178,14 +184,16 @@ export function WashCenterDashboard() {
           .eq("center_id", user.id)
           .order("created_at", { ascending: true });
         if (stData) {
-          setStaff(stData.map((s) => ({
-            id: s.id,
-            center_id: s.center_id,
-            name: s.name,
-            phone: s.phone || "",
-            role: s.role,
-            active: s.active,
-          })));
+          setStaff(
+            stData.map((s) => ({
+              id: s.id,
+              center_id: s.center_id,
+              name: s.name,
+              phone: s.phone || "",
+              role: s.role,
+              active: s.active,
+            })),
+          );
         }
       } else {
         setEmail(user.email || "");
@@ -246,7 +254,7 @@ export function WashCenterDashboard() {
     toast.success(
       updatedProfile.verification_status === "approved"
         ? "Washing center profile updated successfully!"
-        : "Center registered! Awaiting admin verification."
+        : "Center registered! Awaiting admin verification.",
     );
   };
 
@@ -263,17 +271,24 @@ export function WashCenterDashboard() {
       duration: Number(newPkgDuration) || 45,
     };
 
-    const { data, error } = await api.from("wash_center_packages").insert(payload).select().single();
+    const { data, error } = await api
+      .from("wash_center_packages")
+      .insert(payload)
+      .select()
+      .single();
     if (error) return toast.error(error.message);
 
-    setPackages([...packages, {
-      id: data.id,
-      center_id: data.center_id,
-      name: data.name,
-      category: data.category,
-      price: Number(data.price),
-      duration: data.duration,
-    }]);
+    setPackages([
+      ...packages,
+      {
+        id: data.id,
+        center_id: data.center_id,
+        name: data.name,
+        category: data.category,
+        price: Number(data.price),
+        duration: data.duration,
+      },
+    ]);
     setNewPkgName("");
     setNewPkgPrice("");
     toast.success("Service package added!");
@@ -289,7 +304,8 @@ export function WashCenterDashboard() {
   const addStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!newStaffName.trim() || !newStaffPhone.trim()) return toast.error("Provide staff name and phone");
+    if (!newStaffName.trim() || !newStaffPhone.trim())
+      return toast.error("Provide staff name and phone");
 
     const payload = {
       center_id: user.id,
@@ -302,14 +318,17 @@ export function WashCenterDashboard() {
     const { data, error } = await api.from("wash_center_staff").insert(payload).select().single();
     if (error) return toast.error(error.message);
 
-    setStaff([...staff, {
-      id: data.id,
-      center_id: data.center_id,
-      name: data.name,
-      phone: data.phone || "",
-      role: data.role,
-      active: data.active,
-    }]);
+    setStaff([
+      ...staff,
+      {
+        id: data.id,
+        center_id: data.center_id,
+        name: data.name,
+        phone: data.phone || "",
+        role: data.role,
+        active: data.active,
+      },
+    ]);
     setNewStaffName("");
     setNewStaffPhone("");
     toast.success("Staff member added!");
@@ -322,7 +341,10 @@ export function WashCenterDashboard() {
     toast.success("Staff member removed");
   };
 
-  const updateBookingStatus = async (id: string, status: "confirmed" | "completed" | "rejected") => {
+  const updateBookingStatus = async (
+    id: string,
+    status: "confirmed" | "completed" | "rejected",
+  ) => {
     const { error } = await api
       .from("wash_bookings")
       .update({
@@ -333,7 +355,11 @@ export function WashCenterDashboard() {
     if (error) return toast.error(error.message);
     toast.success(`Booking ${status === "confirmed" ? "approved" : status}`);
     setCenterBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status, completed_at: status === "completed" ? new Date().toISOString() : null } : b))
+      prev.map((b) =>
+        b.id === id
+          ? { ...b, status, completed_at: status === "completed" ? new Date().toISOString() : null }
+          : b,
+      ),
     );
   };
 
@@ -362,7 +388,9 @@ export function WashCenterDashboard() {
               </div>
               <div>
                 <h1 className="font-display text-2xl font-bold tracking-tight">
-                  {center ? "Edit Washing Center Profile" : "Register Your Washing Center / Auto Spa"}
+                  {center
+                    ? "Edit Washing Center Profile"
+                    : "Register Your Washing Center / Auto Spa"}
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {center
@@ -381,14 +409,22 @@ export function WashCenterDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Center Profile & Operating Details</CardTitle>
-              <CardDescription>Setup your business listing and bay capacity to submit for verification.</CardDescription>
+              <CardDescription>
+                Setup your business listing and bay capacity to submit for verification.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveCenterProfile} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="w-name">Washing Center Name *</Label>
-                    <Input id="w-name" value={centerName} onChange={(e) => setCenterName(e.target.value)} placeholder="AutoShine Spa & Detailing" required />
+                    <Input
+                      id="w-name"
+                      value={centerName}
+                      onChange={(e) => setCenterName(e.target.value)}
+                      placeholder="AutoShine Spa & Detailing"
+                      required
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>City *</Label>
@@ -398,37 +434,76 @@ export function WashCenterDashboard() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="w-addr">Full Facility Address *</Label>
-                  <Input id="w-addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Plot 42, 100ft Road, Indiranagar" required />
+                  <Input
+                    id="w-addr"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Plot 42, 100ft Road, Indiranagar"
+                    required
+                  />
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="w-phone">Contact Phone *</Label>
-                    <Input id="w-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" required />
+                    <Input
+                      id="w-phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      required
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="w-email">Business Email</Label>
-                    <Input id="w-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@autoshine.in" />
+                    <Input
+                      id="w-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="contact@autoshine.in"
+                    />
                   </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="w-cap">Daily Bay Capacity (Cars/day)</Label>
-                    <Input id="w-cap" type="number" min="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} required />
+                    <Input
+                      id="w-cap"
+                      type="number"
+                      min="1"
+                      value={capacity}
+                      onChange={(e) => setCapacity(e.target.value)}
+                      required
+                    />
                   </div>
                   <div className="space-y-1.5 min-w-0">
                     <Label htmlFor="w-open">Opens At</Label>
-                    <TimePicker id="w-open" value={openingTime} onChange={setOpeningTime} placeholder="Opens at" />
+                    <TimePicker
+                      id="w-open"
+                      value={openingTime}
+                      onChange={setOpeningTime}
+                      placeholder="Opens at"
+                    />
                   </div>
                   <div className="space-y-1.5 min-w-0">
                     <Label htmlFor="w-close">Closes At</Label>
-                    <TimePicker id="w-close" value={closingTime} onChange={setClosingTime} placeholder="Closes at" />
+                    <TimePicker
+                      id="w-close"
+                      value={closingTime}
+                      onChange={setClosingTime}
+                      placeholder="Closes at"
+                    />
                   </div>
                 </div>
 
                 <Button type="submit" disabled={saving} className="w-full">
-                  {saving ? "Saving center profile..." : center ? "Update Center Profile" : "Register Center & Submit for Verification"}
+                  {saving
+                    ? "Saving center profile..."
+                    : center
+                      ? "Update Center Profile"
+                      : "Register Center & Submit for Verification"}
                 </Button>
               </form>
             </CardContent>
@@ -451,7 +526,10 @@ export function WashCenterDashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-display text-2xl font-bold tracking-tight">{center.name}</h1>
-                <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+                >
                   Awaiting Verification
                 </Badge>
               </div>
@@ -468,7 +546,8 @@ export function WashCenterDashboard() {
                 Awaiting Facility Verification
               </CardTitle>
               <CardDescription>
-                Once approved, your auto spa will be activated on the Synchoo washing network, and you will be able to manage booking queues, service packages, and staff technicians.
+                Once approved, your auto spa will be activated on the Synchoo washing network, and
+                you will be able to manage booking queues, service packages, and staff technicians.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
@@ -479,7 +558,9 @@ export function WashCenterDashboard() {
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">City & Address</span>
-                  <span className="text-right text-xs max-w-[260px] truncate">{center.address}, {center.city}</span>
+                  <span className="text-right text-xs max-w-[260px] truncate">
+                    {center.address}, {center.city}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Contact</span>
@@ -491,7 +572,9 @@ export function WashCenterDashboard() {
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Operating Hours</span>
-                  <span>{center.opening_time} – {center.closing_time}</span>
+                  <span>
+                    {center.opening_time} – {center.closing_time}
+                  </span>
                 </div>
               </div>
 
@@ -518,16 +601,20 @@ export function WashCenterDashboard() {
                   <AlertCircle className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg text-red-700 dark:text-red-400">Application Rejected</CardTitle>
+                  <CardTitle className="text-lg text-red-700 dark:text-red-400">
+                    Application Rejected
+                  </CardTitle>
                   <CardDescription>
-                    {center.rejection_reason || "Your washing center could not be verified with the current information."}
+                    {center.rejection_reason ||
+                      "Your washing center could not be verified with the current information."}
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Please verify your address, contact phone, and operating capacity, then re-submit your profile for administrator review.
+                Please verify your address, contact phone, and operating capacity, then re-submit
+                your profile for administrator review.
               </p>
               <Button onClick={() => setIsEditing(true)} className="w-full">
                 Update & Re-submit Profile
@@ -563,7 +650,8 @@ export function WashCenterDashboard() {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                <MapPin className="h-3 w-3" /> {center.address}, {center.city} · Capacity: {center.daily_capacity} bays/day
+                <MapPin className="h-3 w-3" /> {center.address}, {center.city} · Capacity:{" "}
+                {center.daily_capacity} bays/day
               </p>
             </div>
           </div>
@@ -582,7 +670,9 @@ export function WashCenterDashboard() {
               <Car className="h-4 w-4" />
               <span className="text-xs">Active Washes</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">{activeJobs.length}</p>
+            <p className="font-display text-2xl font-bold mt-1 text-foreground">
+              {activeJobs.length}
+            </p>
           </Card>
 
           <Card className="p-4">
@@ -590,7 +680,9 @@ export function WashCenterDashboard() {
               <CheckCircle2 className="h-4 w-4" />
               <span className="text-xs">Completed Washes</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">{completedJobs.length}</p>
+            <p className="font-display text-2xl font-bold mt-1 text-foreground">
+              {completedJobs.length}
+            </p>
           </Card>
 
           <Card className="p-4">
@@ -598,7 +690,9 @@ export function WashCenterDashboard() {
               <IndianRupee className="h-4 w-4" />
               <span className="text-xs">Net Center Earnings</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(netEarnings)}</p>
+            <p className="font-display text-2xl font-bold mt-1 text-brand">
+              {currency(netEarnings)}
+            </p>
           </Card>
 
           <Card className="p-4">
@@ -607,7 +701,9 @@ export function WashCenterDashboard() {
               <span className="text-xs">Rating Score</span>
             </div>
             <p className="font-display text-2xl font-bold mt-1 text-foreground">
-              {Number(center.avg_rating) > 0 ? `${Number(center.avg_rating).toFixed(1)} / 5.0` : "New"}
+              {Number(center.avg_rating) > 0
+                ? `${Number(center.avg_rating).toFixed(1)} / 5.0`
+                : "New"}
             </p>
           </Card>
         </div>
@@ -637,10 +733,13 @@ export function WashCenterDashboard() {
                         <Badge variant="outline" className="bg-sky-50 text-sky-700">
                           {b.slot_date} · {b.slot_time}
                         </Badge>
-                        <span className="font-semibold text-sm">{b.wash_services?.name || "Foam Wash"}</span>
+                        <span className="font-semibold text-sm">
+                          {b.wash_services?.name || "Foam Wash"}
+                        </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Vehicle: {b.vehicle_label || "Customer Vehicle"} · Payout: {currency(Number(b.price) * 0.85)}
+                        Vehicle: {b.vehicle_label || "Customer Vehicle"} · Payout:{" "}
+                        {currency(Number(b.price) * 0.85)}
                       </p>
                       <p className="text-xs text-muted-foreground">{b.address}</p>
                     </div>
@@ -683,15 +782,32 @@ export function WashCenterDashboard() {
               <form onSubmit={addPackage} className="grid gap-3 sm:grid-cols-4 items-end">
                 <div>
                   <Label className="text-xs">Package Name</Label>
-                  <Input value={newPkgName} onChange={(e) => setNewPkgName(e.target.value)} placeholder="Teflon Coating" required />
+                  <Input
+                    value={newPkgName}
+                    onChange={(e) => setNewPkgName(e.target.value)}
+                    placeholder="Teflon Coating"
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Price (₹)</Label>
-                  <Input type="number" min="1" value={newPkgPrice} onChange={(e) => setNewPkgPrice(e.target.value)} placeholder="1499" required />
+                  <Input
+                    type="number"
+                    min="1"
+                    value={newPkgPrice}
+                    onChange={(e) => setNewPkgPrice(e.target.value)}
+                    placeholder="1499"
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Duration (mins)</Label>
-                  <Input type="number" min="15" value={newPkgDuration} onChange={(e) => setNewPkgDuration(e.target.value)} />
+                  <Input
+                    type="number"
+                    min="15"
+                    value={newPkgDuration}
+                    onChange={(e) => setNewPkgDuration(e.target.value)}
+                  />
                 </div>
                 <Button type="submit">
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add Package
@@ -706,7 +822,8 @@ export function WashCenterDashboard() {
                     <div>
                       <p className="font-medium text-sm">{pkg.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {currency(pkg.price)} · Approx {pkg.duration} minutes · {pkg.category.toUpperCase()}
+                        {currency(pkg.price)} · Approx {pkg.duration} minutes ·{" "}
+                        {pkg.category.toUpperCase()}
                       </p>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => deletePackage(pkg.id)}>
@@ -725,15 +842,29 @@ export function WashCenterDashboard() {
               <form onSubmit={addStaff} className="grid gap-3 sm:grid-cols-4 items-end">
                 <div>
                   <Label className="text-xs">Full Name</Label>
-                  <Input value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} placeholder="Santosh B." required />
+                  <Input
+                    value={newStaffName}
+                    onChange={(e) => setNewStaffName(e.target.value)}
+                    placeholder="Santosh B."
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Phone</Label>
-                  <Input value={newStaffPhone} onChange={(e) => setNewStaffPhone(e.target.value)} placeholder="+91 98765 00000" required />
+                  <Input
+                    value={newStaffPhone}
+                    onChange={(e) => setNewStaffPhone(e.target.value)}
+                    placeholder="+91 98765 00000"
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Role</Label>
-                  <Input value={newStaffRole} onChange={(e) => setNewStaffRole(e.target.value)} placeholder="Detailer" />
+                  <Input
+                    value={newStaffRole}
+                    onChange={(e) => setNewStaffRole(e.target.value)}
+                    placeholder="Detailer"
+                  />
                 </div>
                 <Button type="submit">
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add Staff
@@ -778,7 +909,11 @@ export function WashCenterDashboard() {
                     <span className="text-brand">{currency(netEarnings)}</span>
                   </div>
                 </div>
-                <Button className="w-full mt-4" size="sm" onClick={() => toast.success("Payout withdrawal requested successfully!")}>
+                <Button
+                  className="w-full mt-4"
+                  size="sm"
+                  onClick={() => toast.success("Payout withdrawal requested successfully!")}
+                >
                   Withdraw to Business Account
                 </Button>
               </Card>
@@ -786,16 +921,25 @@ export function WashCenterDashboard() {
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-3">Recent Washes Log</h3>
                 {completedJobs.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No completed wash appointments recorded yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    No completed wash appointments recorded yet.
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {completedJobs.slice(0, 5).map((c) => (
-                      <div key={c.id} className="flex justify-between items-center text-xs py-1 border-b border-border">
+                      <div
+                        key={c.id}
+                        className="flex justify-between items-center text-xs py-1 border-b border-border"
+                      >
                         <div>
                           <p className="font-medium">{c.wash_services?.name || "Wash Service"}</p>
-                          <p className="text-muted-foreground">{c.slot_date} · {c.city}</p>
+                          <p className="text-muted-foreground">
+                            {c.slot_date} · {c.city}
+                          </p>
                         </div>
-                        <span className="font-semibold text-emerald-600">+{currency(Number(c.price) * 0.85)}</span>
+                        <span className="font-semibold text-emerald-600">
+                          +{currency(Number(c.price) * 0.85)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -811,7 +955,11 @@ export function WashCenterDashboard() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">Center Name</Label>
-                    <Input value={centerName} onChange={(e) => setCenterName(e.target.value)} required />
+                    <Input
+                      value={centerName}
+                      onChange={(e) => setCenterName(e.target.value)}
+                      required
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">City</Label>
@@ -825,15 +973,28 @@ export function WashCenterDashboard() {
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div>
                     <Label className="text-xs">Daily Bays Capacity</Label>
-                    <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} required />
+                    <Input
+                      type="number"
+                      value={capacity}
+                      onChange={(e) => setCapacity(e.target.value)}
+                      required
+                    />
                   </div>
                   <div className="min-w-0">
                     <Label className="text-xs">Opens At</Label>
-                    <TimePicker value={openingTime} onChange={setOpeningTime} placeholder="Opens at" />
+                    <TimePicker
+                      value={openingTime}
+                      onChange={setOpeningTime}
+                      placeholder="Opens at"
+                    />
                   </div>
                   <div className="min-w-0">
                     <Label className="text-xs">Closes At</Label>
-                    <TimePicker value={closingTime} onChange={setClosingTime} placeholder="Closes at" />
+                    <TimePicker
+                      value={closingTime}
+                      onChange={setClosingTime}
+                      placeholder="Closes at"
+                    />
                   </div>
                 </div>
                 <Button type="submit" size="sm" disabled={saving}>
@@ -847,4 +1008,3 @@ export function WashCenterDashboard() {
     </div>
   );
 }
-

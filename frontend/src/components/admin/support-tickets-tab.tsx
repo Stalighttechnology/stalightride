@@ -62,9 +62,7 @@ export function SupportTicketsTab() {
       return;
     }
 
-    setTickets((prev) =>
-      prev ? prev.map((t) => (t.id === id ? { ...t, status } : t)) : []
-    );
+    setTickets((prev) => (prev ? prev.map((t) => (t.id === id ? { ...t, status } : t)) : []));
     if (selectedTicket?.id === id) {
       setSelectedTicket((prev: any) => (prev ? { ...prev, status } : null));
     }
@@ -119,12 +117,12 @@ export function SupportTicketsTab() {
         ? prev.map((t) =>
             t.id === selectedTicket.id
               ? { ...t, status: "Resolved", resolution: replyText.trim() }
-              : t
+              : t,
           )
-        : []
+        : [],
     );
     setSelectedTicket((prev: any) =>
-      prev ? { ...prev, status: "Resolved", resolution: replyText.trim() } : null
+      prev ? { ...prev, status: "Resolved", resolution: replyText.trim() } : null,
     );
     setReplyText("");
     toast.success("Resolution reply sent to user and ticket closed!");
@@ -137,9 +135,17 @@ export function SupportTicketsTab() {
       case "Urgent":
         return <Badge variant="destructive">Urgent</Badge>;
       case "High":
-        return <Badge variant="outline" className="text-amber-600 border-amber-300">High</Badge>;
+        return (
+          <Badge variant="outline" className="text-amber-600 border-amber-300">
+            High
+          </Badge>
+        );
       case "Medium":
-        return <Badge variant="outline" className="text-blue-600 border-blue-300">Medium</Badge>;
+        return (
+          <Badge variant="outline" className="text-blue-600 border-blue-300">
+            Medium
+          </Badge>
+        );
       default:
         return <Badge variant="secondary">Low</Badge>;
     }
@@ -148,11 +154,26 @@ export function SupportTicketsTab() {
   const getStatusBadge = (s: string) => {
     switch (s) {
       case "Open":
-        return <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-200">Open</Badge>;
+        return (
+          <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-200">
+            Open
+          </Badge>
+        );
       case "In Progress":
-        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">In Progress</Badge>;
+        return (
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">
+            In Progress
+          </Badge>
+        );
       case "Resolved":
-        return <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-200">Resolved</Badge>;
+        return (
+          <Badge
+            variant="secondary"
+            className="bg-emerald-500/10 text-emerald-600 border-emerald-200"
+          >
+            Resolved
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{s}</Badge>;
     }
@@ -165,10 +186,17 @@ export function SupportTicketsTab() {
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setSelectedTicket(null)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2"
+                  onClick={() => setSelectedTicket(null)}
+                >
                   <ArrowLeft className="h-4 w-4 mr-1" /> Back
                 </Button>
-                <span className="font-mono font-semibold text-xs text-brand">{selectedTicket.ticket_no}</span>
+                <span className="font-mono font-semibold text-xs text-brand">
+                  {selectedTicket.ticket_no}
+                </span>
                 {getPriorityBadge(selectedTicket.priority)}
                 {getStatusBadge(selectedTicket.status)}
               </div>
@@ -199,8 +227,9 @@ export function SupportTicketsTab() {
             <div className="space-y-1">
               <h3 className="font-semibold text-base text-foreground">{selectedTicket.subject}</h3>
               <p className="text-xs text-muted-foreground">
-                Category: <span className="font-medium text-foreground">{selectedTicket.category}</span> · Raised:{" "}
-                {new Date(selectedTicket.created_at).toLocaleString()}
+                Category:{" "}
+                <span className="font-medium text-foreground">{selectedTicket.category}</span> ·
+                Raised: {new Date(selectedTicket.created_at).toLocaleString()}
               </p>
               <div className="mt-2 rounded-lg bg-muted/40 p-3 text-xs text-foreground leading-relaxed">
                 {selectedTicket.description}
@@ -224,8 +253,15 @@ export function SupportTicketsTab() {
                       }`}
                     >
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                        <span className="font-medium">{m.is_admin ? "Support Admin" : "Customer"}</span>
-                        <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span className="font-medium">
+                          {m.is_admin ? "Support Admin" : "Customer"}
+                        </span>
+                        <span>
+                          {new Date(m.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
                       <p>{m.message}</p>
                     </div>
@@ -245,8 +281,14 @@ export function SupportTicketsTab() {
                 required
               />
               <div className="flex justify-end gap-2">
-                <Button type="submit" size="sm" className="text-xs" disabled={sending || !replyText.trim()}>
-                  <Send className="mr-1 h-3 w-3" /> {sending ? "Sending..." : "Send Reply & Close Ticket"}
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="text-xs"
+                  disabled={sending || !replyText.trim()}
+                >
+                  <Send className="mr-1 h-3 w-3" />{" "}
+                  {sending ? "Sending..." : "Send Reply & Close Ticket"}
                 </Button>
               </div>
             </form>
@@ -255,7 +297,9 @@ export function SupportTicketsTab() {
       ) : (
         <div className="grid gap-3">
           {tickets.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No support tickets in queue.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No support tickets in queue.
+            </p>
           ) : (
             tickets.map((t) => (
               <Card
@@ -266,10 +310,14 @@ export function SupportTicketsTab() {
                 <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1 max-w-xl">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold text-xs text-brand">{t.ticket_no}</span>
+                      <span className="font-mono font-semibold text-xs text-brand">
+                        {t.ticket_no}
+                      </span>
                       {getPriorityBadge(t.priority)}
                       {getStatusBadge(t.status)}
-                      <Badge variant="outline" className="text-[10px]">{t.category}</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {t.category}
+                      </Badge>
                     </div>
                     <p className="font-semibold text-xs text-foreground">{t.subject}</p>
                     <p className="text-xs text-muted-foreground line-clamp-1">{t.description}</p>

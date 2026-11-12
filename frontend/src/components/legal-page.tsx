@@ -19,8 +19,12 @@ export function LegalPage({
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Legal</p>
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
         <p className="mt-2 text-xs text-muted-foreground">Last updated: {updated}</p>
-        {intro ? <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{intro}</p> : null}
-        <div className="legal-body mt-8 space-y-7 text-sm leading-relaxed text-muted-foreground">{children}</div>
+        {intro ? (
+          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{intro}</p>
+        ) : null}
+        <div className="legal-body mt-8 space-y-7 text-sm leading-relaxed text-muted-foreground">
+          {children}
+        </div>
       </main>
     </div>
   );

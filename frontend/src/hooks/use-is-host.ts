@@ -24,11 +24,7 @@ export function useIsHost() {
           .eq("user_id", user.id)
           .eq("role", "vendor")
           .maybeSingle(),
-        api
-          .from("vendors")
-          .select("id")
-          .eq("id", user.id)
-          .maybeSingle(),
+        api.from("vendors").select("id").eq("id", user.id).maybeSingle(),
       ]);
 
       if (isMounted) {
@@ -45,4 +41,3 @@ export function useIsHost() {
 
   return isHost;
 }
-

@@ -16,9 +16,17 @@ export const Route = createFileRoute("/data-deletion")({
   head: () => ({
     meta: [
       { title: "Privacy & data controls — Synchoo" },
-      { name: "description", content: "Export a copy of your Synchoo data or permanently delete your account and personal information. See exactly what is removed and what is retained." },
+      {
+        name: "description",
+        content:
+          "Export a copy of your Synchoo data or permanently delete your account and personal information. See exactly what is removed and what is retained.",
+      },
       { property: "og:title", content: "Privacy & data controls — Synchoo" },
-      { property: "og:description", content: "Export your data or request permanent deletion of your Synchoo account and personal information." },
+      {
+        property: "og:description",
+        content:
+          "Export your data or request permanent deletion of your Synchoo account and personal information.",
+      },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -94,7 +102,9 @@ function DataDeletion() {
       const res = (data ?? {}) as { ok?: boolean; reason?: string; count?: number };
       if (!res.ok) {
         if (res.reason === "open_bookings") {
-          toast.error(`You still have ${res.count ?? 1} active booking(s). Complete or cancel them first.`);
+          toast.error(
+            `You still have ${res.count ?? 1} active booking(s). Complete or cancel them first.`,
+          );
         } else {
           toast.error("We could not process the deletion. Please sign in again and retry.");
         }
@@ -114,10 +124,12 @@ function DataDeletion() {
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Privacy</p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Privacy & data controls</h1>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          Privacy & data controls
+        </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Download a copy of your personal data, or permanently delete your account. Deletion is irreversible and needs
-          you to be signed in — nobody else can request it for you.
+          Download a copy of your personal data, or permanently delete your account. Deletion is
+          irreversible and needs you to be signed in — nobody else can request it for you.
         </p>
 
         {done ? (
@@ -127,13 +139,18 @@ function DataDeletion() {
                 <CheckCircle2 className="h-5 w-5 text-emerald" /> Your data has been deleted
               </CardTitle>
               <CardDescription>
-                Your personal details, documents, saved vehicles and notifications are removed, your listings are paused
-                and you have been signed out. Anonymised transaction records are kept as described in our Privacy Policy.
+                Your personal details, documents, saved vehicles and notifications are removed, your
+                listings are paused and you have been signed out. Anonymised transaction records are
+                kept as described in our Privacy Policy.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
-              <Button asChild variant="outline"><Link to="/">Back to home</Link></Button>
-              <Button asChild variant="ghost"><Link to="/privacy">Read the Privacy Policy</Link></Button>
+              <Button asChild variant="outline">
+                <Link to="/">Back to home</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link to="/privacy">Read the Privacy Policy</Link>
+              </Button>
             </CardContent>
           </Card>
         ) : (
@@ -146,15 +163,23 @@ function DataDeletion() {
               </CardHeader>
               <CardContent className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Removed or anonymised</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Removed or anonymised
+                  </p>
                   <ul className="mt-2 ml-5 list-disc space-y-1.5 text-sm text-muted-foreground">
-                    {REMOVED.map((r) => <li key={r}>{r}</li>)}
+                    {REMOVED.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
                   </ul>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Retained by law</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Retained by law
+                  </p>
                   <ul className="mt-2 ml-5 list-disc space-y-1.5 text-sm text-muted-foreground">
-                    {RETAINED.map((r) => <li key={r}>{r}</li>)}
+                    {RETAINED.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
                   </ul>
                 </div>
               </CardContent>
@@ -167,11 +192,14 @@ function DataDeletion() {
                     <ShieldCheck className="h-4 w-4 text-cyan" /> Sign in to continue
                   </CardTitle>
                   <CardDescription>
-                    For your safety, exports and deletions can only be requested from the signed-in account.
+                    For your safety, exports and deletions can only be requested from the signed-in
+                    account.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button asChild className="btn-gradient"><Link to="/auth">Sign in</Link></Button>
+                  <Button asChild className="btn-gradient">
+                    <Link to="/auth">Sign in</Link>
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -182,7 +210,8 @@ function DataDeletion() {
                       <Download className="h-4 w-4 text-cyan" /> Export my data
                     </CardTitle>
                     <CardDescription>
-                      Downloads a JSON file with your profile, bookings, wallet transactions and reviews.
+                      Downloads a JSON file with your profile, bookings, wallet transactions and
+                      reviews.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -195,18 +224,28 @@ function DataDeletion() {
                 <Card className="glass border-destructive/40">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <AlertTriangle className="h-4 w-4 text-destructive" /> Delete my account and data
+                      <AlertTriangle className="h-4 w-4 text-destructive" /> Delete my account and
+                      data
                     </CardTitle>
                     <CardDescription>
-                      Signed in as {user.email}. Active bookings must be completed or cancelled first.
+                      Signed in as {user.email}. Active bookings must be completed or cancelled
+                      first.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-start gap-2">
-                      <Checkbox id="ack" checked={ack} onCheckedChange={(v) => setAck(v === true)} />
-                      <Label htmlFor="ack" className="text-sm font-normal leading-relaxed text-muted-foreground">
-                        I understand this is permanent, that my personal data and documents will be removed, and that
-                        anonymised transaction records are retained for legal reasons.
+                      <Checkbox
+                        id="ack"
+                        checked={ack}
+                        onCheckedChange={(v) => setAck(v === true)}
+                      />
+                      <Label
+                        htmlFor="ack"
+                        className="text-sm font-normal leading-relaxed text-muted-foreground"
+                      >
+                        I understand this is permanent, that my personal data and documents will be
+                        removed, and that anonymised transaction records are retained for legal
+                        reasons.
                       </Label>
                     </div>
                     <div className="grid gap-2">
@@ -228,7 +267,9 @@ function DataDeletion() {
                       >
                         {busy ? "Deleting…" : "Delete my account"}
                       </Button>
-                      <Button variant="ghost" onClick={() => navigate({ to: "/account" })}>Cancel</Button>
+                      <Button variant="ghost" onClick={() => navigate({ to: "/account" })}>
+                        Cancel
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -237,9 +278,18 @@ function DataDeletion() {
 
             <p className="text-xs text-muted-foreground">
               Read the full{" "}
-              <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>,{" "}
-              <Link to="/terms" className="underline hover:text-foreground">Terms</Link> and{" "}
-              <Link to="/cookies" className="underline hover:text-foreground">Cookie Policy</Link>.
+              <Link to="/privacy" className="underline hover:text-foreground">
+                Privacy Policy
+              </Link>
+              ,{" "}
+              <Link to="/terms" className="underline hover:text-foreground">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link to="/cookies" className="underline hover:text-foreground">
+                Cookie Policy
+              </Link>
+              .
             </p>
           </div>
         )}

@@ -19,7 +19,9 @@ import { LiveTracker } from "@/components/live-tracker";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { TripSafetyExtension } from "@/components/trip-safety-extension";
 
-export const Route = createFileRoute("/_authenticated/bookings/$id/trip")({ component: TripInspection });
+export const Route = createFileRoute("/_authenticated/bookings/$id/trip")({
+  component: TripInspection,
+});
 
 const DAMAGE_AREAS = [
   "Front bumper",
@@ -258,7 +260,10 @@ function TripInspection() {
           {b.pickup_odometer != null && b.return_odometer != null && (
             <Card>
               <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
-                <Stat label="Distance driven" value={`${b.return_odometer - b.pickup_odometer} km`} />
+                <Stat
+                  label="Distance driven"
+                  value={`${b.return_odometer - b.pickup_odometer} km`}
+                />
                 <Stat
                   label="Fuel change"
                   value={
@@ -342,7 +347,13 @@ function InspectionForm({
   bookingId: string;
   phase: Phase;
   saving: boolean;
-  onSave: (p: { fuel: number; odo: number; photoPaths: string[]; notes: string; damage: DamageEntry[] }) => void;
+  onSave: (p: {
+    fuel: number;
+    odo: number;
+    photoPaths: string[];
+    notes: string;
+    damage: DamageEntry[];
+  }) => void;
 }) {
   const [fuel, setFuel] = useState(50);
   const [odo, setOdo] = useState<string>("");
@@ -468,14 +479,18 @@ function InspectionForm({
                     <button
                       key={c}
                       type="button"
-                      onClick={() => setDamage((prev) => prev.map((x, i) => (i === idx ? { ...x, condition: c } : x)))}
+                      onClick={() =>
+                        setDamage((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, condition: c } : x)),
+                        )
+                      }
                       className={`rounded-md px-2 py-0.5 text-xs capitalize ${
                         d.condition === c
                           ? c === "ok"
                             ? "bg-emerald-600 text-white"
                             : c === "minor"
-                            ? "bg-amber-500 text-white"
-                            : "bg-red-600 text-white"
+                              ? "bg-amber-500 text-white"
+                              : "bg-red-600 text-white"
                           : "border border-border bg-background"
                       }`}
                     >
@@ -489,7 +504,11 @@ function InspectionForm({
                   className="mt-2"
                   placeholder="Describe (e.g. scratch on left door, dent near rear light)"
                   value={d.note ?? ""}
-                  onChange={(e) => setDamage((prev) => prev.map((x, i) => (i === idx ? { ...x, note: e.target.value } : x)))}
+                  onChange={(e) =>
+                    setDamage((prev) =>
+                      prev.map((x, i) => (i === idx ? { ...x, note: e.target.value } : x)),
+                    )
+                  }
                 />
               )}
             </li>
@@ -507,7 +526,13 @@ function InspectionForm({
       </div>
       <div className="flex justify-end">
         <Button onClick={submit} disabled={saving || uploading}>
-          {uploading ? "Uploading…" : saving ? "Saving…" : phase === "pickup" ? "Start trip" : "End trip"}
+          {uploading
+            ? "Uploading…"
+            : saving
+              ? "Saving…"
+              : phase === "pickup"
+                ? "Start trip"
+                : "End trip"}
         </Button>
       </div>
     </div>
@@ -544,8 +569,16 @@ function ReadOnlySnapshot({
       {photos && photos.length > 0 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((p) => (
-            <a key={p} href={urls[p] ?? "#"} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-lg border">
-              {urls[p] && <img src={urls[p]!} alt={`${phase} photo`} className="h-full w-full object-cover" />}
+            <a
+              key={p}
+              href={urls[p] ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="block aspect-square overflow-hidden rounded-lg border"
+            >
+              {urls[p] && (
+                <img src={urls[p]!} alt={`${phase} photo`} className="h-full w-full object-cover" />
+              )}
             </a>
           ))}
         </div>
@@ -559,7 +592,11 @@ function ReadOnlySnapshot({
             <ul className="mt-2 space-y-1 text-sm">
               {flagged.map((d) => (
                 <li key={d.area} className="flex flex-wrap items-center gap-2">
-                  <Badge className={d.condition === "major" ? "bg-red-600 text-white" : "bg-amber-500 text-white"}>
+                  <Badge
+                    className={
+                      d.condition === "major" ? "bg-red-600 text-white" : "bg-amber-500 text-white"
+                    }
+                  >
                     {d.condition}
                   </Badge>
                   <span className="font-medium">{d.area}</span>

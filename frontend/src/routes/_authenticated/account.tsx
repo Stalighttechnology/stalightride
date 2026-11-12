@@ -9,9 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import {
-  ShieldCheck, ShieldAlert, Clock, Wallet as WalletIcon, CalendarDays, Heart,
-  UserRound, Droplets, LayoutDashboard, CarFront as Steering, ScanLine, Settings,
-  ChevronRight, Gift, Crown, LogOut,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  Wallet as WalletIcon,
+  CalendarDays,
+  Heart,
+  UserRound,
+  Droplets,
+  LayoutDashboard,
+  CarFront as Steering,
+  ScanLine,
+  Settings,
+  ChevronRight,
+  Gift,
+  Crown,
+  LogOut,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -20,9 +33,17 @@ export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({
     meta: [
       { title: "Your account — Synchoo" },
-      { name: "description", content: "Your Synchoo hub: wallet balance, verification status, trips, saved vehicles, rewards and quick actions." },
+      {
+        name: "description",
+        content:
+          "Your Synchoo hub: wallet balance, verification status, trips, saved vehicles, rewards and quick actions.",
+      },
       { property: "og:title", content: "Your account — Synchoo" },
-      { property: "og:description", content: "Wallet balance, verification, trips, saved vehicles and rewards in one premium hub." },
+      {
+        property: "og:description",
+        content:
+          "Wallet balance, verification, trips, saved vehicles and rewards in one premium hub.",
+      },
     ],
   }),
 });
@@ -67,7 +88,9 @@ function Account() {
         saved: (wl.data ?? []).length,
       });
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [user?.id]);
 
   const signOut = async () => {
@@ -97,9 +120,24 @@ function Account() {
   ];
 
   const shortcuts = [
-    { to: "/profile", icon: Settings, label: "Profile & documents", body: "Update details, upload licence" },
-    { to: "/vendor", icon: LayoutDashboard, label: "Host dashboard", body: "Listings, earnings, calendar" },
-    { to: "/driver-dashboard", icon: Steering, label: "Driver dashboard", body: "Hires, payouts, availability" },
+    {
+      to: "/profile",
+      icon: Settings,
+      label: "Profile & documents",
+      body: "Update details, upload licence",
+    },
+    {
+      to: "/vendor",
+      icon: LayoutDashboard,
+      label: "Host dashboard",
+      body: "Listings, earnings, calendar",
+    },
+    {
+      to: "/driver-dashboard",
+      icon: Steering,
+      label: "Driver dashboard",
+      body: "Hires, payouts, availability",
+    },
   ];
 
   return (
@@ -112,18 +150,29 @@ function Account() {
           <section className="glow-border glass-strong rise p-5 sm:p-8">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 ring-2 ring-brand/40">
-                <AvatarImage src={profile?.avatar_url ?? user?.user_metadata?.avatar_url} alt={name} />
-                <AvatarFallback className="bg-muted text-xl font-semibold">{initial}</AvatarFallback>
+                <AvatarImage
+                  src={profile?.avatar_url ?? user?.user_metadata?.avatar_url}
+                  alt={name}
+                />
+                <AvatarFallback className="bg-muted text-xl font-semibold">
+                  {initial}
+                </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
                 <h1 className="truncate font-display text-xl sm:text-2xl font-bold">{name}</h1>
                 <p className="truncate text-xs sm:text-sm text-muted-foreground">{user?.email}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="gap-1 rounded-full border-border/70 bg-card/50 text-xs">
+                  <Badge
+                    variant="outline"
+                    className="gap-1 rounded-full border-border/70 bg-card/50 text-xs"
+                  >
                     <verification.icon className={`h-3.5 w-3.5 ${verification.tint}`} aria-hidden />
                     {verification.label}
                   </Badge>
-                  <Badge variant="outline" className="gap-1 rounded-full border-border/70 bg-card/50 text-xs">
+                  <Badge
+                    variant="outline"
+                    className="gap-1 rounded-full border-border/70 bg-card/50 text-xs"
+                  >
                     <Crown className={`h-3.5 w-3.5 ${tier.tint}`} aria-hidden />
                     {tier.name}
                   </Badge>
@@ -134,9 +183,13 @@ function Account() {
             {/* Wallet */}
             <div className="glass mt-6 flex items-center justify-between gap-4 p-4 sm:p-5">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Wallet balance</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Wallet balance
+                </div>
                 {stats ? (
-                  <div className="font-display text-2xl sm:text-3xl font-bold">{currency(stats.balance)}</div>
+                  <div className="font-display text-2xl sm:text-3xl font-bold">
+                    {currency(stats.balance)}
+                  </div>
                 ) : (
                   <Skeleton className="mt-1 h-8 w-28" />
                 )}
@@ -153,13 +206,18 @@ function Account() {
                 { label: "Active", value: stats?.active },
                 { label: "Saved", value: stats?.saved },
               ].map((s) => (
-                <div key={s.label} className="glass min-w-0 px-2 sm:px-4 py-2.5 sm:py-3 text-center">
+                <div
+                  key={s.label}
+                  className="glass min-w-0 px-2 sm:px-4 py-2.5 sm:py-3 text-center"
+                >
                   {stats ? (
                     <div className="font-display text-xl sm:text-2xl font-bold">{s.value}</div>
                   ) : (
                     <Skeleton className="mx-auto h-7 w-8" />
                   )}
-                  <div className="mt-0.5 truncate text-[10px] sm:text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</div>
+                  <div className="mt-0.5 truncate text-[10px] sm:text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {s.label}
+                  </div>
                 </div>
               ))}
             </div>
@@ -167,7 +225,9 @@ function Account() {
 
           {/* Quick actions */}
           <section className="mt-6">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Quick actions</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Quick actions
+            </h2>
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {quick.map((q, i) => (
                 <Link
@@ -193,17 +253,25 @@ function Account() {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">Rewards · {tier.name} tier</div>
               <p className="text-xs text-muted-foreground">
-                {stats ? `${stats.trips} completed trips — keep riding to unlock better perks.` : "Loading your rewards…"}
+                {stats
+                  ? `${stats.trips} completed trips — keep riding to unlock better perks.`
+                  : "Loading your rewards…"}
               </p>
             </div>
           </section>
 
           {/* Shortcuts */}
           <section className="mt-6">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Settings & dashboards</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Settings & dashboards
+            </h2>
             <div className="glass divide-y divide-border overflow-hidden">
               {shortcuts.map((s) => (
-                <Link key={s.to} to={s.to as any} className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-accent/40">
+                <Link
+                  key={s.to}
+                  to={s.to as any}
+                  className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-accent/40"
+                >
                   <s.icon className="h-4.5 w-4.5 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{s.label}</span>
@@ -212,7 +280,10 @@ function Account() {
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 </Link>
               ))}
-              <button onClick={signOut} className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-destructive/10">
+              <button
+                onClick={signOut}
+                className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-destructive/10"
+              >
                 <LogOut className="h-4.5 w-4.5 shrink-0 text-destructive" aria-hidden />
                 <span className="flex-1 text-sm font-medium text-destructive">Sign out</span>
               </button>

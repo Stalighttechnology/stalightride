@@ -61,11 +61,16 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
           {GROUPS.map((g) => (
             <nav key={g.title} aria-label={g.title}>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.title}</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {g.title}
+              </h2>
               <ul className="mt-3 space-y-2 text-sm">
                 {g.links.map((l) => (
                   <li key={l.to + l.label}>
-                    <Link to={l.to} className="text-foreground/80 transition-colors hover:text-foreground">
+                    <Link
+                      to={l.to}
+                      className="text-foreground/80 transition-colors hover:text-foreground"
+                    >
                       {l.label}
                     </Link>
                   </li>
@@ -79,8 +84,14 @@ export function SiteFooter() {
           <span>© {new Date().getFullYear()} Synchoo — Ride. Share. Explore.</span>
           <span>
             By using Synchoo you agree to our{" "}
-            <Link to="/terms" className="underline hover:text-foreground">Terms</Link> and{" "}
-            <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+            <Link to="/terms" className="underline hover:text-foreground">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="underline hover:text-foreground">
+              Privacy Policy
+            </Link>
+            .
           </span>
         </div>
       </div>

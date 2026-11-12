@@ -45,10 +45,16 @@ export function CitySearch({
         value={text}
         aria-label="Search city"
         autoComplete="off"
-        onChange={(e) => { setText(e.target.value); setOpen(true); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); commit(matches[0] ?? text); }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit(matches[0] ?? text);
+          }
           if (e.key === "Escape") setOpen(false);
         }}
       />

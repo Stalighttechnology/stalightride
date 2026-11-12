@@ -40,7 +40,11 @@ export const Route = createFileRoute("/corporate")({
   head: () => ({
     meta: [
       { title: "Synchoo Corporate — Enterprise Mobility Management" },
-      { name: "description", content: "Centralized employee mobility, business GST invoicing, monthly travel budgets, and ride monitoring for companies." },
+      {
+        name: "description",
+        content:
+          "Centralized employee mobility, business GST invoicing, monthly travel budgets, and ride monitoring for companies.",
+      },
     ],
   }),
 });
@@ -77,11 +81,51 @@ interface MonthlyInvoice {
 }
 
 const INITIAL_EMPLOYEES: Employee[] = [
-  { id: "e1", name: "Siddharth Verma", email: "siddharth@acme.com", department: "Engineering", monthlyLimit: 15000, spent: 8400, status: "Active" },
-  { id: "e2", name: "Ananya Iyer", email: "ananya@acme.com", department: "Sales", monthlyLimit: 25000, spent: 18200, status: "Active" },
-  { id: "e3", name: "Vikram Malhotra", email: "vikram@acme.com", department: "Operations", monthlyLimit: 10000, spent: 4100, status: "Active" },
-  { id: "e4", name: "Neha Gupta", email: "neha@acme.com", department: "Product", monthlyLimit: 12000, spent: 6300, status: "Active" },
-  { id: "e5", name: "Priya Sharma", email: "priya@acme.com", department: "Executive", monthlyLimit: 35000, spent: 12500, status: "Active" },
+  {
+    id: "e1",
+    name: "Siddharth Verma",
+    email: "siddharth@acme.com",
+    department: "Engineering",
+    monthlyLimit: 15000,
+    spent: 8400,
+    status: "Active",
+  },
+  {
+    id: "e2",
+    name: "Ananya Iyer",
+    email: "ananya@acme.com",
+    department: "Sales",
+    monthlyLimit: 25000,
+    spent: 18200,
+    status: "Active",
+  },
+  {
+    id: "e3",
+    name: "Vikram Malhotra",
+    email: "vikram@acme.com",
+    department: "Operations",
+    monthlyLimit: 10000,
+    spent: 4100,
+    status: "Active",
+  },
+  {
+    id: "e4",
+    name: "Neha Gupta",
+    email: "neha@acme.com",
+    department: "Product",
+    monthlyLimit: 12000,
+    spent: 6300,
+    status: "Active",
+  },
+  {
+    id: "e5",
+    name: "Priya Sharma",
+    email: "priya@acme.com",
+    department: "Executive",
+    monthlyLimit: 35000,
+    spent: 12500,
+    status: "Active",
+  },
 ];
 
 const INITIAL_TRIPS: CorporateTrip[] = [
@@ -128,14 +172,40 @@ const INITIAL_TRIPS: CorporateTrip[] = [
 ];
 
 const INVOICES: MonthlyInvoice[] = [
-  { id: "INV-2026-10", month: "October 2026", tripsCount: 42, baseAmount: 45932, gstAmount: 8268, totalAmount: 54200, status: "Paid" },
-  { id: "INV-2026-09", month: "September 2026", tripsCount: 38, baseAmount: 41186, gstAmount: 7414, totalAmount: 48600, status: "Paid" },
-  { id: "INV-2026-08", month: "August 2026", tripsCount: 49, baseAmount: 52627, gstAmount: 9473, totalAmount: 62100, status: "Paid" },
+  {
+    id: "INV-2026-10",
+    month: "October 2026",
+    tripsCount: 42,
+    baseAmount: 45932,
+    gstAmount: 8268,
+    totalAmount: 54200,
+    status: "Paid",
+  },
+  {
+    id: "INV-2026-09",
+    month: "September 2026",
+    tripsCount: 38,
+    baseAmount: 41186,
+    gstAmount: 7414,
+    totalAmount: 48600,
+    status: "Paid",
+  },
+  {
+    id: "INV-2026-08",
+    month: "August 2026",
+    tripsCount: 49,
+    baseAmount: 52627,
+    gstAmount: 9473,
+    totalAmount: 62100,
+    status: "Paid",
+  },
 ];
 
 export function CorporatePage() {
   const [registered, setRegistered] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "employees" | "trips" | "invoices" | "policy" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "employees" | "trips" | "invoices" | "policy" | "settings"
+  >("overview");
 
   // Company Details
   const [companyName, setCompanyName] = useState("Acme Technologies Pvt Ltd");
@@ -204,8 +274,9 @@ export function CorporatePage() {
   };
 
   const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchMember.toLowerCase()) ||
-                          emp.email.toLowerCase().includes(searchMember.toLowerCase());
+    const matchesSearch =
+      emp.name.toLowerCase().includes(searchMember.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchMember.toLowerCase());
     const matchesDept = deptFilter === "All" || emp.department === deptFilter;
     return matchesSearch && matchesDept;
   });
@@ -229,14 +300,20 @@ export function CorporatePage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/40">
+              <Badge
+                variant="outline"
+                className="border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/40"
+              >
                 <Briefcase className="mr-1 h-3.5 w-3.5" /> Synchoo For Business
               </Badge>
               <Badge variant="secondary" className="text-xs">
                 Enterprise Beta Preview
               </Badge>
               {registered && (
-                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                <Badge
+                  variant="secondary"
+                  className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                >
                   <CheckCircle2 className="mr-1 h-3 w-3" /> GST Ready
                 </Badge>
               )}
@@ -257,7 +334,11 @@ export function CorporatePage() {
               variant={registered ? "outline" : "default"}
               onClick={() => {
                 setRegistered(!registered);
-                toast.info(registered ? "Switched to Enterprise Registration View" : "Switched to Live Corporate Portal View");
+                toast.info(
+                  registered
+                    ? "Switched to Enterprise Registration View"
+                    : "Switched to Live Corporate Portal View",
+                );
               }}
             >
               {registered ? "Register Another Company" : "View Demo Enterprise Portal"}
@@ -280,7 +361,9 @@ export function CorporatePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Register Your Enterprise / Organization</CardTitle>
-                <CardDescription>Setup your business account for monthly invoicing and employee allowances.</CardDescription>
+                <CardDescription>
+                  Setup your business account for monthly invoicing and employee allowances.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleRegisterCompany} className="space-y-4">
@@ -320,7 +403,11 @@ export function CorporatePage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label className="text-xs">Headquarters City</Label>
-                      <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bengaluru" />
+                      <Input
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="Bengaluru"
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Expected Monthly Travelers</Label>
@@ -364,7 +451,10 @@ export function CorporatePage() {
                 </Card>
 
                 {/* Sidebar Navigation Menu */}
-                <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0" aria-label="Corporate navigation">
+                <nav
+                  className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar inapp-scroll pb-2 lg:pb-0"
+                  aria-label="Corporate navigation"
+                >
                   {sidebarNavItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
@@ -379,14 +469,18 @@ export function CorporatePage() {
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`} />
+                          <Icon
+                            className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`}
+                          />
                           <span>{item.label}</span>
                         </div>
                         {"badge" in item && (
                           <Badge
                             variant={isActive ? "secondary" : "outline"}
                             className={`text-[10px] px-1.5 py-0 ${
-                              isActive ? "bg-white/20 text-brand-foreground border-transparent" : "text-muted-foreground"
+                              isActive
+                                ? "bg-white/20 text-brand-foreground border-transparent"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {item.badge}
@@ -419,22 +513,32 @@ export function CorporatePage() {
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <Card className="p-4">
                       <span className="text-xs text-muted-foreground">Monthly Budget Cap</span>
-                      <p className="font-display text-2xl font-bold mt-1 text-foreground">{currency(totalMonthlyBudget)}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">Utilized: {Math.round((totalMonthlySpend / totalMonthlyBudget) * 100)}%</p>
+                      <p className="font-display text-2xl font-bold mt-1 text-foreground">
+                        {currency(totalMonthlyBudget)}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Utilized: {Math.round((totalMonthlySpend / totalMonthlyBudget) * 100)}%
+                      </p>
                     </Card>
                     <Card className="p-4">
                       <span className="text-xs text-muted-foreground">Current Month Spend</span>
-                      <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(totalMonthlySpend)}</p>
+                      <p className="font-display text-2xl font-bold mt-1 text-brand">
+                        {currency(totalMonthlySpend)}
+                      </p>
                       <p className="text-[11px] text-emerald-600 mt-1">Within allocated limit</p>
                     </Card>
                     <Card className="p-4">
                       <span className="text-xs text-muted-foreground">Active Employees</span>
-                      <p className="font-display text-2xl font-bold mt-1 text-foreground">{employees.length}</p>
+                      <p className="font-display text-2xl font-bold mt-1 text-foreground">
+                        {employees.length}
+                      </p>
                       <p className="text-[11px] text-muted-foreground mt-1">4 departments</p>
                     </Card>
                     <Card className="p-4">
                       <span className="text-xs text-muted-foreground">GST Saved (18% ITC)</span>
-                      <p className="font-display text-2xl font-bold mt-1 text-emerald-600">{currency(gstSaved)}</p>
+                      <p className="font-display text-2xl font-bold mt-1 text-emerald-600">
+                        {currency(gstSaved)}
+                      </p>
                       <p className="text-[11px] text-muted-foreground mt-1">SAC Code 9966</p>
                     </Card>
                   </div>
@@ -446,7 +550,9 @@ export function CorporatePage() {
                         <CardTitle className="text-base flex items-center gap-2">
                           <Car className="h-4 w-4 text-brand" /> Live Corporate Travel Snapshot
                         </CardTitle>
-                        <CardDescription>Rides currently underway or recently booked on company account</CardDescription>
+                        <CardDescription>
+                          Rides currently underway or recently booked on company account
+                        </CardDescription>
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => setActiveTab("trips")}>
                         View all <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -454,15 +560,24 @@ export function CorporatePage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {trips.slice(0, 3).map((trip) => (
-                        <div key={trip.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border bg-card gap-2">
+                        <div
+                          key={trip.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border bg-card gap-2"
+                        >
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-sm">{trip.employeeName}</span>
-                              <Badge variant="outline" className="text-[10px]">{trip.service}</Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {trip.service}
+                              </Badge>
                               {trip.status === "In Progress" ? (
-                                <Badge className="bg-blue-600 text-[10px] animate-pulse">Live</Badge>
+                                <Badge className="bg-blue-600 text-[10px] animate-pulse">
+                                  Live
+                                </Badge>
                               ) : (
-                                <Badge variant="secondary" className="text-[10px]">{trip.status}</Badge>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {trip.status}
+                                </Badge>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -482,32 +597,38 @@ export function CorporatePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-brand" /> Department Monthly Spend Allocation
+                        <TrendingUp className="h-4 w-4 text-brand" /> Department Monthly Spend
+                        Allocation
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {["Sales", "Engineering", "Executive", "Product", "Operations"].map((dept) => {
-                        const deptEmps = employees.filter((e) => e.department === dept);
-                        const spent = deptEmps.reduce((acc, curr) => acc + curr.spent, 0);
-                        const limit = deptEmps.reduce((acc, curr) => acc + curr.monthlyLimit, 0) || 20000;
-                        const pct = Math.min(100, Math.round((spent / limit) * 100));
-                        return (
-                          <div key={dept} className="space-y-1">
-                            <div className="flex justify-between text-xs">
-                              <span className="font-medium">{dept} ({deptEmps.length} members)</span>
-                              <span className="text-muted-foreground">
-                                {currency(spent)} / {currency(limit)} ({pct}%)
-                              </span>
+                      {["Sales", "Engineering", "Executive", "Product", "Operations"].map(
+                        (dept) => {
+                          const deptEmps = employees.filter((e) => e.department === dept);
+                          const spent = deptEmps.reduce((acc, curr) => acc + curr.spent, 0);
+                          const limit =
+                            deptEmps.reduce((acc, curr) => acc + curr.monthlyLimit, 0) || 20000;
+                          const pct = Math.min(100, Math.round((spent / limit) * 100));
+                          return (
+                            <div key={dept} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="font-medium">
+                                  {dept} ({deptEmps.length} members)
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {currency(spent)} / {currency(limit)} ({pct}%)
+                                </span>
+                              </div>
+                              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${pct > 85 ? "bg-amber-500" : "bg-brand"}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${pct > 85 ? "bg-amber-500" : "bg-brand"}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        },
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -520,29 +641,56 @@ export function CorporatePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Users className="h-4 w-4 text-brand" /> Add Team Member to Corporate Account
+                        <Users className="h-4 w-4 text-brand" /> Add Team Member to Corporate
+                        Account
                       </CardTitle>
                       <CardDescription>
-                        Added members can book self-drive cars, hire drivers, and split carpools directly on the company bill.
+                        Added members can book self-drive cars, hire drivers, and split carpools
+                        directly on the company bill.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <form onSubmit={handleAddEmployee} className="grid gap-3 sm:grid-cols-5 items-end">
+                      <form
+                        onSubmit={handleAddEmployee}
+                        className="grid gap-3 sm:grid-cols-5 items-end"
+                      >
                         <div>
                           <Label className="text-xs">Employee Name</Label>
-                          <Input value={newEmpName} onChange={(e) => setNewEmpName(e.target.value)} placeholder="Neha Gupta" required />
+                          <Input
+                            value={newEmpName}
+                            onChange={(e) => setNewEmpName(e.target.value)}
+                            placeholder="Neha Gupta"
+                            required
+                          />
                         </div>
                         <div>
                           <Label className="text-xs">Work Email</Label>
-                          <Input type="email" value={newEmpEmail} onChange={(e) => setNewEmpEmail(e.target.value)} placeholder="neha@acme.com" required />
+                          <Input
+                            type="email"
+                            value={newEmpEmail}
+                            onChange={(e) => setNewEmpEmail(e.target.value)}
+                            placeholder="neha@acme.com"
+                            required
+                          />
                         </div>
                         <div>
                           <Label className="text-xs">Department</Label>
-                          <Input value={newEmpDept} onChange={(e) => setNewEmpDept(e.target.value)} placeholder="Product" />
+                          <Input
+                            value={newEmpDept}
+                            onChange={(e) => setNewEmpDept(e.target.value)}
+                            placeholder="Product"
+                          />
                         </div>
                         <div>
                           <Label className="text-xs">Monthly Limit (₹)</Label>
-                          <Input type="number" min="1000" value={newEmpLimit} onChange={(e) => setNewEmpLimit(e.target.value)} placeholder="15000" required />
+                          <Input
+                            type="number"
+                            min="1000"
+                            value={newEmpLimit}
+                            onChange={(e) => setNewEmpLimit(e.target.value)}
+                            placeholder="15000"
+                            required
+                          />
                         </div>
                         <Button type="submit">
                           <Plus className="mr-1 h-3.5 w-3.5" /> Add Member
@@ -555,8 +703,12 @@ export function CorporatePage() {
                   <Card>
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <CardTitle className="text-base">Active Corporate Roster ({employees.length})</CardTitle>
-                        <CardDescription>Manage individual monthly allowances and view month-to-date spend</CardDescription>
+                        <CardTitle className="text-base">
+                          Active Corporate Roster ({employees.length})
+                        </CardTitle>
+                        <CardDescription>
+                          Manage individual monthly allowances and view month-to-date spend
+                        </CardDescription>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="relative">
@@ -586,12 +738,20 @@ export function CorporatePage() {
                       {filteredEmployees.map((emp) => {
                         const pct = Math.round((emp.spent / emp.monthlyLimit) * 100);
                         return (
-                          <div key={emp.id} className="p-3.5 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div
+                            key={emp.id}
+                            className="p-3.5 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-sm">{emp.name}</p>
-                                <Badge variant="outline" className="text-[10px]">{emp.department}</Badge>
-                                <Badge variant="secondary" className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40">
+                                <Badge variant="outline" className="text-[10px]">
+                                  {emp.department}
+                                </Badge>
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                                >
                                   {emp.status}
                                 </Badge>
                               </div>
@@ -601,7 +761,11 @@ export function CorporatePage() {
                             <div className="flex items-center gap-4">
                               <div className="text-right">
                                 <p className="text-xs text-muted-foreground">
-                                  Spent: <span className="font-medium text-foreground">{currency(emp.spent)}</span> / {currency(emp.monthlyLimit)}
+                                  Spent:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {currency(emp.spent)}
+                                  </span>{" "}
+                                  / {currency(emp.monthlyLimit)}
                                 </p>
                                 <div className="h-1.5 w-28 bg-muted rounded-full overflow-hidden mt-1">
                                   <div
@@ -611,7 +775,11 @@ export function CorporatePage() {
                                 </div>
                               </div>
 
-                              <Button size="sm" variant="ghost" onClick={() => handleRemoveEmployee(emp.id)}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemoveEmployee(emp.id)}
+                              >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
@@ -632,7 +800,9 @@ export function CorporatePage() {
                         <CardTitle className="text-base flex items-center gap-2">
                           <Car className="h-4 w-4 text-brand" /> Corporate Trips & Bookings
                         </CardTitle>
-                        <CardDescription>Live log of employee rides charged to the company billing account</CardDescription>
+                        <CardDescription>
+                          Live log of employee rides charged to the company billing account
+                        </CardDescription>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {trips.length} Logged Trips
@@ -640,28 +810,42 @@ export function CorporatePage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {trips.map((trip) => (
-                        <div key={trip.id} className="p-4 rounded-xl border border-border bg-card flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div
+                          key={trip.id}
+                          className="p-4 rounded-xl border border-border bg-card flex flex-col md:flex-row md:items-center justify-between gap-3"
+                        >
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs text-muted-foreground">{trip.id}</span>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {trip.id}
+                              </span>
                               <span className="font-semibold text-sm">{trip.employeeName}</span>
-                              <Badge variant="outline" className="text-[10px]">{trip.service}</Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {trip.service}
+                              </Badge>
                               {trip.status === "In Progress" ? (
-                                <Badge className="bg-blue-600 text-[10px] animate-pulse">Live In Progress</Badge>
+                                <Badge className="bg-blue-600 text-[10px] animate-pulse">
+                                  Live In Progress
+                                </Badge>
                               ) : (
-                                <Badge variant="secondary" className="text-[10px]">{trip.status}</Badge>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {trip.status}
+                                </Badge>
                               )}
                             </div>
                             <p className="text-xs text-foreground font-medium flex items-center gap-1.5">
                               <MapPin className="h-3 w-3 text-brand shrink-0" /> {trip.route}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Vehicle: <span className="text-foreground">{trip.vehicle}</span> · {trip.date}
+                              Vehicle: <span className="text-foreground">{trip.vehicle}</span> ·{" "}
+                              {trip.date}
                             </p>
                           </div>
 
                           <div className="text-right flex md:flex-col items-center md:items-end justify-between gap-1">
-                            <p className="font-display text-base font-bold text-foreground">{currency(trip.amount)}</p>
+                            <p className="font-display text-base font-bold text-foreground">
+                              {currency(trip.amount)}
+                            </p>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -686,17 +870,29 @@ export function CorporatePage() {
                     <Card className="p-4 bg-emerald-500/5 border-emerald-500/20">
                       <span className="text-xs text-muted-foreground">GSTIN Registered</span>
                       <p className="font-mono text-base font-bold text-foreground mt-1">{gstin}</p>
-                      <p className="text-[11px] text-emerald-600 mt-0.5">18% Input Tax Credit Eligible</p>
+                      <p className="text-[11px] text-emerald-600 mt-0.5">
+                        18% Input Tax Credit Eligible
+                      </p>
                     </Card>
                     <Card className="p-4">
                       <span className="text-xs text-muted-foreground">Corporate Credit Limit</span>
-                      <p className="font-display text-xl font-bold text-foreground mt-1">₹5,00,000</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Payment Terms: Net 30</p>
+                      <p className="font-display text-xl font-bold text-foreground mt-1">
+                        ₹5,00,000
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Payment Terms: Net 30
+                      </p>
                     </Card>
                     <Card className="p-4">
-                      <span className="text-xs text-muted-foreground">Total ITC Claimed (FY 26-27)</span>
-                      <p className="font-display text-xl font-bold text-brand mt-1">{currency(25155)}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">SAC Code 9966 (Rent-a-Cab)</p>
+                      <span className="text-xs text-muted-foreground">
+                        Total ITC Claimed (FY 26-27)
+                      </span>
+                      <p className="font-display text-xl font-bold text-brand mt-1">
+                        {currency(25155)}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        SAC Code 9966 (Rent-a-Cab)
+                      </p>
                     </Card>
                   </div>
 
@@ -707,34 +903,42 @@ export function CorporatePage() {
                         <Receipt className="h-4 w-4 text-brand" /> Consolidated Monthly Tax Invoices
                       </CardTitle>
                       <CardDescription>
-                        Official GST-compliant tax invoices for accounting, audit and input credit filing
+                        Official GST-compliant tax invoices for accounting, audit and input credit
+                        filing
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {INVOICES.map((inv) => (
-                        <div key={inv.id} className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div
+                          key={inv.id}
+                          className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-sm">{inv.month}</span>
-                              <span className="font-mono text-xs text-muted-foreground">({inv.id})</span>
-                              <Badge variant="secondary" className="text-[10px] text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                ({inv.id})
+                              </span>
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40"
+                              >
                                 {inv.status}
                               </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {inv.tripsCount} employee trips · Base: {currency(inv.baseAmount)} + GST (18%): {currency(inv.gstAmount)}
+                              {inv.tripsCount} employee trips · Base: {currency(inv.baseAmount)} +
+                              GST (18%): {currency(inv.gstAmount)}
                             </p>
                           </div>
 
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <p className="font-display text-base font-bold text-foreground">{currency(inv.totalAmount)}</p>
+                              <p className="font-display text-base font-bold text-foreground">
+                                {currency(inv.totalAmount)}
+                              </p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={comingSoon}
-                            >
+                            <Button size="sm" variant="outline" onClick={comingSoon}>
                               <Download className="mr-1.5 h-3.5 w-3.5" /> PDF Invoice
                             </Button>
                           </div>
@@ -751,10 +955,12 @@ export function CorporatePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Sliders className="h-4 w-4 text-brand" /> Enterprise Mobility Policies & Rules
+                        <Sliders className="h-4 w-4 text-brand" /> Enterprise Mobility Policies &
+                        Rules
                       </CardTitle>
                       <CardDescription>
-                        Configure approval thresholds, allowable vehicle categories, and travel window boundaries
+                        Configure approval thresholds, allowable vehicle categories, and travel
+                        window boundaries
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -765,7 +971,8 @@ export function CorporatePage() {
                             <Badge variant="outline">Permitted</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Employees may reserve Hatchbacks, Compact SUVs, and Sedans. Premium SUVs (&gt;₹3,500/day) require Manager Pre-Approval.
+                            Employees may reserve Hatchbacks, Compact SUVs, and Sedans. Premium SUVs
+                            (&gt;₹3,500/day) require Manager Pre-Approval.
                           </p>
                         </div>
 
@@ -775,17 +982,23 @@ export function CorporatePage() {
                             <Badge variant="outline">Permitted</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Available for client meetings, airport transit, and intercity corporate trips. Capped at ₹3,000/day duty.
+                            Available for client meetings, airport transit, and intercity corporate
+                            trips. Capped at ₹3,000/day duty.
                           </p>
                         </div>
 
                         <div className="p-4 rounded-xl border border-border bg-card space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-sm">Night Travel Window (11 PM - 6 AM)</span>
-                            <Badge variant="secondary" className="text-amber-600 bg-amber-50">OTP Verification</Badge>
+                            <span className="font-semibold text-sm">
+                              Night Travel Window (11 PM - 6 AM)
+                            </span>
+                            <Badge variant="secondary" className="text-amber-600 bg-amber-50">
+                              OTP Verification
+                            </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Night pickups automatically notify company travel emergency contact and enable live route tracking.
+                            Night pickups automatically notify company travel emergency contact and
+                            enable live route tracking.
                           </p>
                         </div>
 
@@ -795,15 +1008,14 @@ export function CorporatePage() {
                             <Badge className="bg-emerald-600">Encouraged</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Employees sharing seats with verified co-workers receive 100% company fare subsidy.
+                            Employees sharing seats with verified co-workers receive 100% company
+                            fare subsidy.
                           </p>
                         </div>
                       </div>
 
                       <div className="pt-2">
-                        <Button onClick={comingSoon}>
-                          Save Policy Changes
-                        </Button>
+                        <Button onClick={comingSoon}>Save Policy Changes</Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -819,18 +1031,26 @@ export function CorporatePage() {
                         <Settings className="h-4 w-4 text-brand" /> Corporate Organization Profile
                       </CardTitle>
                       <CardDescription>
-                        Update business registration, tax billing details, and enterprise administrators
+                        Update business registration, tax billing details, and enterprise
+                        administrators
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
                           <Label className="text-xs">Company Legal Entity Name</Label>
-                          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                          <Input
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                          />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">GSTIN</Label>
-                          <Input value={gstin} onChange={(e) => setGstin(e.target.value)} className="font-mono uppercase" />
+                          <Input
+                            value={gstin}
+                            onChange={(e) => setGstin(e.target.value)}
+                            className="font-mono uppercase"
+                          />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Primary Billing Email</Label>
@@ -843,9 +1063,7 @@ export function CorporatePage() {
                       </div>
 
                       <div className="pt-2 flex items-center gap-3">
-                        <Button onClick={comingSoon}>
-                          Update Organization Settings
-                        </Button>
+                        <Button onClick={comingSoon}>Update Organization Settings</Button>
                         <Button
                           variant="outline"
                           onClick={() => {

@@ -14,13 +14,23 @@ type Booking = {
 const MONTHS = 6;
 
 /** Earnings + performance analytics for a host, derived from their bookings. */
-export function HostAnalytics({ bookings, avgRating }: { bookings: Booking[]; avgRating?: number }) {
+export function HostAnalytics({
+  bookings,
+  avgRating,
+}: {
+  bookings: Booking[];
+  avgRating?: number;
+}) {
   const stats = useMemo(() => {
     const paid = bookings.filter((b) => b.payment_status === "paid");
     const gross = paid.reduce((s, b) => s + Number(b.total_price), 0);
     const completed = bookings.filter((b) => b.status === "completed").length;
-    const cancelled = bookings.filter((b) => b.status === "cancelled" || b.status === "rejected").length;
-    const acceptance = bookings.length ? Math.round(((bookings.length - cancelled) / bookings.length) * 100) : 0;
+    const cancelled = bookings.filter(
+      (b) => b.status === "cancelled" || b.status === "rejected",
+    ).length;
+    const acceptance = bookings.length
+      ? Math.round(((bookings.length - cancelled) / bookings.length) * 100)
+      : 0;
     const avgTrip = paid.length ? gross / paid.length : 0;
 
     const now = new Date();
@@ -55,7 +65,9 @@ export function HostAnalytics({ bookings, avgRating }: { bookings: Booking[]; av
         </div>
 
         <div>
-          <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">Last {MONTHS} months</p>
+          <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
+            Last {MONTHS} months
+          </p>
           <div className="flex h-36 items-end gap-2">
             {stats.series.map((s) => (
               <div key={s.label} className="flex flex-1 flex-col items-center gap-2">
@@ -73,7 +85,8 @@ export function HostAnalytics({ bookings, avgRating }: { bookings: Booking[]; av
         </div>
 
         <p className="text-xs text-muted-foreground">
-          {stats.trips} paid trip{stats.trips === 1 ? "" : "s"} · {stats.completed} completed. Payouts settle to your Synchoo wallet as trips are paid.
+          {stats.trips} paid trip{stats.trips === 1 ? "" : "s"} · {stats.completed} completed.
+          Payouts settle to your Synchoo wallet as trips are paid.
         </p>
       </CardContent>
     </Card>

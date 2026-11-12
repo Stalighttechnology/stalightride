@@ -31,18 +31,15 @@ export function MobileBottomNav() {
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "relative flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-all duration-300",
-                isActive
-                  ? "text-brand"
-                  : "text-muted-foreground hover:text-foreground",
+                isActive ? "text-brand" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {isActive && (
-                <span
-                  aria-hidden
-                  className="absolute inset-0 rounded-xl bg-brand/12 shadow-glow"
-                />
+                <span aria-hidden className="absolute inset-0 rounded-xl bg-brand/12 shadow-glow" />
               )}
-              <it.icon className={cn("relative h-5 w-5 transition-transform", isActive && "scale-110")} />
+              <it.icon
+                className={cn("relative h-5 w-5 transition-transform", isActive && "scale-110")}
+              />
               <span className="relative">{it.label}</span>
             </Link>
           );

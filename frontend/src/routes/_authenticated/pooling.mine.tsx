@@ -11,16 +11,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
-import { Users, CalendarClock, MapPin, Search, CircleSlash, Star, AlertTriangle } from "lucide-react";
+import {
+  Users,
+  CalendarClock,
+  MapPin,
+  Search,
+  CircleSlash,
+  Star,
+  AlertTriangle,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pooling/mine")({
   component: MyPooling,
   head: () => ({
     meta: [
       { title: "My car pooling bookings — Synchoo" },
-      { name: "description", content: "Track your car pooling seat requests, driver decisions, fares and pickup points." },
+      {
+        name: "description",
+        content: "Track your car pooling seat requests, driver decisions, fares and pickup points.",
+      },
       { property: "og:title", content: "My car pooling bookings — Synchoo" },
-      { property: "og:description", content: "Track your pooling seat requests and driver decisions." },
+      {
+        property: "og:description",
+        content: "Track your pooling seat requests and driver decisions.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -36,7 +50,12 @@ const LABEL: Record<string, string> = {
 };
 
 function whenLabel(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function MyPooling() {
@@ -62,12 +81,17 @@ function MyPooling() {
       setRatedTrips(new Set(userRatings.map((x) => x.request_id).filter(Boolean) as string[]));
     }
   };
-  useEffect(() => { load(); }, [user?.id]);
+  useEffect(() => {
+    load();
+  }, [user?.id]);
 
   const cancel = async (r: any) => {
     if (!window.confirm("Cancel this pooling booking?")) return;
     setBusy(r.id);
-    const { error } = await api.from("pool_requests").update({ status: "cancelled" } as any).eq("id", r.id);
+    const { error } = await api
+      .from("pool_requests")
+      .update({ status: "cancelled" } as any)
+      .eq("id", r.id);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success("Booking cancelled");
@@ -137,13 +161,21 @@ function MyPooling() {
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <Badge variant="secondary" className="rounded-full">Car pooling</Badge>
-            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">My pooling bookings</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Requests you sent to drivers and their decisions.</p>
+            <Badge variant="secondary" className="rounded-full">
+              Car pooling
+            </Badge>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">
+              My pooling bookings
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Requests you sent to drivers and their decisions.
+            </p>
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline" className="rounded-full">
-              <Link to="/pooling"><Search className="mr-1.5 h-4 w-4" /> Find a ride</Link>
+              <Link to="/pooling">
+                <Search className="mr-1.5 h-4 w-4" /> Find a ride
+              </Link>
             </Button>
             <Button asChild variant="ghost" className="rounded-full">
               <Link to="/pooling/driver">Trips I offer</Link>
@@ -170,11 +202,21 @@ function MyPooling() {
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className="rounded-full">{LABEL[r.status]}</Badge>
-                      {trip && <span className="text-xs text-muted-foreground">{trip.vehicle_label}</span>}
-                      <Badge variant="secondary" className="rounded-full">{Number(r.match_score)}% route match</Badge>
+                      {trip && (
+                        <span className="text-xs text-muted-foreground">{trip.vehicle_label}</span>
+                      )}
+                      <Badge variant="secondary" className="rounded-full">
+                        {Number(r.match_score)}% route match
+                      </Badge>
                     </div>
-                    <p className="flex items-start gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" /><span className="break-words">{r.pickup_label}</span></p>
-                    <p className="flex items-start gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><span className="break-words">{r.drop_label}</span></p>
+                    <p className="flex items-start gap-2 text-sm">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                      <span className="break-words">{r.pickup_label}</span>
+                    </p>
+                    <p className="flex items-start gap-2 text-sm">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="break-words">{r.drop_label}</span>
+                    </p>
                     <div className="flex flex-wrap gap-2 text-xs">
                       {trip && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
@@ -193,19 +235,39 @@ function MyPooling() {
                         </span>
                       )}
                     </div>
-                    {trip && <p className="text-xs text-muted-foreground">Driver route: {trip.origin_label} → {trip.dest_label}</p>}
+                    {trip && (
+                      <p className="text-xs text-muted-foreground">
+                        Driver route: {trip.origin_label} → {trip.dest_label}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {open && (
-                        <Button size="sm" variant="ghost" className="rounded-full" disabled={busy === r.id} onClick={() => cancel(r)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full"
+                          disabled={busy === r.id}
+                          onClick={() => cancel(r)}
+                        >
                           <CircleSlash className="mr-1.5 h-4 w-4" /> Cancel booking
                         </Button>
                       )}
                       {isCompleted && !ratedTrips.has(r.id) && (
-                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => rateDriver(r)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={() => rateDriver(r)}
+                        >
                           <Star className="mr-1.5 h-4 w-4 text-amber-500" /> Rate ride & driver
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" className="rounded-full text-xs text-muted-foreground hover:text-destructive" onClick={() => reportDriver(r)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-full text-xs text-muted-foreground hover:text-destructive"
+                        onClick={() => reportDriver(r)}
+                      >
                         <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Report issue
                       </Button>
                     </div>

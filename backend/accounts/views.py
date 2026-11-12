@@ -76,10 +76,30 @@ def signup(request):
         return _error(f"Password should be at least {MIN_PASSWORD} characters.", "weak_password", 422)
     if not isinstance(metadata, dict):
         return _error("data must be an object", "validation_failed")
+
+    ref = str(request.data.get("ref") or metadata.get("ref") or "").strip().upper()
+    referrer_id = None
+
     with as_owner():
+        if ref:
+            with connection.cursor() as cur:
+                cur.execute("SELECT id FROM public.profiles WHERE upper(referral_code) = %s", [ref])
+                row = cur.fetchone()
+                if not row and ref.startswith("SYN-"):
+                    clean_ref = ref[4:].replace("-", "")
+                    cur.execute("SELECT id FROM public.profiles WHERE upper(replace(id::text, '-', '')) LIKE %s", [f"{clean_ref}%"])
+                    row = cur.fetchone()
+                if row:
+                    referrer_id = row[0]
+
         if User.objects.filter(email=email).exists():
             return _error("User already registered", "user_already_exists", 422)
         user = User.objects.create_user(email, password, **metadata)
+
+        if referrer_id:
+            with connection.cursor() as cur:
+                cur.execute("UPDATE public.profiles SET referred_by = %s WHERE id = %s", [referrer_id, user.id])
+
     session = session_for(user)
     return Response({"user": session["user"], "session": session})
 

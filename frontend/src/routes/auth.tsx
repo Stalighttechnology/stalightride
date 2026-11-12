@@ -15,6 +15,7 @@ import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react
 
 const search = z.object({
   mode: z.enum(["signin", "signup"]).optional(),
+  ref: z.string().optional(),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -31,8 +32,10 @@ function formatAuthError(err: any): string {
 }
 
 function AuthPage() {
-  const { mode: initialMode } = Route.useSearch();
-  const [tab, setTab] = useState<"signin" | "signup">(initialMode === "signup" ? "signup" : "signin");
+  const { mode: initialMode, ref: referralCode } = Route.useSearch();
+  const [tab, setTab] = useState<"signin" | "signup">(
+    initialMode === "signup" ? "signup" : "signin",
+  );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -122,6 +125,7 @@ function AuthPage() {
         options: {
           data: {
             full_name: fullName.trim() || email.split("@")[0],
+            ref: referralCode?.trim() || undefined,
           },
         },
       });
@@ -136,9 +140,12 @@ function AuthPage() {
         toast.success("Account created successfully!");
         navigate({ to: (await landingPathForUser(data.session.user.id)) as any });
       } else if (data.user) {
-        toast.success("Account created! Please check your email inbox to verify your account before logging in.", {
-          duration: 6000,
-        });
+        toast.success(
+          "Account created! Please check your email inbox to verify your account before logging in.",
+          {
+            duration: 6000,
+          },
+        );
         setTab("signin");
       }
     } catch (err: any) {
@@ -272,7 +279,11 @@ function AuthPage() {
               </form>
             ) : (
               /* Sign In / Sign Up Tabs */
-              <Tabs value={tab} onValueChange={(v) => setTab(v as "signin" | "signup")} className="w-full">
+              <Tabs
+                value={tab}
+                onValueChange={(v) => setTab(v as "signin" | "signup")}
+                className="w-full"
+              >
                 <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="signin">Sign In</TabsTrigger>
                   <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -324,7 +335,11 @@ function AuthPage() {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -392,7 +407,11 @@ function AuthPage() {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>

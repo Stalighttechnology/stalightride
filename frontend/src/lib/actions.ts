@@ -7,7 +7,11 @@ import { api } from "@/lib/api";
 
 type Input<T> = { data: T };
 type RazorpayOrder = { orderId: string; amount: number; currency: string; keyId: string };
-type PaymentProof = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
+type PaymentProof = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
 type HandoverPhase = "pickup" | "return";
 
 const action =
@@ -15,25 +19,39 @@ const action =
   (input: Input<I>) =>
     api.fn<O>(name, input.data);
 
-export const createRazorpayOrder = action<{ bookingId: string }, RazorpayOrder>("createRazorpayOrder");
-export const verifyRazorpayPayment = action<{ bookingId: string } & PaymentProof, { ok: true }>("verifyRazorpayPayment");
-export const createDriverRazorpayOrder = action<{ driverBookingId: string }, RazorpayOrder>("createDriverRazorpayOrder");
-export const verifyDriverRazorpayPayment = action<{ driverBookingId: string } & PaymentProof, { ok: true }>(
-  "verifyDriverRazorpayPayment",
+export const createRazorpayOrder = action<{ bookingId: string }, RazorpayOrder>(
+  "createRazorpayOrder",
 );
-export const createWashRazorpayOrder = action<{ washBookingId: string }, RazorpayOrder>("createWashRazorpayOrder");
-export const verifyWashRazorpayPayment = action<{ washBookingId: string } & PaymentProof, { ok: true }>(
-  "verifyWashRazorpayPayment",
+export const verifyRazorpayPayment = action<{ bookingId: string } & PaymentProof, { ok: true }>(
+  "verifyRazorpayPayment",
 );
-export const createWalletTopupOrder = action<{ amount: number }, RazorpayOrder>("createWalletTopupOrder");
-export const verifyWalletTopup = action<PaymentProof, { ok: true; alreadyCredited: boolean; newBalance: number }>(
-  "verifyWalletTopup",
+export const createDriverRazorpayOrder = action<{ driverBookingId: string }, RazorpayOrder>(
+  "createDriverRazorpayOrder",
 );
+export const verifyDriverRazorpayPayment = action<
+  { driverBookingId: string } & PaymentProof,
+  { ok: true }
+>("verifyDriverRazorpayPayment");
+export const createWashRazorpayOrder = action<{ washBookingId: string }, RazorpayOrder>(
+  "createWashRazorpayOrder",
+);
+export const verifyWashRazorpayPayment = action<
+  { washBookingId: string } & PaymentProof,
+  { ok: true }
+>("verifyWashRazorpayPayment");
+export const createWalletTopupOrder = action<{ amount: number }, RazorpayOrder>(
+  "createWalletTopupOrder",
+);
+export const verifyWalletTopup = action<
+  PaymentProof,
+  { ok: true; alreadyCredited: boolean; newBalance: number }
+>("verifyWalletTopup");
 export const getBookingByQr = action<{ code: string }>("getBookingByQr");
 export const resolveHandoverCode = action<{ code: string }>("resolveHandoverCode");
-export const confirmHandover = action<{ code: string; phase: HandoverPhase }, { ok: true; phase: HandoverPhase; bookingId: string }>(
-  "confirmHandover",
-);
+export const confirmHandover = action<
+  { code: string; phase: HandoverPhase },
+  { ok: true; phase: HandoverPhase; bookingId: string }
+>("confirmHandover");
 export const submitInspection = action<
   {
     bookingId: string;

@@ -36,7 +36,11 @@ export const Route = createFileRoute("/safety")({
   head: () => ({
     meta: [
       { title: "Safety Center — Synchoo" },
-      { name: "description", content: "24/7 Safety Command Center, SOS assistance, accident reporting, breakdown support, and insurance guidelines on Synchoo." },
+      {
+        name: "description",
+        content:
+          "24/7 Safety Command Center, SOS assistance, accident reporting, breakdown support, and insurance guidelines on Synchoo.",
+      },
     ],
   }),
 });
@@ -84,7 +88,7 @@ export function SafetyCenterPage() {
           name: c.name,
           relationship: c.relationship || "Contact",
           phone: c.phone,
-        }))
+        })),
       );
     }
   };
@@ -118,7 +122,9 @@ export function SafetyCenterPage() {
       return;
     }
 
-    toast.success("Incident report filed! Our 24/7 Safety Team has been notified and will call you.");
+    toast.success(
+      "Incident report filed! Our 24/7 Safety Team has been notified and will call you.",
+    );
     setIncidentBookingId("");
     setIncidentLocation("");
     setIncidentDesc("");
@@ -212,14 +218,19 @@ export function SafetyCenterPage() {
         {/* Hero Section */}
         <div className="border-b border-border bg-gradient-to-b from-red-50/50 via-background to-background dark:from-red-950/20 py-12 px-4 sm:px-6">
           <div className="mx-auto max-w-5xl text-center space-y-3">
-            <Badge variant="outline" className="border-red-300 text-red-600 bg-red-50 dark:bg-red-950/40">
+            <Badge
+              variant="outline"
+              className="border-red-300 text-red-600 bg-red-50 dark:bg-red-950/40"
+            >
               <ShieldAlert className="mr-1 h-3.5 w-3.5" /> 24/7 Safety Command Hub
             </Badge>
             <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight">
               Your Safety Is Our Uncompromising Priority
             </h1>
             <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-              Whether you are on a weekend self-drive rental, carpooling intercity, or using our driver service, Synchoo provides around-the-clock protection and immediate roadside response.
+              Whether you are on a weekend self-drive rental, carpooling intercity, or using our
+              driver service, Synchoo provides around-the-clock protection and immediate roadside
+              response.
             </p>
 
             {/* Quick Emergency Numbers */}
@@ -236,7 +247,8 @@ export function SafetyCenterPage() {
                 className="h-10 px-5 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200"
                 onClick={() => window.open("tel:+918045678900", "_self")}
               >
-                <PhoneCall className="mr-2 h-4 w-4 text-amber-600" /> Synchoo Safety Desk: +91 80 4567 8900
+                <PhoneCall className="mr-2 h-4 w-4 text-amber-600" /> Synchoo Safety Desk: +91 80
+                4567 8900
               </Button>
               <Button
                 variant="outline"
@@ -308,255 +320,295 @@ export function SafetyCenterPage() {
 
             <div className="lg:col-span-3">
               {/* Tab 1: Roadside & Breakdown */}
-            <TabsContent value="breakdown" className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Card className="p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand mb-3">
-                    <Wrench className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-semibold text-sm">Flat Tyre Support</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Spare tyre replacement assistance or puncture repair technician dispatched to your location within 30-45 minutes.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-4 text-xs"
-                    onClick={() => window.open("tel:+918045678900", "_self")}
-                  >
-                    Request Tyre Assist
-                  </Button>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand mb-3">
-                    <Car className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-semibold text-sm">Battery Jumpstart</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Dead battery? Mobile mechanic with industrial jumper cables will get your engine running on the spot.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-4 text-xs"
-                    onClick={() => window.open("tel:+918045678900", "_self")}
-                  >
-                    Request Jumpstart
-                  </Button>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand mb-3">
-                    <ShieldAlert className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-semibold text-sm">Flatbed Towing Support</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Safe hydraulic flatbed vehicle towing to the nearest authorized OEM brand service center across India.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full mt-4 text-xs"
-                    onClick={() => window.open("tel:+918045678900", "_self")}
-                  >
-                    Request Flatbed Tow
-                  </Button>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* Tab 2: Report Incident */}
-            <TabsContent value="incident">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" /> File Incident or Accident Report
-                  </CardTitle>
-                  <CardDescription>
-                    Submit official accident or damage details. Our emergency claims manager will liaise with host and insurer.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleIncidentSubmit} className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Incident Classification *</Label>
-                        <select
-                          value={incidentType}
-                          onChange={(e) => setIncidentType(e.target.value)}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
-                        >
-                          <option value="accident">Collision / Road Accident</option>
-                          <option value="breakdown">Engine / Mechanical Failure</option>
-                          <option value="theft">Vandalism / Stolen Part</option>
-                          <option value="dispute">Unsafe Host / Driver Behavior</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Booking ID or Vehicle No *</Label>
-                        <Input
-                          value={incidentBookingId}
-                          onChange={(e) => setIncidentBookingId(e.target.value)}
-                          placeholder="e.g. 550e8400 or KA-01-AB-1234"
-                          required
-                        />
-                      </div>
+              <TabsContent value="breakdown" className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Card className="p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand mb-3">
+                      <Wrench className="h-5 w-5" />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Location of Incident *</Label>
-                      <Input
-                        value={incidentLocation}
-                        onChange={(e) => setIncidentLocation(e.target.value)}
-                        placeholder="e.g. Bangalore-Mysore Expressway, near Mandya Toll"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Describe what happened *</Label>
-                      <Textarea
-                        rows={3}
-                        value={incidentDesc}
-                        onChange={(e) => setIncidentDesc(e.target.value)}
-                        placeholder="Details of the event, third-party vehicle details, injuries (if any), and vehicle drivability status."
-                        required
-                      />
-                    </div>
-
-                    <Button type="submit" disabled={submittingIncident}>
-                      {submittingIncident ? "Submitting..." : "Submit Incident Report to Claims Desk"}
+                    <h3 className="font-semibold text-sm">Flat Tyre Support</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Spare tyre replacement assistance or puncture repair technician dispatched to
+                      your location within 30-45 minutes.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-4 text-xs"
+                      onClick={() => window.open("tel:+918045678900", "_self")}
+                    >
+                      Request Tyre Assist
                     </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                  </Card>
 
-            {/* Tab 3: Lost & Found */}
-            <TabsContent value="lost">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <PackageSearch className="h-4 w-4 text-brand" /> Lost & Found Assistance
-                  </CardTitle>
-                  <CardDescription>
-                    Left sunglasses, wallet, chargers, or luggage in a Synchoo vehicle? We will coordinate recovery with the host.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleLostSubmit} className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Item Description *</Label>
-                        <Input
-                          value={lostItemName}
-                          onChange={(e) => setLostItemName(e.target.value)}
-                          placeholder="e.g. Black RayBan Sunglasses in glove box"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Trip Reference / Date *</Label>
-                        <Input
-                          value={lostTripId}
-                          onChange={(e) => setLostTripId(e.target.value)}
-                          placeholder="e.g. Hyundai Creta trip on 5th Nov"
-                          required
-                        />
-                      </div>
+                  <Card className="p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand mb-3">
+                      <Car className="h-5 w-5" />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Where in vehicle was it left?</Label>
-                      <Textarea
-                        rows={2}
-                        value={lostDesc}
-                        onChange={(e) => setLostDesc(e.target.value)}
-                        placeholder="Boot space, rear seat pocket, glove compartment, etc."
-                      />
-                    </div>
-
-                    <Button type="submit" disabled={submittingLost}>
-                      {submittingLost ? "Submitting..." : "Submit Lost Item Claim"}
+                    <h3 className="font-semibold text-sm">Battery Jumpstart</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Dead battery? Mobile mechanic with industrial jumper cables will get your
+                      engine running on the spot.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-4 text-xs"
+                      onClick={() => window.open("tel:+918045678900", "_self")}
+                    >
+                      Request Jumpstart
                     </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                  </Card>
 
-            {/* Tab 4: Insurance Coverage */}
-            <TabsContent value="insurance" className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 text-emerald-600 font-semibold text-sm mb-2">
-                    <CheckCircle2 className="h-4 w-4" /> Comprehensive Protection Included
-                  </div>
-                  <ul className="space-y-2 text-xs text-muted-foreground">
-                    <li>• <strong>Third-Party Liability:</strong> Coverage up to ₹50,00,000 for any third-party vehicle or property damage.</li>
-                    <li>• <strong>Zero Depreciation:</strong> Nil-depreciation cover on plastic, glass, and metal repairs in case of collision.</li>
-                    <li>• <strong>Cashless Repairs:</strong> Tie-up with 4,000+ authorized workshops nationwide.</li>
-                  </ul>
-                </Card>
-
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 text-foreground font-semibold text-sm mb-2">
-                    <Lock className="h-4 w-4 text-brand" /> Renter Maximum Liability Cap
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    In the event of accidental damage during an authorized trip complying with Terms of Service, your financial liability is strictly capped at the refundable security deposit amount (typically ₹3,000 to ₹5,000). Synchoo insurance absorbs all costs exceeding the deductible cap.
-                  </p>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* Tab 5: Trusted Emergency Contacts */}
-            <TabsContent value="contacts" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-brand" /> Trusted Emergency Contacts
-                  </CardTitle>
-                  <CardDescription>
-                    These contacts will be immediately pinged with your live trip tracker and emergency location if SOS is triggered.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <form onSubmit={addEmergencyContact} className="grid gap-3 sm:grid-cols-4 items-end">
-                    <div>
-                      <Label className="text-xs">Contact Name</Label>
-                      <Input value={newContactName} onChange={(e) => setNewContactName(e.target.value)} placeholder="Anita Sharma" required />
+                  <Card className="p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand mb-3">
+                      <ShieldAlert className="h-5 w-5" />
                     </div>
-                    <div>
-                      <Label className="text-xs">Relationship</Label>
-                      <Input value={newContactRelation} onChange={(e) => setNewContactRelation(e.target.value)} placeholder="Sister / Spouse" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Phone Number</Label>
-                      <Input value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} placeholder="+91 98765 43210" required />
-                    </div>
-                    <Button type="submit">
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Add Contact
+                    <h3 className="font-semibold text-sm">Flatbed Towing Support</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Safe hydraulic flatbed vehicle towing to the nearest authorized OEM brand
+                      service center across India.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-4 text-xs"
+                      onClick={() => window.open("tel:+918045678900", "_self")}
+                    >
+                      Request Flatbed Tow
                     </Button>
-                  </form>
+                  </Card>
+                </div>
+              </TabsContent>
 
-                  <div className="grid gap-2">
-                    {contacts.map((c) => (
-                      <Card key={c.id} className="p-3 flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{c.name}</p>
-                          <p className="text-xs text-muted-foreground">{c.relationship} · {c.phone}</p>
+              {/* Tab 2: Report Incident */}
+              <TabsContent value="incident">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive" /> File Incident or
+                      Accident Report
+                    </CardTitle>
+                    <CardDescription>
+                      Submit official accident or damage details. Our emergency claims manager will
+                      liaise with host and insurer.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleIncidentSubmit} className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Incident Classification *</Label>
+                          <select
+                            value={incidentType}
+                            onChange={(e) => setIncidentType(e.target.value)}
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs"
+                          >
+                            <option value="accident">Collision / Road Accident</option>
+                            <option value="breakdown">Engine / Mechanical Failure</option>
+                            <option value="theft">Vandalism / Stolen Part</option>
+                            <option value="dispute">Unsafe Host / Driver Behavior</option>
+                          </select>
                         </div>
-                        <Button size="sm" variant="ghost" onClick={() => removeContact(c.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </Card>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Booking ID or Vehicle No *</Label>
+                          <Input
+                            value={incidentBookingId}
+                            onChange={(e) => setIncidentBookingId(e.target.value)}
+                            placeholder="e.g. 550e8400 or KA-01-AB-1234"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Location of Incident *</Label>
+                        <Input
+                          value={incidentLocation}
+                          onChange={(e) => setIncidentLocation(e.target.value)}
+                          placeholder="e.g. Bangalore-Mysore Expressway, near Mandya Toll"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Describe what happened *</Label>
+                        <Textarea
+                          rows={3}
+                          value={incidentDesc}
+                          onChange={(e) => setIncidentDesc(e.target.value)}
+                          placeholder="Details of the event, third-party vehicle details, injuries (if any), and vehicle drivability status."
+                          required
+                        />
+                      </div>
+
+                      <Button type="submit" disabled={submittingIncident}>
+                        {submittingIncident
+                          ? "Submitting..."
+                          : "Submit Incident Report to Claims Desk"}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Tab 3: Lost & Found */}
+              <TabsContent value="lost">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <PackageSearch className="h-4 w-4 text-brand" /> Lost & Found Assistance
+                    </CardTitle>
+                    <CardDescription>
+                      Left sunglasses, wallet, chargers, or luggage in a Synchoo vehicle? We will
+                      coordinate recovery with the host.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleLostSubmit} className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Item Description *</Label>
+                          <Input
+                            value={lostItemName}
+                            onChange={(e) => setLostItemName(e.target.value)}
+                            placeholder="e.g. Black RayBan Sunglasses in glove box"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Trip Reference / Date *</Label>
+                          <Input
+                            value={lostTripId}
+                            onChange={(e) => setLostTripId(e.target.value)}
+                            placeholder="e.g. Hyundai Creta trip on 5th Nov"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Where in vehicle was it left?</Label>
+                        <Textarea
+                          rows={2}
+                          value={lostDesc}
+                          onChange={(e) => setLostDesc(e.target.value)}
+                          placeholder="Boot space, rear seat pocket, glove compartment, etc."
+                        />
+                      </div>
+
+                      <Button type="submit" disabled={submittingLost}>
+                        {submittingLost ? "Submitting..." : "Submit Lost Item Claim"}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Tab 4: Insurance Coverage */}
+              <TabsContent value="insurance" className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-emerald-600 font-semibold text-sm mb-2">
+                      <CheckCircle2 className="h-4 w-4" /> Comprehensive Protection Included
+                    </div>
+                    <ul className="space-y-2 text-xs text-muted-foreground">
+                      <li>
+                        • <strong>Third-Party Liability:</strong> Coverage up to ₹50,00,000 for any
+                        third-party vehicle or property damage.
+                      </li>
+                      <li>
+                        • <strong>Zero Depreciation:</strong> Nil-depreciation cover on plastic,
+                        glass, and metal repairs in case of collision.
+                      </li>
+                      <li>
+                        • <strong>Cashless Repairs:</strong> Tie-up with 4,000+ authorized workshops
+                        nationwide.
+                      </li>
+                    </ul>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 text-foreground font-semibold text-sm mb-2">
+                      <Lock className="h-4 w-4 text-brand" /> Renter Maximum Liability Cap
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      In the event of accidental damage during an authorized trip complying with
+                      Terms of Service, your financial liability is strictly capped at the
+                      refundable security deposit amount (typically ₹3,000 to ₹5,000). Synchoo
+                      insurance absorbs all costs exceeding the deductible cap.
+                    </p>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Tab 5: Trusted Emergency Contacts */}
+              <TabsContent value="contacts" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-brand" /> Trusted Emergency Contacts
+                    </CardTitle>
+                    <CardDescription>
+                      These contacts will be immediately pinged with your live trip tracker and
+                      emergency location if SOS is triggered.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <form
+                      onSubmit={addEmergencyContact}
+                      className="grid gap-3 sm:grid-cols-4 items-end"
+                    >
+                      <div>
+                        <Label className="text-xs">Contact Name</Label>
+                        <Input
+                          value={newContactName}
+                          onChange={(e) => setNewContactName(e.target.value)}
+                          placeholder="Anita Sharma"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Relationship</Label>
+                        <Input
+                          value={newContactRelation}
+                          onChange={(e) => setNewContactRelation(e.target.value)}
+                          placeholder="Sister / Spouse"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Phone Number</Label>
+                        <Input
+                          value={newContactPhone}
+                          onChange={(e) => setNewContactPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          required
+                        />
+                      </div>
+                      <Button type="submit">
+                        <Plus className="mr-1 h-3.5 w-3.5" /> Add Contact
+                      </Button>
+                    </form>
+
+                    <div className="grid gap-2">
+                      {contacts.map((c) => (
+                        <Card key={c.id} className="p-3 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{c.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {c.relationship} · {c.phone}
+                            </p>
+                          </div>
+                          <Button size="sm" variant="ghost" onClick={() => removeContact(c.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </div>
           </Tabs>
         </div>
@@ -564,4 +616,3 @@ export function SafetyCenterPage() {
     </div>
   );
 }
-

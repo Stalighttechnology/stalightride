@@ -150,7 +150,8 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
 
             <div className="flex justify-end">
               <Button type="submit" size="sm" disabled={submitting}>
-                <Send className="mr-1.5 h-3.5 w-3.5" /> {submitting ? "Submitting..." : "Submit Ticket"}
+                <Send className="mr-1.5 h-3.5 w-3.5" />{" "}
+                {submitting ? "Submitting..." : "Submit Ticket"}
               </Button>
             </div>
           </form>
@@ -169,14 +170,18 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold text-xs text-brand">{t.ticket_no}</span>
+                      <span className="font-mono font-semibold text-xs text-brand">
+                        {t.ticket_no}
+                      </span>
                       <Badge
                         variant={t.status === "Resolved" ? "secondary" : "outline"}
                         className={t.status === "Resolved" ? "bg-emerald-50 text-emerald-700" : ""}
                       >
                         {t.status}
                       </Badge>
-                      <Badge variant="outline" className="text-[10px]">{t.priority}</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {t.priority}
+                      </Badge>
                     </div>
                     <p className="font-semibold text-xs mt-1 text-foreground">{t.subject}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{t.description}</p>

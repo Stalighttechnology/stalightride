@@ -40,7 +40,12 @@ describe("driver onboarding and verification (M7 DR-01 to DR-06)", () => {
     expect(be.searchDrivers()).toHaveLength(0);
     expect(be.getPublicDriver(driver.id)).toBeNull();
     expect(() =>
-      be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" }),
+      be.hireDriver({
+        customer_id: customer,
+        driver_id: driver.id,
+        start_date: "2026-08-20",
+        end_date: "2026-08-20",
+      }),
     ).toThrow(/not available/);
   });
 
@@ -196,36 +201,70 @@ describe("driver hire accept / decline", () => {
 
   test("DH-06: driver accepts, customer pays from wallet -> driver wallet credited and notified", () => {
     const { be, customer, driver } = approved();
-    const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
+    const b = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+    });
     expect(() => be.payDriverBookingWithWallet(customer, b.id)).toThrow(/accepted hires/);
     be.driverDecide(driver.id, b.id, "confirmed");
     be.wallet.topup(customer, 1500);
     be.payDriverBookingWithWallet(customer, b.id);
     expect(be.wallet.balance(customer)).toBe(0);
     expect(be.wallet.balance(driver.id)).toBe(1500);
-    expect(be.notifications.some((n) => n.user_id === driver.id && /payment/i.test(n.title))).toBe(true);
+    expect(be.notifications.some((n) => n.user_id === driver.id && /payment/i.test(n.title))).toBe(
+      true,
+    );
     expect(() => be.payDriverBookingWithWallet(customer, b.id)).toThrow(/Already paid/);
   });
 
   test("DH-07: declining frees the slot and blocks payment", () => {
     const { be, customer, driver } = approved();
-    const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
+    const b = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+    });
     be.driverDecide(driver.id, b.id, "rejected");
-    expect(be.notifications.some((n) => n.user_id === customer && /declined/.test(n.title))).toBe(true);
+    expect(be.notifications.some((n) => n.user_id === customer && /declined/.test(n.title))).toBe(
+      true,
+    );
     expect(
-      be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" }).status,
+      be.hireDriver({
+        customer_id: customer,
+        driver_id: driver.id,
+        start_date: "2026-08-20",
+        end_date: "2026-08-20",
+      }).status,
     ).toBe("pending");
   });
 
   test("DH-08: a driver cannot be double-booked on overlapping dates", () => {
     const { be, customer, driver } = approved();
     const other = be.registerCustomer();
-    be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-23" });
+    be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-23",
+    });
     expect(() =>
-      be.hireDriver({ customer_id: other, driver_id: driver.id, start_date: "2026-08-22", end_date: "2026-08-25" }),
+      be.hireDriver({
+        customer_id: other,
+        driver_id: driver.id,
+        start_date: "2026-08-22",
+        end_date: "2026-08-25",
+      }),
     ).toThrow(/already booked/);
     expect(
-      be.hireDriver({ customer_id: other, driver_id: driver.id, start_date: "2026-08-24", end_date: "2026-08-25" }).status,
+      be.hireDriver({
+        customer_id: other,
+        driver_id: driver.id,
+        start_date: "2026-08-24",
+        end_date: "2026-08-25",
+      }).status,
     ).toBe("pending");
   });
 
@@ -233,13 +272,23 @@ describe("driver hire accept / decline", () => {
     const { be, admin, customer, driver } = approved();
     const other = be.enrollDriver();
     be.verifyDriver(admin, other.id, "approved");
-    const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
+    const b = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+    });
     expect(() => be.driverDecide(other.id, b.id, "confirmed")).toThrow(/Not your hire/);
   });
 
   test("DH-10: confirmed hire -> pay with Razorpay, replay verify payload -> credited once", () => {
     const { be, customer, driver } = approved();
-    const b = be.hireDriver({ customer_id: customer, driver_id: driver.id, start_date: "2026-08-20", end_date: "2026-08-20" });
+    const b = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+    });
     be.driverDecide(driver.id, b.id, "confirmed");
 
     const driverBalBefore = be.wallet.balance(driver.id);
