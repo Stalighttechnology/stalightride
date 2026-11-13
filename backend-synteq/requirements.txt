@@ -1,0 +1,10 @@
+Django>=5.2,<5.3
+psycopg[binary]>=3.2
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.0
+channels==4.2.2
+daphne==4.1.2
+pytest-django>=4.9
+django-cors-headers>=4.7.0
+whitenoise>=6.9.0
+dj-database-url>=2.3.0
