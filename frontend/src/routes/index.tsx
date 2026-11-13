@@ -27,24 +27,34 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Synchoo — Premium car, bike & EV rentals near you" },
-      { name: "description", content: "Book cars, motorcycles, scooters and EVs from verified local hosts. Instant confirmation, QR handover, live GPS tracking and secure wallet payments." },
+      {
+        name: "description",
+        content:
+          "Book cars, motorcycles, scooters and EVs from verified local hosts. Instant confirmation, QR handover, live GPS tracking and secure wallet payments.",
+      },
       { property: "og:title", content: "Synchoo — Premium car, bike & EV rentals near you" },
-      { property: "og:description", content: "Book cars, motorcycles, scooters and EVs from verified local hosts. Instant confirmation, QR handover, live GPS tracking and secure wallet payments." },
+      {
+        property: "og:description",
+        content:
+          "Book cars, motorcycles, scooters and EVs from verified local hosts. Instant confirmation, QR handover, live GPS tracking and secure wallet payments.",
+      },
       { property: "og:url", content: "https://stalightride.lovable.app/" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://stalightride.lovable.app/" }],
-    scripts: [{
-      type: "application/ld+json",
-      children: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: "Synchoo",
-        url: "https://stalightride.lovable.app/",
-        slogan: "Ride. Share. Explore.",
-      }),
-    }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Synchoo",
+          url: "https://stalightride.lovable.app/",
+          slogan: "Ride. Share. Explore.",
+        }),
+      },
+    ],
   }),
 });
 
@@ -175,8 +185,8 @@ function Index() {
                       service === "rental"
                         ? "Where are you riding? (e.g. Bangalore, Mumbai)"
                         : service === "driver"
-                        ? "City where you need a driver"
-                        : "City for doorstep wash"
+                          ? "City where you need a driver"
+                          : "City for doorstep wash"
                     }
                     className="h-11 rounded-xl border-border/70 bg-background/90 px-3.5 text-sm shadow-xs hover:bg-background/95 transition-colors"
                   />
@@ -185,7 +195,9 @@ function Index() {
                 {service === "rental" && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div className="space-y-1.5 min-w-0">
-                      <label className="text-[11px] font-medium text-muted-foreground">Pickup</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">
+                        Pickup
+                      </label>
                       <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={pickupDate}
@@ -203,7 +215,9 @@ function Index() {
                       </div>
                     </div>
                     <div className="space-y-1.5 min-w-0">
-                      <label className="text-[11px] font-medium text-muted-foreground">Return</label>
+                      <label className="text-[11px] font-medium text-muted-foreground">
+                        Return
+                      </label>
                       <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={returnDate}
@@ -225,7 +239,9 @@ function Index() {
 
                 {service === "driver" && (
                   <div className="space-y-1.5 text-xs min-w-0">
-                    <label className="text-[11px] font-medium text-muted-foreground">When do you need the driver?</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      When do you need the driver?
+                    </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                       <DatePicker
                         value={pickupDate}
@@ -246,7 +262,9 @@ function Index() {
 
                 {service === "wash" && (
                   <div className="space-y-1.5 text-xs min-w-0">
-                    <label className="text-[11px] font-medium text-muted-foreground">Preferred wash schedule</label>
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      Preferred wash schedule
+                    </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
                       <DatePicker
                         value={pickupDate}
@@ -265,8 +283,16 @@ function Index() {
                   </div>
                 )}
 
-                <Button type="submit" size="lg" className="btn-gradient mt-1 h-12 gap-2 rounded-xl text-sm font-semibold">
-                  {service === "rental" ? "Find a ride" : service === "driver" ? "Find drivers" : "Book wash slot"}{" "}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="btn-gradient mt-1 h-12 gap-2 rounded-xl text-sm font-semibold"
+                >
+                  {service === "rental"
+                    ? "Find a ride"
+                    : service === "driver"
+                      ? "Find drivers"
+                      : "Book wash slot"}{" "}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </form>
@@ -296,7 +322,9 @@ function Index() {
                   <dt className="flex items-center gap-1 font-display text-lg font-bold text-foreground sm:text-2xl">
                     {s.k}
                   </dt>
-                  <dd className="mt-0.5 truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">{s.v}</dd>
+                  <dd className="mt-0.5 truncate text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">
+                    {s.v}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -324,17 +352,48 @@ function Index() {
       <section className="cv-auto relative py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 max-w-2xl">
-            <h2 className="font-display text-3xl font-bold sm:text-4xl">Everything mobility, one platform</h2>
+            <h2 className="font-display text-3xl font-bold sm:text-4xl">
+              Everything mobility, one platform
+            </h2>
             <p className="mt-3 text-base text-muted-foreground">
-              Rent a vehicle, hire a verified driver, or book a doorstep wash — pay by card or Synchoo wallet.
+              Rent a vehicle, hire a verified driver, or book a doorstep wash — pay by card or
+              Synchoo wallet.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { to: "/browse", icon: Car, title: "Rent a vehicle", body: "Cars, bikes, scooters and EVs by hour, day or week.", cta: "Browse rides", tint: "text-brand" },
-              { to: "/drivers", icon: UserRound, title: "Hire a driver", body: "Licence-verified drivers on hourly or daily rates.", cta: "Find drivers", tint: "text-cyan" },
-              { to: "/wash", icon: Droplets, title: "Vehicle wash", body: "Pick a slot at your address — approved by our team.", cta: "Book a wash", tint: "text-violet" },
-              { to: "/wallet", icon: Wallet, title: "Synchoo wallet", body: "Top up once, pay instantly, refunds back in seconds.", cta: "Open wallet", tint: "text-emerald" },
+              {
+                to: "/browse",
+                icon: Car,
+                title: "Rent a vehicle",
+                body: "Cars, bikes, scooters and EVs by hour, day or week.",
+                cta: "Browse rides",
+                tint: "text-brand",
+              },
+              {
+                to: "/drivers",
+                icon: UserRound,
+                title: "Hire a driver",
+                body: "Licence-verified drivers on hourly or daily rates.",
+                cta: "Find drivers",
+                tint: "text-cyan",
+              },
+              {
+                to: "/wash",
+                icon: Droplets,
+                title: "Vehicle wash",
+                body: "Pick a slot at your address — approved by our team.",
+                cta: "Book a wash",
+                tint: "text-violet",
+              },
+              {
+                to: "/wallet",
+                icon: Wallet,
+                title: "Synchoo wallet",
+                body: "Top up once, pay instantly, refunds back in seconds.",
+                cta: "Open wallet",
+                tint: "text-emerald",
+              },
             ].map((s, i) => (
               <Link
                 key={s.title}
@@ -350,7 +409,8 @@ function Index() {
                   <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
                 </div>
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  {s.cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                  {s.cta}{" "}
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>
             ))}
@@ -364,9 +424,21 @@ function Index() {
           <h2 className="font-display text-3xl font-bold sm:text-4xl">How it works</h2>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {[
-              { n: "01", title: "Find your ride", body: "Search by city and category. Compare verified vehicles with real photos and ratings." },
-              { n: "02", title: "Book in seconds", body: "Pick your dates, pay by card or wallet, and get instant confirmation." },
-              { n: "03", title: "Check in & go", body: "Meet your host, scan the QR to confirm handover, and complete the pickup inspection." },
+              {
+                n: "01",
+                title: "Find your ride",
+                body: "Search by city and category. Compare verified vehicles with real photos and ratings.",
+              },
+              {
+                n: "02",
+                title: "Book in seconds",
+                body: "Pick your dates, pay by card or wallet, and get instant confirmation.",
+              },
+              {
+                n: "03",
+                title: "Check in & go",
+                body: "Meet your host, scan the QR to confirm handover, and complete the pickup inspection.",
+              },
             ].map((s, i) => (
               <div
                 key={s.n}
@@ -387,9 +459,24 @@ function Index() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-5 md:grid-cols-3">
             {[
-              { icon: ShieldCheck, title: "Verified hosts", body: "Every host completes ID & document checks before going live.", tint: "text-emerald" },
-              { icon: MapPin, title: "Precise pickup", body: "Live map pin with the exact vehicle location — no guesswork.", tint: "text-brand" },
-              { icon: Clock, title: "Flexible pricing", body: "Rent by the hour, day, or week — pay only for what you use.", tint: "text-cyan" },
+              {
+                icon: ShieldCheck,
+                title: "Verified hosts",
+                body: "Every host completes ID & document checks before going live.",
+                tint: "text-emerald",
+              },
+              {
+                icon: MapPin,
+                title: "Precise pickup",
+                body: "Live map pin with the exact vehicle location — no guesswork.",
+                tint: "text-brand",
+              },
+              {
+                icon: Clock,
+                title: "Flexible pricing",
+                body: "Rent by the hour, day, or week — pay only for what you use.",
+                tint: "text-cyan",
+              },
             ].map((f) => (
               <div key={f.title} className="glass lift group p-7">
                 <div className="glass grid h-12 w-12 place-items-center rounded-xl">
@@ -409,22 +496,34 @@ function Index() {
           <div className="aurora glow-border glass-strong relative overflow-hidden p-8 sm:p-14">
             <div className="relative grid gap-10 md:grid-cols-[1.2fr_1fr] md:items-center">
               <div>
-                <h2 className="font-display text-3xl font-bold sm:text-4xl">Turn your idle vehicle into income</h2>
+                <h2 className="font-display text-3xl font-bold sm:text-4xl">
+                  Turn your idle vehicle into income
+                </h2>
                 <p className="mt-4 max-w-lg text-base leading-relaxed text-muted-foreground">
-                  List your car, bike, or scooter in minutes. You control availability and pricing — we handle
-                  payments, verification, and support.
+                  List your car, bike, or scooter in minutes. You control availability and pricing —
+                  we handle payments, verification, and support.
                 </p>
                 <div className="mt-7 flex flex-wrap gap-3">
                   <Button asChild size="lg" className="btn-gradient h-12 rounded-2xl px-7">
                     <Link to="/vendor">Become a host</Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="h-12 rounded-2xl border-border/70 bg-card/40 px-7 backdrop-blur">
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="outline"
+                    className="h-12 rounded-2xl border-border/70 bg-card/40 px-7 backdrop-blur"
+                  >
                     <Link to="/browse">Browse rides</Link>
                   </Button>
                 </div>
               </div>
               <ul className="grid gap-3 text-sm">
-                {["Control pricing and availability", "Booking payment records", "Vehicle document review", "Trip evidence and dispute tools"].map((t) => (
+                {[
+                  "Control pricing and availability",
+                  "Booking payment records",
+                  "Vehicle document review",
+                  "Trip evidence and dispute tools",
+                ].map((t) => (
                   <li key={t} className="glass flex items-center gap-2.5 px-4 py-3">
                     <ShieldCheck className="h-4 w-4 text-emerald" aria-hidden /> {t}
                   </li>

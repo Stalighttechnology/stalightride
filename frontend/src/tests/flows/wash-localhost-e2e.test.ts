@@ -67,9 +67,7 @@ describe("M11: Vehicle wash localhost integration and acceptance tests (WS-01 to
     expect(wash.status).toBe("pending");
 
     // Admin attempts approval with no vendor specified
-    expect(() => be.adminDecideWash(admin, wash.id, "confirmed")).toThrow(
-      /Assign a wash vendor/i,
-    );
+    expect(() => be.adminDecideWash(admin, wash.id, "confirmed")).toThrow(/Assign a wash vendor/i);
     expect(wash.status).toBe("pending");
     expect(wash.assigned_vendor_id).toBeNull();
   });
@@ -110,9 +108,7 @@ describe("M11: Vehicle wash localhost integration and acceptance tests (WS-01 to
     expect(() => be.adminDecideWash(admin, wash.id, "confirmed", vendor)).toThrow(
       /Already decided/i,
     );
-    expect(() => be.adminDecideWash(admin, wash.id, "rejected")).toThrow(
-      /Already decided/i,
-    );
+    expect(() => be.adminDecideWash(admin, wash.id, "rejected")).toThrow(/Already decided/i);
   });
 
   // WS-05: Rejected wash -> Try to pay -> Blocked
@@ -129,7 +125,9 @@ describe("M11: Vehicle wash localhost integration and acceptance tests (WS-01 to
     expect(be.wallet.balance(customer)).toBe(599); // Balance untouched
 
     // Try paying via Razorpay
-    expect(() => be.payWashWithRazorpay(customer, wash.id, "pay_mock123")).toThrow(/admin approval/i);
+    expect(() => be.payWashWithRazorpay(customer, wash.id, "pay_mock123")).toThrow(
+      /admin approval/i,
+    );
   });
 
   // WS-06: Confirmed wash -> Pay from wallet or Razorpay -> Paid, shows under /washes, receipt available
@@ -248,4 +246,3 @@ describe("M11: Vehicle wash localhost integration and acceptance tests (WS-01 to
     expect(wash.payment_status).toBe("paid");
   });
 });
-

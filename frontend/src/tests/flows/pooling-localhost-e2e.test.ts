@@ -29,9 +29,17 @@ describe("M12: Car pooling localhost integration and acceptance tests (PL-01 to 
   test("localhost server is running and responding on port 8080 with pooling routes", async () => {
     try {
       const endpoints = [
-        { path: "/pooling", label: "Pooling Directory & Search", pattern: /pooling|share a ride|route/i },
+        {
+          path: "/pooling",
+          label: "Pooling Directory & Search",
+          pattern: /pooling|share a ride|route/i,
+        },
         { path: "/pooling/new", label: "Offer a Ride Page", pattern: /offer|route|seats|vehicle/i },
-        { path: "/pooling/driver", label: "Driver Pooling Dashboard", pattern: /pooling|trip|passenger/i },
+        {
+          path: "/pooling/driver",
+          label: "Driver Pooling Dashboard",
+          pattern: /pooling|trip|passenger/i,
+        },
         { path: "/pooling/mine", label: "Passenger My Rides", pattern: /pooling|booking|ride/i },
       ];
 
@@ -310,4 +318,3 @@ describe("M12: Car pooling localhost integration and acceptance tests (PL-01 to 
     ).toThrow(/This trip has already departed/i);
   });
 });
-

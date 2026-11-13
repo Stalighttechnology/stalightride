@@ -12,7 +12,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "sonner";
-import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, Banknote, Gift, RotateCw } from "lucide-react";
+import {
+  Wallet as WalletIcon,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Banknote,
+  Gift,
+  RotateCw,
+} from "lucide-react";
 import { createWalletTopupOrder, verifyWalletTopup } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { PayoutsCard } from "@/components/payouts-card";
@@ -23,9 +30,15 @@ export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({
     meta: [
       { title: "Wallet — Synchoo" },
-      { name: "description", content: "Add money to your Synchoo wallet and pay for rides instantly." },
+      {
+        name: "description",
+        content: "Add money to your Synchoo wallet and pay for rides instantly.",
+      },
       { property: "og:title", content: "Wallet — Synchoo" },
-      { property: "og:description", content: "Add money to your Synchoo wallet and pay for rides instantly." },
+      {
+        property: "og:description",
+        content: "Add money to your Synchoo wallet and pay for rides instantly.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -98,7 +111,12 @@ function WalletPage() {
       )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "wallet_transactions",
+          filter: `user_id=eq.${user.id}`,
+        },
         () => {
           load();
         },
@@ -123,7 +141,10 @@ function WalletPage() {
         orderId: order.orderId,
         name: "Synchoo Wallet",
         description: "Add money to wallet",
-        prefill: { email: user?.email ?? undefined, name: user?.user_metadata?.full_name ?? undefined },
+        prefill: {
+          email: user?.email ?? undefined,
+          name: user?.user_metadata?.full_name ?? undefined,
+        },
         onSuccess: async (resp) => {
           try {
             const res = await verify({ data: resp });
@@ -248,7 +269,9 @@ function WalletPage() {
                       ))}
                     </div>
                   ) : txns.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted-foreground">No transactions yet.</p>
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      No transactions yet.
+                    </p>
                   ) : (
                     <ul className="divide-y divide-border">
                       {txns.map((t) => {
@@ -259,10 +282,16 @@ function WalletPage() {
                               <span
                                 className={`flex h-9 w-9 items-center justify-center rounded-full ${credit ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
                               >
-                                {credit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                                {credit ? (
+                                  <ArrowDownLeft className="h-4 w-4" />
+                                ) : (
+                                  <ArrowUpRight className="h-4 w-4" />
+                                )}
                               </span>
                               <div>
-                                <div className="text-sm font-medium">{KIND_LABEL[t.kind] ?? t.kind}</div>
+                                <div className="text-sm font-medium">
+                                  {KIND_LABEL[t.kind] ?? t.kind}
+                                </div>
                                 <div className="text-xs text-muted-foreground">
                                   {t.description ? `${t.description} · ` : ""}
                                   {new Date(t.created_at).toLocaleString()}
@@ -270,7 +299,9 @@ function WalletPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className={`text-sm font-semibold ${credit ? "text-emerald-600" : ""}`}>
+                              <div
+                                className={`text-sm font-semibold ${credit ? "text-emerald-600" : ""}`}
+                              >
                                 {credit ? "+" : "−"}
                                 {currency(Math.abs(Number(t.amount)))}
                               </div>
@@ -298,11 +329,17 @@ function WalletPage() {
                             <Gift className="h-4 w-4" />
                           </span>
                           <div>
-                            <div className="text-sm font-medium">{t.description || "Promo credit"}</div>
-                            <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
+                            <div className="text-sm font-medium">
+                              {t.description || "Promo credit"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(t.created_at).toLocaleString()}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-sm font-semibold text-violet-600">+{currency(Math.abs(Number(t.amount)))}</div>
+                        <div className="text-sm font-semibold text-violet-600">
+                          +{currency(Math.abs(Number(t.amount)))}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -316,9 +353,11 @@ function WalletPage() {
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
           <Banknote className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Hosts and drivers: Synchoo keeps a <strong>{settings.commission_pct}% commission</strong> (plus {settings.gst_pct}% GST
-            on it) on each completed booking. Earnings land in your wallet already net of this fee, and only earnings can be
-            withdrawn — top-ups, refunds and promo credit can be spent on bookings.
+            Hosts and drivers: Synchoo keeps a{" "}
+            <strong>{settings.commission_pct}% commission</strong> (plus {settings.gst_pct}% GST on
+            it) on each completed booking. Earnings land in your wallet already net of this fee, and
+            only earnings can be withdrawn — top-ups, refunds and promo credit can be spent on
+            bookings.
           </span>
         </div>
       </div>

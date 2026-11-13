@@ -43,7 +43,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (49, 94, 83, 137, 980)
+    assert (tables, functions, triggers, policies, grants) == (49, 94, 83, 138, 981)
 
 
 def test_signup_trigger_creates_profile_and_role():

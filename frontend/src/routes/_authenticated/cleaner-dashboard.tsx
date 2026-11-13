@@ -38,7 +38,11 @@ export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
   head: () => ({
     meta: [
       { title: "Cleaner dashboard — Synchoo" },
-      { name: "description", content: "Manage vehicle wash appointments, today's schedule, service areas, and earnings on Synchoo." },
+      {
+        name: "description",
+        content:
+          "Manage vehicle wash appointments, today's schedule, service areas, and earnings on Synchoo.",
+      },
     ],
   }),
 });
@@ -59,7 +63,12 @@ interface CleanerProfile {
   review_count: number;
 }
 
-const DEFAULT_SERVICES = ["Doorstep Car Wash", "Bike Wash", "Interior Detailing", "Foam Wash & Wax"];
+const DEFAULT_SERVICES = [
+  "Doorstep Car Wash",
+  "Bike Wash",
+  "Interior Detailing",
+  "Foam Wash & Wax",
+];
 
 export function CleanerDashboard() {
   const { user } = useSession();
@@ -110,7 +119,10 @@ export function CleanerDashboard() {
           available: cleanerData.available ?? true,
           verification_status: cleanerData.verification_status,
           rejection_reason: cleanerData.rejection_reason,
-          services: cleanerData.services && cleanerData.services.length > 0 ? cleanerData.services : DEFAULT_SERVICES,
+          services:
+            cleanerData.services && cleanerData.services.length > 0
+              ? cleanerData.services
+              : DEFAULT_SERVICES,
           avg_rating: Number(cleanerData.avg_rating) || 0,
           review_count: cleanerData.review_count || 0,
         };
@@ -148,8 +160,10 @@ export function CleanerDashboard() {
       all.filter(
         (b) =>
           b.assigned_cleaner_id === user?.id &&
-          ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(b.progress || b.status)
-      )
+          ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(
+            b.progress || b.status,
+          ),
+      ),
     );
     // Unassigned confirmed wash jobs in the cleaner's operating city (CJ-01, CJ-02)
     setAvailableRequests(
@@ -158,8 +172,8 @@ export function CleanerDashboard() {
           !b.assigned_cleaner_id &&
           !b.assigned_vendor_id &&
           (b.status === "confirmed" || b.progress === "confirmed") &&
-          (!city || b.city?.trim().toLowerCase() === city.trim().toLowerCase())
-      )
+          (!city || b.city?.trim().toLowerCase() === city.trim().toLowerCase()),
+      ),
     );
   };
 
@@ -221,7 +235,7 @@ export function CleanerDashboard() {
     toast.success(
       updatedProfile.verification_status === "approved"
         ? "Cleaner profile saved successfully!"
-        : "Application submitted! Awaiting admin verification."
+        : "Application submitted! Awaiting admin verification.",
     );
   };
 
@@ -240,11 +254,18 @@ export function CleanerDashboard() {
     jobId: string,
     nextStatus: "on_the_way" | "started" | "completed",
     photos?: string[],
-    note?: string
+    note?: string,
   ) => {
     setActiveJobId(jobId);
     // After photos are required on complete (WP-03)
-    const cleanPhotos = photos && photos.length ? photos : nextStatus === "completed" ? ["https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60"] : [];
+    const cleanPhotos =
+      photos && photos.length
+        ? photos
+        : nextStatus === "completed"
+          ? [
+              "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60",
+            ]
+          : [];
     const { error } = await api.rpc("advance_wash_status", {
       _wash_booking_id: jobId,
       _next_status: nextStatus,
@@ -267,7 +288,11 @@ export function CleanerDashboard() {
     await refreshBookings();
   };
 
-  const updateJobStatus = async (jobId: string, nextStatus: "confirmed" | "completed", note?: string) => {
+  const updateJobStatus = async (
+    jobId: string,
+    nextStatus: "confirmed" | "completed",
+    note?: string,
+  ) => {
     setActiveJobId(jobId);
     const { error } = await api
       .from("wash_bookings")
@@ -286,7 +311,11 @@ export function CleanerDashboard() {
       return;
     }
 
-    toast.success(nextStatus === "completed" ? "Wash marked as completed! Payout queued." : "Job status updated!");
+    toast.success(
+      nextStatus === "completed"
+        ? "Wash marked as completed! Payout queued."
+        : "Job status updated!",
+    );
     await refreshBookings();
   };
 
@@ -334,18 +363,31 @@ export function CleanerDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Cleaner Registration & Verification</CardTitle>
-              <CardDescription>Enter your contact details and service coverage to submit for review.</CardDescription>
+              <CardDescription>
+                Enter your contact details and service coverage to submit for review.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveProfile} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="c-name">Full name *</Label>
-                    <Input id="c-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                    <Input
+                      id="c-name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="c-phone">Phone number *</Label>
-                    <Input id="c-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 98765 43210" required />
+                    <Input
+                      id="c-phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      required
+                    />
                   </div>
                 </div>
 
@@ -356,7 +398,13 @@ export function CleanerDashboard() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="c-exp">Experience (years)</Label>
-                    <Input id="c-exp" type="number" min="0" value={experience} onChange={(e) => setExperience(e.target.value)} />
+                    <Input
+                      id="c-exp"
+                      type="number"
+                      min="0"
+                      value={experience}
+                      onChange={(e) => setExperience(e.target.value)}
+                    />
                   </div>
                 </div>
 
@@ -369,7 +417,9 @@ export function CleanerDashboard() {
                     placeholder="e.g. Koramangala, Indiranagar, HSR Layout, Bellandur"
                     required
                   />
-                  <p className="text-xs text-muted-foreground">List neighborhoods where you can travel for doorstep washing.</p>
+                  <p className="text-xs text-muted-foreground">
+                    List neighborhoods where you can travel for doorstep washing.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -384,7 +434,11 @@ export function CleanerDashboard() {
                 </div>
 
                 <Button type="submit" disabled={saving} className="w-full">
-                  {saving ? "Saving cleaner profile..." : profile ? "Update Profile" : "Register & Submit for Verification"}
+                  {saving
+                    ? "Saving cleaner profile..."
+                    : profile
+                      ? "Update Profile"
+                      : "Register & Submit for Verification"}
                 </Button>
               </form>
             </CardContent>
@@ -406,13 +460,19 @@ export function CleanerDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-display text-2xl font-bold tracking-tight">Application Under Review</h1>
-                <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                <h1 className="font-display text-2xl font-bold tracking-tight">
+                  Application Under Review
+                </h1>
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/40 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"
+                >
                   Awaiting Verification
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Thank you for applying, {profile.full_name}! Your cleaner partner profile is awaiting verification.
+                Thank you for applying, {profile.full_name}! Your cleaner partner profile is
+                awaiting verification.
               </p>
             </div>
           </div>
@@ -424,7 +484,8 @@ export function CleanerDashboard() {
                 Awaiting Admin Verification
               </CardTitle>
               <CardDescription>
-                Our operations team reviews partner applications within 24 hours. Once approved by an administrator, your doorstep wash job board will be unlocked immediately.
+                Our operations team reviews partner applications within 24 hours. Once approved by
+                an administrator, your doorstep wash job board will be unlocked immediately.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
@@ -443,7 +504,9 @@ export function CleanerDashboard() {
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Service Coverage</span>
-                  <span className="max-w-[280px] truncate text-right text-xs">{profile.service_area || "Citywide"}</span>
+                  <span className="max-w-[280px] truncate text-right text-xs">
+                    {profile.service_area || "Citywide"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Experience</span>
@@ -482,16 +545,20 @@ export function CleanerDashboard() {
                   <AlertCircle className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg text-red-700 dark:text-red-400">Application Not Approved</CardTitle>
+                  <CardTitle className="text-lg text-red-700 dark:text-red-400">
+                    Application Not Approved
+                  </CardTitle>
                   <CardDescription>
-                    {profile.rejection_reason || "Your cleaner profile could not be verified with the current details."}
+                    {profile.rejection_reason ||
+                      "Your cleaner profile could not be verified with the current details."}
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
               <p className="text-sm text-muted-foreground">
-                Please review your contact number, operating coverage area, and equipment experience, then submit an updated application.
+                Please review your contact number, operating coverage area, and equipment
+                experience, then submit an updated application.
               </p>
               <Button onClick={() => setIsEditing(true)} className="w-full">
                 Update & Re-submit Profile
@@ -506,7 +573,10 @@ export function CleanerDashboard() {
   // Active Dashboard
   const completedJobs = assignedJobs.filter((j) => j.status === "completed");
   const inProgressJobs = assignedJobs.filter((j) => j.status === "confirmed");
-  const totalEarnings = completedJobs.reduce((acc, curr) => acc + (Number(curr.price) || 0) * 0.85, 0);
+  const totalEarnings = completedJobs.reduce(
+    (acc, curr) => acc + (Number(curr.price) || 0) * 0.85,
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -520,7 +590,9 @@ export function CleanerDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-display text-2xl font-bold tracking-tight">{profile.full_name}</h1>
+                <h1 className="font-display text-2xl font-bold tracking-tight">
+                  {profile.full_name}
+                </h1>
                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
                   <CheckCircle2 className="mr-1 h-3 w-3" /> Verified Cleaner
                 </Badge>
@@ -533,7 +605,11 @@ export function CleanerDashboard() {
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2">
-              <Switch checked={profile.available} onCheckedChange={toggleAvailability} id="cleaner-online" />
+              <Switch
+                checked={profile.available}
+                onCheckedChange={toggleAvailability}
+                id="cleaner-online"
+              />
               <Label htmlFor="cleaner-online" className="text-xs font-medium cursor-pointer">
                 {profile.available ? (
                   <span className="text-emerald-600 font-semibold flex items-center gap-1">
@@ -554,7 +630,9 @@ export function CleanerDashboard() {
               <Clock className="h-4 w-4" />
               <span className="text-xs">Active jobs</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">{inProgressJobs.length}</p>
+            <p className="font-display text-2xl font-bold mt-1 text-foreground">
+              {inProgressJobs.length}
+            </p>
           </Card>
 
           <Card className="p-4">
@@ -562,7 +640,9 @@ export function CleanerDashboard() {
               <CheckCircle2 className="h-4 w-4" />
               <span className="text-xs">Completed</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-foreground">{completedJobs.length}</p>
+            <p className="font-display text-2xl font-bold mt-1 text-foreground">
+              {completedJobs.length}
+            </p>
           </Card>
 
           <Card className="p-4">
@@ -570,7 +650,9 @@ export function CleanerDashboard() {
               <IndianRupee className="h-4 w-4" />
               <span className="text-xs">Net earnings</span>
             </div>
-            <p className="font-display text-2xl font-bold mt-1 text-brand">{currency(totalEarnings)}</p>
+            <p className="font-display text-2xl font-bold mt-1 text-brand">
+              {currency(totalEarnings)}
+            </p>
           </Card>
 
           <Card className="p-4">
@@ -579,7 +661,9 @@ export function CleanerDashboard() {
               <span className="text-xs">Rating</span>
             </div>
             <p className="font-display text-2xl font-bold mt-1 text-foreground">
-              {Number(profile.avg_rating) > 0 ? `${Number(profile.avg_rating).toFixed(1)} / 5.0` : "New"}
+              {Number(profile.avg_rating) > 0
+                ? `${Number(profile.avg_rating).toFixed(1)} / 5.0`
+                : "New"}
             </p>
           </Card>
         </div>
@@ -588,7 +672,9 @@ export function CleanerDashboard() {
         <Tabs defaultValue="jobs" className="space-y-4">
           <TabsList className="bg-muted p-1">
             <TabsTrigger value="jobs">Assigned & Active Jobs ({inProgressJobs.length})</TabsTrigger>
-            <TabsTrigger value="available">Available Requests ({availableRequests.length})</TabsTrigger>
+            <TabsTrigger value="available">
+              Available Requests ({availableRequests.length})
+            </TabsTrigger>
             <TabsTrigger value="schedule">Today's Schedule</TabsTrigger>
             <TabsTrigger value="earnings">Earnings & History</TabsTrigger>
             <TabsTrigger value="profile">Profile & Coverage</TabsTrigger>
@@ -600,7 +686,9 @@ export function CleanerDashboard() {
               <Card className="p-8 text-center">
                 <Car className="mx-auto h-8 w-8 text-muted-foreground" />
                 <p className="mt-2 text-sm font-medium">No active jobs right now</p>
-                <p className="text-xs text-muted-foreground">New appointments assigned to you will appear here.</p>
+                <p className="text-xs text-muted-foreground">
+                  New appointments assigned to you will appear here.
+                </p>
               </Card>
             ) : (
               inProgressJobs.map((job) => (
@@ -619,7 +707,9 @@ export function CleanerDashboard() {
                         <MapPin className="h-3 w-3" /> {job.address}, {job.city}
                       </p>
                       {job.vehicle_label && (
-                        <p className="text-xs text-foreground font-medium mt-1">Vehicle: {job.vehicle_label}</p>
+                        <p className="text-xs text-foreground font-medium mt-1">
+                          Vehicle: {job.vehicle_label}
+                        </p>
                       )}
                     </div>
 
@@ -627,11 +717,17 @@ export function CleanerDashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(job.address)}`, "_blank")}
+                        onClick={() =>
+                          window.open(
+                            `https://maps.google.com/?q=${encodeURIComponent(job.address)}`,
+                            "_blank",
+                          )
+                        }
                       >
                         <Navigation className="mr-1 h-3.5 w-3.5" /> Navigate
                       </Button>
-                      {((job.progress || job.status) === "confirmed" || (job.progress || job.status) === "assigned") && (
+                      {((job.progress || job.status) === "confirmed" ||
+                        (job.progress || job.status) === "assigned") && (
                         <Button
                           size="sm"
                           disabled={activeJobId === job.id}
@@ -644,7 +740,11 @@ export function CleanerDashboard() {
                         <Button
                           size="sm"
                           disabled={activeJobId === job.id}
-                          onClick={() => advanceJobStatus(job.id, "started", ["https://images.unsplash.com/photo-1601362840469-51e4d8d58785?w=600&auto=format&fit=crop&q=60"])}
+                          onClick={() =>
+                            advanceJobStatus(job.id, "started", [
+                              "https://images.unsplash.com/photo-1601362840469-51e4d8d58785?w=600&auto=format&fit=crop&q=60",
+                            ])
+                          }
                         >
                           <Play className="mr-1 h-3.5 w-3.5" /> Start Wash
                         </Button>
@@ -653,7 +753,11 @@ export function CleanerDashboard() {
                         <Button
                           size="sm"
                           disabled={activeJobId === job.id}
-                          onClick={() => advanceJobStatus(job.id, "completed", ["https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60"])}
+                          onClick={() =>
+                            advanceJobStatus(job.id, "completed", [
+                              "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60",
+                            ])
+                          }
                         >
                           <Camera className="mr-1 h-3.5 w-3.5" /> Mark Completed
                         </Button>
@@ -676,9 +780,12 @@ export function CleanerDashboard() {
                 <Card key={req.id} className="p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-sm">{req.wash_services?.name || "Vehicle Wash"}</p>
+                      <p className="font-semibold text-sm">
+                        {req.wash_services?.name || "Vehicle Wash"}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {req.slot_date} · {req.slot_time} · {req.city} · Payout: {currency(Number(req.price) * 0.85)}
+                        {req.slot_date} · {req.slot_time} · {req.city} · Payout:{" "}
+                        {currency(Number(req.price) * 0.85)}
                       </p>
                     </div>
                     <Button
@@ -702,17 +809,50 @@ export function CleanerDashboard() {
               </h3>
               <div className="space-y-3">
                 {[
-                  { time: "09:00 AM - 10:30 AM", customer: "Rahul M.", vehicle: "Hyundai Creta", address: "HSR Layout, Sector 2", status: "Done" },
-                  { time: "11:30 AM - 01:00 PM", customer: "Priya S.", vehicle: "Tata Nexon EV", address: "Koramangala 4th Block", status: "Next" },
-                  { time: "03:00 PM - 04:30 PM", customer: "Amit K.", vehicle: "Royal Enfield Hunter", address: "Indiranagar 100ft Rd", status: "Upcoming" },
+                  {
+                    time: "09:00 AM - 10:30 AM",
+                    customer: "Rahul M.",
+                    vehicle: "Hyundai Creta",
+                    address: "HSR Layout, Sector 2",
+                    status: "Done",
+                  },
+                  {
+                    time: "11:30 AM - 01:00 PM",
+                    customer: "Priya S.",
+                    vehicle: "Tata Nexon EV",
+                    address: "Koramangala 4th Block",
+                    status: "Next",
+                  },
+                  {
+                    time: "03:00 PM - 04:30 PM",
+                    customer: "Amit K.",
+                    vehicle: "Royal Enfield Hunter",
+                    address: "Indiranagar 100ft Rd",
+                    status: "Upcoming",
+                  },
                 ].map((slot, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-xl border border-border p-3 text-sm">
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-xl border border-border p-3 text-sm"
+                  >
                     <div>
-                      <span className="font-mono text-xs font-semibold text-brand">{slot.time}</span>
-                      <p className="font-medium text-xs mt-0.5">{slot.customer} · {slot.vehicle}</p>
+                      <span className="font-mono text-xs font-semibold text-brand">
+                        {slot.time}
+                      </span>
+                      <p className="font-medium text-xs mt-0.5">
+                        {slot.customer} · {slot.vehicle}
+                      </p>
                       <p className="text-[11px] text-muted-foreground">{slot.address}</p>
                     </div>
-                    <Badge variant={slot.status === "Done" ? "secondary" : slot.status === "Next" ? "default" : "outline"}>
+                    <Badge
+                      variant={
+                        slot.status === "Done"
+                          ? "secondary"
+                          : slot.status === "Next"
+                            ? "default"
+                            : "outline"
+                      }
+                    >
                       {slot.status}
                     </Badge>
                   </div>
@@ -733,14 +873,20 @@ export function CleanerDashboard() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border">
                     <span className="text-muted-foreground">Platform Fee (15%)</span>
-                    <span className="text-muted-foreground">−{currency((totalEarnings / 0.85) * 0.15 || 0)}</span>
+                    <span className="text-muted-foreground">
+                      −{currency((totalEarnings / 0.85) * 0.15 || 0)}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 font-semibold text-sm text-foreground">
                     <span>Withdrawable Cleaner Payout</span>
                     <span className="text-brand">{currency(totalEarnings)}</span>
                   </div>
                 </div>
-                <Button className="w-full mt-4" size="sm" onClick={() => toast.success("Payout request submitted to admin queue!")}>
+                <Button
+                  className="w-full mt-4"
+                  size="sm"
+                  onClick={() => toast.success("Payout request submitted to admin queue!")}
+                >
                   Withdraw to Bank / UPI
                 </Button>
               </Card>
@@ -752,12 +898,19 @@ export function CleanerDashboard() {
                 ) : (
                   <div className="space-y-2">
                     {completedJobs.slice(0, 5).map((c) => (
-                      <div key={c.id} className="flex justify-between items-center text-xs py-1 border-b border-border">
+                      <div
+                        key={c.id}
+                        className="flex justify-between items-center text-xs py-1 border-b border-border"
+                      >
                         <div>
                           <p className="font-medium">{c.wash_services?.name || "Car Wash"}</p>
-                          <p className="text-muted-foreground">{c.slot_date} · {c.city}</p>
+                          <p className="text-muted-foreground">
+                            {c.slot_date} · {c.city}
+                          </p>
                         </div>
-                        <span className="font-semibold text-emerald-600">+{currency(Number(c.price) * 0.85)}</span>
+                        <span className="font-semibold text-emerald-600">
+                          +{currency(Number(c.price) * 0.85)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -773,7 +926,11 @@ export function CleanerDashboard() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs">Name</Label>
-                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                    <Input
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">Phone</Label>
@@ -782,7 +939,11 @@ export function CleanerDashboard() {
                 </div>
                 <div>
                   <Label className="text-xs">Coverage Area</Label>
-                  <Input value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} required />
+                  <Input
+                    value={serviceArea}
+                    onChange={(e) => setServiceArea(e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Bio & Equipment</Label>
@@ -799,4 +960,3 @@ export function CleanerDashboard() {
     </div>
   );
 }
-

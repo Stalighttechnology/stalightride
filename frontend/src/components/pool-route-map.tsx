@@ -84,7 +84,10 @@ export function PoolRouteMap({ route, pickup, drop, className }: Props) {
 
   return (
     <div className={`relative ${className ?? ""}`}>
-      <div ref={ref} className="h-full w-full overflow-hidden rounded-xl border border-border bg-muted" />
+      <div
+        ref={ref}
+        className="h-full w-full overflow-hidden rounded-xl border border-border bg-muted"
+      />
       {!ready && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-xs text-muted-foreground">
           <MapPin className="h-4 w-4 animate-pulse" />

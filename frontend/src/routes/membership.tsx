@@ -25,7 +25,11 @@ export const Route = createFileRoute("/membership")({
   head: () => ({
     meta: [
       { title: "Synchoo Membership — VIP Mobility Pass" },
-      { name: "description", content: "Upgrade to Synchoo Plus or Synchoo Black for 0% fees, 15% discount on car rentals, free washes and priority support." },
+      {
+        name: "description",
+        content:
+          "Upgrade to Synchoo Plus or Synchoo Black for 0% fees, 15% discount on car rentals, free washes and priority support.",
+      },
     ],
   }),
 });
@@ -99,7 +103,9 @@ export function MembershipPage() {
       toast.info("You are currently on Synchoo Standard.");
       return;
     }
-    toast.success(`Registered for ${plan.name} Early Access Waitlist! We will notify you when VIP subscriptions launch.`);
+    toast.success(
+      `Registered for ${plan.name} Early Access Waitlist! We will notify you when VIP subscriptions launch.`,
+    );
   };
 
   return (
@@ -110,7 +116,10 @@ export function MembershipPage() {
         <ComingSoonBanner feature="Synchoo Membership" />
         <div className="mx-auto max-w-5xl text-center space-y-4">
           <div className="flex items-center justify-center gap-2">
-            <Badge variant="outline" className="border-amber-300 text-amber-600 bg-amber-50 dark:bg-amber-950/40">
+            <Badge
+              variant="outline"
+              className="border-amber-300 text-amber-600 bg-amber-50 dark:bg-amber-950/40"
+            >
               <Crown className="mr-1 h-3.5 w-3.5 fill-amber-400" /> Synchoo Club Privileges
             </Badge>
             <Badge variant="secondary" className="text-xs">
@@ -121,7 +130,8 @@ export function MembershipPage() {
             Unlock Unlimited Savings With Synchoo Membership
           </h1>
           <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
-            Frequent travelers, daily carpoolers, and premium drivers save over ₹18,000 every year with zero platform fees, guaranteed discounts, and complimentary doorstep washes.
+            Frequent travelers, daily carpoolers, and premium drivers save over ₹18,000 every year
+            with zero platform fees, guaranteed discounts, and complimentary doorstep washes.
           </p>
 
           {/* Billing Switch */}
@@ -130,7 +140,9 @@ export function MembershipPage() {
               <button
                 type="button"
                 className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${
-                  billingCycle === "monthly" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+                  billingCycle === "monthly"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground"
                 }`}
                 onClick={() => setBillingCycle("monthly")}
               >
@@ -139,7 +151,9 @@ export function MembershipPage() {
               <button
                 type="button"
                 className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${
-                  billingCycle === "annual" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground"
+                  billingCycle === "annual"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground"
                 }`}
                 onClick={() => setBillingCycle("annual")}
               >
@@ -152,7 +166,8 @@ export function MembershipPage() {
         {/* Plans Grid */}
         <div className="mx-auto max-w-5xl mt-10 grid gap-6 md:grid-cols-3">
           {PLANS.map((plan) => {
-            const price = billingCycle === "monthly" ? plan.priceMonthly : Math.round(plan.priceAnnual / 12);
+            const price =
+              billingCycle === "monthly" ? plan.priceMonthly : Math.round(plan.priceAnnual / 12);
             const isCurrent = activePlan === plan.id;
 
             return (
@@ -167,7 +182,9 @@ export function MembershipPage() {
                 {plan.badge && (
                   <Badge
                     className={`absolute -top-3 right-4 ${
-                      plan.popular ? "bg-brand text-brand-foreground" : "bg-foreground text-background"
+                      plan.popular
+                        ? "bg-brand text-brand-foreground"
+                        : "bg-foreground text-background"
                     }`}
                   >
                     {plan.badge}
@@ -177,7 +194,9 @@ export function MembershipPage() {
                 <CardHeader>
                   <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
                   <CardDescription className="text-xs">
-                    {plan.id === "free" ? "Pay as you go" : "Billed " + (billingCycle === "monthly" ? "monthly" : "annually")}
+                    {plan.id === "free"
+                      ? "Pay as you go"
+                      : "Billed " + (billingCycle === "monthly" ? "monthly" : "annually")}
                   </CardDescription>
                   <div className="mt-3">
                     <span className="font-display text-3xl font-extrabold">{currency(price)}</span>
@@ -210,14 +229,18 @@ export function MembershipPage() {
 
         {/* Member Perks Highlights */}
         <div className="mx-auto max-w-5xl mt-16 rounded-2xl border border-border bg-card p-6 shadow-xs">
-          <h3 className="font-display text-xl font-semibold mb-4 text-center">Exclusive Member Privileges</h3>
+          <h3 className="font-display text-xl font-semibold mb-4 text-center">
+            Exclusive Member Privileges
+          </h3>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="text-center space-y-2">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-brand">
                 <Percent className="h-6 w-6" />
               </div>
               <h4 className="font-semibold text-sm">0% Platform Fees</h4>
-              <p className="text-xs text-muted-foreground">Keep 100% of the listed price on car rentals and driver bookings.</p>
+              <p className="text-xs text-muted-foreground">
+                Keep 100% of the listed price on car rentals and driver bookings.
+              </p>
             </div>
 
             <div className="text-center space-y-2">
@@ -225,7 +248,9 @@ export function MembershipPage() {
                 <Droplets className="h-6 w-6" />
               </div>
               <h4 className="font-semibold text-sm">Free Doorstep Washes</h4>
-              <p className="text-xs text-muted-foreground">Complimentary monthly auto spa service at your home or office address.</p>
+              <p className="text-xs text-muted-foreground">
+                Complimentary monthly auto spa service at your home or office address.
+              </p>
             </div>
 
             <div className="text-center space-y-2">
@@ -233,7 +258,9 @@ export function MembershipPage() {
                 <Clock className="h-6 w-6" />
               </div>
               <h4 className="font-semibold text-sm">Zero Cancellation Fees</h4>
-              <p className="text-xs text-muted-foreground">Plans changed? Cancel up to 2 hours before trip start for a 100% full refund.</p>
+              <p className="text-xs text-muted-foreground">
+                Plans changed? Cancel up to 2 hours before trip start for a 100% full refund.
+              </p>
             </div>
 
             <div className="text-center space-y-2">
@@ -241,7 +268,9 @@ export function MembershipPage() {
                 <ShieldCheck className="h-6 w-6" />
               </div>
               <h4 className="font-semibold text-sm">VIP Dedicated Support</h4>
-              <p className="text-xs text-muted-foreground">Direct access to senior fleet managers and expedited priority claims.</p>
+              <p className="text-xs text-muted-foreground">
+                Direct access to senior fleet managers and expedited priority claims.
+              </p>
             </div>
           </div>
         </div>
@@ -249,4 +278,3 @@ export function MembershipPage() {
     </div>
   );
 }
-

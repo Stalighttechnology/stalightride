@@ -78,7 +78,8 @@ export function PlatformSettingsTab() {
             <Settings className="h-4 w-4 text-brand" /> System Operational Parameters
           </CardTitle>
           <CardDescription>
-            Configure platform-wide rules, security thresholds, taxes, and customer emergency assistance.
+            Configure platform-wide rules, security thresholds, taxes, and customer emergency
+            assistance.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -89,7 +90,8 @@ export function PlatformSettingsTab() {
                 <div>
                   <Label className="text-xs font-semibold">Maintenance Mode</Label>
                   <p className="text-xs text-muted-foreground">
-                    When enabled, only administrators can access booking and booking creation is paused.
+                    When enabled, only administrators can access booking and booking creation is
+                    paused.
                   </p>
                 </div>
                 <Switch checked={maintenanceMode} onCheckedChange={setMaintenanceMode} />
@@ -97,12 +99,17 @@ export function PlatformSettingsTab() {
 
               <div className="flex items-center justify-between rounded-xl border border-border p-3.5">
                 <div>
-                  <Label className="text-xs font-semibold">Enable Instant Confirmation by Default</Label>
+                  <Label className="text-xs font-semibold">
+                    Enable Instant Confirmation by Default
+                  </Label>
                   <p className="text-xs text-muted-foreground">
                     Directs rental bookings to payment without requiring manual host approval.
                   </p>
                 </div>
-                <Switch checked={instantConfirmDefault} onCheckedChange={setInstantConfirmDefault} />
+                <Switch
+                  checked={instantConfirmDefault}
+                  onCheckedChange={setInstantConfirmDefault}
+                />
               </div>
             </div>
 
@@ -120,7 +127,9 @@ export function PlatformSettingsTab() {
                   onChange={(e) => setGstRate(e.target.value)}
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">Applied in checkout invoice breakdown.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Applied in checkout invoice breakdown.
+                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -135,12 +144,15 @@ export function PlatformSettingsTab() {
                   onChange={(e) => setServiceFeeRate(e.target.value)}
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">Convenience fee charged to renter.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Convenience fee charged to renter.
+                </p>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground" /> 24/7 Emergency SOS Helpline
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" /> 24/7 Emergency SOS
+                  Helpline
                 </Label>
                 <Input
                   value={sosPhone}
@@ -148,14 +160,17 @@ export function PlatformSettingsTab() {
                   placeholder="+91 80 4567 8900"
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">Connected to rider safety center and app SOS triggers.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Connected to rider safety center and app SOS triggers.
+                </p>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" /> Min Driver Advance Notice (Hours)
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" /> Min Driver Advance Notice
+                  (Hours)
                 </Label>
                 <Input
                   type="number"
@@ -165,12 +180,15 @@ export function PlatformSettingsTab() {
                   onChange={(e) => setAdvanceDriverHours(e.target.value)}
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">Minimum lead time before a driver can be booked.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Minimum lead time before a driver can be booked.
+                </p>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" /> Max Wallet Top-Up (₹)
+                  <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" /> Max Wallet Top-Up
+                  (₹)
                 </Label>
                 <Input
                   type="number"
@@ -180,12 +198,15 @@ export function PlatformSettingsTab() {
                   onChange={(e) => setMaxWalletTopup(e.target.value)}
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">Maximum single Razorpay top-up transaction limit.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Maximum single Razorpay top-up transaction limit.
+                </p>
               </div>
             </div>
 
             <Button type="submit" disabled={saving}>
-              <Save className="mr-1.5 h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Platform Settings"}
+              <Save className="mr-1.5 h-3.5 w-3.5" />{" "}
+              {saving ? "Saving..." : "Save Platform Settings"}
             </Button>
           </form>
         </CardContent>

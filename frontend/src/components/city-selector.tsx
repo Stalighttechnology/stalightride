@@ -2,15 +2,27 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MapPin, Check, ChevronDown } from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const CITIES = [
-  "Bengaluru", "Hyderabad", "Mumbai", "Chennai", "Delhi",
-  "Pune", "Kolkata", "Ahmedabad", "Jaipur", "Kochi",
+  "Bengaluru",
+  "Hyderabad",
+  "Mumbai",
+  "Chennai",
+  "Delhi",
+  "Pune",
+  "Kolkata",
+  "Ahmedabad",
+  "Jaipur",
+  "Kochi",
 ] as const;
 
 const KEY = "synchoo-city";
@@ -18,13 +30,19 @@ const KEY = "synchoo-city";
 export function useSelectedCity() {
   const [city, setCity] = useState<string | null>(null);
   useEffect(() => {
-    try { setCity(localStorage.getItem(KEY)); } catch { /* ignore */ }
+    try {
+      setCity(localStorage.getItem(KEY));
+    } catch {
+      /* ignore */
+    }
   }, []);
   const select = (next: string | null) => {
     try {
       if (next) localStorage.setItem(KEY, next);
       else localStorage.removeItem(KEY);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setCity(next);
   };
   return { city, select };

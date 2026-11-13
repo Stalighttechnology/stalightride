@@ -26,7 +26,10 @@ async function runM7Tests() {
   // Step 1: Verify Localhost 8080 is live and responding
   console.log("--- 1. VERIFYING LOCALHOST DEV SERVER ENDPOINTS ---");
   const driversPage = await testLocalhostEndpoint("/drivers", "Public Drivers Directory");
-  const driverProfilePage = await testLocalhostEndpoint("/driver/sample-id", "Driver Public Profile");
+  const driverProfilePage = await testLocalhostEndpoint(
+    "/driver/sample-id",
+    "Driver Public Profile",
+  );
   const driverDashboardPage = await testLocalhostEndpoint("/driver-dashboard", "Driver Dashboard");
 
   if (!driversPage.ok || !driverProfilePage.ok) {
@@ -118,7 +121,9 @@ async function runM7Tests() {
   const publicDriverPaused = be.getPublicDriver(newDriver.id);
   console.log(`  After pausing, is driver in search? ${isPausedListed} (Expected: false)`);
   console.log(`  Public driver record: ${publicDriverPaused} (Expected: null)`);
-  console.log(`  UI response for null driver: "This driver is currently offline - not accepting bookings right now"`);
+  console.log(
+    `  UI response for null driver: "This driver is currently offline - not accepting bookings right now"`,
+  );
   if (isPausedListed || publicDriverPaused !== null) throw new Error("DR-05 Failed");
   console.log("  >>> RESULT: PASS (Paused driver is hidden from search and rendered as offline)");
 
@@ -149,7 +154,9 @@ async function runM7Tests() {
   ) {
     throw new Error("DR-06 Failed: Sensitive documents or phone number leaked in public profile");
   }
-  console.log("  >>> RESULT: PASS (Only public_drivers fields exposed; phone and documents safely protected)");
+  console.log(
+    "  >>> RESULT: PASS (Only public_drivers fields exposed; phone and documents safely protected)",
+  );
 
   console.log("\n=================================================================");
   console.log("   ALL M7 TEST CASES (DR-01 TO DR-06) PASSED SUCCESSFULLY!       ");
@@ -160,4 +167,3 @@ runM7Tests().catch((e) => {
   console.error("Execution failed:", e);
   process.exit(1);
 });
-

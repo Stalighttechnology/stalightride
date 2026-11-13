@@ -20,7 +20,12 @@
  * cancellation refunds, trip extensions).
  */
 
-import { computeCharges, round2, type Charges, type PlatformSettings as FeeSettings } from "@/lib/charges";
+import {
+  computeCharges,
+  round2,
+  type Charges,
+  type PlatformSettings as FeeSettings,
+} from "@/lib/charges";
 import { calculateRentalPrice } from "@/lib/format";
 import { calculateDriverPrice } from "@/lib/driver-pricing";
 
@@ -32,9 +37,18 @@ export class RuleError extends Error {}
 const day = 86_400_000;
 
 /** Harness default: fees off, so legacy flow tests keep their round numbers. */
-export const ZERO_FEES: FeeSettings = { commission_pct: 0, service_fee_pct: 0, gst_pct: 0, min_withdrawal: 500 };
+export const ZERO_FEES: FeeSettings = {
+  commission_pct: 0,
+  service_fee_pct: 0,
+  gst_pct: 0,
+  min_withdrawal: 500,
+};
 
-export type Money = Charges & { base_price: number; coupon_code: string | null; earning_credited_at: string | null };
+export type Money = Charges & {
+  base_price: number;
+  coupon_code: string | null;
+  earning_credited_at: string | null;
+};
 
 export type Vehicle = {
   id: string;
@@ -380,9 +394,17 @@ export function datesOverlap(aStart: string, aEnd: string, bStart: string, bEnd:
 let seq = 0;
 const id = (p: string) => `${p}_${++seq}`;
 
-const EARNING_KINDS = ["booking_earning", "driver_earning", "driver_refund_reversal", "wash_earning"];
+const EARNING_KINDS = [
+  "booking_earning",
+  "driver_earning",
+  "driver_refund_reversal",
+  "wash_earning",
+];
 
-export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSettings: FeeSettings = ZERO_FEES) {
+export function createBackend(
+  now = new Date("2026-08-15T10:00:00Z"),
+  initialSettings: FeeSettings = ZERO_FEES,
+) {
   const clock = { now };
   const settings: FeeSettings = { ...initialSettings };
   const profiles = new Map<
@@ -492,7 +514,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     return { ...c, base_price: c.base, coupon_code: code, earning_credited_at: null };
   };
 
-  const isProvider = (user: string) => hosts.has(user) || drivers.has(user) || cleaners.has(user) || washCenters.has(user);
+  const isProvider = (user: string) =>
+    hosts.has(user) || drivers.has(user) || cleaners.has(user) || washCenters.has(user);
 
   /** Earnings and deposit are released when a paid booking completes (tg_money_settle_*). */
   const settleRental = (b: Booking) => {
@@ -513,7 +536,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
   const extensionClashes = (b: Booking, newEnd: string) =>
     [...bookings.values()].some(
       (o) =>
-        o.id !== b.id && o.vehicle_id === b.vehicle_id && ["pending", "confirmed"].includes(o.status) &&
+        o.id !== b.id &&
+        o.vehicle_id === b.vehicle_id &&
+        ["pending", "confirmed"].includes(o.status) &&
         datesOverlap(o.start_date, o.end_date, b.start_date, newEnd),
     );
 
@@ -559,7 +584,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     registerCustomer(
       dl: "none" | "pending" | "approved" | "rejected" = "approved",
       emailOrRef?: string,
-      refCode?: string
+      refCode?: string,
     ) {
       const uid = id("user");
       let email = `${uid}@test.local`;
@@ -597,7 +622,10 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       profiles.set(user, { ...p, dl_status: dl });
     },
     setDlExpiry(user: string, expiry: string) {
-      const p = profiles.get(user) || { dl_status: "approved", referral_code: `SYN-${user.toUpperCase()}` };
+      const p = profiles.get(user) || {
+        dl_status: "approved",
+        referral_code: `SYN-${user.toUpperCase()}`,
+      };
       profiles.set(user, { ...p, dl_expiry: expiry });
     },
     registerAdmin() {
@@ -612,7 +640,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       price_daily = 1200,
       security_deposit = 2000,
       price_hourlyOrCity?: number | string,
-      cityParam = "Bengaluru"
+      cityParam = "Bengaluru",
     ): Vehicle {
       const price_hourly = typeof price_hourlyOrCity === "number" ? price_hourlyOrCity : undefined;
       const city = typeof price_hourlyOrCity === "string" ? price_hourlyOrCity : cityParam;
@@ -663,7 +691,10 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const blocked = new Set(
         [...bookings.values()]
           .filter((b) => ["pending", "confirmed"].includes(b.status))
-          .filter((b) => !startDate || !endDate || datesOverlap(b.start_date, b.end_date, startDate, endDate))
+          .filter(
+            (b) =>
+              !startDate || !endDate || datesOverlap(b.start_date, b.end_date, startDate, endDate),
+          )
           .map((b) => b.vehicle_id),
       );
       return [...vehicles.values()].filter(
@@ -758,7 +789,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const p = profiles.get(b.customer_id);
       if (p?.referred_by && !p.referral_rewarded) {
         const priorPaid = [...bookings.values()].filter(
-          (x) => x.customer_id === b.customer_id && x.payment_status === "paid" && x.id !== b.id
+          (x) => x.customer_id === b.customer_id && x.payment_status === "paid" && x.id !== b.id,
         ).length;
         if (priorPaid === 0) {
           wallet.apply(p.referred_by, 500, "referral_bonus");
@@ -783,7 +814,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     /** Host marks the trip completed (tg_money_guard_booking rules). */
     completeBooking(actor: string, booking_id: string) {
       const b = bookings.get(booking_id)!;
-      if (actor !== b.vendor_id && !admins.has(actor)) throw new RuleError("Only the host can complete a trip");
+      if (actor !== b.vendor_id && !admins.has(actor))
+        throw new RuleError("Only the host can complete a trip");
       if (b.status !== "confirmed") throw new RuleError("Only confirmed bookings can be completed");
       if (b.payment_status === "paid" && !b.return_checked_at && !admins.has(actor))
         throw new RuleError("Record the return check-out before completing the trip");
@@ -824,8 +856,10 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const b = bookings.get(booking_id)!;
       const isAdmin = admins.has(actor);
       const byProvider = b.vendor_id === actor;
-      if (b.customer_id !== actor && !byProvider && !isAdmin) throw new RuleError("Not your booking");
-      if (!["pending", "confirmed"].includes(b.status)) throw new RuleError("This booking cannot be cancelled");
+      if (b.customer_id !== actor && !byProvider && !isAdmin)
+        throw new RuleError("Not your booking");
+      if (!["pending", "confirmed"].includes(b.status))
+        throw new RuleError("This booking cannot be cancelled");
       if (b.pickup_checked_at && !isAdmin) throw new RuleError("The trip has already started");
       let pct = refundPercent(new Date(`${b.start_date}T${b.pickup_time}:00Z`), clock.now);
       if (byProvider || isAdmin) pct = 100;
@@ -976,7 +1010,10 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       if (b.driver_id !== driver_id) throw new RuleError("Not your hire request");
       if (b.status !== "pending") throw new RuleError("This request is no longer pending");
       b.status = decision;
-      notify(b.customer_id, `Driver ${decision === "confirmed" ? "accepted" : "declined"} your hire`);
+      notify(
+        b.customer_id,
+        `Driver ${decision === "confirmed" ? "accepted" : "declined"} your hire`,
+      );
       return b;
     },
     payDriverBookingWithWallet(actor: string, booking_id: string) {
@@ -1010,7 +1047,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     completeDriverBooking(actor: string, booking_id: string) {
       const b = driverBookings.get(booking_id);
       if (!b) throw new RuleError("Booking not found");
-      if (actor !== b.driver_id && !admins.has(actor)) throw new RuleError("Only the driver can complete a hire");
+      if (actor !== b.driver_id && !admins.has(actor))
+        throw new RuleError("Only the driver can complete a hire");
       if (b.status !== "confirmed") throw new RuleError("Only confirmed hires can be completed");
       b.status = "completed";
       settleDriver(b);
@@ -1023,8 +1061,13 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const isAdmin = admins.has(actor);
       const byDriver = b.driver_id === actor;
       if (b.customer_id !== actor && !byDriver && !isAdmin) throw new RuleError("Not your hire");
-      if (!["pending", "confirmed"].includes(b.status)) throw new RuleError("This hire cannot be cancelled");
-      const timePart = b.start_time ? (b.start_time.length === 5 ? `${b.start_time}:00` : b.start_time.slice(0, 8)) : "00:00:00";
+      if (!["pending", "confirmed"].includes(b.status))
+        throw new RuleError("This hire cannot be cancelled");
+      const timePart = b.start_time
+        ? b.start_time.length === 5
+          ? `${b.start_time}:00`
+          : b.start_time.slice(0, 8)
+        : "00:00:00";
       let pct = refundPercent(new Date(`${b.start_date}T${timePart}Z`), clock.now);
       if (byDriver || isAdmin) pct = 100;
       let refund = 0;
@@ -1056,7 +1099,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     reviewDriver(customer_id: string, booking_id: string, rating: number, comment?: string) {
       const b = driverBookings.get(booking_id);
       if (!b) throw new RuleError("Hire not found");
-      if (b.customer_id !== customer_id) throw new RuleError("Only the hiring customer can review this hire");
+      if (b.customer_id !== customer_id)
+        throw new RuleError("Only the hiring customer can review this hire");
       if (b.status !== "completed") throw new RuleError("Only completed hires can be reviewed");
       if (driverReviews.has(booking_id)) throw new RuleError("Hire has already been reviewed");
       if (rating < 1 || rating > 5) throw new RuleError("Rating must be between 1 and 5");
@@ -1099,7 +1143,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     },
     getDriverEarnings(driver_id: string) {
       return Array.from(driverBookings.values())
-        .filter((h) => h.driver_id === driver_id && h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed"))
+        .filter(
+          (h) =>
+            h.driver_id === driver_id &&
+            h.status !== "cancelled" &&
+            (h.payment_status === "paid" || h.status === "completed"),
+        )
         .reduce((s, h) => s + Number(h.total_price), 0);
     },
 
@@ -1121,8 +1170,10 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
         notes?: string;
       },
     ) {
-      if (args.seats_total < 1 || args.seats_total > 8) throw new RuleError("Seats must be between 1 and 8");
-      if (new Date(args.depart_at) <= clock.now) throw new RuleError("Departure must be in the future");
+      if (args.seats_total < 1 || args.seats_total > 8)
+        throw new RuleError("Seats must be between 1 and 8");
+      if (new Date(args.depart_at) <= clock.now)
+        throw new RuleError("Departure must be in the future");
       const t: PoolTrip = {
         id: id("trip"),
         driver_id,
@@ -1146,7 +1197,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     },
     getPublicScheduledTrips() {
       return Array.from(trips.values()).filter(
-        (t) => t.status === "scheduled" && t.seats_available > 0 && new Date(t.depart_at) > clock.now,
+        (t) =>
+          t.status === "scheduled" && t.seats_available > 0 && new Date(t.depart_at) > clock.now,
       );
     },
     /** Direct seat tampering is ignored by the trip guard. */
@@ -1155,17 +1207,27 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       void seats;
       return t;
     },
-    requestSeat(args: { passenger_id: string; trip_id: string; seats: number; match_score: number; emergency_contact?: string | null }) {
+    requestSeat(args: {
+      passenger_id: string;
+      trip_id: string;
+      seats: number;
+      match_score: number;
+      emergency_contact?: string | null;
+    }) {
       const t = trips.get(args.trip_id);
       if (!t) throw new RuleError("Trip not found");
       if (t.status !== "scheduled") throw new RuleError("This trip is no longer open");
       if (new Date(t.depart_at) <= clock.now) throw new RuleError("This trip has already departed");
       if (t.driver_id === args.passenger_id) throw new RuleError("You cannot join your own trip");
-      if (args.match_score < 80) throw new RuleError("This trip does not match your route closely enough");
+      if (args.match_score < 80)
+        throw new RuleError("This trip does not match your route closely enough");
       if (args.seats < 1) throw new RuleError("Request at least one seat");
       if (args.seats > t.seats_available) throw new RuleError("Not enough seats available");
       const dupe = [...poolRequests.values()].some(
-        (r) => r.trip_id === t.id && r.passenger_id === args.passenger_id && ["pending", "confirmed"].includes(r.status),
+        (r) =>
+          r.trip_id === t.id &&
+          r.passenger_id === args.passenger_id &&
+          ["pending", "confirmed"].includes(r.status),
       );
       if (dupe) throw new RuleError("You already have an active request for this trip");
       const r: PoolRequest = {
@@ -1187,11 +1249,15 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       if (t.driver_id !== driver_id) throw new RuleError("Not your trip");
       if (r.status !== "pending") throw new RuleError("This request is no longer pending");
       if (decision === "confirmed") {
-        if (r.seats > t.seats_available) throw new RuleError("Not enough seats left to accept this rider");
+        if (r.seats > t.seats_available)
+          throw new RuleError("Not enough seats left to accept this rider");
         t.seats_available -= r.seats;
       }
       r.status = decision;
-      notify(r.passenger_id, `Pooling request ${decision === "confirmed" ? "accepted" : "declined"}`);
+      notify(
+        r.passenger_id,
+        `Pooling request ${decision === "confirmed" ? "accepted" : "declined"}`,
+      );
       return { request: r, trip: t };
     },
     cancelPoolRequest(actor: string, request_id: string) {
@@ -1199,12 +1265,17 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const t = trips.get(r.trip_id)!;
       if (r.passenger_id !== actor) throw new RuleError("Not your request");
       if (!["pending", "confirmed"].includes(r.status)) throw new RuleError("Already closed");
-      if (r.status === "confirmed") t.seats_available = Math.min(t.seats_total, t.seats_available + r.seats);
+      if (r.status === "confirmed")
+        t.seats_available = Math.min(t.seats_total, t.seats_available + r.seats);
       r.status = "cancelled";
       notify(t.driver_id, "Rider cancelled");
       return { request: r, trip: t };
     },
-    setTripStatus(driver_id: string, trip_id: string, status: "started" | "completed" | "cancelled") {
+    setTripStatus(
+      driver_id: string,
+      trip_id: string,
+      status: "started" | "completed" | "cancelled",
+    ) {
       const t = trips.get(trip_id)!;
       if (t.driver_id !== driver_id) throw new RuleError("Not your trip");
       t.status = status;
@@ -1231,7 +1302,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const t = trips.get(args.trip_id);
       if (!t) throw new RuleError("Trip not found");
       if (t.status !== "completed") {
-        throw new RuleError(`Ratings can only be submitted for completed trips (trip status is ${t.status})`);
+        throw new RuleError(
+          `Ratings can only be submitted for completed trips (trip status is ${t.status})`,
+        );
       }
       if (args.rating < 1 || args.rating > 5) throw new RuleError("Rating must be between 1 and 5");
       if (rater_id === args.ratee_id) throw new RuleError("Cannot rate yourself");
@@ -1239,13 +1312,19 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       if (args.role === "passenger_to_driver") {
         if (args.ratee_id !== t.driver_id) throw new RuleError("Ratee must be the trip driver");
         const isPassenger = [...poolRequests.values()].some(
-          (r) => r.trip_id === t.id && r.passenger_id === rater_id && ["confirmed", "completed"].includes(r.status),
+          (r) =>
+            r.trip_id === t.id &&
+            r.passenger_id === rater_id &&
+            ["confirmed", "completed"].includes(r.status),
         );
         if (!isPassenger) throw new RuleError("Rater is not a confirmed passenger on this trip");
       } else if (args.role === "driver_to_passenger") {
         if (rater_id !== t.driver_id) throw new RuleError("Rater must be the trip driver");
         const isPassenger = [...poolRequests.values()].some(
-          (r) => r.trip_id === t.id && r.passenger_id === args.ratee_id && ["confirmed", "completed"].includes(r.status),
+          (r) =>
+            r.trip_id === t.id &&
+            r.passenger_id === args.ratee_id &&
+            ["confirmed", "completed"].includes(r.status),
         );
         if (!isPassenger) throw new RuleError("Ratee is not a confirmed passenger on this trip");
       }
@@ -1254,7 +1333,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const dupe = [...poolRatings.values()].some(
         (r) => r.trip_id === t.id && r.rater_id === rater_id && r.ratee_id === args.ratee_id,
       );
-      if (dupe) throw new RuleError("You have already submitted a rating for this trip and participant");
+      if (dupe)
+        throw new RuleError("You have already submitted a rating for this trip and participant");
 
       const ratingRow: PoolRating = {
         id: id("prate"),
@@ -1283,7 +1363,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
             details?: string | null;
           },
       targetIdParam?: string,
-      reasonParam?: string
+      reasonParam?: string,
     ) {
       if (typeof argsOrTargetType === "object") {
         if (!argsOrTargetType.reason?.trim()) throw new RuleError("Report reason is required");
@@ -1371,7 +1451,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       washes.set(w.id, w);
       return w;
     },
-    createConfirmedWash(customer_id: string, slot_date: string, city = "Bangalore", service_price = 499) {
+    createConfirmedWash(
+      customer_id: string,
+      slot_date: string,
+      city = "Bangalore",
+      service_price = 499,
+    ) {
       const money = price(service_price);
       const w: WashBooking = {
         ...money,
@@ -1413,7 +1498,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const cleanerCity = (cleaner.city || "Bangalore").trim().toLowerCase();
       const jobCity = (w.city || "Bangalore").trim().toLowerCase();
       if (cleanerCity !== jobCity) {
-        throw new RuleError(`Cleaner cannot claim jobs outside their operating city (cleaner city: ${cleaner.city}, job city: ${w.city})`);
+        throw new RuleError(
+          `Cleaner cannot claim jobs outside their operating city (cleaner city: ${cleaner.city}, job city: ${w.city})`,
+        );
       }
 
       // Atomic claim
@@ -1423,11 +1510,17 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       notify(w.customer_id, "Cleaner Assigned to Your Wash");
       return w;
     },
-    adminDecideWash(actor: string, wash_id: string, decision: "confirmed" | "rejected", vendor_id?: string) {
+    adminDecideWash(
+      actor: string,
+      wash_id: string,
+      decision: "confirmed" | "rejected",
+      vendor_id?: string,
+    ) {
       if (!admins.has(actor)) throw new RuleError("Only admins can assign wash bookings");
       const w = washes.get(wash_id)!;
       if (w.status !== "pending") throw new RuleError("Already decided");
-      if (decision === "confirmed" && !vendor_id) throw new RuleError("Assign a wash vendor before approving");
+      if (decision === "confirmed" && !vendor_id)
+        throw new RuleError("Assign a wash vendor before approving");
       w.status = decision;
       w.progress = decision === "confirmed" ? "confirmed" : "rejected";
       w.assigned_vendor_id = decision === "confirmed" ? vendor_id! : null;
@@ -1437,7 +1530,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     advanceWashStatus(actor: string, wash_id: string, nextStatus: WashStatus, photos?: string[]) {
       const w = washes.get(wash_id);
       if (!w) throw new RuleError("Wash booking not found");
-      const isAssigned = w.assigned_vendor_id === actor || w.assigned_cleaner_id === actor || admins.has(actor);
+      const isAssigned =
+        w.assigned_vendor_id === actor || w.assigned_cleaner_id === actor || admins.has(actor);
       if (!isAssigned) throw new RuleError("You are not assigned to this wash job");
 
       const ranks: Record<string, number> = {
@@ -1456,7 +1550,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
 
       if (nextRank === -1) throw new RuleError(`Invalid wash status: ${nextStatus}`);
       if (nextRank <= currRank) {
-        throw new RuleError(`Status cannot be moved backwards or to the same status (current: ${curr}, requested: ${nextStatus})`);
+        throw new RuleError(
+          `Status cannot be moved backwards or to the same status (current: ${curr}, requested: ${nextStatus})`,
+        );
       }
 
       if (nextStatus === "started" && photos) {
@@ -1473,7 +1569,9 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       w.status = nextStatus;
       // tg_wash_settle: a paid wash pays the cleaner, else the registered center, once.
       if (nextStatus === "completed" && w.payment_status === "paid" && !w.earning_credited_at) {
-        const payee = w.assigned_cleaner_id ?? (washCenters.has(w.assigned_vendor_id ?? "") ? w.assigned_vendor_id : null);
+        const payee =
+          w.assigned_cleaner_id ??
+          (washCenters.has(w.assigned_vendor_id ?? "") ? w.assigned_vendor_id : null);
         if (payee && payee !== w.customer_id && w.provider_earning > 0)
           wallet.apply(payee, w.provider_earning, "wash_earning");
         w.earning_credited_at = clock.now.toISOString();
@@ -1506,7 +1604,11 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       const w = washes.get(wash_id)!;
       if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
-      const timePart = w.slot_time ? (w.slot_time.length === 5 ? `${w.slot_time}:00` : w.slot_time.slice(0, 8)) : "00:00:00";
+      const timePart = w.slot_time
+        ? w.slot_time.length === 5
+          ? `${w.slot_time}:00`
+          : w.slot_time.slice(0, 8)
+        : "00:00:00";
       const pct = refundPercent(new Date(`${w.slot_date}T${timePart}Z`), clock.now);
       const refund = w.payment_status === "paid" ? Math.round((w.price * pct) / 100) : 0;
       if (refund > 0) {
@@ -1519,7 +1621,13 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     },
 
     /* ---------- Person 3: Review Moderation (3.1) ---------- */
-    addReview(args: { booking_id: string; vehicle_id: string; customer_id: string; rating: number; comment?: string }): Review {
+    addReview(args: {
+      booking_id: string;
+      vehicle_id: string;
+      customer_id: string;
+      rating: number;
+      comment?: string;
+    }): Review {
       const r: Review = {
         id: id("rev"),
         booking_id: args.booking_id,
@@ -1681,7 +1789,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       }
       return inc;
     },
-    addTrustedContact(user_id: string, name: string, phone: string, relationship?: string): TrustedContact {
+    addTrustedContact(
+      user_id: string,
+      name: string,
+      phone: string,
+      relationship?: string,
+    ): TrustedContact {
       const contact: TrustedContact = {
         id: id("tc"),
         user_id,
@@ -1773,17 +1886,28 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
 
           if (hoursLeft >= 0 && hoursLeft <= 24) {
             const alreadyNotified = notifications.some(
-              (n) => n.user_id === b.customer_id && n.title === "Trip reminder (24h)" && n.body?.includes(b.id)
+              (n) =>
+                n.user_id === b.customer_id &&
+                n.title === "Trip reminder (24h)" &&
+                n.body?.includes(b.id),
             );
             if (!alreadyNotified) {
-              notify(b.customer_id, "Trip reminder (24h)", `Starts within 24 hours (${b.id})`, "/bookings");
+              notify(
+                b.customer_id,
+                "Trip reminder (24h)",
+                `Starts within 24 hours (${b.id})`,
+                "/bookings",
+              );
               created++;
             }
           }
 
           if (hoursLeft >= 0 && hoursLeft <= 2) {
             const alreadyNotified = notifications.some(
-              (n) => n.user_id === b.customer_id && n.title === "Pickup in 2 hours" && n.body?.includes(b.id)
+              (n) =>
+                n.user_id === b.customer_id &&
+                n.title === "Pickup in 2 hours" &&
+                n.body?.includes(b.id),
             );
             if (!alreadyNotified) {
               notify(b.customer_id, "Pickup in 2 hours", `Pickup in 2h (${b.id})`, "/bookings");
@@ -1800,7 +1924,7 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
           const daysLeft = (expiryMs - nowMs) / 86_400_000;
           if (daysLeft >= 0 && daysLeft <= 30) {
             const alreadyNotified = notifications.some(
-              (n) => n.user_id === uid && n.title === "Driving Licence Expiring Soon"
+              (n) => n.user_id === uid && n.title === "Driving Licence Expiring Soon",
             );
             if (!alreadyNotified) {
               notify(uid, "Driving Licence Expiring Soon", `Expires on ${p.dl_expiry}`, "/profile");
@@ -1814,7 +1938,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     },
 
     /* ---------- roles, cleaners & wash centers (Task 2.4) ---------- */
-    registerCleaner(profile: Omit<Cleaner, "verification_status" | "avg_rating" | "review_count"> & { avg_rating?: number; review_count?: number }) {
+    registerCleaner(
+      profile: Omit<Cleaner, "verification_status" | "avg_rating" | "review_count"> & {
+        avg_rating?: number;
+        review_count?: number;
+      },
+    ) {
       const cleaner: Cleaner = {
         ...profile,
         avg_rating: profile.avg_rating ?? 0,
@@ -1828,7 +1957,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     getCleaner(id: string) {
       return cleaners.get(id);
     },
-    verifyCleaner(actor: string, cleanerId: string, decision: "approved" | "rejected", reason?: string) {
+    verifyCleaner(
+      actor: string,
+      cleanerId: string,
+      decision: "approved" | "rejected",
+      reason?: string,
+    ) {
       if (!admins.has(actor)) throw new RuleError("Only admins can verify cleaners");
       const c = cleaners.get(cleanerId);
       if (!c) throw new RuleError("Cleaner not found");
@@ -1839,7 +1973,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       }
       return c;
     },
-    registerWashCenter(profile: Omit<WashCenter, "verification_status" | "active" | "avg_rating" | "review_count"> & { avg_rating?: number; review_count?: number }) {
+    registerWashCenter(
+      profile: Omit<
+        WashCenter,
+        "verification_status" | "active" | "avg_rating" | "review_count"
+      > & { avg_rating?: number; review_count?: number },
+    ) {
       const center: WashCenter = {
         ...profile,
         active: false,
@@ -1854,7 +1993,12 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     getWashCenter(id: string) {
       return washCenters.get(id);
     },
-    verifyWashCenter(actor: string, centerId: string, decision: "approved" | "rejected", reason?: string) {
+    verifyWashCenter(
+      actor: string,
+      centerId: string,
+      decision: "approved" | "rejected",
+      reason?: string,
+    ) {
       if (!admins.has(actor)) throw new RuleError("Only admins can verify wash centers");
       const c = washCenters.get(centerId);
       if (!c) throw new RuleError("Wash center not found");
@@ -1900,7 +2044,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     reviewWash(customer_id: string, wash_booking_id: string, rating: number, comment?: string) {
       const w = washes.get(wash_booking_id);
       if (!w) throw new RuleError("Wash booking not found");
-      if (w.customer_id !== customer_id) throw new RuleError("Only the booking customer can write a review");
+      if (w.customer_id !== customer_id)
+        throw new RuleError("Only the booking customer can write a review");
       if (w.status !== "completed" && w.progress !== "completed") {
         throw new RuleError("Only completed wash bookings can be reviewed");
       }
@@ -1966,27 +2111,53 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     },
     withdrawable,
     /** public.request_withdrawal */
-    requestWithdrawal(actor: string, amount: number, method: "upi" | "bank", details: { upi_id?: string; account_number?: string; ifsc?: string; account_name?: string }) {
-      if (!isProvider(actor)) throw new RuleError("Only hosts, drivers, cleaners and washing centers can withdraw earnings");
+    requestWithdrawal(
+      actor: string,
+      amount: number,
+      method: "upi" | "bank",
+      details: { upi_id?: string; account_number?: string; ifsc?: string; account_name?: string },
+    ) {
+      if (!isProvider(actor))
+        throw new RuleError(
+          "Only hosts, drivers, cleaners and washing centers can withdraw earnings",
+        );
       const amt = round2(amount);
-      if (amt <= 0 || amt < settings.min_withdrawal) throw new RuleError(`Minimum withdrawal is Rs ${settings.min_withdrawal}`);
+      if (amt <= 0 || amt < settings.min_withdrawal)
+        throw new RuleError(`Minimum withdrawal is Rs ${settings.min_withdrawal}`);
       const avail = withdrawable(actor);
       if (amt > avail) throw new RuleError(`You can withdraw at most Rs ${avail}`);
-      if (method === "upi" && !/^[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}$/.test(details.upi_id?.trim() ?? ""))
+      if (
+        method === "upi" &&
+        !/^[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}$/.test(details.upi_id?.trim() ?? "")
+      )
         throw new RuleError("Enter a valid UPI ID");
       if (method === "bank") {
         if (!details.account_name?.trim()) throw new RuleError("Enter the account holder name");
-        if (!/^[0-9]{9,18}$/.test(details.account_number?.trim() ?? "")) throw new RuleError("Enter a valid account number");
-        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(details.ifsc?.trim().toUpperCase() ?? "")) throw new RuleError("Enter a valid IFSC code");
+        if (!/^[0-9]{9,18}$/.test(details.account_number?.trim() ?? ""))
+          throw new RuleError("Enter a valid account number");
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(details.ifsc?.trim().toUpperCase() ?? ""))
+          throw new RuleError("Enter a valid IFSC code");
       }
-      const w: Withdrawal = { id: id("wd"), user_id: actor, amount: amt, method, status: "requested", reference: null };
+      const w: Withdrawal = {
+        id: id("wd"),
+        user_id: actor,
+        amount: amt,
+        method,
+        status: "requested",
+        reference: null,
+      };
       withdrawals.set(w.id, w);
       wallet.apply(actor, -amt, "payout");
       for (const a of admins) notify(a, "New withdrawal request");
       return w;
     },
     /** public.admin_decide_withdrawal */
-    decideWithdrawal(actor: string, withdrawal_id: string, decision: "paid" | "rejected", reference?: string) {
+    decideWithdrawal(
+      actor: string,
+      withdrawal_id: string,
+      decision: "paid" | "rejected",
+      reference?: string,
+    ) {
       if (!admins.has(actor)) throw new RuleError("Admins only");
       const w = withdrawals.get(withdrawal_id);
       if (!w) throw new RuleError("Withdrawal not found");
@@ -2006,7 +2177,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     /** public.admin_grant_credit */
     grantCredit(actor: string, email: string, amount: number) {
       if (!admins.has(actor)) throw new RuleError("Admins only");
-      if (amount <= 0 || amount > 100000) throw new RuleError("Amount must be between 1 and 100000");
+      if (amount <= 0 || amount > 100000)
+        throw new RuleError("Amount must be between 1 and 100000");
       const uid = emails.get(email.trim().toLowerCase());
       if (!uid) throw new RuleError("No user with that email");
       return wallet.apply(uid, round2(amount), "promo_credit");
@@ -2014,7 +2186,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     /** public.admin_refund: credited as 'refund', so it is never withdrawable. */
     adminRefund(actor: string, email: string, amount: number, reason: string) {
       if (!admins.has(actor)) throw new RuleError("Admins only");
-      if (amount <= 0 || amount > 100000) throw new RuleError("Amount must be between 1 and 100000");
+      if (amount <= 0 || amount > 100000)
+        throw new RuleError("Amount must be between 1 and 100000");
       if (!reason.trim()) throw new RuleError("A reason is required");
       const uid = emails.get(email.trim().toLowerCase());
       if (!uid) throw new RuleError("No user with that email");
@@ -2030,22 +2203,40 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
         throw new RuleError("Only paid, confirmed trips can be extended");
       if (!b.pickup_checked_at || b.return_checked_at)
         throw new RuleError("Extensions are only possible during an active trip");
-      if (!Number.isInteger(hours) || hours < 1 || hours > 72) throw new RuleError("Extend by 1 to 72 hours");
-      if ([...extensions.values()].some((e) => e.booking_id === b.id && ["pending", "accepted"].includes(e.status)))
+      if (!Number.isInteger(hours) || hours < 1 || hours > 72)
+        throw new RuleError("Extend by 1 to 72 hours");
+      if (
+        [...extensions.values()].some(
+          (e) => e.booking_id === b.id && ["pending", "accepted"].includes(e.status),
+        )
+      )
         throw new RuleError("An extension request is already open for this trip");
-      const end = new Date(new Date(`${b.end_date}T${b.dropoff_time}:00Z`).getTime() + hours * 3_600_000).toISOString();
+      const end = new Date(
+        new Date(`${b.end_date}T${b.dropoff_time}:00Z`).getTime() + hours * 3_600_000,
+      ).toISOString();
       const new_end_date = end.slice(0, 10);
       const new_dropoff_time = end.slice(11, 16);
-      if (extensionClashes(b, new_end_date)) throw new RuleError("The vehicle is not available for the extra time");
+      if (extensionClashes(b, new_end_date))
+        throw new RuleError("The vehicle is not available for the extra time");
       const v = vehicles.get(b.vehicle_id)!;
       const full = calculateRentalPrice({
-        startDate: b.start_date, endDate: new_end_date, pickupTime: b.pickup_time, dropoffTime: new_dropoff_time,
-        priceHourly: v.price_hourly, priceDaily: v.price_daily,
+        startDate: b.start_date,
+        endDate: new_end_date,
+        pickupTime: b.pickup_time,
+        dropoffTime: new_dropoff_time,
+        priceHourly: v.price_hourly,
+        priceDaily: v.price_daily,
       }).subtotal;
       const e: BookingExtension = {
         ...computeCharges(Math.max(0, full - b.base_price), settings),
-        id: id("ext"), booking_id: b.id, customer_id: b.customer_id, vendor_id: b.vendor_id,
-        hours, new_end_date, new_dropoff_time, status: "pending",
+        id: id("ext"),
+        booking_id: b.id,
+        customer_id: b.customer_id,
+        vendor_id: b.vendor_id,
+        hours,
+        new_end_date,
+        new_dropoff_time,
+        status: "pending",
       };
       extensions.set(e.id, e);
       notify(b.vendor_id, "Trip extension requested");
@@ -2066,7 +2257,8 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
     cancelExtension(actor: string, extension_id: string) {
       const e = extensions.get(extension_id)!;
       if (e.customer_id !== actor) throw new RuleError("Not your request");
-      if (!["pending", "accepted"].includes(e.status)) throw new RuleError("This request is already closed");
+      if (!["pending", "accepted"].includes(e.status))
+        throw new RuleError("This request is already closed");
       e.status = "cancelled";
       return e;
     },
@@ -2077,9 +2269,11 @@ export function createBackend(now = new Date("2026-08-15T10:00:00Z"), initialSet
       if (e.status === "paid") throw new RuleError("Already paid");
       if (e.status !== "accepted") throw new RuleError("The host has not accepted this extension");
       const b = bookings.get(e.booking_id)!;
-      if (b.status !== "confirmed" || b.return_checked_at) throw new RuleError("This trip has already ended");
+      if (b.status !== "confirmed" || b.return_checked_at)
+        throw new RuleError("This trip has already ended");
       // trg_bookings_conflict re-checks on UPDATE; the debit rolls back with it.
-      if (extensionClashes(b, e.new_end_date)) throw new RuleError("Vehicle not available for selected dates");
+      if (extensionClashes(b, e.new_end_date))
+        throw new RuleError("Vehicle not available for selected dates");
       if (e.customer_total > 0) wallet.apply(actor, -e.customer_total, "booking_payment");
       Object.assign(b, {
         end_date: e.new_end_date,

@@ -345,7 +345,11 @@ describe("admin refund", () => {
   test("admins credit a refund by email with a reason; it is not withdrawable", () => {
     const { be, admin, customer } = setup();
     expect(be.adminRefund(admin, "RIDER@test.local", 300, "Host was late")).toBe(300);
-    expect(be.wallet.txns(customer).at(-1)).toMatchObject({ kind: "refund", amount: 300, balance_after: 300 });
+    expect(be.wallet.txns(customer).at(-1)).toMatchObject({
+      kind: "refund",
+      amount: 300,
+      balance_after: 300,
+    });
     expect(be.withdrawable(customer)).toBe(0);
   });
 
@@ -384,8 +388,18 @@ describe("trip extension", () => {
 
     // 24h + 6h = 30h → 2 days = 2000, so the extra base is 1000.
     const e = be.requestExtension(customer, b.id, 6);
-    expect(e).toMatchObject({ base: 1000, service_fee: 50, gst: 9, provider_earning: 882, customer_total: 1059 });
-    expect(e).toMatchObject({ new_end_date: "2026-08-21", new_dropoff_time: "16:00", status: "pending" });
+    expect(e).toMatchObject({
+      base: 1000,
+      service_fee: 50,
+      gst: 9,
+      provider_earning: 882,
+      customer_total: 1059,
+    });
+    expect(e).toMatchObject({
+      new_end_date: "2026-08-21",
+      new_dropoff_time: "16:00",
+      status: "pending",
+    });
     expect(() => be.requestExtension(customer, b.id, 3)).toThrow(/already open/);
     expect(() => be.payExtension(customer, e.id)).toThrow(/not accepted/);
     expect(() => be.decideExtension(customer, e.id, true)).toThrow(/Only the host/);
@@ -406,7 +420,12 @@ describe("trip extension", () => {
     expect(() => be.payExtension(customer, e.id)).toThrow(/Already paid/);
 
     be.checkOut(host, b.id, 70);
-    expect(be.wallet.txns(host).filter((t) => t.kind === "booking_earning").map((t) => t.amount)).toEqual([1764]);
+    expect(
+      be.wallet
+        .txns(host)
+        .filter((t) => t.kind === "booking_earning")
+        .map((t) => t.amount),
+    ).toEqual([1764]);
   });
 
   test("an accept that would clash with the next booking is rejected; the customer can withdraw and retry", () => {
@@ -414,7 +433,12 @@ describe("trip extension", () => {
     const e = be.requestExtension(customer, b.id, 24); // → 22 Aug 10:00
 
     const other = be.registerCustomer("approved");
-    be.createBooking({ customer_id: other, vehicle_id: vehicle.id, start_date: "2026-08-22", end_date: "2026-08-23" });
+    be.createBooking({
+      customer_id: other,
+      vehicle_id: vehicle.id,
+      start_date: "2026-08-22",
+      end_date: "2026-08-23",
+    });
 
     expect(() => be.decideExtension(host, e.id, true)).toThrow(/booked or blocked/);
     expect(() => be.requestExtension(customer, b.id, 48)).toThrow(/already open/);

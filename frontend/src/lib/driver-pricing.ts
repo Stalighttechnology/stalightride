@@ -33,7 +33,12 @@ export const driverDays = (startDate: string, endDate: string) => {
 };
 
 /** Hours between start and end datetime (hourly hires are same-day). */
-export const driverHours = (startDate: string, endDate: string, startTime: string, endTime: string) => {
+export const driverHours = (
+  startDate: string,
+  endDate: string,
+  startTime: string,
+  endTime: string,
+) => {
   if (!startDate || !endDate || !startTime || !endTime) return 0;
   const s = new Date(`${startDate}T${startTime}`);
   const e = new Date(`${endDate}T${endTime}`);
@@ -51,10 +56,25 @@ export const calculateDriverPrice = (input: DriverPriceInput): DriverPriceBreakd
   if (days <= 0) return { hours: 0, days: 0, subtotal: 0, lines, error: "Pick valid dates" };
 
   if (input.rateType === "hourly") {
-    if (hourly <= 0) return { hours: 0, days, subtotal: 0, lines, error: "This driver does not offer hourly hire" };
-    if (days > 1) return { hours: 0, days, subtotal: 0, lines, error: "Hourly hire must start and end on the same day" };
+    if (hourly <= 0)
+      return {
+        hours: 0,
+        days,
+        subtotal: 0,
+        lines,
+        error: "This driver does not offer hourly hire",
+      };
+    if (days > 1)
+      return {
+        hours: 0,
+        days,
+        subtotal: 0,
+        lines,
+        error: "Hourly hire must start and end on the same day",
+      };
     const billed = Math.ceil(rawHours);
-    if (billed <= 0) return { hours: 0, days, subtotal: 0, lines, error: "End time must be after start time" };
+    if (billed <= 0)
+      return { hours: 0, days, subtotal: 0, lines, error: "End time must be after start time" };
     const value = billed * hourly;
     lines.push({ label: `${currency(hourly)} × ${billed} hour${billed === 1 ? "" : "s"}`, value });
     return { hours: billed, days, subtotal: value, lines };

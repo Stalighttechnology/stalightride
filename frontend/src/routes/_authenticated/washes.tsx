@@ -28,7 +28,10 @@ export const Route = createFileRoute("/_authenticated/washes")({
   head: () => ({
     meta: [
       { title: "My vehicle washes — Synchoo" },
-      { name: "description", content: "Track your doorstep wash slots, see approval status and pay by wallet or card." },
+      {
+        name: "description",
+        content: "Track your doorstep wash slots, see approval status and pay by wallet or card.",
+      },
       { property: "og:title", content: "My vehicle washes — Synchoo" },
       { property: "og:description", content: "Track wash slot approvals and pay securely." },
       { property: "og:type", content: "website" },
@@ -72,9 +75,17 @@ function WashStepper({ status }: { status: string }) {
               className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold
                 ${done ? "bg-emerald-600 text-white" : active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
             >
-              {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : active ? <CircleDot className="h-3.5 w-3.5" /> : i + 1}
+              {done ? (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              ) : active ? (
+                <CircleDot className="h-3.5 w-3.5" />
+              ) : (
+                i + 1
+              )}
             </span>
-            <span className={`text-[11px] ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+            <span
+              className={`text-[11px] ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+            >
               {step.label}
             </span>
             {i < WASH_STEPS.length - 1 && <span className="mx-1 text-muted-foreground/40">›</span>}
@@ -102,7 +113,9 @@ function StarPicker({ value, onChange }: { value: number; onChange: (n: number) 
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((n) => (
         <button key={n} type="button" onClick={() => onChange(n)} aria-label={`${n} star`}>
-          <Star className={`h-5 w-5 ${n <= value ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`} />
+          <Star
+            className={`h-5 w-5 ${n <= value ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+          />
         </button>
       ))}
     </div>
@@ -189,11 +202,16 @@ function WashesPage() {
       : "Cancel this wash request?";
     if (!window.confirm(msg)) return;
     setBusy(b.id);
-    const { data, error } = await api.rpc("cancel_wash_booking", { _wash_booking_id: b.id, _reason: null } as any);
+    const { data, error } = await api.rpc("cancel_wash_booking", {
+      _wash_booking_id: b.id,
+      _reason: null,
+    } as any);
     setBusy(null);
     if (error) return toast.error(error.message);
     const refund = Number((data as any)?.refund ?? 0);
-    toast.success(refund > 0 ? `Cancelled — ${currency(refund)} refunded to your wallet` : "Wash cancelled");
+    toast.success(
+      refund > 0 ? `Cancelled — ${currency(refund)} refunded to your wallet` : "Wash cancelled",
+    );
     load();
   };
 
@@ -218,7 +236,10 @@ function WashesPage() {
         orderId: order.orderId,
         name: "Synchoo",
         description: b.wash_services?.name ?? "Vehicle wash",
-        prefill: { email: user.email ?? undefined, name: user.user_metadata?.full_name ?? undefined },
+        prefill: {
+          email: user.email ?? undefined,
+          name: user.user_metadata?.full_name ?? undefined,
+        },
         onSuccess: async (resp) => {
           try {
             await verifyPayment({ data: { washBookingId: b.id, ...resp } });
@@ -244,7 +265,9 @@ function WashesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl font-semibold">My washes</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Track your doorstep wash slots and reviews.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Track your doorstep wash slots and reviews.
+            </p>
           </div>
           <Button asChild size="sm" variant="outline">
             <Link to="/wash">Book a wash</Link>
@@ -272,9 +295,16 @@ function WashesPage() {
         <ul className="mt-6 grid gap-3">
           {(items ?? []).map((b) => {
             const currentStatus = b.progress || b.status;
-            const canPay = (b.status === "confirmed" || b.progress === "confirmed") && b.payment_status !== "paid";
-            const canCancel = (b.status === "pending" || b.status === "confirmed" || b.progress === "requested" || b.progress === "confirmed");
-            const canReview = (b.status === "completed" || b.progress === "completed") && !reviewedIds.has(b.id);
+            const canPay =
+              (b.status === "confirmed" || b.progress === "confirmed") &&
+              b.payment_status !== "paid";
+            const canCancel =
+              b.status === "pending" ||
+              b.status === "confirmed" ||
+              b.progress === "requested" ||
+              b.progress === "confirmed";
+            const canReview =
+              (b.status === "completed" || b.progress === "completed") && !reviewedIds.has(b.id);
             return (
               <Card key={b.id}>
                 <CardContent className="p-4">
@@ -282,12 +312,15 @@ function WashesPage() {
                     <div>
                       <p className="font-medium">{b.wash_services?.name ?? "Vehicle wash"}</p>
                       <p className="text-xs text-muted-foreground">
-                        {b.slot_date} · {String(b.slot_time).slice(0, 5)} · {b.wash_services?.duration_minutes ?? 45} min
+                        {b.slot_date} · {String(b.slot_time).slice(0, 5)} ·{" "}
+                        {b.wash_services?.duration_minutes ?? 45} min
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge s={currentStatus} />
-                      {b.payment_status === "paid" && <Badge className="bg-emerald-600 text-white">Paid</Badge>}
+                      {b.payment_status === "paid" && (
+                        <Badge className="bg-emerald-600 text-white">Paid</Badge>
+                      )}
                       {b.payment_status === "refunded" && (
                         <Badge variant="outline" className="border-emerald-300 text-emerald-700">
                           Refunded
@@ -307,14 +340,18 @@ function WashesPage() {
                   )}
 
                   <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
-                    <div>📍 {b.address}, {b.city}</div>
+                    <div>
+                      📍 {b.address}, {b.city}
+                    </div>
                     {b.vehicle_label && <div>🚗 {b.vehicle_label}</div>}
                     {b.notes && <div className="sm:col-span-2">📝 {b.notes}</div>}
                   </div>
                   {b.after_photos && b.after_photos.length > 0 && (
                     <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1.5">
                       <Camera className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="font-medium text-emerald-700">{b.after_photos.length} completion proof photo(s) attached</span>
+                      <span className="font-medium text-emerald-700">
+                        {b.after_photos.length} completion proof photo(s) attached
+                      </span>
                     </div>
                   )}
                   <p className="mt-1 text-sm">
@@ -323,15 +360,22 @@ function WashesPage() {
 
                   {b.status === "pending" && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Our team is checking washer availability for this slot. You can pay once it's approved.
+                      Our team is checking washer availability for this slot. You can pay once it's
+                      approved.
                     </p>
                   )}
                   {b.status === "rejected" && b.rejection_reason && (
                     <p className="mt-1 text-sm text-destructive">Rejected: {b.rejection_reason}</p>
                   )}
-                  {b.admin_note && <p className="mt-1 text-xs text-muted-foreground">Note from team: {b.admin_note}</p>}
+                  {b.admin_note && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Note from team: {b.admin_note}
+                    </p>
+                  )}
                   {Number(b.refund_amount ?? 0) > 0 && (
-                    <p className="text-sm text-emerald-700">Refunded {currency(b.refund_amount)} to your wallet</p>
+                    <p className="text-sm text-emerald-700">
+                      Refunded {currency(b.refund_amount)} to your wallet
+                    </p>
                   )}
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -353,14 +397,22 @@ function WashesPage() {
                       </>
                     )}
                     {canCancel && (
-                      <Button size="sm" variant="ghost" disabled={busy === b.id} onClick={() => cancel(b)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy === b.id}
+                        onClick={() => cancel(b)}
+                      >
                         Cancel
                       </Button>
                     )}
-                    {(b.payment_status === "paid" || b.paid_at || Number(b.refund_amount ?? 0) > 0) && (
+                    {(b.payment_status === "paid" ||
+                      b.paid_at ||
+                      Number(b.refund_amount ?? 0) > 0) && (
                       <Button asChild size="sm" variant="outline">
                         <Link to="/receipt/$kind/$id" params={{ kind: "wash", id: b.id }}>
-                          <ReceiptText className="mr-1.5 h-4 w-4" />Receipt
+                          <ReceiptText className="mr-1.5 h-4 w-4" />
+                          Receipt
                         </Link>
                       </Button>
                     )}

@@ -44,7 +44,8 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
       await loadGoogleMaps();
       if (cancelled || !mapRef.current) return;
       const google = (window as any).google;
-      const center = hostLat && hostLng ? { lat: hostLat, lng: hostLng } : { lat: 20.5937, lng: 78.9629 };
+      const center =
+        hostLat && hostLng ? { lat: hostLat, lng: hostLng } : { lat: 20.5937, lng: 78.9629 };
       mapObj.current = new google.maps.Map(mapRef.current, {
         center,
         zoom: hostLat ? 14 : 5,
@@ -58,7 +59,14 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
           position: { lat: hostLat, lng: hostLng },
           map: mapObj.current,
           title: "Host pickup point",
-          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: "#111", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#111",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 2,
+          },
         });
       }
       polyline.current = new google.maps.Polyline({
@@ -89,7 +97,12 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
       .channel(`booking_locations:${bookingId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "booking_locations", filter: `booking_id=eq.${bookingId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "booking_locations",
+          filter: `booking_id=eq.${bookingId}`,
+        },
         (payload: any) => {
           const p = { lat: Number(payload.new.lat), lng: Number(payload.new.lng) };
           path.current.push(p);
@@ -106,7 +119,6 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
       api.removeChannel(channel);
       stopBroadcast();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, bookingId, hostLat, hostLng]);
 
   function placeCar(p: { lat: number; lng: number }) {
@@ -184,7 +196,9 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
   }
 
   const directionsUrl =
-    hostLat && hostLng ? `https://www.google.com/maps/dir/?api=1&destination=${hostLat},${hostLng}&travelmode=driving` : null;
+    hostLat && hostLng
+      ? `https://www.google.com/maps/dir/?api=1&destination=${hostLat},${hostLng}&travelmode=driving`
+      : null;
 
   return (
     <div className={className}>
@@ -198,14 +212,24 @@ export function LiveTracker({ bookingId, userId, role, hostLat, hostLng, classNa
         </div>
         <div className="pointer-events-none absolute inset-x-2 bottom-2 flex flex-wrap justify-end gap-2">
           {directionsUrl && (
-            <Button size="sm" variant="secondary" className="pointer-events-auto shadow" onClick={() => window.open(directionsUrl, "_blank", "noreferrer")}>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="pointer-events-auto shadow"
+              onClick={() => window.open(directionsUrl, "_blank", "noreferrer")}
+            >
               <Navigation className="mr-1.5 h-4 w-4" />
               Directions
             </Button>
           )}
           {role === "customer" &&
             (broadcasting ? (
-              <Button size="sm" variant="destructive" className="pointer-events-auto shadow" onClick={stopBroadcast}>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="pointer-events-auto shadow"
+                onClick={stopBroadcast}
+              >
                 <Square className="mr-1.5 h-4 w-4" />
                 Stop sharing
               </Button>

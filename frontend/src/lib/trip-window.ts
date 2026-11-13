@@ -92,5 +92,12 @@ export function getHandoverGate(b: TripBooking, now: Date = new Date()): Handove
           ? "Start trip"
           : "Check-in not open yet";
 
-  return { canCheckin, canCheckout, ctaLabel, checkinReason, checkoutReason, opensAt: opensAt ?? end };
+  return {
+    canCheckin,
+    canCheckout,
+    ctaLabel,
+    checkinReason,
+    checkoutReason,
+    opensAt: opensAt ?? end,
+  };
 }

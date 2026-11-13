@@ -23,8 +23,38 @@ const BASE_DAILY: Record<string, number> = {
   ev: 2100,
 };
 
-const PREMIUM_BRANDS = ["bmw", "mercedes", "audi", "volvo", "jaguar", "lexus", "land rover", "porsche", "mini", "jeep", "toyota fortuner", "royal enfield", "ktm", "harley", "triumph", "kawasaki"];
-const METROS = ["mumbai", "delhi", "new delhi", "bengaluru", "bangalore", "gurugram", "gurgaon", "noida", "hyderabad", "pune", "chennai", "goa"];
+const PREMIUM_BRANDS = [
+  "bmw",
+  "mercedes",
+  "audi",
+  "volvo",
+  "jaguar",
+  "lexus",
+  "land rover",
+  "porsche",
+  "mini",
+  "jeep",
+  "toyota fortuner",
+  "royal enfield",
+  "ktm",
+  "harley",
+  "triumph",
+  "kawasaki",
+];
+const METROS = [
+  "mumbai",
+  "delhi",
+  "new delhi",
+  "bengaluru",
+  "bangalore",
+  "gurugram",
+  "gurgaon",
+  "noida",
+  "hyderabad",
+  "pune",
+  "chennai",
+  "goa",
+];
 
 export function recommendPrice(i: Input) {
   let daily = BASE_DAILY[i.category] ?? 1500;

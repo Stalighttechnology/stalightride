@@ -4,9 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Crosshair, MapPin, Loader2 } from "lucide-react";
 import { loadGoogleMaps } from "@/lib/gmaps";
 
-declare global { interface Window { google: any; __gmapInit?: () => void } }
+declare global {
+  interface Window {
+    google: any;
+    __gmapInit?: () => void;
+  }
+}
 
-interface Suggestion { placeId: string; text: string; }
+interface Suggestion {
+  placeId: string;
+  text: string;
+}
 
 interface Props {
   value: { lat: number | null; lng: number | null };
@@ -18,7 +26,14 @@ interface Props {
   mapHeight?: string;
 }
 
-export function MapPicker({ value, address, onChange, onAddressChange, className, mapHeight = "h-64" }: Props) {
+export function MapPicker({
+  value,
+  address,
+  onChange,
+  onAddressChange,
+  className,
+  mapHeight = "h-64",
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -67,38 +82,50 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
 
   useEffect(() => {
     let cancelled = false;
-    loadGoogleMaps().then(() => {
-      if (cancelled || !ref.current) return;
-      const center = value.lat && value.lng ? { lat: value.lat, lng: value.lng } : { lat: 20.5937, lng: 78.9629 };
-      const map = new window.google.maps.Map(ref.current, {
-        center, zoom: value.lat ? 15 : 5,
-        streetViewControl: false, mapTypeControl: false, fullscreenControl: false,
-        gestureHandling: "greedy",
-      });
-      mapRef.current = map;
-      const marker = new window.google.maps.Marker({
-        position: center, map, draggable: true,
-        animation: window.google.maps.Animation.DROP,
-      });
-      markerRef.current = marker;
+    loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !ref.current) return;
+        const center =
+          value.lat && value.lng
+            ? { lat: value.lat, lng: value.lng }
+            : { lat: 20.5937, lng: 78.9629 };
+        const map = new window.google.maps.Map(ref.current, {
+          center,
+          zoom: value.lat ? 15 : 5,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+          gestureHandling: "greedy",
+        });
+        mapRef.current = map;
+        const marker = new window.google.maps.Marker({
+          position: center,
+          map,
+          draggable: true,
+          animation: window.google.maps.Animation.DROP,
+        });
+        markerRef.current = marker;
 
-      const commit = (latLng: any) => {
-        const lat = typeof latLng.lat === "function" ? latLng.lat() : Number(latLng.lat);
-        const lng = typeof latLng.lng === "function" ? latLng.lng() : Number(latLng.lng);
-        onChange({ lat, lng });
-        reverseGeocode(lat, lng);
-      };
+        const commit = (latLng: any) => {
+          const lat = typeof latLng.lat === "function" ? latLng.lat() : Number(latLng.lat);
+          const lng = typeof latLng.lng === "function" ? latLng.lng() : Number(latLng.lng);
+          onChange({ lat, lng });
+          reverseGeocode(lat, lng);
+        };
 
-      map.addListener("click", (e: any) => {
-        marker.setPosition(e.latLng);
-        commit(e.latLng);
-      });
-      marker.addListener("dragend", () => {
-        commit(marker.getPosition());
-      });
-      setReady(true);
-    }).catch((e) => setError(e.message));
-    return () => { cancelled = true; };
+        map.addListener("click", (e: any) => {
+          marker.setPosition(e.latLng);
+          commit(e.latLng);
+        });
+        marker.addListener("dragend", () => {
+          commit(marker.getPosition());
+        });
+        setReady(true);
+      })
+      .catch((e) => setError(e.message));
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -111,20 +138,35 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
 
   // Fetch autocomplete suggestions as user types
   useEffect(() => {
-    if (!ready || !address || address.length < 3) { setSuggestions([]); return; }
+    if (!ready || !address || address.length < 3) {
+      setSuggestions([]);
+      return;
+    }
     const t = setTimeout(async () => {
       try {
         setSearching(true);
         const places = await window.google.maps.importLibrary("places");
-        if (!sessionTokenRef.current) sessionTokenRef.current = new places.AutocompleteSessionToken();
-        const { suggestions: raw } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: address, sessionToken: sessionTokenRef.current,
-        });
-        setSuggestions(raw.slice(0, 5).map((s: any) => ({
-          placeId: s.placePrediction?.placeId,
-          text: s.placePrediction?.text?.toString() ?? "",
-        })).filter((x: Suggestion) => x.placeId));
-      } catch { /* ignore */ } finally { setSearching(false); }
+        if (!sessionTokenRef.current)
+          sessionTokenRef.current = new places.AutocompleteSessionToken();
+        const { suggestions: raw } =
+          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: address,
+            sessionToken: sessionTokenRef.current,
+          });
+        setSuggestions(
+          raw
+            .slice(0, 5)
+            .map((s: any) => ({
+              placeId: s.placePrediction?.placeId,
+              text: s.placePrediction?.text?.toString() ?? "",
+            }))
+            .filter((x: Suggestion) => x.placeId),
+        );
+      } catch {
+        /* ignore */
+      } finally {
+        setSearching(false);
+      }
     }, 250);
     return () => clearTimeout(t);
   }, [address, ready]);
@@ -146,7 +188,9 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
         markerRef.current?.setPosition({ lat, lng });
       }
       sessionTokenRef.current = null; // token consumed after Place fetch
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   const useMyLocation = () => {
@@ -171,18 +215,28 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
       <div className="relative">
         <Input
           value={address}
-          onChange={(e) => { onAddressChange(e.target.value); setShowSuggest(true); }}
+          onChange={(e) => {
+            onAddressChange(e.target.value);
+            setShowSuggest(true);
+          }}
           onFocus={() => setShowSuggest(true)}
           onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
           placeholder="Start typing an address, area, or landmark…"
           autoComplete="off"
         />
-        {searching && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
+        {searching && (
+          <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+        )}
         {showSuggest && suggestions.length > 0 && (
           <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-lg animate-fade-in">
             {suggestions.map((s) => (
-              <button key={s.placeId} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pickSuggestion(s)}
-                className="flex w-full items-start gap-2 border-b border-border/40 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted">
+              <button
+                key={s.placeId}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pickSuggestion(s)}
+                className="flex w-full items-start gap-2 border-b border-border/40 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
+              >
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="line-clamp-2">{s.text}</span>
               </button>
@@ -195,11 +249,19 @@ export function MapPicker({ value, address, onChange, onAddressChange, className
         <div ref={ref} className={`${mapHeight} w-full ${ready ? "" : "map-shimmer"}`} />
         {error && (
           <div className="absolute inset-0 grid place-items-center bg-muted text-xs text-muted-foreground">
-            <div className="flex items-center gap-2"><MapPin className="h-4 w-4" />{error}</div>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              {error}
+            </div>
           </div>
         )}
-        <Button type="button" size="sm" variant="secondary" onClick={useMyLocation}
-          className="absolute right-2 top-2 shadow-md">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={useMyLocation}
+          className="absolute right-2 top-2 shadow-md"
+        >
           <Crosshair className="mr-1 h-3.5 w-3.5" /> Use my location
         </Button>
       </div>

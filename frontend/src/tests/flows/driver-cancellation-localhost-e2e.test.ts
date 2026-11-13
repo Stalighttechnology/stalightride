@@ -163,7 +163,9 @@ describe("M9: Driver hire cancellation localhost and acceptance tests (DC-01 to 
     const stranger = be.registerCustomer();
 
     // Stranger tries to cancel
-    expect(() => be.cancelDriverBooking(stranger, booking.id)).toThrow(/Not your hire|Not your booking/i);
+    expect(() => be.cancelDriverBooking(stranger, booking.id)).toThrow(
+      /Not your hire|Not your booking/i,
+    );
 
     // Booking remains active/confirmed
     expect(booking.status).toBe("confirmed");

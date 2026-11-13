@@ -243,9 +243,7 @@ describe("M10: Driver dashboard localhost and acceptance tests (DD-01 to DD-04)"
       start_date: "2026-08-25",
       end_date: "2026-08-25",
     });
-    expect(() => be.reviewDriver(customer, hireUncompleted.id, 5)).toThrow(
-      /Only completed hires/i,
-    );
+    expect(() => be.reviewDriver(customer, hireUncompleted.id, 5)).toThrow(/Only completed hires/i);
   });
 
   // DD-04: Check the total-earnings card -> Equals the sum of paid and completed hires
@@ -310,10 +308,12 @@ describe("M10: Driver dashboard localhost and acceptance tests (DD-01 to DD-04)"
     // (hires ?? []).filter((h) => h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed")).reduce((s, h) => s + Number(h.total_price), 0)
     const hiresList = [hirePaid, hireCompleted, hireCancelled];
     const uiEarnings = hiresList
-      .filter((h) => h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed"))
+      .filter(
+        (h) =>
+          h.status !== "cancelled" && (h.payment_status === "paid" || h.status === "completed"),
+      )
       .reduce((s, h) => s + Number(h.total_price), 0);
 
     expect(uiEarnings).toBe(7500);
   });
 });
-

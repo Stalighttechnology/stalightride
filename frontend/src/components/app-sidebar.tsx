@@ -1,15 +1,50 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
-  Car, UserRound, CalendarDays, Heart, Wallet as WalletIcon, LayoutDashboard,
-  ShieldCheck, CarFront as Steering, Home, User as UserIcon, LogOut, LogIn, Droplets, ScanLine, BadgeIndianRupee, Users, LifeBuoy,
-  Sparkles, Building2, ShieldAlert, Crown, Briefcase, Gift, Award, Plus, History as HistoryIcon, ChevronRight,
+  Car,
+  UserRound,
+  CalendarDays,
+  Heart,
+  Wallet as WalletIcon,
+  LayoutDashboard,
+  ShieldCheck,
+  CarFront as Steering,
+  Home,
+  User as UserIcon,
+  LogOut,
+  LogIn,
+  Droplets,
+  ScanLine,
+  BadgeIndianRupee,
+  Users,
+  LifeBuoy,
+  Sparkles,
+  Building2,
+  ShieldAlert,
+  Crown,
+  Briefcase,
+  Gift,
+  Award,
+  Plus,
+  History as HistoryIcon,
+  ChevronRight,
 } from "lucide-react";
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
-  SidebarTrigger, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useSession } from "@/hooks/use-session";
@@ -50,17 +85,13 @@ const subsequentAccountItems: Item[] = [
   { to: "/profile", label: "Profile", icon: UserIcon },
 ];
 
-const earnItems: Item[] = [
-  { to: "/earn", label: "Earn with us", icon: BadgeIndianRupee },
-];
-
-
-
+const earnItems: Item[] = [{ to: "/earn", label: "Earn with us", icon: BadgeIndianRupee }];
 
 export function AppSidebar() {
   const { user } = useSession();
   const isAdmin = useIsAdmin();
-  const { isHost, driverStatus, cleanerStatus, washCenterStatus, hasAnyVerifiedRole } = useProviderStatus();
+  const { isHost, driverStatus, cleanerStatus, washCenterStatus, hasAnyVerifiedRole } =
+    useProviderStatus();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
@@ -77,7 +108,9 @@ export function AppSidebar() {
     }
   }, [isHistoryActive]);
 
-  const close = () => { if (isMobile) setOpenMobile(false); };
+  const close = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   const signOut = async () => {
     close();
@@ -85,7 +118,10 @@ export function AppSidebar() {
     navigate({ to: "/" });
   };
 
-  const initial = (user?.user_metadata?.full_name || user?.email || "U").toString().charAt(0).toUpperCase();
+  const initial = (user?.user_metadata?.full_name || user?.email || "U")
+    .toString()
+    .charAt(0)
+    .toUpperCase();
 
   const renderGroup = (label: string, items: Item[]) => (
     <SidebarGroup>
@@ -112,14 +148,22 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-1 py-1.5">
           <Link to="/" onClick={close} className="flex min-w-0 flex-1 items-center gap-2">
-            <img src={synchooMark} alt="Synchoo" width={32} height={32} className="h-8 w-8 shrink-0 object-contain" />
-            {!collapsed && <span className="truncate font-display text-base font-bold tracking-tight">Synchoo</span>}
+            <img
+              src={synchooMark}
+              alt="Synchoo"
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0 object-contain"
+            />
+            {!collapsed && (
+              <span className="truncate font-display text-base font-bold tracking-tight">
+                Synchoo
+              </span>
+            )}
           </Link>
           {!collapsed && <SidebarTrigger className="shrink-0" aria-label="Collapse navigation" />}
         </div>
-        {collapsed && (
-          <SidebarTrigger className="mx-auto" aria-label="Expand navigation" />
-        )}
+        {collapsed && <SidebarTrigger className="mx-auto" aria-label="Expand navigation" />}
       </SidebarHeader>
 
       <SidebarContent>
@@ -225,7 +269,11 @@ export function AppSidebar() {
                 {isHost && (
                   <>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={isActive("/vendor")} tooltip="Host dashboard">
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive("/vendor")}
+                        tooltip="Host dashboard"
+                      >
                         <Link to="/vendor" onClick={close} className="flex items-center gap-2">
                           <LayoutDashboard className="h-4 w-4 shrink-0" />
                           {!collapsed && <span>Host dashboard</span>}
@@ -233,15 +281,27 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={isActive("/vendor/vehicles/new")} tooltip="Add vehicle">
-                        <Link to="/vendor/vehicles/new" onClick={close} className="flex items-center gap-2">
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive("/vendor/vehicles/new")}
+                        tooltip="Add vehicle"
+                      >
+                        <Link
+                          to="/vendor/vehicles/new"
+                          onClick={close}
+                          className="flex items-center gap-2"
+                        >
                           <Plus className="h-4 w-4 shrink-0" />
                           {!collapsed && <span>Add vehicle</span>}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={isActive("/scan")} tooltip="Scan QR handover">
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive("/scan")}
+                        tooltip="Scan QR handover"
+                      >
                         <Link to="/scan" onClick={close} className="flex items-center gap-2">
                           <ScanLine className="h-4 w-4 shrink-0" />
                           {!collapsed && <span>Scan QR handover</span>}
@@ -252,8 +312,16 @@ export function AppSidebar() {
                 )}
                 {driverStatus === "approved" && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={isActive("/driver-dashboard")} tooltip="Driver dashboard">
-                      <Link to="/driver-dashboard" onClick={close} className="flex items-center gap-2">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/driver-dashboard")}
+                      tooltip="Driver dashboard"
+                    >
+                      <Link
+                        to="/driver-dashboard"
+                        onClick={close}
+                        className="flex items-center gap-2"
+                      >
                         <Steering className="h-4 w-4 shrink-0" />
                         {!collapsed && <span>Driver dashboard</span>}
                       </Link>
@@ -262,8 +330,16 @@ export function AppSidebar() {
                 )}
                 {cleanerStatus === "approved" && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={isActive("/cleaner-dashboard")} tooltip="Cleaner dashboard">
-                      <Link to="/cleaner-dashboard" onClick={close} className="flex items-center gap-2">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/cleaner-dashboard")}
+                      tooltip="Cleaner dashboard"
+                    >
+                      <Link
+                        to="/cleaner-dashboard"
+                        onClick={close}
+                        className="flex items-center gap-2"
+                      >
                         <Sparkles className="h-4 w-4 shrink-0" />
                         {!collapsed && <span>Cleaner dashboard</span>}
                       </Link>
@@ -272,8 +348,16 @@ export function AppSidebar() {
                 )}
                 {washCenterStatus === "approved" && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={isActive("/wash-center-dashboard")} tooltip="Washing center">
-                      <Link to="/wash-center-dashboard" onClick={close} className="flex items-center gap-2">
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/wash-center-dashboard")}
+                      tooltip="Washing center"
+                    >
+                      <Link
+                        to="/wash-center-dashboard"
+                        onClick={close}
+                        className="flex items-center gap-2"
+                      >
                         <Building2 className="h-4 w-4 shrink-0" />
                         {!collapsed && <span>Washing center</span>}
                       </Link>
@@ -285,7 +369,9 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {user && isAdmin && renderGroup("Admin", [{ to: "/admin", label: "Admin panel", icon: ShieldCheck }])}
+        {user &&
+          isAdmin &&
+          renderGroup("Admin", [{ to: "/admin", label: "Admin panel", icon: ShieldCheck }])}
         {renderGroup("Help & privacy", [
           { to: "/help", label: "User manual", icon: LifeBuoy },
           { to: "/data-deletion", label: "Privacy & data", icon: ShieldCheck },

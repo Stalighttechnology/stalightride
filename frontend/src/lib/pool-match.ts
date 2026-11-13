@@ -41,7 +41,11 @@ function distanceToSegmentKm(p: LatLng, a: LatLng, b: LatLng): number {
 }
 
 export function normalizeRoute(trip: {
-  origin_lat: number; origin_lng: number; dest_lat: number; dest_lng: number; route?: unknown;
+  origin_lat: number;
+  origin_lng: number;
+  dest_lat: number;
+  dest_lng: number;
+  route?: unknown;
 }): LatLng[] {
   const raw = Array.isArray(trip.route) ? (trip.route as any[]) : [];
   const mid = raw
@@ -81,7 +85,13 @@ export type MatchResult = {
 };
 
 export function matchScore(
-  trip: { origin_lat: number; origin_lng: number; dest_lat: number; dest_lng: number; route?: unknown },
+  trip: {
+    origin_lat: number;
+    origin_lng: number;
+    dest_lat: number;
+    dest_lng: number;
+    route?: unknown;
+  },
   pickup: LatLng,
   drop: LatLng,
 ): MatchResult {

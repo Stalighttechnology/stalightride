@@ -209,10 +209,17 @@ BEGIN
 
   IF _decision = 'confirmed' THEN
     IF _vendor_id IS NULL THEN RAISE EXCEPTION 'Assign a washer partner before approving'; END IF;
-    UPDATE public.wash_bookings
-       SET status = 'confirmed', assigned_vendor_id = _vendor_id,
-           admin_note = NULLIF(btrim(COALESCE(_note,'')), ''), rejection_reason = NULL
-     WHERE id = b.id;
+    IF _vendor_id = '00000000-0000-0000-0000-000000000000'::uuid THEN
+      UPDATE public.wash_bookings
+         SET status = 'confirmed', progress = 'confirmed', assigned_vendor_id = NULL,
+             admin_note = NULLIF(btrim(COALESCE(_note,'')), ''), rejection_reason = NULL
+       WHERE id = b.id;
+    ELSE
+      UPDATE public.wash_bookings
+         SET status = 'confirmed', progress = 'confirmed', assigned_vendor_id = _vendor_id,
+             admin_note = NULLIF(btrim(COALESCE(_note,'')), ''), rejection_reason = NULL
+       WHERE id = b.id;
+    END IF;
 
   ELSIF _decision = 'rejected' THEN
     IF b.payment_status = 'paid' THEN
@@ -843,6 +850,7 @@ CREATE FUNCTION public.claim_wash_job(_wash_booking_id uuid DEFAULT NULL::uuid, 
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
+#variable_conflict use_column
 DECLARE
   _target_id uuid;
   _cleaner record;
@@ -860,7 +868,7 @@ BEGIN
   -- 1. Verify cleaner profile and approved status
   SELECT * INTO _cleaner
     FROM public.cleaners
-   WHERE id = auth.uid();
+   WHERE cleaners.id = auth.uid();
 
   IF _cleaner IS NULL THEN
     RAISE EXCEPTION 'Cleaner profile not found';
@@ -873,7 +881,7 @@ BEGIN
   -- 2. Lock the wash booking row atomically to prevent race conditions / double claiming (CJ-01)
   SELECT * INTO _booking
     FROM public.wash_bookings
-   WHERE id = _target_id
+   WHERE wash_bookings.id = _target_id
      FOR UPDATE;
 
   IF _booking IS NULL THEN
@@ -901,7 +909,7 @@ BEGIN
          progress = 'assigned',
          status = 'confirmed',
          updated_at = now()
-   WHERE id = _target_id;
+   WHERE wash_bookings.id = _target_id;
 
   -- 7. Notify customer
   INSERT INTO public.notifications (user_id, title, body, link)
@@ -4133,7 +4141,7 @@ CREATE TABLE public.wallet_transactions (
     reference text,
     description text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT wallet_transactions_kind_check CHECK ((kind = ANY (ARRAY['topup'::text, 'booking_payment'::text, 'booking_earning'::text, 'refund'::text, 'payout'::text, 'adjustment'::text, 'driver_payment'::text, 'driver_earning'::text, 'driver_refund'::text, 'driver_refund_reversal'::text, 'wash_payment'::text, 'wash_refund'::text, 'payout_reversal'::text, 'promo_credit'::text, 'wash_earning'::text])))
+    CONSTRAINT wallet_transactions_kind_check CHECK ((kind = ANY (ARRAY['topup'::text, 'booking_payment'::text, 'booking_earning'::text, 'refund'::text, 'payout'::text, 'adjustment'::text, 'driver_payment'::text, 'driver_earning'::text, 'driver_refund'::text, 'driver_refund_reversal'::text, 'wash_payment'::text, 'wash_refund'::text, 'payout_reversal'::text, 'promo_credit'::text, 'wash_earning'::text, 'referral_bonus'::text])))
 );
 
 
@@ -6773,7 +6781,7 @@ CREATE POLICY "User opens dispute" ON public.disputes FOR INSERT TO authenticate
 -- Name: notifications User reads own notifications; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY "User reads own notifications" ON public.notifications FOR SELECT TO authenticated USING ((auth.uid() = user_id));
+CREATE POLICY "User reads own notifications" ON public.notifications FOR SELECT TO authenticated USING (((auth.uid() = user_id) OR public.has_role(auth.uid(), 'admin'::public.app_role)));
 
 
 --
@@ -6781,6 +6789,13 @@ CREATE POLICY "User reads own notifications" ON public.notifications FOR SELECT 
 --
 
 CREATE POLICY "User updates own notifications" ON public.notifications FOR UPDATE TO authenticated USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: notifications Admins insert notifications; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins insert notifications" ON public.notifications FOR INSERT TO authenticated WITH CHECK ((public.has_role(auth.uid(), 'admin'::public.app_role) OR (auth.uid() = user_id)));
 
 
 --
@@ -8367,7 +8382,7 @@ GRANT ALL ON TABLE public.messages TO service_role;
 --
 
 GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.notifications TO anon;
-GRANT SELECT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.notifications TO authenticated;
+GRANT SELECT,INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE public.notifications TO authenticated;
 GRANT ALL ON TABLE public.notifications TO service_role;
 
 

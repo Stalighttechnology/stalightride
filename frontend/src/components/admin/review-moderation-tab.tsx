@@ -88,7 +88,9 @@ export function ReviewModerationTab() {
     setBusy(null);
     toast.success("Report dismissed. Review kept live.");
     setReviews((prev) =>
-      prev ? prev.map((r) => (r.id === id ? { ...r, reported: false, report_reason: null } : r)) : []
+      prev
+        ? prev.map((r) => (r.id === id ? { ...r, reported: false, report_reason: null } : r))
+        : [],
     );
   };
 
@@ -109,7 +111,7 @@ export function ReviewModerationTab() {
     }
     toast.success(`User report marked as ${decision}`);
     setReports((prev) =>
-      prev ? prev.map((r) => (r.id === id ? { ...r, status: decision } : r)) : []
+      prev ? prev.map((r) => (r.id === id ? { ...r, status: decision } : r)) : [],
     );
   };
 
@@ -138,7 +140,8 @@ export function ReviewModerationTab() {
             className="text-xs h-8 rounded-full"
             onClick={() => setActiveSubTab("reports")}
           >
-            <ShieldAlert className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> User Reports ({reports.length})
+            <ShieldAlert className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> User Reports (
+            {reports.length})
           </Button>
         </div>
 
@@ -158,7 +161,8 @@ export function ReviewModerationTab() {
               className="text-xs h-7 text-amber-600"
               onClick={() => setFilterReported(true)}
             >
-              <AlertTriangle className="mr-1 h-3 w-3" /> Flagged ({reviews.filter((r) => r.reported || (r.rating && r.rating <= 2)).length})
+              <AlertTriangle className="mr-1 h-3 w-3" /> Flagged (
+              {reviews.filter((r) => r.reported || (r.rating && r.rating <= 2)).length})
             </Button>
           </div>
         )}
@@ -167,7 +171,9 @@ export function ReviewModerationTab() {
       {activeSubTab === "reports" ? (
         <div className="grid gap-3">
           {reports.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No user safety or ride reports filed.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No user safety or ride reports filed.
+            </p>
           ) : (
             reports.map((rep) => (
               <Card key={rep.id}>
@@ -179,8 +185,8 @@ export function ReviewModerationTab() {
                           rep.status === "resolved"
                             ? "default"
                             : rep.status === "pending"
-                            ? "destructive"
-                            : "secondary"
+                              ? "destructive"
+                              : "secondary"
                         }
                         className="text-[10px] capitalize"
                       >
@@ -199,13 +205,12 @@ export function ReviewModerationTab() {
                     </p>
 
                     {rep.details && (
-                      <p className="text-xs text-muted-foreground">
-                        Details: {rep.details}
-                      </p>
+                      <p className="text-xs text-muted-foreground">Details: {rep.details}</p>
                     )}
 
                     <p className="text-[11px] text-muted-foreground font-mono">
-                      Reporter: {rep.reporter_id} {rep.reported_user_id ? `· Reported User: ${rep.reported_user_id}` : ""}
+                      Reporter: {rep.reporter_id}{" "}
+                      {rep.reported_user_id ? `· Reported User: ${rep.reported_user_id}` : ""}
                     </p>
                   </div>
 
@@ -218,7 +223,8 @@ export function ReviewModerationTab() {
                         disabled={busy === rep.id}
                         onClick={() => decideUserReport(rep.id, "resolved")}
                       >
-                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> Mark Resolved
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> Mark
+                        Resolved
                       </Button>
                       <Button
                         size="sm"
@@ -239,7 +245,9 @@ export function ReviewModerationTab() {
       ) : (
         <div className="grid gap-3">
           {filteredReviews.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No reviews in this queue.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No reviews in this queue.
+            </p>
           ) : (
             filteredReviews.map((rev) => (
               <Card key={rev.id}>
@@ -264,10 +272,13 @@ export function ReviewModerationTab() {
                       )}
                     </div>
 
-                    <p className="text-xs font-medium text-foreground">{rev.comment || "No written review text."}</p>
+                    <p className="text-xs font-medium text-foreground">
+                      {rev.comment || "No written review text."}
+                    </p>
 
                     <p className="text-[11px] text-muted-foreground">
-                      Vehicle: {rev.vehicles?.title || "Vehicle"} · Submitted: {new Date(rev.created_at).toLocaleDateString()}
+                      Vehicle: {rev.vehicles?.title || "Vehicle"} · Submitted:{" "}
+                      {new Date(rev.created_at).toLocaleDateString()}
                     </p>
 
                     {rev.report_reason && (

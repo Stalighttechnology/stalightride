@@ -12,36 +12,54 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import {
-  MapPin, Star, Search, Filter, ChevronLeft, ChevronRight,
-  Fuel, Settings2, CalendarDays, ShieldCheck, CarFront, X,
+  MapPin,
+  Star,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Fuel,
+  Settings2,
+  CalendarDays,
+  ShieldCheck,
+  CarFront,
+  X,
 } from "lucide-react";
 
 const PAGE_SIZE = 12;
 
-const search = z.object({
-  q: z.string().optional(),
-  city: z.string().optional(),
-  category: z.string().optional(),
-  transmission: z.string().optional(),
-  fuel: z.string().optional(),
-  max: z.number().optional(),
-  page: z.number().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  start: z.string().optional(),
-  end: z.string().optional(),
-}).transform((val) => ({
-  ...val,
-  from: val.from || val.start,
-  to: val.to || val.end,
-}));
+const search = z
+  .object({
+    q: z.string().optional(),
+    city: z.string().optional(),
+    category: z.string().optional(),
+    transmission: z.string().optional(),
+    fuel: z.string().optional(),
+    max: z.number().optional(),
+    page: z.number().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    start: z.string().optional(),
+    end: z.string().optional(),
+  })
+  .transform((val) => ({
+    ...val,
+    from: val.from || val.start,
+    to: val.to || val.end,
+  }));
 type Search = z.infer<typeof search>;
 
 export const Route = createFileRoute("/browse")({
@@ -50,9 +68,17 @@ export const Route = createFileRoute("/browse")({
   head: () => ({
     meta: [
       { title: "Browse verified rentals — Synchoo" },
-      { name: "description", content: "Search verified cars, bikes, scooters, and EVs by city, dates, category, fuel type, transmission, and daily price." },
+      {
+        name: "description",
+        content:
+          "Search verified cars, bikes, scooters, and EVs by city, dates, category, fuel type, transmission, and daily price.",
+      },
       { property: "og:title", content: "Browse verified rentals — Synchoo" },
-      { property: "og:description", content: "Find verified local vehicle rentals with live availability, exact pickup maps, ratings, and secure booking." },
+      {
+        property: "og:description",
+        content:
+          "Find verified local vehicle rentals with live availability, exact pickup maps, ratings, and secure booking.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -60,10 +86,20 @@ export const Route = createFileRoute("/browse")({
 });
 
 type Vehicle = {
-  id: string; title: string; brand: string; model: string; year: number; category: string;
-  city: string; price_daily: number; price_hourly: number | null; seats: number | null;
-  avg_rating: number; review_count: number;
-  transmission: string; fuel: string;
+  id: string;
+  title: string;
+  brand: string;
+  model: string;
+  year: number;
+  category: string;
+  city: string;
+  price_daily: number;
+  price_hourly: number | null;
+  seats: number | null;
+  avg_rating: number;
+  review_count: number;
+  transmission: string;
+  fuel: string;
   vehicle_images: { url: string; sort_order: number }[];
 };
 
@@ -141,7 +177,7 @@ function Browse() {
           _end: winEnd,
         });
         unavailable = ((booked as any) ?? [])
-          .map((r: any) => (typeof r === "string" ? r : r.booked_vehicle_ids ?? r.vehicle_id))
+          .map((r: any) => (typeof r === "string" ? r : (r.booked_vehicle_ids ?? r.vehicle_id)))
           .filter(Boolean);
       }
 
@@ -185,7 +221,17 @@ function Browse() {
       setItems((data as any) ?? []);
       setTotal(count ?? 0);
     })();
-  }, [params.category, params.transmission, params.fuel, params.city, params.q, params.max, params.from, params.to, page]);
+  }, [
+    params.category,
+    params.transmission,
+    params.fuel,
+    params.city,
+    params.q,
+    params.max,
+    params.from,
+    params.to,
+    page,
+  ]);
 
   useEffect(() => {
     api
@@ -201,20 +247,27 @@ function Browse() {
           const raw: string = (row.city ?? "").trim();
           if (!raw) continue;
           const key = raw.toLowerCase();
-          if (!seen.has(key)) seen.set(key, raw.replace(/\b\w/g, (m) => m.toUpperCase()));
+          if (!seen.has(key))
+            seen.set(
+              key,
+              raw.replace(/\b\w/g, (m) => m.toUpperCase()),
+            );
         }
         setCities(Array.from(seen.values()).sort((a, b) => a.localeCompare(b)));
       });
   }, []);
 
-  const paths = (items ?? []).map((v) =>
-    v.vehicle_images?.slice().sort((a, b) => a.sort_order - b.sort_order)[0]?.url,
+  const paths = (items ?? []).map(
+    (v) => v.vehicle_images?.slice().sort((a, b) => a.sort_order - b.sort_order)[0]?.url,
   );
   const urls = useSignedUrls("vehicle-images", paths);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const goto = (p: number) =>
-    navigate({ to: "/browse", search: { ...params, page: Math.min(Math.max(1, p), totalPages) } as any });
+    navigate({
+      to: "/browse",
+      search: { ...params, page: Math.min(Math.max(1, p), totalPages) } as any,
+    });
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -274,7 +327,9 @@ function Browse() {
             minDate={today}
             placeholder="dd-mm-yyyy"
             className="mt-1.5 rounded-xl h-10 w-full"
-            onChange={(date) => update({ from: date || undefined, to: params.to ?? (date || undefined) })}
+            onChange={(date) =>
+              update({ from: date || undefined, to: params.to ?? (date || undefined) })
+            }
           />
         </div>
         <div>
@@ -284,7 +339,9 @@ function Browse() {
             minDate={params.from ?? today}
             placeholder="dd-mm-yyyy"
             className="mt-1.5 rounded-xl h-10 w-full"
-            onChange={(date) => update({ to: date || undefined, from: params.from ?? (date || undefined) })}
+            onChange={(date) =>
+              update({ to: date || undefined, from: params.from ?? (date || undefined) })
+            }
           />
         </div>
       </div>
@@ -295,7 +352,9 @@ function Browse() {
           value={params.category === "bike" ? "motorcycle" : (params.category ?? "any")}
           onValueChange={(v) => update({ category: v === "any" ? undefined : v })}
         >
-          <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="mt-1.5 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Any</SelectItem>
             <SelectItem value="car">Car</SelectItem>
@@ -308,8 +367,13 @@ function Browse() {
 
       <div>
         <Label>Transmission</Label>
-        <Select value={params.transmission ?? "any"} onValueChange={(v) => update({ transmission: v === "any" ? undefined : v })}>
-          <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue /></SelectTrigger>
+        <Select
+          value={params.transmission ?? "any"}
+          onValueChange={(v) => update({ transmission: v === "any" ? undefined : v })}
+        >
+          <SelectTrigger className="mt-1.5 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Any</SelectItem>
             <SelectItem value="manual">Manual</SelectItem>
@@ -321,8 +385,13 @@ function Browse() {
 
       <div>
         <Label>Fuel</Label>
-        <Select value={params.fuel ?? "any"} onValueChange={(v) => update({ fuel: v === "any" ? undefined : v })}>
-          <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue /></SelectTrigger>
+        <Select
+          value={params.fuel ?? "any"}
+          onValueChange={(v) => update({ fuel: v === "any" ? undefined : v })}
+        >
+          <SelectTrigger className="mt-1.5 rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="any">Any</SelectItem>
             <SelectItem value="petrol">Petrol</SelectItem>
@@ -339,7 +408,15 @@ function Browse() {
           <Label>Max price / day</Label>
           <span className="text-sm font-semibold text-brand">{currency(maxPrice)}</span>
         </div>
-        <Slider className="mt-3" min={200} max={20000} step={100} value={[maxPrice]} onValueChange={(v) => setMaxPrice(v[0])} onValueCommit={(v) => update({ max: v[0] })} />
+        <Slider
+          className="mt-3"
+          min={200}
+          max={20000}
+          step={100}
+          value={[maxPrice]}
+          onValueChange={(v) => setMaxPrice(v[0])}
+          onValueCommit={(v) => update({ max: v[0] })}
+        />
       </div>
 
       <Button
@@ -363,7 +440,10 @@ function Browse() {
 
       <section className="gradient-hero border-b border-border">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
-          <Badge variant="secondary" className="mb-4 rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-medium">
+          <Badge
+            variant="secondary"
+            className="mb-4 rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-medium"
+          >
             <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-brand" />
             Every vehicle admin-verified
           </Badge>
@@ -403,11 +483,14 @@ function Browse() {
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" className="w-full rounded-xl">
-                <Filter className="mr-2 h-4 w-4" />Filters & dates
+                <Filter className="mr-2 h-4 w-4" />
+                Filters & dates
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[86vw] overflow-y-auto sm:max-w-sm">
-              <SheetHeader><SheetTitle>Filters</SheetTitle></SheetHeader>
+              <SheetHeader>
+                <SheetTitle>Filters</SheetTitle>
+              </SheetHeader>
               <div className="mt-4">{filters}</div>
             </SheetContent>
           </Sheet>
@@ -416,7 +499,8 @@ function Browse() {
         <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
           <aside className="hidden surface-card p-5 lg:sticky lg:top-20 lg:block lg:self-start max-h-[calc(100vh-6rem)] overflow-y-auto inapp-scroll">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-              <Filter className="h-4 w-4 text-brand" />Filters
+              <Filter className="h-4 w-4 text-brand" />
+              Filters
             </div>
             {filters}
           </aside>
@@ -445,7 +529,8 @@ function Browse() {
                 <CarFront className="mx-auto mb-3 h-6 w-6 text-brand" />
                 <p className="font-display text-lg">No vehicles for this selection</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Try widening your dates, city or price range — booked vehicles are hidden automatically.
+                  Try widening your dates, city or price range — booked vehicles are hidden
+                  automatically.
                 </p>
               </div>
             )}
@@ -454,19 +539,44 @@ function Browse() {
               <>
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                   {items.map((v) => {
-                    const first = v.vehicle_images?.slice().sort((a, b) => a.sort_order - b.sort_order)[0];
+                    const first = v.vehicle_images
+                      ?.slice()
+                      .sort((a, b) => a.sort_order - b.sort_order)[0];
                     const url = first ? urls[first.url] : null;
-                    return <VehicleCard key={v.id} v={v} imgUrl={url ?? null} dates={{ from: params.from, to: params.to }} />;
+                    return (
+                      <VehicleCard
+                        key={v.id}
+                        v={v}
+                        imgUrl={url ?? null}
+                        dates={{ from: params.from, to: params.to }}
+                      />
+                    );
                   })}
                 </div>
                 {totalPages > 1 && (
                   <div className="mt-10 flex items-center justify-center gap-3">
-                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => goto(page - 1)} disabled={page <= 1}>
-                      <ChevronLeft className="mr-1 h-4 w-4" />Prev
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => goto(page - 1)}
+                      disabled={page <= 1}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" />
+                      Prev
                     </Button>
-                    <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => goto(page + 1)} disabled={page >= totalPages}>
-                      Next<ChevronRight className="ml-1 h-4 w-4" />
+                    <span className="text-sm text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => goto(page + 1)}
+                      disabled={page >= totalPages}
+                    >
+                      Next
+                      <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                   </div>
                 )}
@@ -480,8 +590,14 @@ function Browse() {
 }
 
 function VehicleCard({
-  v, imgUrl, dates,
-}: { v: Vehicle; imgUrl: string | null; dates: { from?: string; to?: string } }) {
+  v,
+  imgUrl,
+  dates,
+}: {
+  v: Vehicle;
+  imgUrl: string | null;
+  dates: { from?: string; to?: string };
+}) {
   return (
     <Link
       to="/vehicle/$id"
@@ -493,11 +609,15 @@ function VehicleCard({
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           {imgUrl ? (
             <img
-              src={imgUrl} alt={`${v.brand} ${v.model} available in ${v.city}`} loading="lazy"
+              src={imgUrl}
+              alt={`${v.brand} ${v.model} available in ${v.city}`}
+              loading="lazy"
               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
             />
           ) : (
-            <div className="grid h-full w-full place-items-center text-sm text-muted-foreground">No image</div>
+            <div className="grid h-full w-full place-items-center text-sm text-muted-foreground">
+              No image
+            </div>
           )}
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" />
           <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">
@@ -513,28 +633,38 @@ function VehicleCard({
         <CardContent className="p-4">
           <div className="min-w-0">
             <div className="truncate font-display text-base font-semibold">{v.title}</div>
-            <div className="truncate text-xs text-muted-foreground">{v.brand} {v.model} · {v.year}</div>
+            <div className="truncate text-xs text-muted-foreground">
+              {v.brand} {v.model} · {v.year}
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 capitalize">
-              <Settings2 className="h-3 w-3" />{v.transmission}
+              <Settings2 className="h-3 w-3" />
+              {v.transmission}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 capitalize">
-              <Fuel className="h-3 w-3" />{v.fuel}
+              <Fuel className="h-3 w-3" />
+              {v.fuel}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1">
-              <MapPin className="h-3 w-3" />{v.city}
+              <MapPin className="h-3 w-3" />
+              {v.city}
             </span>
           </div>
 
           <div className="mt-4 flex flex-wrap items-end justify-between gap-2 border-t border-border pt-3">
             <div className="min-w-0">
-              <div className="font-display text-lg font-bold leading-none">{currency(v.price_daily)}</div>
-              <div className="truncate text-[11px] text-muted-foreground">per day{v.price_hourly ? ` · ${currency(v.price_hourly)}/hr` : ""}</div>
+              <div className="font-display text-lg font-bold leading-none">
+                {currency(v.price_daily)}
+              </div>
+              <div className="truncate text-[11px] text-muted-foreground">
+                per day{v.price_hourly ? ` · ${currency(v.price_hourly)}/hr` : ""}
+              </div>
             </div>
             <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand">
-              <CalendarDays className="h-3.5 w-3.5" />Book
+              <CalendarDays className="h-3.5 w-3.5" />
+              Book
             </span>
           </div>
         </CardContent>

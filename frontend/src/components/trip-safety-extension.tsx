@@ -5,7 +5,14 @@ import type { Tables } from "@/lib/db-types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { currency } from "@/lib/format";
@@ -29,7 +36,11 @@ interface TripSafetyExtensionProps {
   onExtensionSubmitted?: () => void;
 }
 
-export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: TripSafetyExtensionProps) {
+export function TripSafetyExtension({
+  booking,
+  role,
+  onExtensionSubmitted,
+}: TripSafetyExtensionProps) {
   const { user } = useSession();
   const [sosOpen, setSosOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
@@ -40,8 +51,10 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
   const [busy, setBusy] = useState(false);
 
   const tripActive =
-    !!booking.pickup_checked_at && !booking.return_checked_at &&
-    booking.status === "confirmed" && booking.payment_status === "paid";
+    !!booking.pickup_checked_at &&
+    !booking.return_checked_at &&
+    booking.status === "confirmed" &&
+    booking.payment_status === "paid";
   const openExt = ext && (ext.status === "pending" || ext.status === "accepted") ? ext : null;
 
   const loadExtension = async () => {
@@ -55,10 +68,15 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
     setExt(data);
   };
 
-  useEffect(() => { loadExtension(); }, [booking.id, booking.end_date, booking.dropoff_time]);
+  useEffect(() => {
+    loadExtension();
+  }, [booking.id, booking.end_date, booking.dropoff_time]);
 
   // All extension actions are server RPCs: price, availability and the wallet debit are decided there.
-  const runExtensionAction = async (fn: () => PromiseLike<{ error: { message: string } | null }>, done: string) => {
+  const runExtensionAction = async (
+    fn: () => PromiseLike<{ error: { message: string } | null }>,
+    done: string,
+  ) => {
     setBusy(true);
     const { error } = await fn();
     setBusy(false);
@@ -68,7 +86,12 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
     onExtensionSubmitted?.();
   };
 
-  const recordSosIncident = async (lat?: number, lng?: number, coordsText?: string, kind?: string) => {
+  const recordSosIncident = async (
+    lat?: number,
+    lng?: number,
+    coordsText?: string,
+    kind?: string,
+  ) => {
     if (!user) return;
     try {
       await api.from("incidents").insert({
@@ -102,7 +125,10 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
           } else if (kind === "synchoo") {
             window.open("tel:+918045678900", "_self");
           } else if (kind === "breakdown") {
-            window.open(`https://wa.me/918045678900?text=${encodeURIComponent(`URGENT Breakdown on Trip #${booking.id.slice(0, 8)} at location ${coords}`)}`, "_blank");
+            window.open(
+              `https://wa.me/918045678900?text=${encodeURIComponent(`URGENT Breakdown on Trip #${booking.id.slice(0, 8)} at location ${coords}`)}`,
+              "_blank",
+            );
           }
           toast.success(`Emergency request registered at coordinates: ${coords}`);
         },
@@ -110,7 +136,7 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
           recordSosIncident(undefined, undefined, undefined, kind);
           if (kind === "police") window.open("tel:112", "_self");
           else window.open("tel:+918045678900", "_self");
-        }
+        },
       );
     } else {
       recordSosIncident(undefined, undefined, undefined, kind);
@@ -143,9 +169,12 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
             <AlertTriangle className="h-5 w-5 animate-pulse" />
           </div>
           <div>
-            <p className="font-semibold text-sm text-foreground">Safety Assistance & In-Trip Extensions</p>
+            <p className="font-semibold text-sm text-foreground">
+              Safety Assistance & In-Trip Extensions
+            </p>
             <p className="text-xs text-muted-foreground">
-              Instant 24/7 emergency dispatch, roadside mechanical support, or flexible trip extensions.
+              Instant 24/7 emergency dispatch, roadside mechanical support, or flexible trip
+              extensions.
             </p>
           </div>
         </div>
@@ -179,37 +208,84 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
             <div className="min-w-0 text-sm">
               <p className="font-semibold">
                 Trip extension +{openExt.hours}h{" "}
-                <Badge variant={openExt.status === "accepted" ? "secondary" : "outline"} className="ml-1 text-[10px]">
+                <Badge
+                  variant={openExt.status === "accepted" ? "secondary" : "outline"}
+                  className="ml-1 text-[10px]"
+                >
                   {openExt.status === "pending" ? "Waiting for host" : "Accepted, awaiting payment"}
                 </Badge>
               </p>
               <p className="text-xs text-muted-foreground">
-                New return {new Date(`${openExt.new_end_date}T${openExt.new_dropoff_time}`).toLocaleString()} ·{" "}
-                {currency(openExt.extra_total)} incl. fees{openExt.note ? ` · "${openExt.note}"` : ""}
+                New return{" "}
+                {new Date(`${openExt.new_end_date}T${openExt.new_dropoff_time}`).toLocaleString()} ·{" "}
+                {currency(openExt.extra_total)} incl. fees
+                {openExt.note ? ` · "${openExt.note}"` : ""}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {role === "vendor" && openExt.status === "pending" && (
                 <>
-                  <Button size="sm" disabled={busy}
-                    onClick={() => runExtensionAction(() => api.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: true }), "Extension accepted")}>
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() =>
+                      runExtensionAction(
+                        () =>
+                          api.rpc("decide_booking_extension", {
+                            _extension_id: openExt.id,
+                            _accept: true,
+                          }),
+                        "Extension accepted",
+                      )
+                    }
+                  >
                     Accept
                   </Button>
-                  <Button size="sm" variant="outline" disabled={busy}
-                    onClick={() => runExtensionAction(() => api.rpc("decide_booking_extension", { _extension_id: openExt.id, _accept: false }), "Extension declined")}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      runExtensionAction(
+                        () =>
+                          api.rpc("decide_booking_extension", {
+                            _extension_id: openExt.id,
+                            _accept: false,
+                          }),
+                        "Extension declined",
+                      )
+                    }
+                  >
                     Decline
                   </Button>
                 </>
               )}
               {role === "customer" && openExt.status === "accepted" && (
-                <Button size="sm" disabled={busy}
-                  onClick={() => runExtensionAction(() => api.rpc("wallet_pay_extension", { _extension_id: openExt.id }), "Paid. Your trip is extended")}>
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    runExtensionAction(
+                      () => api.rpc("wallet_pay_extension", { _extension_id: openExt.id }),
+                      "Paid. Your trip is extended",
+                    )
+                  }
+                >
                   Pay {currency(openExt.extra_total)} from wallet
                 </Button>
               )}
               {role === "customer" && (
-                <Button size="sm" variant="ghost" disabled={busy}
-                  onClick={() => runExtensionAction(() => api.rpc("cancel_booking_extension", { _extension_id: openExt.id }), "Extension request withdrawn")}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    runExtensionAction(
+                      () => api.rpc("cancel_booking_extension", { _extension_id: openExt.id }),
+                      "Extension request withdrawn",
+                    )
+                  }
+                >
                   Withdraw
                 </Button>
               )}
@@ -225,7 +301,9 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
             <div className="flex items-start gap-3">
               <FileCheck className="h-5 w-5 text-sky-600 mt-0.5 shrink-0" />
               <div>
-                <p className="font-semibold text-sm text-foreground">Pre-Pickup Required Documents & Gear Checklist</p>
+                <p className="font-semibold text-sm text-foreground">
+                  Pre-Pickup Required Documents & Gear Checklist
+                </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Please keep these ready before meeting your host to ensure an effortless handover:
                 </p>
@@ -261,7 +339,8 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
               <ShieldAlert className="h-5 w-5" /> Emergency SOS Center
             </DialogTitle>
             <DialogDescription>
-              Immediate help during your trip. Choosing an option will connect you immediately and transmit your current coordinates.
+              Immediate help during your trip. Choosing an option will connect you immediately and
+              transmit your current coordinates.
             </DialogDescription>
           </DialogHeader>
 
@@ -274,7 +353,9 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
               <PhoneCall className="mr-3 h-5 w-5 shrink-0" />
               <div>
                 <div>Call Police Control Room (112)</div>
-                <div className="text-[11px] font-normal opacity-90">Instant police dispatch & live GPS alert</div>
+                <div className="text-[11px] font-normal opacity-90">
+                  Instant police dispatch & live GPS alert
+                </div>
               </div>
             </Button>
 
@@ -286,7 +367,9 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
               <PhoneCall className="mr-3 h-5 w-5 shrink-0 text-amber-600" />
               <div>
                 <div className="font-semibold">Synchoo 24/7 Safety Command Desk</div>
-                <div className="text-[11px] text-muted-foreground">+91 80 4567 8900 · Direct safety officer assistance</div>
+                <div className="text-[11px] text-muted-foreground">
+                  +91 80 4567 8900 · Direct safety officer assistance
+                </div>
               </div>
             </Button>
 
@@ -298,7 +381,9 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
               <Wrench className="mr-3 h-5 w-5 shrink-0 text-brand" />
               <div>
                 <div className="font-semibold">Roadside Breakdown & Towing</div>
-                <div className="text-[11px] text-muted-foreground">Puncture repair, jumpstart, or flatbed towing</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Puncture repair, jumpstart, or flatbed towing
+                </div>
               </div>
             </Button>
 
@@ -359,8 +444,8 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
                 <span className="font-semibold">+{selectedHours} Hours</span>
               </div>
               <p className="text-muted-foreground">
-                The price is calculated from this vehicle's rates, plus fees. You'll see the exact amount once
-                the host accepts, and pay from your wallet.
+                The price is calculated from this vehicle's rates, plus fees. You'll see the exact
+                amount once the host accepts, and pay from your wallet.
               </p>
             </div>
 
@@ -389,4 +474,3 @@ export function TripSafetyExtension({ booking, role, onExtensionSubmitted }: Tri
     </div>
   );
 }
-

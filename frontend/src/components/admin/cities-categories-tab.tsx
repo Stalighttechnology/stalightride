@@ -51,7 +51,7 @@ export function CitiesCategoriesTab() {
           state: c.state || "India",
           active: c.active,
           surgeMultiplier: Number(c.surge_multiplier || 1.0),
-        }))
+        })),
       );
     } else {
       setCities([]);
@@ -71,7 +71,7 @@ export function CitiesCategoriesTab() {
           minDeposit: Number(r.min_deposit || 2000),
           minWindowHours: Number(r.min_window_hours || 2),
           advanceNoticeHours: Number(r.advance_notice_hours || 2),
-        }))
+        })),
       );
     } else {
       setCategoryRules([]);
@@ -94,9 +94,7 @@ export function CitiesCategoriesTab() {
       return;
     }
 
-    setCities((prev) =>
-      prev ? prev.map((c) => (c.id === id ? { ...c, active: next } : c)) : []
-    );
+    setCities((prev) => (prev ? prev.map((c) => (c.id === id ? { ...c, active: next } : c)) : []));
     toast.success(`City ${next ? "activated" : "deactivated"} successfully`);
   };
 
@@ -112,7 +110,7 @@ export function CitiesCategoriesTab() {
     }
 
     setCities((prev) =>
-      prev ? prev.map((c) => (c.id === id ? { ...c, surgeMultiplier: surge } : c)) : []
+      prev ? prev.map((c) => (c.id === id ? { ...c, surgeMultiplier: surge } : c)) : [],
     );
     toast.success("Surge multiplier updated");
   };
@@ -172,11 +170,7 @@ export function CitiesCategoriesTab() {
     }
 
     setCategoryRules((prev) =>
-      prev
-        ? prev.map((r) =>
-            r.id === id ? { ...r, minDeposit, minWindowHours } : r
-          )
-        : []
+      prev ? prev.map((r) => (r.id === id ? { ...r, minDeposit, minWindowHours } : r)) : [],
     );
     toast.success("Category rule parameters saved!");
   };
@@ -192,7 +186,9 @@ export function CitiesCategoriesTab() {
             <h3 className="font-semibold text-base flex items-center gap-2">
               <MapPin className="h-4 w-4 text-brand" /> Operating Cities & Local Hubs
             </h3>
-            <p className="text-xs text-muted-foreground">Manage active deployment locations and local surge multipliers.</p>
+            <p className="text-xs text-muted-foreground">
+              Manage active deployment locations and local surge multipliers.
+            </p>
           </div>
         </div>
 
@@ -276,15 +272,21 @@ export function CitiesCategoriesTab() {
           <h3 className="font-semibold text-base flex items-center gap-2">
             <Car className="h-4 w-4 text-brand" /> Category Rules & Minimum Security Deposits
           </h3>
-          <p className="text-xs text-muted-foreground">Define minimum window hours and required security deposit per vehicle vertical.</p>
+          <p className="text-xs text-muted-foreground">
+            Define minimum window hours and required security deposit per vehicle vertical.
+          </p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           {categoryRules.map((rule) => (
             <Card key={rule.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-sm uppercase tracking-wide text-brand">{rule.category}</p>
-                <Badge variant="outline" className="text-[10px]">Active Rule</Badge>
+                <p className="font-semibold text-sm uppercase tracking-wide text-brand">
+                  {rule.category}
+                </p>
+                <Badge variant="outline" className="text-[10px]">
+                  Active Rule
+                </Badge>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
@@ -296,7 +298,9 @@ export function CitiesCategoriesTab() {
                     onChange={(e) => {
                       const val = Number(e.target.value);
                       setCategoryRules((prev) =>
-                        prev ? prev.map((r) => (r.id === rule.id ? { ...r, minDeposit: val } : r)) : []
+                        prev
+                          ? prev.map((r) => (r.id === rule.id ? { ...r, minDeposit: val } : r))
+                          : [],
                       );
                     }}
                     onBlur={() => updateCategoryRule(rule.id, rule.minDeposit, rule.minWindowHours)}
@@ -311,7 +315,9 @@ export function CitiesCategoriesTab() {
                     onChange={(e) => {
                       const val = Number(e.target.value);
                       setCategoryRules((prev) =>
-                        prev ? prev.map((r) => (r.id === rule.id ? { ...r, minWindowHours: val } : r)) : []
+                        prev
+                          ? prev.map((r) => (r.id === rule.id ? { ...r, minWindowHours: val } : r))
+                          : [],
                       );
                     }}
                     onBlur={() => updateCategoryRule(rule.id, rule.minDeposit, rule.minWindowHours)}

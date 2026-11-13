@@ -34,7 +34,9 @@ describe("vehicle listing + admin verification", () => {
     const { be, admin, customer, vehicle } = setup();
     be.verifyVehicle(admin, vehicle.id, "rejected");
     expect(be.browse()).toHaveLength(0);
-    expect(() => be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) })).toThrow(RuleError);
+    expect(() =>
+      be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) }),
+    ).toThrow(RuleError);
   });
 
   test("only admins may verify", () => {
@@ -62,7 +64,9 @@ describe("vehicle listing + admin verification", () => {
   test("host cannot delete vehicle with active bookings", () => {
     const { be, host, customer, vehicle } = setup();
     be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 4) });
-    expect(() => be.deleteVehicle(host, vehicle.id)).toThrow(/Cannot delete vehicle with active or upcoming bookings/);
+    expect(() => be.deleteVehicle(host, vehicle.id)).toThrow(
+      /Cannot delete vehicle with active or upcoming bookings/,
+    );
   });
 });
 
@@ -70,15 +74,21 @@ describe("booking gates", () => {
   test("licence must be approved before booking", () => {
     const { be, customer, vehicle } = setup();
     be.setDl(customer, "pending");
-    expect(() => be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) })).toThrow(/licence/);
+    expect(() =>
+      be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) }),
+    ).toThrow(/licence/);
     be.setDl(customer, "approved");
-    expect(be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) }).status).toBe("pending");
+    expect(
+      be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) }).status,
+    ).toBe("pending");
   });
 
   test("a host cannot book their own vehicle", () => {
     const { be, host, vehicle } = setup();
     be.setDl(host, "approved");
-    expect(() => be.createBooking({ customer_id: host, vehicle_id: vehicle.id, ...range(2, 3) })).toThrow(/own vehicle/);
+    expect(() =>
+      be.createBooking({ customer_id: host, vehicle_id: vehicle.id, ...range(2, 3) }),
+    ).toThrow(/own vehicle/);
   });
 });
 
@@ -88,7 +98,9 @@ describe("overbooking edge cases", () => {
     const other = be.registerCustomer("approved");
     be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 5) });
     const overlap = range(4, 6);
-    expect(() => be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...overlap })).toThrow(/already booked/);
+    expect(() =>
+      be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...overlap }),
+    ).toThrow(/already booked/);
     expect(be.browse(overlap.start_date, overlap.end_date)).toHaveLength(0);
   });
 
@@ -96,7 +108,9 @@ describe("overbooking edge cases", () => {
     const { be, customer, vehicle } = setup();
     const other = be.registerCustomer("approved");
     be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 4) });
-    expect(() => be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...range(4, 4) })).toThrow(/already booked/);
+    expect(() =>
+      be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...range(4, 4) }),
+    ).toThrow(/already booked/);
   });
 
   test("non-overlapping dates are allowed and stay bookable in browse", () => {
@@ -104,7 +118,9 @@ describe("overbooking edge cases", () => {
     const other = be.registerCustomer("approved");
     be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 4) });
     const later = range(6, 7);
-    expect(be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...later }).status).toBe("pending");
+    expect(be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...later }).status).toBe(
+      "pending",
+    );
     expect(be.browse(iso(new Date("2026-08-30")), iso(new Date("2026-08-31")))).toHaveLength(1);
   });
 
@@ -113,7 +129,9 @@ describe("overbooking edge cases", () => {
     const other = be.registerCustomer("approved");
     const b = be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(3, 5) });
     be.cancelBooking(customer, b.id);
-    expect(be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...range(3, 5) }).status).toBe("pending");
+    expect(
+      be.createBooking({ customer_id: other, vehicle_id: vehicle.id, ...range(3, 5) }).status,
+    ).toBe("pending");
   });
 
   test("ten simultaneous attempts on the same dates produce exactly one booking", () => {
@@ -140,7 +158,9 @@ describe("host accept / decline and payment", () => {
     expect(() => be.hostDecide(customer, b.id, "confirmed")).toThrow(/host/);
     be.hostDecide(host, b.id, "confirmed");
     expect(() => be.hostDecide(host, b.id, "rejected")).toThrow(/no longer pending/);
-    expect(be.notifications.some((n) => n.user_id === customer && /confirmed/.test(n.title))).toBe(true);
+    expect(be.notifications.some((n) => n.user_id === customer && /confirmed/.test(n.title))).toBe(
+      true,
+    );
   });
 
   test("declined bookings free the dates and cannot be paid", () => {
@@ -149,7 +169,9 @@ describe("host accept / decline and payment", () => {
     be.hostDecide(host, b.id, "rejected");
     be.wallet.topup(customer, 100000);
     expect(() => be.payBookingWithWallet(customer, b.id)).toThrow(/confirmed/);
-    expect(be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) }).status).toBe("pending");
+    expect(
+      be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(2, 3) }).status,
+    ).toBe("pending");
   });
 
   test("wallet payment debits exactly once and blocks on insufficient balance", () => {

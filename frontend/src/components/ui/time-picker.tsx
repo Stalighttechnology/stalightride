@@ -16,9 +16,23 @@ export interface TimePickerProps {
 }
 
 const DEFAULT_SLOTS = [
-  "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
-  "12:00", "13:00", "14:00", "15:00", "16:00", "17:00",
-  "18:00", "19:00", "20:00", "21:00", "22:00"
+  "06:00",
+  "07:00",
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+  "20:00",
+  "21:00",
+  "22:00",
 ];
 
 function formatTime12h(timeStr: string) {
@@ -80,19 +94,19 @@ export function TimePicker({
           className={cn(
             "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-2.5 text-xs sm:text-sm",
             !value && "text-muted-foreground",
-            className
+            className,
           )}
         >
           <Clock className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70" />
-          <span className="truncate flex-1">
-            {value ? formatTime12h(value) : placeholder}
-          </span>
+          <span className="truncate flex-1">{value ? formatTime12h(value) : placeholder}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="start">
         <div className="space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Time</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Select Time
+            </span>
             <span className="font-mono text-sm font-bold text-foreground">
               {formatTime12h(value || "10:00")}
             </span>
@@ -111,7 +125,7 @@ export function TimePicker({
                     "rounded-md py-1 text-center text-xs transition-colors",
                     value === slot
                       ? "bg-primary text-primary-foreground font-semibold"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   {slot}
@@ -137,7 +151,7 @@ export function TimePicker({
                           "w-full rounded py-1 text-xs transition-colors",
                           hour12 === h
                             ? "bg-primary text-primary-foreground font-bold"
-                            : "hover:bg-muted"
+                            : "hover:bg-muted",
                         )}
                       >
                         {h}
@@ -161,7 +175,7 @@ export function TimePicker({
                           "w-full rounded py-1 text-xs transition-colors",
                           currentM === m
                             ? "bg-primary text-primary-foreground font-bold"
-                            : "hover:bg-muted"
+                            : "hover:bg-muted",
                         )}
                       >
                         :{m}
@@ -184,7 +198,7 @@ export function TimePicker({
                         "w-full rounded py-1.5 text-xs font-semibold transition-colors",
                         period === p
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted/70 text-muted-foreground hover:bg-muted"
+                          : "bg-muted/70 text-muted-foreground hover:bg-muted",
                       )}
                     >
                       {p}
@@ -208,4 +222,3 @@ export function TimePicker({
     </Popover>
   );
 }
-

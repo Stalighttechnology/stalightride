@@ -6,9 +6,17 @@ export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
       { title: "Privacy Policy — Synchoo" },
-      { name: "description", content: "How Synchoo collects, uses, stores and deletes your personal data across rentals, driver hires, pooling and wash bookings." },
+      {
+        name: "description",
+        content:
+          "How Synchoo collects, uses, stores and deletes your personal data across rentals, driver hires, pooling and wash bookings.",
+      },
       { property: "og:title", content: "Privacy Policy — Synchoo" },
-      { property: "og:description", content: "What data Synchoo collects, why we need it, how long we keep it and how you can export or delete it." },
+      {
+        property: "og:description",
+        content:
+          "What data Synchoo collects, why we need it, how long we keep it and how you can export or delete it.",
+      },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -24,9 +32,9 @@ function Privacy() {
     >
       <LegalSection heading="1. Who we are">
         <p>
-          Synchoo operates a peer-to-peer mobility marketplace connecting renters with vehicle hosts, professional
-          drivers, pooling co-travellers and wash partners. We act as the controller of the account, booking and payment
-          data described below.
+          Synchoo operates a peer-to-peer mobility marketplace connecting renters with vehicle
+          hosts, professional drivers, pooling co-travellers and wash partners. We act as the
+          controller of the account, booking and payment data described below.
         </p>
       </LegalSection>
 
@@ -60,18 +68,20 @@ function Privacy() {
 
       <LegalSection heading="4. What other users can see">
         <p>
-          Hosts, drivers and co-travellers see only what a booking requires: your display name, profile photo, city, the
-          booking details and messages you send. Licence numbers, document images, email addresses, wallet balances and
-          full transaction history are never shown to other users. Public pages show limited host and driver profile
-          fields (business or display name, city, ratings) and never contact details.
+          Hosts, drivers and co-travellers see only what a booking requires: your display name,
+          profile photo, city, the booking details and messages you send. Licence numbers, document
+          images, email addresses, wallet balances and full transaction history are never shown to
+          other users. Public pages show limited host and driver profile fields (business or display
+          name, city, ratings) and never contact details.
         </p>
       </LegalSection>
 
       <LegalSection heading="5. Location data">
         <p>
-          Live location is collected only while a trip is active and only after you grant browser permission. You can
-          revoke permission at any time from your browser settings; tracking then stops and the trip continues normally.
-          Location pings are visible to you, the vehicle host for that booking and Synchoo support.
+          Live location is collected only while a trip is active and only after you grant browser
+          permission. You can revoke permission at any time from your browser settings; tracking
+          then stops and the trip continues normally. Location pings are visible to you, the vehicle
+          host for that booking and Synchoo support.
         </p>
       </LegalSection>
 
@@ -88,9 +98,10 @@ function Privacy() {
 
       <LegalSection heading="7. Security">
         <p>
-          Access to data is enforced in the database itself with row-level security, so a request can only read the rows
-          it is entitled to. Documents and trip photos live in private storage and are served through short-lived signed
-          links. Privileged actions run server-side and check your identity and role on every call.
+          Access to data is enforced in the database itself with row-level security, so a request
+          can only read the rows it is entitled to. Documents and trip photos live in private
+          storage and are served through short-lived signed links. Privileged actions run
+          server-side and check your identity and role on every call.
         </p>
       </LegalSection>
 
@@ -105,19 +116,29 @@ function Privacy() {
         />
         <p className="mt-2">
           Manage all of this from{" "}
-          <Link to="/data-deletion" className="underline hover:text-foreground">Privacy & data controls</Link>.
+          <Link to="/data-deletion" className="underline hover:text-foreground">
+            Privacy & data controls
+          </Link>
+          .
         </p>
       </LegalSection>
 
       <LegalSection heading="9. Children">
-        <p>Synchoo is not intended for anyone under 18, and a valid driving licence is required to rent a vehicle.</p>
+        <p>
+          Synchoo is not intended for anyone under 18, and a valid driving licence is required to
+          rent a vehicle.
+        </p>
       </LegalSection>
 
       <LegalSection heading="10. Changes and contact">
         <p>
-          We will update this page when our practices change, and the date above always reflects the current version.
-          For any privacy question or request, use the in-app support flow or the request form on the{" "}
-          <Link to="/data-deletion" className="underline hover:text-foreground">data controls page</Link>.
+          We will update this page when our practices change, and the date above always reflects the
+          current version. For any privacy question or request, use the in-app support flow or the
+          request form on the{" "}
+          <Link to="/data-deletion" className="underline hover:text-foreground">
+            data controls page
+          </Link>
+          .
         </p>
       </LegalSection>
     </LegalPage>

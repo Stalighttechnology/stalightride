@@ -25,11 +25,33 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       b.verifyVehicle(admin, v.id, "approved");
 
       // Create two completed bookings & reviews
-      const bk1 = b.createBooking({ customer_id: customer1, vehicle_id: v.id, start_date: "2026-08-10", end_date: "2026-08-11" });
-      const rev1 = b.addReview({ booking_id: bk1.id, vehicle_id: v.id, customer_id: customer1, rating: 5, comment: "Superb car" });
+      const bk1 = b.createBooking({
+        customer_id: customer1,
+        vehicle_id: v.id,
+        start_date: "2026-08-10",
+        end_date: "2026-08-11",
+      });
+      const rev1 = b.addReview({
+        booking_id: bk1.id,
+        vehicle_id: v.id,
+        customer_id: customer1,
+        rating: 5,
+        comment: "Superb car",
+      });
 
-      const bk2 = b.createBooking({ customer_id: customer2, vehicle_id: v.id, start_date: "2026-08-12", end_date: "2026-08-13" });
-      const rev2 = b.addReview({ booking_id: bk2.id, vehicle_id: v.id, customer_id: customer2, rating: 1, comment: "Spam abusive review" });
+      const bk2 = b.createBooking({
+        customer_id: customer2,
+        vehicle_id: v.id,
+        start_date: "2026-08-12",
+        end_date: "2026-08-13",
+      });
+      const rev2 = b.addReview({
+        booking_id: bk2.id,
+        vehicle_id: v.id,
+        customer_id: customer2,
+        rating: 1,
+        comment: "Spam abusive review",
+      });
 
       // Rating is (5 + 1) / 2 = 3.0
       expect(v.avg_rating).toBe(3);
@@ -53,8 +75,19 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const v = b.listVehicle(host, 1500, 2000);
       b.verifyVehicle(admin, v.id, "approved");
 
-      const bk = b.createBooking({ customer_id: customer1, vehicle_id: v.id, start_date: "2026-08-10", end_date: "2026-08-11" });
-      const rev = b.addReview({ booking_id: bk.id, vehicle_id: v.id, customer_id: customer1, rating: 3, comment: "Decent ride" });
+      const bk = b.createBooking({
+        customer_id: customer1,
+        vehicle_id: v.id,
+        start_date: "2026-08-10",
+        end_date: "2026-08-11",
+      });
+      const rev = b.addReview({
+        booking_id: bk.id,
+        vehicle_id: v.id,
+        customer_id: customer1,
+        rating: 3,
+        comment: "Decent ride",
+      });
 
       // Flagged
       b.reportReview(host, rev.id, "Disputed cleanliness");
@@ -71,8 +104,19 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const v = b.listVehicle(host, 1500, 2000);
       b.verifyVehicle(admin, v.id, "approved");
 
-      const bk = b.createBooking({ customer_id: customer1, vehicle_id: v.id, start_date: "2026-08-10", end_date: "2026-08-11" });
-      const rev = b.addReview({ booking_id: bk.id, vehicle_id: v.id, customer_id: customer1, rating: 2, comment: "Fair" });
+      const bk = b.createBooking({
+        customer_id: customer1,
+        vehicle_id: v.id,
+        start_date: "2026-08-10",
+        end_date: "2026-08-11",
+      });
+      const rev = b.addReview({
+        booking_id: bk.id,
+        vehicle_id: v.id,
+        customer_id: customer1,
+        rating: 2,
+        comment: "Fair",
+      });
 
       // Customer 2 (or host) tries to delete customer 1's review
       expect(() => b.removeReview(customer2, rev.id)).toThrow(RuleError);
@@ -125,7 +169,12 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       expect(userATickets.map((t) => t.id)).not.toContain(tB.id);
 
       // Admin replies and resolves ticket A
-      b.replyTicket(admin, tA.id, "We have verified your check-in photos manually. Trip marked started.", true);
+      b.replyTicket(
+        admin,
+        tA.id,
+        "We have verified your check-in photos manually. Trip marked started.",
+        true,
+      );
 
       expect(tA.status).toBe("Resolved");
       expect(tA.resolution).toContain("photos manually");
@@ -143,7 +192,12 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
     it("SF-01: Press SOS during a trip; incidents row with GPS created and admins notified", () => {
       const v = b.listVehicle(host, 1200, 2000);
       b.verifyVehicle(admin, v.id, "approved");
-      const bk = b.createBooking({ customer_id: customer1, vehicle_id: v.id, start_date: "2026-08-15", end_date: "2026-08-16" });
+      const bk = b.createBooking({
+        customer_id: customer1,
+        vehicle_id: v.id,
+        start_date: "2026-08-15",
+        end_date: "2026-08-16",
+      });
 
       const inc = b.triggerSos({
         user_id: customer1,
@@ -165,7 +219,12 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
     it("SF-02: Submit incident report or lost & found; visible to admin, host notified for lost item", () => {
       const v = b.listVehicle(host, 1200, 2000);
       b.verifyVehicle(admin, v.id, "approved");
-      const bk = b.createBooking({ customer_id: customer1, vehicle_id: v.id, start_date: "2026-08-14", end_date: "2026-08-15" });
+      const bk = b.createBooking({
+        customer_id: customer1,
+        vehicle_id: v.id,
+        start_date: "2026-08-14",
+        end_date: "2026-08-15",
+      });
 
       const lost = b.reportIncident({
         user_id: customer1,
@@ -241,7 +300,9 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
 
     it("PS-02: Non-admin tries to update platform settings; blocked", () => {
       expect(() => b.updatePlatformSettings(customer1, { gst_pct: 5 })).toThrow(RuleError);
-      expect(() => b.updatePlatformSettings(customer1, { gst_pct: 5 })).toThrow("Only admins can update platform settings");
+      expect(() => b.updatePlatformSettings(customer1, { gst_pct: 5 })).toThrow(
+        "Only admins can update platform settings",
+      );
       expect(b.getPlatformSettings().gst_pct).toBe(18);
     });
   });
@@ -346,14 +407,18 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const run1 = b.generateScheduledReminders();
       expect(run1).toBe(1);
 
-      const notifsRun1 = b.notifications.filter((n) => n.user_id === customer1 && n.title === "Trip reminder (24h)");
+      const notifsRun1 = b.notifications.filter(
+        (n) => n.user_id === customer1 && n.title === "Trip reminder (24h)",
+      );
       expect(notifsRun1.length).toBe(1);
 
       // Second run immediately: 0 new reminders created
       const run2 = b.generateScheduledReminders();
       expect(run2).toBe(0);
 
-      const notifsRun2 = b.notifications.filter((n) => n.user_id === customer1 && n.title === "Trip reminder (24h)");
+      const notifsRun2 = b.notifications.filter(
+        (n) => n.user_id === customer1 && n.title === "Trip reminder (24h)",
+      );
       expect(notifsRun2.length).toBe(1);
     });
   });
@@ -402,7 +467,13 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       expect(b.getProfile(friend)?.referral_rewarded).toBe(true);
 
       // Friend's 2nd booking does NOT trigger bonus again
-      const bk2 = b.createBooking({ customer_id: friend, vehicle_id: v.id, start_date: "2026-08-22", end_date: "2026-08-23", total_price: 2000 });
+      const bk2 = b.createBooking({
+        customer_id: friend,
+        vehicle_id: v.id,
+        start_date: "2026-08-22",
+        end_date: "2026-08-23",
+        total_price: 2000,
+      });
       b.hostDecide(host, bk2.id, "confirmed");
       b.payBookingWithWallet(friend, bk2.id);
 

@@ -79,12 +79,16 @@ describe("wash status pipeline (Task 2.3)", () => {
     expect(s1.status).toBe("on_the_way");
 
     // Step 2: on_the_way -> started (with before photos)
-    const s2 = be.advanceWashStatus(vendor, w.id, "started", ["https://photos.example.com/before1.jpg"]);
+    const s2 = be.advanceWashStatus(vendor, w.id, "started", [
+      "https://photos.example.com/before1.jpg",
+    ]);
     expect(s2.progress).toBe("started");
     expect(s2.before_photos).toContain("https://photos.example.com/before1.jpg");
 
     // Step 3: started -> completed (with after photos)
-    const s3 = be.advanceWashStatus(vendor, w.id, "completed", ["https://photos.example.com/after1.jpg"]);
+    const s3 = be.advanceWashStatus(vendor, w.id, "completed", [
+      "https://photos.example.com/after1.jpg",
+    ]);
     expect(s3.progress).toBe("completed");
     expect(s3.status).toBe("completed");
     expect(s3.after_photos).toContain("https://photos.example.com/after1.jpg");
@@ -102,7 +106,9 @@ describe("wash status pipeline (Task 2.3)", () => {
     be.advanceWashStatus(vendor, w.id, "started", ["https://photos.example.com/before.jpg"]);
 
     // Cannot move backwards: started -> on_the_way
-    expect(() => be.advanceWashStatus(vendor, w.id, "on_the_way")).toThrow(/cannot be moved backwards/);
+    expect(() => be.advanceWashStatus(vendor, w.id, "on_the_way")).toThrow(
+      /cannot be moved backwards/,
+    );
   });
 
   test("WP-03: completing a wash without after photos is rejected", () => {
@@ -113,7 +119,9 @@ describe("wash status pipeline (Task 2.3)", () => {
     be.advanceWashStatus(vendor, w.id, "started");
 
     // Try completing without after photos
-    expect(() => be.advanceWashStatus(vendor, w.id, "completed", [])).toThrow(/After photos are required/);
+    expect(() => be.advanceWashStatus(vendor, w.id, "completed", [])).toThrow(
+      /After photos are required/,
+    );
   });
 });
 
@@ -225,7 +233,12 @@ describe("roles, cleaner onboarding and wash centers (RL-01, RL-02, RL-03)", () 
       available: true,
       services: [],
     });
-    const rejected = be.verifyCleaner(admin, anotherCleaner, "rejected", "Invalid contact number and zero experience");
+    const rejected = be.verifyCleaner(
+      admin,
+      anotherCleaner,
+      "rejected",
+      "Invalid contact number and zero experience",
+    );
     expect(rejected.verification_status).toBe("rejected");
     expect(rejected.rejection_reason).toBe("Invalid contact number and zero experience");
     expect(be.hasRole(anotherCleaner, "cleaner")).toBe(false);
@@ -291,7 +304,10 @@ describe("roles, cleaner onboarding and wash centers (RL-01, RL-02, RL-03)", () 
     expect(device2Staff).toHaveLength(2);
     expect(device2Staff.map((s) => s.name)).toEqual(["Ramesh Kumar", "Sunil Gowda"]);
     expect(device2Packages).toHaveLength(2);
-    expect(device2Packages.map((p) => p.name)).toEqual(["Express Exterior Foam Wash", "Superbike Deep Foam Wash"]);
+    expect(device2Packages.map((p) => p.name)).toEqual([
+      "Express Exterior Foam Wash",
+      "Superbike Deep Foam Wash",
+    ]);
     expect(device2Packages.map((p) => p.price)).toEqual([399, 299]);
   });
 });
@@ -378,7 +394,9 @@ describe("cleaner job board & atomic job claim (CJ-01, CJ-02)", () => {
 
     // Cannot claim unconfirmed job
     const unconfirmed = be.bookWash(customer, "2026-08-23", 499, "Mumbai");
-    expect(() => be.claimWashJob(mumbaiId, unconfirmed.id)).toThrow(/Only confirmed wash jobs can be claimed/);
+    expect(() => be.claimWashJob(mumbaiId, unconfirmed.id)).toThrow(
+      /Only confirmed wash jobs can be claimed/,
+    );
   });
 });
 
@@ -473,26 +491,36 @@ describe("wash reviews & rating trigger (WR-01, WR-02)", () => {
     be.claimWashJob(cleanerId, w.id);
 
     // Try reviewing before completion (currently in "assigned" progress)
-    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(/Only completed wash bookings can be reviewed/);
+    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(
+      /Only completed wash bookings can be reviewed/,
+    );
 
     be.advanceWashStatus(cleanerId, w.id, "on_the_way");
-    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(/Only completed wash bookings can be reviewed/);
+    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(
+      /Only completed wash bookings can be reviewed/,
+    );
 
     be.advanceWashStatus(cleanerId, w.id, "started");
-    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(/Only completed wash bookings can be reviewed/);
+    expect(() => be.reviewWash(customer, w.id, 5)).toThrow(
+      /Only completed wash bookings can be reviewed/,
+    );
 
     // Complete the wash
     be.advanceWashStatus(cleanerId, w.id, "completed", ["https://example.com/proof.jpg"]);
 
     // Stranger tries to review customer's wash
     const stranger = be.registerCustomer();
-    expect(() => be.reviewWash(stranger, w.id, 5)).toThrow(/Only the booking customer can write a review/);
+    expect(() => be.reviewWash(stranger, w.id, 5)).toThrow(
+      /Only the booking customer can write a review/,
+    );
 
     // Customer reviews successfully
     be.reviewWash(customer, w.id, 5, "Great experience!");
 
     // Customer tries to review the same wash twice -> rejected (one per completed wash)
-    expect(() => be.reviewWash(customer, w.id, 4, "Trying to review again")).toThrow(/already been reviewed/);
+    expect(() => be.reviewWash(customer, w.id, 4, "Trying to review again")).toThrow(
+      /already been reviewed/,
+    );
   });
 });
 
@@ -522,14 +550,21 @@ describe("wash provider payouts (tg_wash_settle)", () => {
 
     expect(be.wallet.balance(cleaner)).toBe(job.provider_earning);
     expect(be.withdrawable(cleaner)).toBe(job.provider_earning);
-    expect(() => be.advanceWashStatus(cleaner, job.id, "completed", ["again.jpg"])).toThrow(/backwards or to the same/);
+    expect(() => be.advanceWashStatus(cleaner, job.id, "completed", ["again.jpg"])).toThrow(
+      /backwards or to the same/,
+    );
     expect(be.wallet.balance(cleaner)).toBe(job.provider_earning);
   });
 
   test("a registered center is paid for its jobs; a platform partner that is not a center is not", () => {
     const { be, admin, customer, vendor } = setup();
     const center = be.registerCustomer();
-    be.registerWashCenter({ id: center, name: "Sparkle Hub", city: "Bangalore", daily_capacity: 15 });
+    be.registerWashCenter({
+      id: center,
+      name: "Sparkle Hub",
+      city: "Bangalore",
+      daily_capacity: 15,
+    });
     be.verifyWashCenter(admin, center, "approved");
 
     const run = (assignee: string) => {

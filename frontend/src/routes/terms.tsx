@@ -6,9 +6,17 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms & Conditions — Synchoo" },
-      { name: "description", content: "The rules for using Synchoo: bookings, payments, deposits, cancellations, refunds, damages, host and driver obligations." },
+      {
+        name: "description",
+        content:
+          "The rules for using Synchoo: bookings, payments, deposits, cancellations, refunds, damages, host and driver obligations.",
+      },
       { property: "og:title", content: "Terms & Conditions — Synchoo" },
-      { property: "og:description", content: "Booking rules, payment and refund terms, deposits, damages and responsibilities for renters, hosts and drivers." },
+      {
+        property: "og:description",
+        content:
+          "Booking rules, payment and refund terms, deposits, damages and responsibilities for renters, hosts and drivers.",
+      },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -35,9 +43,10 @@ function Terms() {
 
       <LegalSection heading="2. Marketplace role">
         <p>
-          Synchoo is a marketplace. Vehicles are owned by independent hosts, driving services are provided by
-          independent drivers, and wash services by partner vendors. The rental or service contract is between you and
-          that provider; Synchoo facilitates discovery, verification, booking, payment and support.
+          Synchoo is a marketplace. Vehicles are owned by independent hosts, driving services are
+          provided by independent drivers, and wash services by partner vendors. The rental or
+          service contract is between you and that provider; Synchoo facilitates discovery,
+          verification, booking, payment and support.
         </p>
       </LegalSection>
 
@@ -98,31 +107,38 @@ function Terms() {
 
       <LegalSection heading="8. Pooling">
         <p>
-          Pooling is cost-sharing between co-travellers, not a commercial taxi service. Drivers set the fare per seat and
-          may accept or decline requests; seats are reserved only once accepted.
+          Pooling is cost-sharing between co-travellers, not a commercial taxi service. Drivers set
+          the fare per seat and may accept or decline requests; seats are reserved only once
+          accepted.
         </p>
       </LegalSection>
 
       <LegalSection heading="9. Reviews and conduct">
         <p>
-          Reviews may be left after a trip is completed and must be honest and respectful. Hosts and drivers may post one
-          public response. We remove content that is abusive, misleading or unlawful.
+          Reviews may be left after a trip is completed and must be honest and respectful. Hosts and
+          drivers may post one public response. We remove content that is abusive, misleading or
+          unlawful.
         </p>
       </LegalSection>
 
       <LegalSection heading="10. Liability">
         <p>
-          Synchoo is not liable for indirect losses arising from a provider's vehicle or conduct. Nothing in these terms
-          limits rights you have under applicable consumer law.
+          Synchoo is not liable for indirect losses arising from a provider's vehicle or conduct.
+          Nothing in these terms limits rights you have under applicable consumer law.
         </p>
       </LegalSection>
 
       <LegalSection heading="11. Ending your account">
         <p>
           You may delete your account at any time from{" "}
-          <Link to="/data-deletion" className="underline hover:text-foreground">Privacy & data controls</Link>. Completed
-          transaction records are retained in anonymised form as described in the{" "}
-          <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+          <Link to="/data-deletion" className="underline hover:text-foreground">
+            Privacy & data controls
+          </Link>
+          . Completed transaction records are retained in anonymised form as described in the{" "}
+          <Link to="/privacy" className="underline hover:text-foreground">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </LegalSection>
     </LegalPage>

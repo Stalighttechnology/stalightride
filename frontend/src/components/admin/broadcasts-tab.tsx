@@ -64,7 +64,8 @@ export function BroadcastsTab() {
         id: String(Date.now()),
         title: title.trim(),
         message: message.trim(),
-        audience: targetAudience === "all" ? "All Users" : targetAudience === "hosts" ? "Hosts" : "Drivers",
+        audience:
+          targetAudience === "all" ? "All Users" : targetAudience === "hosts" ? "Hosts" : "Drivers",
         sentAt: new Date().toLocaleString(),
       };
 
@@ -88,7 +89,8 @@ export function BroadcastsTab() {
             <Bell className="h-4 w-4 text-brand" /> Create Notification Broadcast
           </CardTitle>
           <CardDescription>
-            Send in-app notification alerts directly to the notification bell of all customers, hosts, or drivers.
+            Send in-app notification alerts directly to the notification bell of all customers,
+            hosts, or drivers.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,7 +133,8 @@ export function BroadcastsTab() {
             </div>
 
             <Button type="submit" disabled={sending}>
-              <Send className="mr-1.5 h-3.5 w-3.5" /> {sending ? "Sending..." : "Dispatch Broadcast"}
+              <Send className="mr-1.5 h-3.5 w-3.5" />{" "}
+              {sending ? "Sending..." : "Dispatch Broadcast"}
             </Button>
           </form>
         </CardContent>
@@ -162,4 +165,3 @@ export function BroadcastsTab() {
     </div>
   );
 }
-

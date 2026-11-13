@@ -8,7 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
-import { IndianRupee, RefreshCw, ArrowDownLeft, ArrowUpRight, Search, ShieldCheck } from "lucide-react";
+import {
+  IndianRupee,
+  RefreshCw,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 
 export function PaymentsRefundsTab() {
   const [transactions, setTransactions] = useState<any[] | null>(null);
@@ -77,7 +84,8 @@ export function PaymentsRefundsTab() {
             <RefreshCw className="h-4 w-4 text-brand" /> Issue Customer Refund / Compensation
           </CardTitle>
           <CardDescription>
-            Instantly credit customer wallet with full or partial compensation for cancelled or disputed rides.
+            Instantly credit customer wallet with full or partial compensation for cancelled or
+            disputed rides.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -137,10 +145,16 @@ export function PaymentsRefundsTab() {
 
         <div className="grid gap-2">
           {filtered.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">No transactions recorded.</p>
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              No transactions recorded.
+            </p>
           ) : (
             filtered.map((t) => {
-              const isCredit = t.kind === "refund" || t.kind === "topup" || t.kind === "booking_earning" || t.kind === "promo";
+              const isCredit =
+                t.kind === "refund" ||
+                t.kind === "topup" ||
+                t.kind === "booking_earning" ||
+                t.kind === "promo";
               return (
                 <Card key={t.id} className="p-3">
                   <div className="flex items-center justify-between">
@@ -150,10 +164,16 @@ export function PaymentsRefundsTab() {
                           isCredit ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
                         }`}
                       >
-                        {isCredit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                        {isCredit ? (
+                          <ArrowDownLeft className="h-4 w-4" />
+                        ) : (
+                          <ArrowUpRight className="h-4 w-4" />
+                        )}
                       </div>
                       <div>
-                        <p className="font-medium text-xs text-foreground">{t.description || "Wallet Transaction"}</p>
+                        <p className="font-medium text-xs text-foreground">
+                          {t.description || "Wallet Transaction"}
+                        </p>
                         <p className="text-[11px] text-muted-foreground">
                           {new Date(t.created_at).toLocaleString()} · Kind: {t.kind}
                         </p>
