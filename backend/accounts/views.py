@@ -104,16 +104,29 @@ def signup(request):
     return Response({"user": session["user"], "session": session})
 
 
+import re
+
+INVISIBLE_CHARS_RE = re.compile(r"[\u200b-\u200d\ufeff\u00a0]")
+
+def _clean_str(val):
+    if not val:
+        return ""
+    return INVISIBLE_CHARS_RE.sub("", str(val)).strip().strip("\"'")
+
 @api_view(["POST"])
 def signin(request):
-    email = str(request.data.get("email") or "").strip().strip("'\"").lower()
-    password = str(request.data.get("password") or "")
+    raw_email = request.data.get("email")
+    raw_password = request.data.get("password")
+    email = _clean_str(raw_email).lower()
+    password = str(raw_password or "")
+    cleaned_pw = _clean_str(password)
+
     with as_owner():
         user = User.objects.filter(email=email, is_active=True).first()
         ok = user is not None and (
             user.check_password(password)
+            or user.check_password(cleaned_pw)
             or user.check_password(password.strip())
-            or user.check_password(password.strip().strip("'\""))
         )
     if not ok:
         return _error("Invalid login credentials", "invalid_credentials")
