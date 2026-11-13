@@ -4,7 +4,7 @@ import json
 import uuid
 
 import pytest
-from django.db import connection, transaction
+from django.db import DatabaseError, connection, transaction
 from django.http import HttpResponse
 
 from core.db import db_role, set_db_role
@@ -43,7 +43,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (49, 94, 83, 138, 981)
+    assert (tables, functions, triggers, policies, grants) == (49, 95, 84, 138, 981)
 
 
 def test_signup_trigger_creates_profile_and_role():
@@ -154,3 +154,38 @@ def test_wash_booking_status_and_advance_wash_status():
         [booking_id],
     )[0]
     assert (status, progress) == ("completed", "completed")
+
+
+def test_customer_cannot_approve_own_licence():
+    """RN-12.1: the profile guard keeps dl_status the admin's; resubmitting goes back to review."""
+    uid = make_user("dl@example.com")
+    with db_role("authenticated", uid):
+        q("UPDATE public.profiles SET dl_status = 'approved', referral_rewarded = true WHERE id = %s RETURNING id", [uid])
+        assert q("SELECT dl_status::text, referral_rewarded FROM public.profiles WHERE id = %s", [uid]) == [("none", False)]
+        q("UPDATE public.profiles SET dl_number = 'DL-1', dl_status = 'approved' WHERE id = %s RETURNING id", [uid])
+        assert q("SELECT dl_status::text FROM public.profiles WHERE id = %s", [uid]) == [("pending",)]
+    q("UPDATE public.profiles SET dl_status = 'approved' WHERE id = %s RETURNING id", [uid])  # owner (admin path)
+    assert q("SELECT dl_status::text FROM public.profiles WHERE id = %s", [uid]) == [("approved",)]
+
+
+def test_only_host_decides_a_booking():
+    """RN-12.2: a customer can't confirm their own request; the host can, once."""
+    host, cust = make_user("host@example.com"), make_user("cust@example.com")
+    q("UPDATE public.profiles SET dl_status = 'approved', dl_expiry = CURRENT_DATE + 365 WHERE id = %s RETURNING id", [cust])
+    q("INSERT INTO public.vendors (id, business_name) VALUES (%s, 'Fleet') RETURNING id", [host])
+    vehicle = q("""INSERT INTO public.vehicles (vendor_id, title, category, brand, model, year, city, price_daily)
+                   VALUES (%s, 'Swift', 'car', 'Maruti', 'Swift', 2023, 'Bengaluru', 1000) RETURNING id""", [host])[0][0]
+    booking = q("""INSERT INTO public.bookings (vehicle_id, vendor_id, customer_id, start_date, end_date, base_price, total_price)
+                   VALUES (%s, %s, %s, CURRENT_DATE + 30, CURRENT_DATE + 31, 1000, 1000) RETURNING id""",
+                [vehicle, host, cust])[0][0]
+
+    def set_status(user, status):
+        with db_role("authenticated", user), transaction.atomic():
+            q("UPDATE public.bookings SET status = %s WHERE id = %s RETURNING id", [status, booking])
+
+    with pytest.raises(DatabaseError, match="Only the host"):
+        set_status(cust, "confirmed")
+    set_status(host, "confirmed")
+    with pytest.raises(DatabaseError, match="Only pending requests"):
+        set_status(host, "rejected")
+    assert q("SELECT status::text FROM public.bookings WHERE id = %s", [booking]) == [("confirmed",)]
