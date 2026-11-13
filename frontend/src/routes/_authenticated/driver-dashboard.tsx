@@ -539,7 +539,7 @@ function DriverDashboard() {
                   disabled={locked}
                   onFile={async (f) => {
                     const p = await uploadDoc("dl-front", f);
-                    if (p) setForm({ ...form, dl_front_url: p });
+                    if (p) setForm((cur: any) => ({ ...cur, dl_front_url: p }));
                   }}
                 />
                 <DocUpload
@@ -549,7 +549,7 @@ function DriverDashboard() {
                   disabled={locked}
                   onFile={async (f) => {
                     const p = await uploadDoc("dl-back", f);
-                    if (p) setForm({ ...form, dl_back_url: p });
+                    if (p) setForm((cur: any) => ({ ...cur, dl_back_url: p }));
                   }}
                 />
                 <DocUpload
@@ -559,7 +559,7 @@ function DriverDashboard() {
                   disabled={locked}
                   onFile={async (f) => {
                     const p = await uploadDoc("id", f);
-                    if (p) setForm({ ...form, id_document_url: p });
+                    if (p) setForm((cur: any) => ({ ...cur, id_document_url: p }));
                   }}
                 />
               </div>

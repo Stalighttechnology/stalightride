@@ -189,3 +189,31 @@ def test_only_host_decides_a_booking():
     with pytest.raises(DatabaseError, match="Only pending requests"):
         set_status(host, "rejected")
     assert q("SELECT status::text FROM public.bookings WHERE id = %s", [booking]) == [("confirmed",)]
+
+
+def test_only_driver_decides_a_hire():
+    """A customer can't confirm their own hire; a driver can't reject one already accepted (and paid)."""
+    admin, driver, cust = make_user("adm@example.com"), make_user("drv@example.com"), make_user("hc@example.com")
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin') RETURNING user_id", [admin])
+    q("""INSERT INTO public.drivers (id, full_name, city, hourly_rate, daily_rate, dl_number, dl_expiry)
+         VALUES (%s, 'D', 'Bengaluru', 300, 1500, 'DL', CURRENT_DATE + 365) RETURNING id""", [driver])
+    with db_role("authenticated", admin):  # the verification guard keeps approval with admins
+        q("UPDATE public.drivers SET verification_status = 'approved', status = 'active' WHERE id = %s RETURNING id", [driver])
+    with db_role("authenticated", cust):
+        hire = q("""INSERT INTO public.driver_bookings (driver_id, customer_id, rate_type, start_date, end_date,
+                                                         start_time, end_time, total_price)
+                    VALUES (%s, %s, 'daily', CURRENT_DATE + 10, CURRENT_DATE + 10, '09:00', '18:00', 0) RETURNING id""",
+                 [driver, cust])[0][0]
+
+    def set_status(user, status):
+        with db_role("authenticated", user), transaction.atomic():
+            q("UPDATE public.driver_bookings SET status = %s WHERE id = %s RETURNING id", [status, hire])
+
+    with pytest.raises(DatabaseError, match="Only the driver"):
+        set_status(cust, "confirmed")
+    set_status(driver, "confirmed")
+    with pytest.raises(DatabaseError, match="Only pending requests"):
+        set_status(driver, "rejected")
+    with pytest.raises(DatabaseError, match="cannot go back to pending"):
+        set_status(driver, "pending")
+    assert q("SELECT status::text FROM public.driver_bookings WHERE id = %s", [hire]) == [("confirmed",)]

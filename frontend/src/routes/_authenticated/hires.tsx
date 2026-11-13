@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_authenticated/hires")({
 export function refundPercent(b: any, now: number = Date.now()) {
   const time = b.start_time ? String(b.start_time).slice(0, 8) : "00:00:00";
   const timePart = time.length === 5 ? `${time}:00` : time;
-  const start = new Date(`${b.start_date}T${timePart}Z`);
+  const start = new Date(`${b.start_date}T${timePart}+05:30`);
   const hoursLeft = (start.getTime() - now) / 3600000;
   if (hoursLeft >= 24) return 100;
   if (hoursLeft >= 2) return 50;

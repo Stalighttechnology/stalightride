@@ -171,4 +171,10 @@ describe("M9: Driver hire cancellation localhost and acceptance tests (DC-01 to 
     expect(booking.status).toBe("confirmed");
     expect(booking.payment_status).toBe("paid");
   });
+
+  test("Start times are India time, as in cancel_driver_booking()", () => {
+    const b = { start_date: "2026-08-20", start_time: "10:00:00" }; // 04:30 UTC
+    expect(hiresPageRefundPercent(b, Date.parse("2026-08-19T05:00:00Z"))).toBe(50); // 23.5 h left
+    expect(hiresPageRefundPercent(b, Date.parse("2026-08-20T03:30:00Z"))).toBe(0); // 1 h left
+  });
 });

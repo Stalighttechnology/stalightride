@@ -1068,7 +1068,7 @@ export function createBackend(
           ? `${b.start_time}:00`
           : b.start_time.slice(0, 8)
         : "00:00:00";
-      let pct = refundPercent(new Date(`${b.start_date}T${timePart}Z`), clock.now);
+      let pct = refundPercent(new Date(`${b.start_date}T${timePart}+05:30`), clock.now);
       if (byDriver || isAdmin) pct = 100;
       let refund = 0;
       let share = 0;
@@ -1609,7 +1609,7 @@ export function createBackend(
           ? `${w.slot_time}:00`
           : w.slot_time.slice(0, 8)
         : "00:00:00";
-      const pct = refundPercent(new Date(`${w.slot_date}T${timePart}Z`), clock.now);
+      const pct = refundPercent(new Date(`${w.slot_date}T${timePart}+05:30`), clock.now);
       const refund = w.payment_status === "paid" ? Math.round((w.price * pct) / 100) : 0;
       if (refund > 0) {
         wallet.apply(w.customer_id, refund, "wash_refund");
