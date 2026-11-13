@@ -86,7 +86,8 @@ def signup(request):
                 cur.execute("SELECT id FROM public.profiles WHERE upper(referral_code) = %s", [ref])
                 row = cur.fetchone()
                 if not row and ref.startswith("SYN-"):
-                    clean_ref = ref[4:].replace("-", "")
+                    # escape LIKE wildcards so "SYN-%" can't match an arbitrary profile
+                    clean_ref = ref[4:].replace("-", "").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                     cur.execute("SELECT id FROM public.profiles WHERE upper(replace(id::text, '-', '')) LIKE %s", [f"{clean_ref}%"])
                     row = cur.fetchone()
                 if row:
