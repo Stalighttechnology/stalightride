@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -573,10 +573,9 @@ export function CleanerDashboard() {
   // Active Dashboard
   const completedJobs = assignedJobs.filter((j) => j.status === "completed");
   const inProgressJobs = assignedJobs.filter((j) => j.status === "confirmed");
-  const totalEarnings = completedJobs.reduce(
-    (acc, curr) => acc + (Number(curr.price) || 0) * 0.85,
-    0,
-  );
+  // The database prices each wash: provider_earning is what the wallet is credited.
+  const totalEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.provider_earning || 0), 0);
+  const grossVolume = completedJobs.reduce((acc, curr) => acc + Number(curr.base_price || 0), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -785,7 +784,7 @@ export function CleanerDashboard() {
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {req.slot_date} · {req.slot_time} · {req.city} · Payout:{" "}
-                        {currency(Number(req.price) * 0.85)}
+                        {currency(Number(req.provider_earning || 0))}
                       </p>
                     </div>
                     <Button
@@ -869,12 +868,12 @@ export function CleanerDashboard() {
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between py-1 border-b border-border">
                     <span className="text-muted-foreground">Gross Wash Volume</span>
-                    <span className="font-semibold">{currency(totalEarnings / 0.85 || 0)}</span>
+                    <span className="font-semibold">{currency(grossVolume)}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Platform Fee (15%)</span>
+                    <span className="text-muted-foreground">Platform commission + GST</span>
                     <span className="text-muted-foreground">
-                      −{currency((totalEarnings / 0.85) * 0.15 || 0)}
+                      −{currency(grossVolume - totalEarnings)}
                     </span>
                   </div>
                   <div className="flex justify-between py-1 font-semibold text-sm text-foreground">
@@ -882,12 +881,8 @@ export function CleanerDashboard() {
                     <span className="text-brand">{currency(totalEarnings)}</span>
                   </div>
                 </div>
-                <Button
-                  className="w-full mt-4"
-                  size="sm"
-                  onClick={() => toast.success("Payout request submitted to admin queue!")}
-                >
-                  Withdraw to Bank / UPI
+                <Button asChild className="w-full mt-4" size="sm">
+                  <Link to="/wallet">Withdraw to Bank / UPI</Link>
                 </Button>
               </Card>
 
@@ -909,7 +904,7 @@ export function CleanerDashboard() {
                           </p>
                         </div>
                         <span className="font-semibold text-emerald-600">
-                          +{currency(Number(c.price) * 0.85)}
+                          +{currency(Number(c.provider_earning || 0))}
                         </span>
                       </div>
                     ))}

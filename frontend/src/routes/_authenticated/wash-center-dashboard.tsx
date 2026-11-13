@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -629,8 +629,9 @@ export function WashCenterDashboard() {
   // Active Dashboard
   const activeJobs = centerBookings.filter((b) => b.status === "confirmed");
   const completedJobs = centerBookings.filter((b) => b.status === "completed");
-  const grossEarnings = completedJobs.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
-  const netEarnings = grossEarnings * 0.85;
+  // The database prices each wash: provider_earning is what the wallet is credited.
+  const grossEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.base_price || 0), 0);
+  const netEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.provider_earning || 0), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -739,7 +740,7 @@ export function WashCenterDashboard() {
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         Vehicle: {b.vehicle_label || "Customer Vehicle"} · Payout:{" "}
-                        {currency(Number(b.price) * 0.85)}
+                        {currency(Number(b.provider_earning || 0))}
                       </p>
                       <p className="text-xs text-muted-foreground">{b.address}</p>
                     </div>
@@ -901,20 +902,16 @@ export function WashCenterDashboard() {
                     <span className="font-semibold">{currency(grossEarnings)}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Synchoo Platform Commission (15%)</span>
-                    <span className="text-muted-foreground">−{currency(grossEarnings * 0.15)}</span>
+                    <span className="text-muted-foreground">Synchoo commission + GST</span>
+                    <span className="text-muted-foreground">−{currency(grossEarnings - netEarnings)}</span>
                   </div>
                   <div className="flex justify-between py-1 font-semibold text-sm">
                     <span>Net Center Revenue</span>
                     <span className="text-brand">{currency(netEarnings)}</span>
                   </div>
                 </div>
-                <Button
-                  className="w-full mt-4"
-                  size="sm"
-                  onClick={() => toast.success("Payout withdrawal requested successfully!")}
-                >
-                  Withdraw to Business Account
+                <Button asChild className="w-full mt-4" size="sm">
+                  <Link to="/wallet">Withdraw to Business Account</Link>
                 </Button>
               </Card>
 
@@ -938,7 +935,7 @@ export function WashCenterDashboard() {
                           </p>
                         </div>
                         <span className="font-semibold text-emerald-600">
-                          +{currency(Number(c.price) * 0.85)}
+                          +{currency(Number(c.provider_earning || 0))}
                         </span>
                       </div>
                     ))}

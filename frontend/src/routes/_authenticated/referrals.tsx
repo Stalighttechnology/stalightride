@@ -44,7 +44,8 @@ export function ReferralsPage() {
   const [history, setHistory] = useState<ReferralEvent[]>([]);
   const [_loading, setLoading] = useState(true);
 
-  const referralLink = `https://synchoo.in/join?ref=${referralCode}`;
+  // /auth reads ?ref= at sign-up and links the new account to this referrer.
+  const referralLink = `${window.location.origin}/auth?mode=signup&ref=${referralCode}`;
 
   useEffect(() => {
     if (!user) return;
@@ -61,16 +62,12 @@ export function ReferralsPage() {
         setReferralCode(profile.referral_code);
       }
 
-      // 2. Load friends referred by this user
-      const { data: friends } = await api
-        .from("profiles")
-        .select("id, full_name, created_at, referral_rewarded")
-        .eq("referred_by", user.id)
-        .order("created_at", { ascending: false });
+      // 2. Load friends referred by this user (profiles RLS hides other users' rows, so an RPC)
+      const { data: friends } = await api.rpc("my_referrals");
 
       if (friends && friends.length > 0) {
         setHistory(
-          friends.map((f) => ({
+          friends.map((f: any) => ({
             id: f.id,
             friendName: f.full_name || "Friend",
             email: "Verified User",
