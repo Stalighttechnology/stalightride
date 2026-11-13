@@ -43,7 +43,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (49, 95, 84, 138, 981)
+    assert (tables, functions, triggers, policies, grants) == (49, 97, 86, 138, 981)
 
 
 def test_signup_trigger_creates_profile_and_role():
@@ -217,3 +217,59 @@ def test_only_driver_decides_a_hire():
     with pytest.raises(DatabaseError, match="cannot go back to pending"):
         set_status(driver, "pending")
     assert q("SELECT status::text FROM public.driver_bookings WHERE id = %s", [hire]) == [("confirmed",)]
+
+
+def test_wash_partners_cannot_approve_themselves():
+    """A cleaner or washing center can't approve itself or set its rating; resubmitting after a rejection goes to review."""
+    admin, cleaner = make_user("wa-adm@example.com"), make_user("wa-cln@example.com")
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin') RETURNING user_id", [admin])
+    with db_role("authenticated", cleaner):
+        q("""INSERT INTO public.cleaners (id, full_name, city, verification_status, avg_rating)
+             VALUES (%s, 'C', 'Bengaluru', 'approved', 5) RETURNING id""", [cleaner])
+        q("UPDATE public.cleaners SET verification_status = 'approved', review_count = 9 WHERE id = %s RETURNING id", [cleaner])
+    assert q("SELECT verification_status::text, avg_rating, review_count FROM public.cleaners WHERE id = %s",
+             [cleaner]) == [("pending", 0, 0)]
+    with db_role("authenticated", admin):
+        q("SELECT public.verify_cleaner(%s, 'rejected', 'Blurry ID')", [cleaner])
+    with db_role("authenticated", cleaner):
+        q("UPDATE public.cleaners SET bio = 'New photos' WHERE id = %s RETURNING id", [cleaner])
+    assert q("SELECT verification_status::text, rejection_reason FROM public.cleaners WHERE id = %s", [cleaner]) == [("pending", None)]
+    with db_role("authenticated", admin):
+        q("SELECT public.verify_cleaner(%s, 'approved')", [cleaner])
+    assert q("SELECT verification_status::text FROM public.cleaners WHERE id = %s", [cleaner]) == [("approved",)]
+
+
+def test_cancelled_wash_is_not_told_to_pay():
+    """A wash cancelled after approval gets 'Wash cancelled', not another 'Wash slot approved'."""
+    customer = make_user("wa-cust@example.com")
+    service_id = q("SELECT id FROM public.wash_services WHERE active LIMIT 1")[0][0]
+    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
+               VALUES (%s, %s, 'Bengaluru', 'x', CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
+    q("UPDATE public.wash_bookings SET status = 'confirmed', progress = 'confirmed' WHERE id = %s RETURNING id", [wid])
+    q("UPDATE public.wash_bookings SET status = 'cancelled' WHERE id = %s RETURNING id", [wid])
+    titles = [r[0] for r in q("SELECT title FROM public.notifications WHERE user_id = %s ORDER BY created_at, title", [customer])]
+    assert titles.count("Wash slot approved") == 1 and "Wash cancelled" in titles
+
+
+def test_my_referrals_lists_only_my_friends():
+    me, friend, other = make_user("ref-me@example.com"), make_user("ref-f@example.com"), make_user("ref-o@example.com")
+    q("UPDATE public.profiles SET referred_by = %s WHERE id = %s RETURNING id", [me, friend])
+    with db_role("authenticated", me):
+        assert [r[0] for r in q("SELECT id FROM public.my_referrals()")] == [friend]
+    with db_role("authenticated", other):
+        assert q("SELECT id FROM public.my_referrals()") == []
+
+
+def test_revenue_aggregates_use_stored_commission():
+    """It used to fail on settings columns that don't exist; it now sums what each booking recorded."""
+    admin, customer = make_user("rev-adm@example.com"), make_user("rev-cust@example.com")
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin') RETURNING user_id", [admin])
+    service_id = q("SELECT id FROM public.wash_services WHERE name = 'Car Express Wash'")[0][0]
+    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
+               VALUES (%s, %s, 'Bengaluru', 'x', CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
+    q("UPDATE public.wash_bookings SET payment_status = 'paid' WHERE id = %s RETURNING id", [wid])
+    kept = q("SELECT commission_amount + service_fee FROM public.wash_bookings WHERE id = %s", [wid])[0][0]
+    with db_role("authenticated", admin):
+        agg = q("SELECT public.admin_revenue_aggregates()")[0][0]
+    agg = json.loads(agg) if isinstance(agg, str) else agg
+    assert kept > 0 and float(agg["platform_revenue"]) == float(kept)

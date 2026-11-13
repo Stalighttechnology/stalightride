@@ -48,7 +48,8 @@ export function BroadcastsTab() {
     setSending(true);
     try {
       // Fetch a sample of profiles to receive broadcast notification
-      const { data: users } = await api.from("profiles").select("id").limit(100);
+      const { data: users, error: usersError } = await api.from("profiles").select("id").limit(100);
+      if (usersError) throw usersError;
 
       if (users && users.length > 0) {
         const rows = users.map((u) => ({
@@ -57,7 +58,8 @@ export function BroadcastsTab() {
           body: message.trim(),
           link: "/browse",
         }));
-        await api.from("notifications").insert(rows as any);
+        const { error } = await api.from("notifications").insert(rows as any);
+        if (error) throw error;
       }
 
       const logEntry: BroadcastLog = {

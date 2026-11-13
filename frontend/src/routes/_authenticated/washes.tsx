@@ -294,15 +294,19 @@ function WashesPage() {
 
         <ul className="mt-6 grid gap-3">
           {(items ?? []).map((b) => {
-            const currentStatus = b.progress || b.status;
+            // Cancelling, rejecting or completing changes only status; progress keeps its last step.
+            const ended = ["cancelled", "rejected", "completed"].includes(b.status);
+            const currentStatus = ended ? b.status : b.progress || b.status;
             const canPay =
+              !ended &&
               (b.status === "confirmed" || b.progress === "confirmed") &&
               b.payment_status !== "paid";
             const canCancel =
-              b.status === "pending" ||
-              b.status === "confirmed" ||
-              b.progress === "requested" ||
-              b.progress === "confirmed";
+              !ended &&
+              (b.status === "pending" ||
+                b.status === "confirmed" ||
+                b.progress === "requested" ||
+                b.progress === "confirmed");
             const canReview =
               (b.status === "completed" || b.progress === "completed") && !reviewedIds.has(b.id);
             return (

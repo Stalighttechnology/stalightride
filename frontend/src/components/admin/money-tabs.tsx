@@ -41,7 +41,10 @@ export function WithdrawalQueue() {
   const decide = async (id: string, decision: "paid" | "rejected") => {
     const reference =
       decision === "paid" ? window.prompt("Payment reference (UTR / transaction ID)") : null;
-    if (decision === "paid" && !reference?.trim()) return;
+    if (decision === "paid" && !reference?.trim()) {
+      if (reference !== null) toast.error("Enter the payment reference (UTR)"); // null: the admin cancelled
+      return;
+    }
     const note =
       decision === "rejected"
         ? (window.prompt("Reason shown to the provider (optional)") ?? undefined)
