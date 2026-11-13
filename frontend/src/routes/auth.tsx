@@ -83,9 +83,11 @@ function AuthPage() {
 
     setLoading(true);
     try {
+      const cleanEmail = email.trim().replace(/^["']|["']$/g, "");
+      const cleanPassword = password.trim().replace(/^["']|["']$/g, "");
       const { data, error } = await api.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+        email: cleanEmail,
+        password: cleanPassword,
       });
 
       if (error) {
