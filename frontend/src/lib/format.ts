@@ -1,11 +1,15 @@
 import { api } from "@/lib/api";
 
-export const currency = (n: number | null | undefined) =>
-  new Intl.NumberFormat("en-IN", {
+// Paise only when there are some: ₹1,500 stays short, ₹1,588.50 is not rounded to ₹1,589.
+export const currency = (n: number | null | undefined) => {
+  const v = Number(n ?? 0);
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(Number(n ?? 0));
+    minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(v);
+};
 
 export const daysBetween = (start: string | Date, end: string | Date) => {
   const s = new Date(start);
