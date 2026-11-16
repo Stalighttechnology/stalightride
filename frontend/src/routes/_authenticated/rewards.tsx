@@ -250,7 +250,7 @@ export function RewardsPage() {
         {/* 2-Column Responsive Layout with Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Rewards Sidebar */}
-          <aside className="lg:col-span-1">
+          <aside className="lg:col-span-1 min-w-0">
             <div className="sticky top-20 space-y-4">
               {/* Points Card */}
               <Card className="p-4 border-amber-400/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-background">
@@ -302,7 +302,7 @@ export function RewardsPage() {
 
               {/* Sidebar Navigation */}
               <nav
-                className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0"
+                className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible no-scrollbar pb-2 lg:pb-0 w-full"
                 aria-label="Rewards navigation"
               >
                 {sidebarNavItems.map((item) => {
@@ -312,22 +312,22 @@ export function RewardsPage() {
                     <button
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${
+                      className={`flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors w-full text-left ${
                         isActive
                           ? "bg-brand text-brand-foreground shadow-xs"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`}
                         />
-                        <span>{item.label}</span>
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
-                          className={`text-[10px] px-1.5 py-0 ${
+                          className={`text-[10px] px-1.5 py-0 shrink-0 ${
                             isActive
                               ? "bg-white/20 text-brand-foreground border-transparent"
                               : "text-muted-foreground"
@@ -343,15 +343,15 @@ export function RewardsPage() {
                 {/* Direct Cross-link to Referrals Page */}
                 <Link
                   to="/referrals"
-                  className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap text-left mt-2 border-t border-border/50 pt-3"
+                  className="flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors w-full text-left mt-2 border-t border-border/50 pt-3"
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <Gift className="h-4 w-4 shrink-0 text-brand" />
-                    <span>Refer & Earn</span>
+                    <span className="truncate">Refer & Earn</span>
                   </div>
                   <Badge
                     variant="outline"
-                    className="text-[10px] text-brand bg-brand/10 border-brand/30"
+                    className="text-[10px] text-brand bg-brand/10 border-brand/30 shrink-0"
                   >
                     ₹500 Bonus
                   </Badge>

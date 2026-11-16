@@ -164,14 +164,14 @@ export function ReferralsPage() {
         {/* 2-Column Responsive Layout with Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Referrals Sidebar */}
-          <aside className="lg:col-span-1">
+          <aside className="lg:col-span-1 min-w-0">
             <div className="sticky top-20 space-y-4">
               {/* Quick Referral Card */}
               <Card className="p-4 border-brand/20 bg-brand/5">
                 <div className="flex items-center gap-2 text-xs font-semibold text-brand mb-1">
                   <Sparkles className="h-3.5 w-3.5" /> Your Referral Code
                 </div>
-                <div className="font-mono text-base font-extrabold tracking-wider text-foreground bg-background/80 px-3 py-1.5 rounded-lg border border-border text-center">
+                <div className="font-mono text-sm sm:text-base font-extrabold tracking-wider text-foreground bg-background/80 px-3 py-1.5 rounded-lg border border-border text-center truncate">
                   {referralCode}
                 </div>
 
@@ -193,7 +193,7 @@ export function ReferralsPage() {
 
               {/* Sidebar Navigation */}
               <nav
-                className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0"
+                className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible no-scrollbar pb-2 lg:pb-0 w-full"
                 aria-label="Referrals navigation"
               >
                 {sidebarNavItems.map((item) => {
@@ -203,22 +203,22 @@ export function ReferralsPage() {
                     <button
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${
+                      className={`flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors w-full text-left ${
                         isActive
                           ? "bg-brand text-brand-foreground shadow-xs"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`h-4 w-4 shrink-0 ${isActive ? "text-brand-foreground" : "text-muted-foreground"}`}
                         />
-                        <span>{item.label}</span>
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
-                          className={`text-[10px] px-1.5 py-0 ${
+                          className={`text-[10px] px-1.5 py-0 shrink-0 ${
                             isActive
                               ? "bg-white/20 text-brand-foreground border-transparent"
                               : "text-muted-foreground"
@@ -234,15 +234,15 @@ export function ReferralsPage() {
                 {/* Direct Cross-link to Rewards Page */}
                 <Link
                   to="/rewards"
-                  className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap text-left mt-2 border-t border-border/50 pt-3"
+                  className="flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors w-full text-left mt-2 border-t border-border/50 pt-3"
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <Award className="h-4 w-4 shrink-0 text-amber-500" />
-                    <span>Rewards & Points</span>
+                    <span className="truncate">Rewards & Points</span>
                   </div>
                   <Badge
                     variant="outline"
-                    className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-300"
+                    className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-300 shrink-0"
                   >
                     Points Hub
                   </Badge>
