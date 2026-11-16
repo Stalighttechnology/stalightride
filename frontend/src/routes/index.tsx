@@ -113,57 +113,60 @@ function Index() {
       {/* ————— Hero ————— */}
       <section className="aurora relative overflow-hidden">
         <div aria-hidden className="grid-lines pointer-events-none absolute inset-0 opacity-60" />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-[1.05fr_1fr] md:items-center md:py-28">
+        <div className="relative mx-auto grid max-w-7xl gap-6 sm:gap-12 px-4 pt-4 pb-16 sm:px-6 sm:py-16 md:grid-cols-[1.05fr_1fr] md:items-center md:py-24">
           <div className="rise flex flex-col justify-center">
-            <h1 className="font-display text-[2.6rem] font-bold leading-[1.02] tracking-tight text-foreground sm:text-6xl md:text-[4.2rem]">
+            <h1 className="font-display text-2xl xs:text-3xl sm:text-5xl md:text-[4.2rem] font-bold leading-[1.08] tracking-tight text-foreground">
               Move like the
               <br />
               <span className="text-gradient">future arrived.</span>
             </h1>
 
-            <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="mt-2 sm:mt-5 max-w-lg text-xs sm:text-base leading-relaxed text-muted-foreground">
               Cars, motorcycles, scooters and EVs from verified local hosts — booked in seconds,
               unlocked with a QR scan, tracked in real time.
             </p>
 
             {/* Service selector + Shadcn Date/Time Search Form */}
-            <div className="mt-8 flex w-full max-w-xl flex-col gap-3 rounded-3xl border border-border/80 bg-card/75 p-3.5 shadow-xl backdrop-blur-xl">
-              <div className="flex gap-1.5 rounded-2xl bg-muted/70 p-1">
+            <div className="mt-4 sm:mt-8 flex w-full max-w-xl flex-col gap-2.5 sm:gap-3 rounded-2xl sm:rounded-3xl border border-border/80 bg-card/85 p-3 sm:p-4 shadow-xl backdrop-blur-xl">
+              <div className="flex gap-1 sm:gap-1.5 rounded-xl sm:rounded-2xl bg-muted/70 p-1">
                 <button
                   type="button"
                   onClick={() => setService("rental")}
-                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
+                  className={`flex flex-1 items-center justify-center gap-1 sm:gap-2 rounded-lg sm:rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 cursor-pointer ${
                     service === "rental"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Car className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Vehicle Rental</span>
+                  <Car className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                  <span className="sm:hidden">Rentals</span>
+                  <span className="hidden sm:inline">Vehicle Rental</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setService("driver")}
-                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
+                  className={`flex flex-1 items-center justify-center gap-1 sm:gap-2 rounded-lg sm:rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 cursor-pointer ${
                     service === "driver"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <UserRound className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Hire Driver</span>
+                  <UserRound className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                  <span className="sm:hidden">Driver</span>
+                  <span className="hidden sm:inline">Hire Driver</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setService("wash")}
-                  className={`flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 ${
+                  className={`flex flex-1 items-center justify-center gap-1 sm:gap-2 rounded-lg sm:rounded-xl py-2 px-1 text-xs font-semibold transition-all sm:text-sm whitespace-nowrap min-w-0 cursor-pointer ${
                     service === "wash"
                       ? "bg-background text-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Droplets className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Doorstep Wash</span>
+                  <Droplets className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                  <span className="sm:hidden">Wash</span>
+                  <span className="hidden sm:inline">Doorstep Wash</span>
                 </button>
               </div>
 
@@ -188,49 +191,49 @@ function Index() {
                           ? "City where you need a driver"
                           : "City for doorstep wash"
                     }
-                    className="h-11 rounded-xl border-border/70 bg-background/90 px-3.5 text-sm shadow-xs hover:bg-background/95 transition-colors"
+                    className="h-10 sm:h-11 rounded-xl border-border/70 bg-background/90 px-3 text-xs sm:text-sm shadow-xs hover:bg-background/95 transition-colors"
                   />
                 </div>
 
                 {service === "rental" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="space-y-1.5 min-w-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs">
+                    <div className="space-y-1 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">
                         Pickup
                       </label>
-                      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
+                      <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={pickupDate}
                           onChange={setPickupDate}
                           minDate={new Date()}
                           placeholder="dd-mm-yyyy"
-                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                          className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                         />
                         <TimePicker
                           value={pickupTime}
                           onChange={setPickupTime}
                           placeholder="Time"
-                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                          className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                         />
                       </div>
                     </div>
-                    <div className="space-y-1.5 min-w-0">
+                    <div className="space-y-1 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">
                         Return
                       </label>
-                      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-1.5 min-w-0">
+                      <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-1.5 min-w-0">
                         <DatePicker
                           value={returnDate}
                           onChange={setReturnDate}
                           minDate={pickupDate || new Date()}
                           placeholder="dd-mm-yyyy"
-                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                          className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                         />
                         <TimePicker
                           value={returnTime}
                           onChange={setReturnTime}
                           placeholder="Time"
-                          className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                          className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                         />
                       </div>
                     </div>
@@ -238,7 +241,7 @@ function Index() {
                 )}
 
                 {service === "driver" && (
-                  <div className="space-y-1.5 text-xs min-w-0">
+                  <div className="space-y-1 text-xs min-w-0">
                     <label className="text-[11px] font-medium text-muted-foreground">
                       When do you need the driver?
                     </label>
@@ -248,20 +251,20 @@ function Index() {
                         onChange={setPickupDate}
                         minDate={new Date()}
                         placeholder="dd-mm-yyyy"
-                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                       />
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Reporting time"
-                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                       />
                     </div>
                   </div>
                 )}
 
                 {service === "wash" && (
-                  <div className="space-y-1.5 text-xs min-w-0">
+                  <div className="space-y-1 text-xs min-w-0">
                     <label className="text-[11px] font-medium text-muted-foreground">
                       Preferred wash schedule
                     </label>
@@ -271,13 +274,13 @@ function Index() {
                         onChange={setPickupDate}
                         minDate={new Date()}
                         placeholder="dd-mm-yyyy"
-                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                       />
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Preferred time"
-                        className="h-10 rounded-xl px-2.5 text-xs sm:text-xs"
+                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
                       />
                     </div>
                   </div>
@@ -286,7 +289,7 @@ function Index() {
                 <Button
                   type="submit"
                   size="lg"
-                  className="btn-gradient mt-1 h-12 gap-2 rounded-xl text-sm font-semibold"
+                  className="btn-gradient mt-1 h-11 sm:h-12 gap-2 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
                 >
                   {service === "rental"
                     ? "Find a ride"
@@ -298,21 +301,21 @@ function Index() {
               </form>
             </div>
 
-            <div className="mt-7 flex flex-wrap gap-2">
+            <div className="mt-5 sm:mt-7 flex flex-wrap gap-1.5 sm:gap-2">
               {CATS.map((c) => (
                 <Link
                   key={c.key}
                   to="/browse"
                   search={{ category: c.key } as any}
-                  className="glass group inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow"
+                  className="glass group inline-flex items-center gap-1.5 sm:gap-2 rounded-full px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-medium text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow"
                 >
-                  <CategoryIcon name={c.key} className="h-4 w-4" />
+                  <CategoryIcon name={c.key} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {c.label}
                 </Link>
               ))}
             </div>
 
-            <dl className="mt-11 grid max-w-lg grid-cols-3 gap-2 text-left sm:gap-4">
+            <dl className="mt-6 sm:mt-11 grid max-w-lg grid-cols-3 gap-1.5 sm:gap-4 text-left">
               {[
                 { k: "QR", v: "Pickup & return" },
                 { k: "GPS", v: "Active-trip sharing" },

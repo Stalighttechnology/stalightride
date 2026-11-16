@@ -20,7 +20,9 @@ import {
   Gift,
   Award,
   Briefcase,
+  Menu,
 } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -49,6 +51,7 @@ export function SiteHeader() {
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const { toggleSidebar, openMobile, isMobile } = useSidebar();
 
   const signOut = async () => {
     await api.auth.signOut();
@@ -62,21 +65,33 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
-      <div className="grid h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-6">
-        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <Link to="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2 md:hidden">
+      <div className="flex h-14 sm:h-16 items-center justify-between gap-1.5 sm:gap-2 px-3 sm:px-6">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          {/* Menu Drawer Toggle Button for mobile and tab view */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            aria-label="Toggle navigation menu"
+            aria-expanded={isMobile ? openMobile : undefined}
+            className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-lg lg:hidden hover:bg-muted text-foreground cursor-pointer"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <Link to="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:hidden">
             <img
               src={synchooMark}
               alt="Synchoo"
-              width={32}
-              height={32}
+              width={28}
+              height={28}
               className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 object-contain"
             />
-            <span className="truncate font-display text-sm sm:text-base font-bold tracking-tight text-foreground">
+            <span className="font-display text-sm sm:text-base font-bold tracking-tight text-foreground">
               Synchoo
             </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1 ml-2">
+          <nav className="hidden lg:flex items-center gap-1 ml-2">
             {NAV_PILLS.map((item) => {
               const active =
                 item.to === "/browse"
@@ -109,8 +124,8 @@ export function SiteHeader() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-full border border-border bg-background p-1 transition-colors hover:bg-muted">
-                  <Avatar className="h-8 w-8">
+                <button className="flex items-center gap-2 rounded-full border border-border bg-background p-1 transition-colors hover:bg-muted cursor-pointer">
+                  <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                     <AvatarImage src={user.user_metadata?.avatar_url} />
                     <AvatarFallback className="bg-muted text-foreground text-xs">
                       {initial}

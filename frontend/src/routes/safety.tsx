@@ -52,7 +52,7 @@ interface EmergencyContact {
   phone: string;
 }
 
-export function SafetyCenterPage() {
+function SafetyCenterPage() {
   const { user } = useSession();
 
   // Incident report form

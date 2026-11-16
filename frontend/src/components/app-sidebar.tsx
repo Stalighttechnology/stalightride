@@ -28,7 +28,9 @@ import {
   Plus,
   History as HistoryIcon,
   ChevronRight,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -161,9 +163,23 @@ export function AppSidebar() {
               </span>
             )}
           </Link>
-          {!collapsed && <SidebarTrigger className="shrink-0" aria-label="Collapse navigation" />}
+          {isMobile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+              onClick={() => setOpenMobile(false)}
+              aria-label="Close menu drawer"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          ) : (
+            !collapsed && <SidebarTrigger className="shrink-0" aria-label="Collapse navigation" />
+          )}
         </div>
-        {collapsed && <SidebarTrigger className="mx-auto" aria-label="Expand navigation" />}
+        {!isMobile && collapsed && (
+          <SidebarTrigger className="mx-auto" aria-label="Expand navigation" />
+        )}
       </SidebarHeader>
 
       <SidebarContent>

@@ -91,7 +91,7 @@ const PLANS: Plan[] = [
   },
 ];
 
-export function MembershipPage() {
+function MembershipPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [activePlan, setActivePlan] = useState<string>("free");
 
