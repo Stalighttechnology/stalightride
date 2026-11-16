@@ -370,9 +370,20 @@ function VehiclePage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={toggleWish}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleWish}
+              className={`transition-all duration-200 ${
+                wished
+                  ? "border-rose-300 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-400"
+                  : "hover:border-rose-300 hover:text-rose-500"
+              }`}
+            >
               <Heart
-                className={`mr-2 h-4 w-4 ${wished ? "fill-foreground text-foreground" : ""}`}
+                className={`mr-2 h-4 w-4 transition-transform duration-200 ${
+                  wished ? "fill-rose-500 text-rose-500 scale-110" : ""
+                }`}
               />
               {wished ? "Saved" : "Save"}
             </Button>

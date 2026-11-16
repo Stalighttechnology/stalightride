@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
-import { Star, MapPin, Search, BadgeCheck, Clock, Compass } from "lucide-react";
+import { Star, MapPin, Search, BadgeCheck, Clock, Compass, Heart } from "lucide-react";
+import { useSavedDrivers } from "@/hooks/use-saved-items";
 
 const searchSchema = z.object({
   q: z.string().optional(),
@@ -248,25 +249,54 @@ function DriversPage() {
 }
 
 function DriverCard({ d }: { d: any }) {
+  const { isDriverSaved, toggleSaveDriver } = useSavedDrivers();
+  const isSaved = isDriverSaved(d.id);
+
   return (
     <li>
       <Card className="h-full transition-shadow hover:shadow-md">
         <CardContent className="flex h-full flex-col gap-3 p-5">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-14 w-14">
-              <AvatarImage src={d.photo_url ?? undefined} alt={d.full_name} />
-              <AvatarFallback>{d.full_name?.charAt(0)?.toUpperCase() ?? "D"}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="truncate font-semibold">{d.full_name}</p>
-                <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Avatar className="h-14 w-14">
+                <AvatarImage src={d.photo_url ?? undefined} alt={d.full_name} />
+                <AvatarFallback>{d.full_name?.charAt(0)?.toUpperCase() ?? "D"}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate font-semibold">{d.full_name}</p>
+                  <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+                </div>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  {d.city} · {d.experience_years} yr{d.experience_years === 1 ? "" : "s"} exp
+                </p>
               </div>
-              <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                {d.city} · {d.experience_years} yr{d.experience_years === 1 ? "" : "s"} exp
-              </p>
             </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleSaveDriver(d.id, d.full_name);
+              }}
+              className={`h-9 w-9 shrink-0 rounded-full transition-all duration-200 active:scale-90 hover:scale-110 ${
+                isSaved
+                  ? "border-rose-300 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-400"
+                  : "border-border/80 bg-background/80 text-muted-foreground hover:border-rose-300 hover:bg-muted hover:text-rose-500"
+              }`}
+              title={isSaved ? "Saved to favorites" : "Save driver"}
+              aria-label={isSaved ? "Saved to favorites" : "Save driver"}
+            >
+              <Heart
+                className={`h-4.5 w-4.5 transition-transform duration-200 ${
+                  isSaved ? "fill-rose-500 text-rose-500 scale-110" : ""
+                }`}
+              />
+            </Button>
           </div>
 
           <div className="flex items-center gap-2 text-sm">

@@ -15,7 +15,7 @@ import re
 import urllib.error
 import urllib.request
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from django.conf import settings
 from django.db import DatabaseError
@@ -403,6 +403,154 @@ def submit_inspection(data, user_id):
     return {"ok": True, "phase": phase}
 
 
+# -- membership subscriptions ----------------------------------------------------
+
+MEMBERSHIP_PRICES = {
+    ("plus", "monthly"): 499,
+    ("plus", "annual"): 4990,
+    ("black", "monthly"): 1499,
+    ("black", "annual"): 14990,
+}
+
+
+def create_membership_order(data, user_id):
+    plan = data.get("plan")
+    cycle = data.get("cycle", "monthly")
+    if plan not in ("plus", "black") or cycle not in ("monthly", "annual"):
+        raise FnError("Invalid plan or billing cycle.")
+    price = MEMBERSHIP_PRICES.get((plan, cycle))
+    if not price:
+        raise FnError("Invalid membership plan selected.")
+    order = _create_order(
+        {
+            "amount": price * 100,
+            "currency": "INR",
+            "notes": {
+                "purpose": "membership_subscription",
+                "user_id": user_id,
+                "plan": plan,
+                "cycle": cycle,
+            },
+        },
+        "Could not initialize membership payment",
+    )
+    return order
+
+
+def subscribe_membership(data, user_id):
+    plan = data.get("plan")
+    if plan == "free":
+        with db_role("service_role"):
+            _update("profiles", {
+                "membership_plan": "free",
+                "membership_cycle": "monthly",
+                "membership_expires_at": None,
+                "membership_auto_renew": False,
+            }, [["id", "eq", user_id]])
+        return {"ok": True, "plan": "free", "message": "Switched to Synchoo Standard."}
+
+    cycle = data.get("cycle", "monthly")
+    if plan not in ("plus", "black") or cycle not in ("monthly", "annual"):
+        raise FnError("Invalid plan or billing cycle.")
+
+    price = MEMBERSHIP_PRICES.get((plan, cycle))
+    if not price:
+        raise FnError("Invalid membership plan.")
+
+    payment_method = data.get("payment_method", "wallet")
+    payment_ref = None
+
+    if payment_method == "wallet":
+        with db_role("service_role"):
+            w = _get("wallets", "balance", "user_id", user_id)
+            bal = float((w or {}).get("balance") or 0)
+            if bal < price:
+                raise FnError(f"Insufficient wallet balance (₹{bal:,.2f}). Needed: ₹{price:,.2f}.")
+            payment_ref = f"mem_wlt_{uuid.uuid4().hex[:12]}"
+            run_rpc("wallet_apply", {
+                "_user_id": user_id,
+                "_amount": -price,
+                "_kind": "membership_payment",
+                "_reference": payment_ref,
+                "_description": f"Synchoo {plan.title()} Membership ({cycle.capitalize()})",
+            })
+    elif payment_method == "razorpay":
+        payment_id = data.get("razorpay_payment_id")
+        signature = data.get("razorpay_signature")
+        if not payment_id:
+            raise FnError("Missing Razorpay payment confirmation.")
+        if signature:
+            _check_signature(data)
+        payment_ref = payment_id
+    else:
+        raise FnError("Invalid payment method.")
+
+    now = datetime.now(timezone.utc)
+    duration_days = 365 if cycle == "annual" else 30
+    expires_at = now + timedelta(days=duration_days)
+
+    with db_role("service_role"):
+        _update("profiles", {
+            "membership_plan": plan,
+            "membership_cycle": cycle,
+            "membership_started_at": now.isoformat(),
+            "membership_expires_at": expires_at.isoformat(),
+            "membership_auto_renew": True,
+        }, [["id", "eq", user_id]])
+
+        plan_display = "Synchoo Plus" if plan == "plus" else "Synchoo Black VIP"
+        exp_display = expires_at.strftime("%d %b %Y")
+        run_rpc("notify_user", {
+            "_user_id": user_id,
+            "_title": f"Welcome to {plan_display}!",
+            "_body": f"Your VIP privileges are active until {exp_display}. Enjoy 0% platform convenience fees and exclusive perks.",
+            "_link": "/membership",
+        })
+
+    return {
+        "ok": True,
+        "plan": plan,
+        "cycle": cycle,
+        "expiresAt": expires_at.isoformat(),
+        "paymentReference": payment_ref,
+        "message": f"Successfully activated {plan_display}!",
+    }
+
+
+def cancel_membership(data, user_id):
+    with db_role("service_role"):
+        _update("profiles", {"membership_auto_renew": False}, [["id", "eq", user_id]])
+    return {
+        "ok": True,
+        "message": "Auto-renewal turned off. Your membership benefits will remain active until the end of your billing cycle.",
+    }
+
+
+def get_membership_status(data, user_id):
+    with db_role("service_role"):
+        p = _get("profiles", "membership_plan, membership_cycle, membership_started_at, membership_expires_at, membership_auto_renew", "id", user_id)
+        if not p:
+            return {"plan": "free", "cycle": "monthly", "active": False, "expiresAt": None, "autoRenew": False}
+        plan = p.get("membership_plan") or "free"
+        expires_at_str = p.get("membership_expires_at")
+        active = plan != "free"
+        if active and expires_at_str:
+            try:
+                exp = datetime.fromisoformat(str(expires_at_str).replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > exp:
+                    active = False
+            except Exception:
+                pass
+        return {
+            "plan": plan if active else "free",
+            "cycle": p.get("membership_cycle") or "monthly",
+            "active": active,
+            "startedAt": p.get("membership_started_at"),
+            "expiresAt": expires_at_str if active else None,
+            "autoRenew": bool(p.get("membership_auto_renew", True)),
+        }
+
+
 FUNCTIONS = {
     "createRazorpayOrder": create_razorpay_order,
     "verifyRazorpayPayment": verify_razorpay_payment,
@@ -416,6 +564,10 @@ FUNCTIONS = {
     "resolveHandoverCode": resolve_handover_code,
     "confirmHandover": confirm_handover,
     "submitInspection": submit_inspection,
+    "createMembershipOrder": create_membership_order,
+    "subscribeMembership": subscribe_membership,
+    "cancelMembership": cancel_membership,
+    "getMembershipStatus": get_membership_status,
 }
 PUBLIC = {"getBookingByQr"}
 

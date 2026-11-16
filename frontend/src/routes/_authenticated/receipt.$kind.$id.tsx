@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, Download } from "lucide-react";
+import { toast } from "sonner";
 
 type Kind = "vehicle" | "driver" | "wash";
 
@@ -104,6 +105,27 @@ function ReceiptPage() {
     };
   }, [kind, id]);
 
+  const handleDownload = () => {
+    if (!data) return;
+    const printArea = document.getElementById("receipt-print-area");
+    if (!printArea) {
+      window.print();
+      return;
+    }
+    const refCode = data.reference || data.invoiceNo || id;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Synchoo Receipt - ${refCode}</title><style>body{font-family:system-ui,-apple-system,sans-serif;padding:32px;color:#0f172a;} table{width:100%;border-collapse:collapse;margin:16px 0;} th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left;} th{background:#f8fafc;}</style></head><body>${printArea.outerHTML}</body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `synchoo-receipt-${refCode}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Receipt downloaded successfully!");
+  };
+
   return (
     <div className="min-h-screen bg-muted/30">
       <div className="print:hidden">
@@ -117,10 +139,16 @@ function ReceiptPage() {
               Back
             </Link>
           </Button>
-          <Button size="sm" onClick={() => window.print()} disabled={!data}>
-            <Printer className="mr-1.5 h-4 w-4" />
-            Print / Save PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={handleDownload} disabled={!data}>
+              <Download className="mr-1.5 h-4 w-4" />
+              Download
+            </Button>
+            <Button size="sm" onClick={() => window.print()} disabled={!data}>
+              <Printer className="mr-1.5 h-4 w-4" />
+              Print / Save PDF
+            </Button>
+          </div>
         </div>
 
         {loading && <Skeleton className="h-[520px] rounded-2xl" />}
@@ -138,7 +166,10 @@ function ReceiptPage() {
         )}
 
         {data && (
-          <Card className="overflow-hidden bg-card print:border-0 print:shadow-none">
+          <Card
+            id="receipt-print-area"
+            className="overflow-hidden bg-card print:border-0 print:shadow-none"
+          >
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div>
                 <p className="font-display text-2xl font-semibold tracking-tight">Synchoo</p>

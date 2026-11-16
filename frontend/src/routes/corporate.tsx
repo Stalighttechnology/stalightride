@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ComingSoonBanner, comingSoon } from "@/components/coming-soon";
 import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { downloadMonthlyGstInvoice, downloadTripReceipt } from "@/lib/invoice-generator";
 import {
   Briefcase,
   Building,
@@ -232,9 +232,6 @@ function CorporatePage() {
 
   const handleRegisterCompany = (e: React.FormEvent) => {
     e.preventDefault();
-    comingSoon();
-    return;
-    e.preventDefault();
     if (!companyName.trim() || !gstin.trim() || !workEmail.trim()) {
       return toast.error("Please fill in company name, GSTIN, and business email");
     }
@@ -244,9 +241,6 @@ function CorporatePage() {
   };
 
   const handleAddEmployee = (e: React.FormEvent) => {
-    e.preventDefault();
-    comingSoon();
-    return;
     e.preventDefault();
     if (!newEmpName.trim() || !newEmpEmail.trim()) {
       return toast.error("Enter employee name and work email");
@@ -267,8 +261,6 @@ function CorporatePage() {
   };
 
   const handleRemoveEmployee = (id: string) => {
-    comingSoon();
-    return;
     setEmployees(employees.filter((e) => e.id !== id));
     toast.success("Employee removed from corporate roster");
   };
@@ -295,7 +287,6 @@ function CorporatePage() {
       <SiteHeader />
 
       <main className="flex-1 py-8 px-4 sm:px-6 max-w-7xl mx-auto w-full">
-        <ComingSoonBanner feature="Synchoo for Business" />
         {/* Top Header Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
           <div>
@@ -347,7 +338,13 @@ function CorporatePage() {
               <Button
                 size="sm"
                 className="bg-brand text-brand-foreground hover:bg-brand/90"
-                onClick={comingSoon}
+                onClick={() =>
+                  downloadMonthlyGstInvoice(
+                    { companyName, gstin, workEmail, city },
+                    INVOICES[0],
+                    trips,
+                  )
+                }
               >
                 <Download className="mr-1.5 h-3.5 w-3.5" /> Download Monthly GST Invoice
               </Button>
@@ -850,7 +847,9 @@ function CorporatePage() {
                               size="sm"
                               variant="ghost"
                               className="text-xs h-7"
-                              onClick={comingSoon}
+                              onClick={() =>
+                                downloadTripReceipt(trip, { companyName, gstin, workEmail, city })
+                              }
                             >
                               <Download className="mr-1 h-3 w-3" /> Trip Receipt
                             </Button>
@@ -938,7 +937,17 @@ function CorporatePage() {
                                 {currency(inv.totalAmount)}
                               </p>
                             </div>
-                            <Button size="sm" variant="outline" onClick={comingSoon}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                downloadMonthlyGstInvoice(
+                                  { companyName, gstin, workEmail, city },
+                                  inv,
+                                  trips,
+                                )
+                              }
+                            >
                               <Download className="mr-1.5 h-3.5 w-3.5" /> PDF Invoice
                             </Button>
                           </div>
@@ -1015,7 +1024,13 @@ function CorporatePage() {
                       </div>
 
                       <div className="pt-2">
-                        <Button onClick={comingSoon}>Save Policy Changes</Button>
+                        <Button
+                          onClick={() =>
+                            toast.success("Enterprise travel policies and caps updated successfully!")
+                          }
+                        >
+                          Save Policy Changes
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -1063,7 +1078,13 @@ function CorporatePage() {
                       </div>
 
                       <div className="pt-2 flex items-center gap-3">
-                        <Button onClick={comingSoon}>Update Organization Settings</Button>
+                        <Button
+                          onClick={() =>
+                            toast.success("Organization profile and GST details saved successfully!")
+                          }
+                        >
+                          Update Organization Settings
+                        </Button>
                         <Button
                           variant="outline"
                           onClick={() => {

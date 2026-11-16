@@ -29,7 +29,9 @@ import {
   Car,
   Compass,
   Route as RouteIcon,
+  Heart,
 } from "lucide-react";
+import { useSavedDrivers } from "@/hooks/use-saved-items";
 
 export const Route = createFileRoute("/driver/$id")({
   component: DriverProfile,
@@ -67,6 +69,8 @@ function DriverProfile() {
   const { id } = Route.useParams();
   const { user } = useSession();
   const navigate = useNavigate();
+  const { isDriverSaved, toggleSaveDriver } = useSavedDrivers();
+  const isSaved = isDriverSaved(id);
 
   const [driver, setDriver] = useState<Tables<"public_drivers"> | null | undefined>(undefined);
   const [reviews, setReviews] = useState<any[] | null>(null);
@@ -248,6 +252,24 @@ function DriverProfile() {
                       </span>
                     </p>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleSaveDriver(driver.id, driver.full_name)}
+                    className={`transition-all duration-200 ${
+                      isSaved
+                        ? "border-rose-300 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-400"
+                        : "hover:border-rose-300 hover:text-rose-500"
+                    }`}
+                  >
+                    <Heart
+                      className={`mr-2 h-4 w-4 transition-transform duration-200 ${
+                        isSaved ? "fill-rose-500 text-rose-500 scale-110" : ""
+                      }`}
+                    />
+                    {isSaved ? "Saved" : "Save"}
+                  </Button>
                 </div>
 
                 {driver.bio && <p className="mt-4 whitespace-pre-line text-sm">{driver.bio}</p>}

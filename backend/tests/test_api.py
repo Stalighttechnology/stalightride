@@ -243,3 +243,39 @@ def test_handover_gate(booking, now, can_checkin, can_checkout):
 def test_handover_gate_explains_when_check_in_opens():
     gate = handover_gate(BASE, datetime(2026, 8, 19, 10, 0, tzinfo=IST))
     assert gate["checkinReason"] == "Check-in opens 20 Aug, 9:30 am (30 minutes before pickup)."
+
+
+def test_membership_subscription_lifecycle(alice):
+    client = client_for(alice)
+    status_res = client.post("/api/fn/getMembershipStatus/", {}, format="json")
+    assert status_res.status_code == 200
+    assert status_res.json()["data"]["plan"] == "free"
+    assert status_res.json()["data"]["active"] is False
+
+    fail_res = client.post("/api/fn/subscribeMembership/", {"plan": "plus", "cycle": "monthly", "payment_method": "wallet"}, format="json")
+    assert fail_res.status_code == 400
+    assert "Insufficient wallet balance" in fail_res.json()["message"]
+
+    from core.query import run_rpc
+    run_rpc("wallet_apply", {"_user_id": str(alice.id), "_amount": 1000, "_kind": "topup", "_description": "Test topup"})
+
+    sub_res = client.post("/api/fn/subscribeMembership/", {"plan": "plus", "cycle": "monthly", "payment_method": "wallet"}, format="json")
+    assert sub_res.status_code == 200
+    assert sub_res.json()["data"]["ok"] is True
+    assert sub_res.json()["data"]["plan"] == "plus"
+
+    status_res2 = client.post("/api/fn/getMembershipStatus/", {}, format="json")
+    assert status_res2.json()["data"]["plan"] == "plus"
+    assert status_res2.json()["data"]["active"] is True
+    assert status_res2.json()["data"]["autoRenew"] is True
+
+    cancel_res = client.post("/api/fn/cancelMembership/", {}, format="json")
+    assert cancel_res.status_code == 200
+    status_res3 = client.post("/api/fn/getMembershipStatus/", {}, format="json")
+    assert status_res3.json()["data"]["autoRenew"] is False
+
+    free_res = client.post("/api/fn/subscribeMembership/", {"plan": "free"}, format="json")
+    assert free_res.status_code == 200
+    status_res4 = client.post("/api/fn/getMembershipStatus/", {}, format="json")
+    assert status_res4.json()["data"]["plan"] == "free"
+    assert status_res4.json()["data"]["active"] is False

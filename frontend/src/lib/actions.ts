@@ -64,3 +64,44 @@ export const submitInspection = action<
   },
   { ok: true; phase: HandoverPhase }
 >("submitInspection");
+
+export const createMembershipOrder = action<
+  { plan: string; cycle: "monthly" | "annual" },
+  RazorpayOrder
+>("createMembershipOrder");
+
+export const subscribeMembership = action<
+  {
+    plan: string;
+    cycle?: "monthly" | "annual";
+    payment_method?: "wallet" | "razorpay";
+    razorpay_payment_id?: string;
+    razorpay_order_id?: string;
+    razorpay_signature?: string;
+  },
+  {
+    ok: boolean;
+    plan: string;
+    cycle?: string;
+    expiresAt?: string | null;
+    paymentReference?: string;
+    message: string;
+  }
+>("subscribeMembership");
+
+export const cancelMembership = action<
+  {},
+  { ok: boolean; message: string }
+>("cancelMembership");
+
+export const getMembershipStatus = action<
+  {},
+  {
+    plan: string;
+    cycle: string;
+    active: boolean;
+    startedAt: string | null;
+    expiresAt: string | null;
+    autoRenew: boolean;
+  }
+>("getMembershipStatus");
