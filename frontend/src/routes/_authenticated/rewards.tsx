@@ -24,6 +24,7 @@ import {
   Tag,
   ShieldCheck,
   Check,
+  Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/rewards")({
@@ -124,8 +125,26 @@ export function RewardsPage() {
   );
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
-  const [pointsBalance, setPointsBalance] = useState<number>(850);
-  const [claimedList, setClaimedList] = useState<ClaimedVoucher[]>(INITIAL_CLAIMED);
+  const storageKey = user?.id ? `synchoo_rewards_${user.id}` : "synchoo_rewards_guest";
+
+  const [pointsBalance, setPointsBalance] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(`${storageKey}_points`);
+      return saved !== null ? Number(saved) : 850;
+    } catch {
+      return 850;
+    }
+  });
+
+  const [claimedList, setClaimedList] = useState<ClaimedVoucher[]>(() => {
+    try {
+      const saved = localStorage.getItem(`${storageKey}_vouchers`);
+      return saved ? JSON.parse(saved) : INITIAL_CLAIMED;
+    } catch {
+      return INITIAL_CLAIMED;
+    }
+  });
+
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const handleRedeem = (voucher: RewardVoucher) => {
@@ -135,7 +154,8 @@ export function RewardsPage() {
       );
     }
 
-    setPointsBalance((prev) => prev - voucher.pointsCost);
+    const nextPoints = pointsBalance - voucher.pointsCost;
+    setPointsBalance(nextPoints);
 
     const newClaimed: ClaimedVoucher = {
       ...voucher,
@@ -144,8 +164,16 @@ export function RewardsPage() {
       expiresAt: "In 60 days",
     };
 
-    setClaimedList([newClaimed, ...claimedList]);
-    toast.success(`Redeemed ${voucher.title}! Voucher saved to My Redeemed Vouchers.`);
+    const nextList = [newClaimed, ...claimedList];
+    setClaimedList(nextList);
+
+    try {
+      localStorage.setItem(`${storageKey}_points`, String(nextPoints));
+      localStorage.setItem(`${storageKey}_vouchers`, JSON.stringify(nextList));
+    } catch {}
+
+    toast.success(`Redeemed ${voucher.title}! Voucher code ${voucher.code} saved to My Vouchers.`);
+    setActiveTab("redeemed");
   };
 
   const copyCode = (code: string) => {
@@ -208,7 +236,10 @@ export function RewardsPage() {
             </Button>
             <Button
               size="sm"
-              onClick={() => setActiveTab("catalog")}
+              onClick={() => {
+                setActiveTab("catalog");
+                toast.info("Choose any voucher below and click 'Redeem Voucher'!");
+              }}
               className="bg-brand text-brand-foreground hover:bg-brand/90"
             >
               <Award className="mr-1.5 h-3.5 w-3.5" /> Redeem Points
@@ -248,6 +279,24 @@ export function RewardsPage() {
                   <p className="text-[10px] text-muted-foreground">
                     Earn 150 more points to unlock 1.5x Multiplier
                   </p>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-border/60">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs h-8 border-amber-400/40 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                    onClick={() => {
+                      const next = pointsBalance + 250;
+                      setPointsBalance(next);
+                      try {
+                        localStorage.setItem(`${storageKey}_points`, String(next));
+                      } catch {}
+                      toast.success("Added 250 loyalty reward points to your balance!");
+                    }}
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" /> +250 Bonus Points
+                  </Button>
                 </div>
               </Card>
 
@@ -425,7 +474,7 @@ export function RewardsPage() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <div className="font-mono text-xs font-bold bg-muted px-2.5 py-1.5 rounded-lg border border-border">
                                 {v.code}
                               </div>
@@ -436,6 +485,11 @@ export function RewardsPage() {
                                 className="h-8 text-xs"
                               >
                                 <Copy className="mr-1 h-3.5 w-3.5" /> {isCopied ? "Copied" : "Copy"}
+                              </Button>
+                              <Button size="sm" asChild className="h-8 text-xs">
+                                <Link to={v.category === "Wash" ? "/wash" : "/browse"}>
+                                  Book & Apply
+                                </Link>
                               </Button>
                             </div>
                           </div>
