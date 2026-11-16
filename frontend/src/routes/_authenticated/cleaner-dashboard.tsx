@@ -577,6 +577,21 @@ function CleanerDashboard() {
   const totalEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.provider_earning || 0), 0);
   const grossVolume = completedJobs.reduce((acc, curr) => acc + Number(curr.base_price || 0), 0);
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayScheduleJobs = assignedJobs.filter(
+    (j) => j.slot_date === todayStr || (!j.slot_date && j.created_at?.slice(0, 10) === todayStr),
+  );
+
+  const formatSlotTime = (timeStr?: string) => {
+    if (!timeStr) return "Scheduled";
+    const [h, m] = timeStr.split(":");
+    const hour = parseInt(h, 10);
+    if (isNaN(hour)) return timeStr;
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${String(displayHour).padStart(2, "0")}:${m || "00"} ${ampm}`;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -806,57 +821,49 @@ function CleanerDashboard() {
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <CalendarCheck className="h-4 w-4 text-brand" /> Appointment Timeline
               </h3>
-              <div className="space-y-3">
-                {[
-                  {
-                    time: "09:00 AM - 10:30 AM",
-                    customer: "Rahul M.",
-                    vehicle: "Hyundai Creta",
-                    address: "HSR Layout, Sector 2",
-                    status: "Done",
-                  },
-                  {
-                    time: "11:30 AM - 01:00 PM",
-                    customer: "Priya S.",
-                    vehicle: "Tata Nexon EV",
-                    address: "Koramangala 4th Block",
-                    status: "Next",
-                  },
-                  {
-                    time: "03:00 PM - 04:30 PM",
-                    customer: "Amit K.",
-                    vehicle: "Royal Enfield Hunter",
-                    address: "Indiranagar 100ft Rd",
-                    status: "Upcoming",
-                  },
-                ].map((slot, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-xl border border-border p-3 text-sm"
-                  >
-                    <div>
-                      <span className="font-mono text-xs font-semibold text-brand">
-                        {slot.time}
-                      </span>
-                      <p className="font-medium text-xs mt-0.5">
-                        {slot.customer} · {slot.vehicle}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">{slot.address}</p>
-                    </div>
-                    <Badge
-                      variant={
-                        slot.status === "Done"
-                          ? "secondary"
-                          : slot.status === "Next"
-                            ? "default"
-                            : "outline"
-                      }
-                    >
-                      {slot.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+              {todayScheduleJobs.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <CalendarCheck className="mx-auto h-8 w-8 mb-2 opacity-40" />
+                  <p className="text-sm font-medium">No appointments scheduled for today</p>
+                  <p className="text-xs mt-1">
+                    You have no wash jobs scheduled for today. Check Available Requests to claim open jobs.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todayScheduleJobs.map((slot) => {
+                    const isDone = slot.status === "completed" || slot.progress === "completed";
+                    const isInProgress =
+                      slot.progress === "started" || slot.progress === "on_the_way";
+                    const statusLabel = isDone ? "Done" : isInProgress ? "In Progress" : "Upcoming";
+                    const badgeVariant = isDone
+                      ? "secondary"
+                      : isInProgress
+                        ? "default"
+                        : "outline";
+
+                    return (
+                      <div
+                        key={slot.id}
+                        className="flex items-center justify-between rounded-xl border border-border p-3 text-sm"
+                      >
+                        <div>
+                          <span className="font-mono text-xs font-semibold text-brand">
+                            {formatSlotTime(slot.slot_time)}
+                          </span>
+                          <p className="font-medium text-xs mt-0.5">
+                            {slot.vehicle_label || slot.wash_services?.name || "Vehicle wash"}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {slot.address || slot.city || "Customer location"}
+                          </p>
+                        </div>
+                        <Badge variant={badgeVariant}>{statusLabel}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           </TabsContent>
 
