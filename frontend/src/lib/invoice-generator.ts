@@ -20,9 +20,11 @@ export interface CompanyData {
 
 export interface TripData {
   id: string;
-  employee: string;
-  dept: string;
-  type: string;
+  employee?: string;
+  employeeName?: string;
+  dept?: string;
+  type?: string;
+  service?: string;
   vehicle: string;
   amount: number;
   date: string;
@@ -46,19 +48,24 @@ export function downloadMonthlyGstInvoice(
 
     const tripsHtml = trips
       .map(
-        (t, idx) => `
+        (t, idx) => {
+          const emp = t.employee || t.employeeName || "Employee";
+          const dpt = t.dept ? `${t.dept} · ` : "";
+          const srv = t.type || t.service || "Business Ride";
+          return `
       <tr>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${idx + 1}</td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">
-          <strong>${t.employee}</strong><br/>
-          <span style="color: #64748b; font-size: 11px;">${t.dept} · ${t.type}</span>
+          <strong>${emp}</strong><br/>
+          <span style="color: #64748b; font-size: 11px;">${dpt}${srv}</span>
         </td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${t.route}</td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">${t.vehicle}</td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">${t.date}</td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: right; font-weight: 600;">${currency(t.amount)}</td>
       </tr>
-    `,
+    `;
+        },
       )
       .join("");
 
@@ -319,6 +326,10 @@ export function downloadMonthlyGstInvoice(
 
 export function downloadTripReceipt(trip: TripData, company: CompanyData) {
   try {
+    const empName = trip.employee || trip.employeeName || "Employee";
+    const empDept = trip.dept ? ` (${trip.dept})` : "";
+    const tripType = trip.type || trip.service || "Corporate Travel";
+
     const receiptHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -376,9 +387,9 @@ export function downloadTripReceipt(trip: TripData, company: CompanyData) {
     </div>
 
     <div class="row"><span class="label">Trip Reference ID:</span><span class="value">${trip.id}</span></div>
-    <div class="row"><span class="label">Employee:</span><span class="value">${trip.employee} (${trip.dept})</span></div>
+    <div class="row"><span class="label">Employee:</span><span class="value">${empName}${empDept}</span></div>
     <div class="row"><span class="label">Date:</span><span class="value">${trip.date}</span></div>
-    <div class="row"><span class="label">Service Category:</span><span class="value">${trip.type}</span></div>
+    <div class="row"><span class="label">Service Category:</span><span class="value">${tripType}</span></div>
     <div class="row"><span class="label">Vehicle / Driver:</span><span class="value">${trip.vehicle}</span></div>
     <div class="row"><span class="label">Route:</span><span class="value">${trip.route}</span></div>
     <div class="row"><span class="label">Status:</span><span class="value" style="color: #16a34a;">${trip.status}</span></div>

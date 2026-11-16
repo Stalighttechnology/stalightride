@@ -112,12 +112,13 @@ function ReceiptPage() {
       window.print();
       return;
     }
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Synchoo Receipt - ${data.bookingRef}</title><style>body{font-family:system-ui,-apple-system,sans-serif;padding:32px;color:#0f172a;} table{width:100%;border-collapse:collapse;margin:16px 0;} th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left;} th{background:#f8fafc;}</style></head><body>${printArea.outerHTML}</body></html>`;
+    const refCode = data.reference || data.invoiceNo || id;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Synchoo Receipt - ${refCode}</title><style>body{font-family:system-ui,-apple-system,sans-serif;padding:32px;color:#0f172a;} table{width:100%;border-collapse:collapse;margin:16px 0;} th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left;} th{background:#f8fafc;}</style></head><body>${printArea.outerHTML}</body></html>`;
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `synchoo-receipt-${data.bookingRef}.html`;
+    a.download = `synchoo-receipt-${refCode}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
