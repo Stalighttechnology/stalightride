@@ -45,7 +45,19 @@ export function ReferralsPage() {
   const [_loading, setLoading] = useState(true);
 
   // /auth reads ?ref= at sign-up and links the new account to this referrer.
-  const referralLink = `${window.location.origin}/auth?mode=signup&ref=${referralCode}`;
+  // External messaging apps (WhatsApp, Telegram, SMS) require a valid public domain with a TLD
+  // (e.g. https://synchoo.com) rather than 'localhost' to recognize and render active blue clickable hyperlinks.
+  const isLocal =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.endsWith(".local"));
+
+  const publicBase =
+    (import.meta.env.VITE_PUBLIC_APP_URL as string) ||
+    (isLocal ? "https://synchoo.com" : window.location.origin);
+
+  const referralLink = `${publicBase}/auth?mode=signup&ref=${referralCode}`;
 
   useEffect(() => {
     if (!user) return;
@@ -91,7 +103,8 @@ export function ReferralsPage() {
   };
 
   const shareViaWhatsApp = () => {
-    const text = `Join Synchoo for self-drive car rentals, driver hire, and doorstep washes! Use my link to get ₹500 OFF your first trip: ${referralLink}`;
+    // Isolate link on its own line so WhatsApp and messaging parsers auto-format as a clickable link and card preview
+    const text = `Join Synchoo for self-drive car rentals, driver hire, and doorstep washes!\n\nUse my invite link to get \u20B9500 OFF your first trip:\n${referralLink}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 
