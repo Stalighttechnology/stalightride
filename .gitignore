@@ -12,9 +12,34 @@ dist
 dist-ssr
 *.local
 local/
+# Environment & Secrets
 .env
 .env.*
+*.env
+*.env.*
 !.env.example
+!*.env.example
+!**/.env.example
+
+# Credentials & Private Keys
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+credentials.json
+client_secret*.json
+service-account*.json
+token.json
+.aws/
+.ssh/
+
+# Databases
+*.sqlite3
+*.sqlite3-journal
+db.sqlite3
+*.db
 
 # Vercel
 .vercel/
@@ -34,7 +59,10 @@ __pycache__/
 *.sln
 *.sw?
 
-# Django backend
+# Django backend & Virtual environments
 backend/.venv/
+.venv/
+venv/
+env/
 backend/media/
 .pytest_cache/
