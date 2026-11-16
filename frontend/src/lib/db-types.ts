@@ -1028,6 +1028,11 @@ export type Database = {
           referral_code: string | null;
           referral_rewarded: boolean | null;
           referred_by: string | null;
+          membership_plan: string;
+          membership_cycle: string;
+          membership_started_at: string | null;
+          membership_expires_at: string | null;
+          membership_auto_renew: boolean;
           updated_at: string;
         };
         Insert: {
@@ -1047,6 +1052,11 @@ export type Database = {
           referral_code?: string | null;
           referral_rewarded?: boolean | null;
           referred_by?: string | null;
+          membership_plan?: string;
+          membership_cycle?: string;
+          membership_started_at?: string | null;
+          membership_expires_at?: string | null;
+          membership_auto_renew?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -1066,6 +1076,11 @@ export type Database = {
           referral_code?: string | null;
           referral_rewarded?: boolean | null;
           referred_by?: string | null;
+          membership_plan?: string;
+          membership_cycle?: string;
+          membership_started_at?: string | null;
+          membership_expires_at?: string | null;
+          membership_auto_renew?: boolean;
           updated_at?: string;
         };
         Relationships: [];
