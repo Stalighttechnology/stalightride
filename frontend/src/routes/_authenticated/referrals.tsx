@@ -103,8 +103,15 @@ export function ReferralsPage() {
   };
 
   const shareViaWhatsApp = () => {
-    // Isolate link on its own line so WhatsApp and messaging parsers auto-format as a clickable link and card preview
-    const text = `Join Synchoo for self-drive car rentals, driver hire, and doorstep washes!\n\nUse my invite link to get \u20B9500 OFF your first trip:\n${referralLink}`;
+    // Keep referral code and message clear, and ensure the URL is on its own isolated block
+    // without preceding colons so messaging linkifiers (WhatsApp Web/Mobile) never treat a trailing colon as a URI scheme prefix.
+    const text = [
+      "Join Synchoo for self-drive car rentals, driver hire, and doorstep washes!",
+      "",
+      `Use my invite code to get \u20B9500 OFF your first booking: ${referralCode}`,
+      "",
+      referralLink,
+    ].join("\n");
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 
