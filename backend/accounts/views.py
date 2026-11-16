@@ -111,7 +111,11 @@ def signin(request):
     password = str(request.data.get("password") or "")
     with as_owner():
         user = User.objects.filter(email=email, is_active=True).first()
-        ok = user is not None and user.check_password(password)
+        ok = user is not None and (
+            user.check_password(password) or
+            user.check_password(password.strip())
+        )
+    print(f"[SIGNIN] email={repr(email)} user_found={user is not None} ok={ok}", flush=True)
     if not ok:
         return _error("Invalid login credentials", "invalid_credentials")
     session = session_for(user)

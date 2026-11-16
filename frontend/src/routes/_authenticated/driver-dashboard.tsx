@@ -27,6 +27,7 @@ import {
   Star,
   CheckCircle2,
   CircleSlash,
+  Loader2,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -81,6 +82,47 @@ function DriverDashboard() {
   const [ratings, setRatings] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [savingReply, setSavingReply] = useState(false);
+
+  const submitDriverReply = async (reviewId: string) => {
+    if (!replyText.trim()) {
+      toast.error("Please enter a reply");
+      return;
+    }
+    setSavingReply(true);
+    try {
+      const now = new Date().toISOString();
+      const { error } = await api
+        .from("driver_reviews")
+        .update({
+          driver_response: replyText.trim(),
+          driver_response_at: now,
+        })
+        .eq("id", reviewId);
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      setRatings((prev) =>
+        prev.map((r) =>
+          r.id === reviewId
+            ? { ...r, driver_response: replyText.trim(), driver_response_at: now }
+            : r,
+        ),
+      );
+      toast.success("Reply saved successfully!");
+      setReplyingReviewId(null);
+      setReplyText("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save reply");
+    } finally {
+      setSavingReply(false);
+    }
+  };
 
   const load = async () => {
     if (!user) return;
@@ -717,19 +759,76 @@ function DriverDashboard() {
                   {ratings.map((r) => (
                     <Card key={r.id}>
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-1 mb-1">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-4 w-4 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
-                            />
-                          ))}
-                          <span className="ml-1 text-sm font-medium">{r.rating}</span>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+                              />
+                            ))}
+                            <span className="ml-1 text-sm font-medium">{r.rating}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </span>
                         </div>
                         {r.comment && <p className="text-sm text-muted-foreground">{r.comment}</p>}
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {new Date(r.created_at).toLocaleDateString()}
-                        </p>
+
+                        {r.driver_response && (
+                          <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs">
+                            <p className="font-semibold text-foreground">Driver replied:</p>
+                            <p className="mt-0.5 text-muted-foreground">{r.driver_response}</p>
+                          </div>
+                        )}
+
+                        {replyingReviewId === r.id ? (
+                          <div className="mt-3 space-y-2">
+                            <Textarea
+                              placeholder="Write your response to this review..."
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              className="text-xs"
+                              rows={2}
+                            />
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs"
+                                disabled={savingReply || !replyText.trim()}
+                                onClick={() => submitDriverReply(r.id)}
+                              >
+                                {savingReply && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                                Post Reply
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  setReplyingReviewId(null);
+                                  setReplyText("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                setReplyingReviewId(r.id);
+                                setReplyText(r.driver_response || "");
+                              }}
+                            >
+                              {r.driver_response ? "Edit Reply" : "Reply"}
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
