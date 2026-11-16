@@ -138,10 +138,15 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [queryClient, router]);
 
+  const isHome =
+    typeof window !== "undefined"
+      ? window.location.pathname === "/" || window.location.pathname === ""
+      : false;
+
   return (
     <QueryClientProvider client={queryClient}>
       <HeadContent />
-      <SidebarProvider>
+      <SidebarProvider defaultOpenMobile={isHome}>
         <div className="flex min-h-screen w-full">
           <AppSidebar />
           <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">

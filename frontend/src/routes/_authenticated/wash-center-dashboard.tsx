@@ -84,7 +84,7 @@ interface StaffMember {
   active: boolean;
 }
 
-export function WashCenterDashboard() {
+function WashCenterDashboard() {
   const { user } = useSession();
   const [center, setCenter] = useState<CenterProfile | null>(null);
   const [loading, setLoading] = useState(true);

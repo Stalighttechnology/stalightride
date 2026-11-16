@@ -118,7 +118,7 @@ const INITIAL_CLAIMED: ClaimedVoucher[] = [
   },
 ];
 
-export function RewardsPage() {
+function RewardsPage() {
   const { user } = useSession();
   const [activeTab, setActiveTab] = useState<"catalog" | "redeemed" | "earn-guide" | "tiers">(
     "catalog",
