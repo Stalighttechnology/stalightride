@@ -70,12 +70,12 @@ export function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-3 text-xs sm:text-sm",
+            "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-2 sm:px-2.5 text-xs sm:text-sm",
             !selectedDate && "text-muted-foreground",
             className,
           )}
         >
-          <CalendarDays className="mr-2 h-3.5 w-3.5 shrink-0 opacity-70" />
+          <CalendarDays className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70" />
           <span className="truncate flex-1">
             {selectedDate ? format(selectedDate, formatStr) : <span>{placeholder}</span>}
           </span>

@@ -201,7 +201,7 @@ const INVOICES: MonthlyInvoice[] = [
   },
 ];
 
-export function CorporatePage() {
+function CorporatePage() {
   const [registered, setRegistered] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "overview" | "employees" | "trips" | "invoices" | "policy" | "settings"

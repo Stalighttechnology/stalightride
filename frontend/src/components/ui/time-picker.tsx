@@ -92,12 +92,12 @@ export function TimePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-2.5 text-xs sm:text-sm",
+            "w-full min-w-0 justify-start text-left font-normal h-9 rounded-lg border-border/80 bg-background/90 px-2 sm:px-2.5 text-xs sm:text-sm",
             !value && "text-muted-foreground",
             className,
           )}
         >
-          <Clock className="mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+          <Clock className="mr-1 h-3.5 w-3.5 shrink-0 opacity-70" />
           <span className="truncate flex-1">{value ? formatTime12h(value) : placeholder}</span>
         </Button>
       </PopoverTrigger>

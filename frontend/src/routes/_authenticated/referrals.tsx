@@ -34,7 +34,7 @@ interface ReferralEvent {
   date: string;
 }
 
-export function ReferralsPage() {
+function ReferralsPage() {
   const { user } = useSession();
   const [activeTab, setActiveTab] = useState<"overview" | "activity" | "rules">("overview");
   const [referralCode, setReferralCode] = useState(

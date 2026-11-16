@@ -63,14 +63,17 @@ export function CitySelector({ className }: { className?: string }) {
         <Button
           variant="outline"
           size="sm"
-          className={cn("h-8 sm:h-9 gap-1.5 rounded-full px-2 sm:pl-2.5 sm:pr-2", className)}
+          className={cn(
+            "h-8 sm:h-9 gap-1 sm:gap-1.5 rounded-full px-2 sm:pl-2.5 sm:pr-2 shrink-0 cursor-pointer",
+            className,
+          )}
           aria-label="Select your city"
         >
-          <MapPin className="h-4 w-4 text-brand shrink-0" />
-          <span className="max-w-[4.5rem] sm:max-w-[7rem] truncate text-xs font-medium sm:text-sm">
-            {city ?? "Select city"}
+          <MapPin className="h-3.5 w-3.5 text-brand shrink-0" />
+          <span className="max-w-[3.6rem] sm:max-w-[7rem] truncate text-xs font-medium">
+            {city ?? "City"}
           </span>
-          <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+          <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

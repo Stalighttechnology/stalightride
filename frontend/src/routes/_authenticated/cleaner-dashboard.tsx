@@ -70,7 +70,7 @@ const DEFAULT_SERVICES = [
   "Foam Wash & Wax",
 ];
 
-export function CleanerDashboard() {
+function CleanerDashboard() {
   const { user } = useSession();
   const [profile, setProfile] = useState<CleanerProfile | null>(null);
   const [loading, setLoading] = useState(true);

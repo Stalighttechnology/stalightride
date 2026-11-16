@@ -34,7 +34,7 @@ function formatAuthError(err: any): string {
 function AuthPage() {
   const { mode: initialMode, ref: referralCode } = Route.useSearch();
   const [tab, setTab] = useState<"signin" | "signup">(
-    initialMode === "signup" ? "signup" : "signin",
+    initialMode === "signup" || !!referralCode ? "signup" : "signin",
   );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -51,8 +51,10 @@ function AuthPage() {
   useEffect(() => {
     if (initialMode === "signup" || initialMode === "signin") {
       setTab(initialMode);
+    } else if (referralCode) {
+      setTab("signup");
     }
-  }, [initialMode]);
+  }, [initialMode, referralCode]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -363,6 +365,11 @@ function AuthPage() {
                 {/* SIGN UP TAB */}
                 <TabsContent value="signup">
                   <form onSubmit={handleSignUp} className="space-y-4">
+                    {referralCode && (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 flex items-center gap-2">
+                        <span>🎁 Referral code <strong>{referralCode}</strong> applied. ₹500 welcome bonus on your first ride!</span>
+                      </div>
+                    )}
                     <div className="space-y-1.5">
                       <Label htmlFor="signup-name">Full Name</Label>
                       <div className="relative">
