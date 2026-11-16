@@ -5,6 +5,16 @@ import { useSession } from "@/hooks/use-session";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import {
@@ -146,6 +156,7 @@ export function RewardsPage() {
   });
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [voucherToRedeem, setVoucherToRedeem] = useState<RewardVoucher | null>(null);
 
   const handleRedeem = (voucher: RewardVoucher) => {
     if (pointsBalance < voucher.pointsCost) {
@@ -418,7 +429,7 @@ export function RewardsPage() {
                           <Button
                             size="sm"
                             disabled={!canAfford}
-                            onClick={() => handleRedeem(v)}
+                            onClick={() => setVoucherToRedeem(v)}
                             className="text-xs"
                           >
                             {canAfford
@@ -630,6 +641,88 @@ export function RewardsPage() {
           </div>
         </div>
       </main>
+
+      {/* Voucher Redemption Confirmation Dialog */}
+      <AlertDialog
+        open={Boolean(voucherToRedeem)}
+        onOpenChange={(open) => {
+          if (!open) setVoucherToRedeem(null);
+        }}
+      >
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-500" /> Confirm Voucher Redemption
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2 text-left text-xs sm:text-sm text-muted-foreground">
+                {voucherToRedeem && (
+                  <>
+                    <div className="p-3.5 rounded-xl border border-border bg-muted/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground text-sm">
+                          {voucherToRedeem.title}
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {voucherToRedeem.category}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {voucherToRedeem.description}
+                      </p>
+                      <div className="pt-2 border-t border-border/60 space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Voucher Points Cost:</span>
+                          <span className="text-amber-600 font-bold">
+                            {voucherToRedeem.pointsCost} Points
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Current Balance:</span>
+                          <span className="font-semibold text-foreground">
+                            {pointsBalance} Points
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Balance After Redemption:</span>
+                          <span className="font-bold text-foreground">
+                            {pointsBalance - voucherToRedeem.pointsCost} Points
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Are you sure you want to redeem this reward?{" "}
+                      <strong className="text-foreground">
+                        {voucherToRedeem.pointsCost} Points
+                      </strong>{" "}
+                      will be deducted from your account, and your promo code will be saved to{" "}
+                      <strong className="text-foreground">My Vouchers</strong>.
+                    </p>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel onClick={() => setVoucherToRedeem(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (voucherToRedeem) {
+                  handleRedeem(voucherToRedeem);
+                  setVoucherToRedeem(null);
+                }
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Confirm & Redeem
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
