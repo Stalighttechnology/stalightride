@@ -323,5 +323,5 @@ DROP FUNCTION IF EXISTS public.tg_mark_coupon_used();
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0016_loyalty_and_rewards")]
+    dependencies = [("core", "0017_loyalty_and_rewards")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]

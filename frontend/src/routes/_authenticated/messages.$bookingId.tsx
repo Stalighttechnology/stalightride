@@ -50,6 +50,10 @@ function MessagesPage() {
         return;
       }
       setBooking(b);
+      if (b.status === "pending") {
+        setAllowed(false);
+        return;
+      }
       setAllowed(true);
       const { data: m } = await api
         .from("messages")

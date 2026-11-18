@@ -5,6 +5,7 @@ import { TrendingUp, Percent, Star, Wallet } from "lucide-react";
 
 type Booking = {
   total_price: number | string;
+  provider_earning?: number | string | null;
   payment_status: string;
   status: string;
   paid_at?: string | null;
@@ -22,8 +23,9 @@ export function HostAnalytics({
   avgRating?: number;
 }) {
   const stats = useMemo(() => {
+    const earningOf = (b: Booking) => Number(b.provider_earning ?? b.total_price ?? 0);
     const paid = bookings.filter((b) => b.payment_status === "paid");
-    const gross = paid.reduce((s, b) => s + Number(b.total_price), 0);
+    const gross = paid.reduce((s, b) => s + earningOf(b), 0);
     const completed = bookings.filter((b) => b.status === "completed").length;
     const cancelled = bookings.filter(
       (b) => b.status === "cancelled" || b.status === "rejected",
@@ -42,7 +44,7 @@ export function HostAnalytics({
           const t = new Date(b.paid_at ?? b.created_at);
           return `${t.getFullYear()}-${t.getMonth()}` === key;
         })
-        .reduce((s, b) => s + Number(b.total_price), 0);
+        .reduce((s, b) => s + earningOf(b), 0);
       return { label: d.toLocaleDateString(undefined, { month: "short" }), total };
     });
     const peak = Math.max(1, ...series.map((s) => s.total));

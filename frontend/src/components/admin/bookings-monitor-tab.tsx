@@ -67,7 +67,7 @@ export function BookingsMonitorTab() {
           api
             .from("pool_trips")
             .select(
-              "id, driver_id, origin, destination, price_per_seat, status, created_at, depart_at",
+              "id, driver_id, origin_label, dest_label, fare_per_seat, status, created_at, depart_at",
             )
             .order("created_at", { ascending: false })
             .limit(50),
@@ -118,9 +118,9 @@ export function BookingsMonitorTab() {
         unified.push({
           id: p.id,
           kind: "pooling",
-          title: `Carpool: ${p.origin} → ${p.destination}`,
+          title: `Carpool: ${p.origin_label} → ${p.dest_label}`,
           customer_id: p.driver_id,
-          amount: Number(p.price_per_seat) || 0,
+          amount: Number(p.fare_per_seat) || 0,
           status: p.status,
           created_at: p.created_at,
           scheduled_time: p.depart_at,

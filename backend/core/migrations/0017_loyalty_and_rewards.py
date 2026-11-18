@@ -53,5 +53,5 @@ DROP TABLE IF EXISTS public.loyalty_ledger;
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0015_wash_voucher_pricing")]
+    dependencies = [("core", "0016_wave3_testing_fixes")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]
