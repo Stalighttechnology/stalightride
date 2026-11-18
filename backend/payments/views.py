@@ -11,6 +11,7 @@ import base64
 import hashlib
 import hmac
 import json
+import random
 import re
 import urllib.error
 import urllib.request
@@ -551,6 +552,282 @@ def get_membership_status(data, user_id):
         }
 
 
+def get_rewards_summary(data, user_id):
+    with db_role("service_role"):
+        ledger_rows, _ = run({
+            "table": "loyalty_ledger",
+            "select": "id, amount, kind, title, description, created_at",
+            "filters": [["user_id", "eq", user_id]],
+            "order": [["created_at", False, False]],
+        })
+
+        if not ledger_rows:
+            welcome_bonus = {
+                "user_id": user_id,
+                "amount": 1500,
+                "kind": "welcome_bonus",
+                "title": "Welcome Milestone Bonus",
+                "description": "Welcome to Starlight Mobility Club! 1,500 initial reward points.",
+            }
+            run({"table": "loyalty_ledger", "action": "insert", "values": [welcome_bonus]})
+            ledger_rows, _ = run({
+                "table": "loyalty_ledger",
+                "select": "id, amount, kind, title, description, created_at",
+                "filters": [["user_id", "eq", user_id]],
+                "order": [["created_at", False, False]],
+            })
+
+        points_balance = sum(int(item.get("amount") or 0) for item in (ledger_rows or []))
+        lifetime_earned = sum(int(item.get("amount") or 0) for item in (ledger_rows or []) if int(item.get("amount") or 0) > 0)
+        lifetime_redeemed = abs(sum(int(item.get("amount") or 0) for item in (ledger_rows or []) if int(item.get("amount") or 0) < 0))
+
+        voucher_rows, _ = run({
+            "table": "claimed_vouchers",
+            "select": "id, voucher_id, title, code, category, points_cost, terms, claimed_at, expires_at, status",
+            "filters": [["user_id", "eq", user_id]],
+            "order": [["claimed_at", False, False]],
+        })
+
+        # Seed welcome voucher in claimed_vouchers and coupons if user has none
+        if not voucher_rows:
+            now = datetime.now(timezone.utc)
+            exp = (now + timedelta(days=60)).isoformat()
+            user_welcome_code = f"STAR-RENT500-{uuid.uuid4().hex[:5].upper()}"
+            
+            # Check if user already has an active STAR-RENT500 coupon
+            existing_c, _ = run({
+                "table": "coupons",
+                "select": "code",
+                "filters": [["user_id", "eq", user_id], ["service", "eq", "rental"]],
+            })
+            if existing_c and len(existing_c) > 0:
+                user_welcome_code = existing_c[0]["code"]
+            else:
+                run({
+                    "table": "coupons",
+                    "action": "insert",
+                    "values": [{
+                        "code": user_welcome_code,
+                        "amount_off": 500,
+                        "user_id": user_id,
+                        "service": "rental",
+                        "active": True,
+                        "used": False,
+                        "starts_at": now.isoformat(),
+                        "ends_at": exp,
+                    }],
+                })
+
+            welcome_v = {
+                "user_id": user_id,
+                "voucher_id": "rw-1",
+                "title": "Flat ₹500 OFF on Self-Drive Car Rental",
+                "code": user_welcome_code,
+                "category": "Rides",
+                "points_cost": 500,
+                "terms": "Min. booking value ₹2,000. Valid exclusively on self-drive cars.",
+                "expires_at": exp,
+                "status": "active",
+            }
+            run({"table": "claimed_vouchers", "action": "insert", "values": [welcome_v]})
+            voucher_rows, _ = run({
+                "table": "claimed_vouchers",
+                "select": "id, voucher_id, title, code, category, points_cost, terms, claimed_at, expires_at, status",
+                "filters": [["user_id", "eq", user_id]],
+                "order": [["claimed_at", False, False]],
+            })
+
+        w = _get("wallets", "balance", "user_id", user_id)
+        wallet_balance = float((w or {}).get("balance") or 0)
+
+        tier = "Explorer"
+        if lifetime_earned >= 1500 or points_balance >= 1500:
+            tier = "Platinum VIP"
+        elif lifetime_earned >= 800 or points_balance >= 800:
+            tier = "Gold"
+        elif lifetime_earned >= 400 or points_balance >= 400:
+            tier = "Silver"
+
+        return {
+            "pointsBalance": max(0, points_balance),
+            "lifetimeEarned": lifetime_earned,
+            "lifetimeRedeemed": lifetime_redeemed,
+            "currentTier": tier,
+            "claimedVouchers": voucher_rows or [],
+            "activity": [
+                {
+                    "id": str(item["id"]),
+                    "amount": int(item["amount"]),
+                    "type": "earned" if int(item["amount"]) > 0 else "redeemed",
+                    "title": item["title"],
+                    "description": item.get("description") or "",
+                    "date": item["created_at"],
+                }
+                for item in (ledger_rows or [])
+            ],
+            "walletBalance": wallet_balance,
+        }
+
+
+def redeem_reward_voucher(data, user_id):
+    voucher_id = data.get("voucherId") or data.get("voucher_id") or "v1"
+    raw_cost = data.get("pointsCost") or data.get("points_cost") or data.get("points") or 0
+    try:
+        points_cost = int(raw_cost)
+    except (ValueError, TypeError):
+        points_cost = 0
+
+    title = data.get("title") or data.get("voucher_title") or data.get("name") or "Reward Voucher"
+    category = data.get("category", "General")
+    code_prefix = data.get("codePrefix") or data.get("code_prefix") or data.get("code") or "STAR-REWARD"
+    terms = data.get("terms", "")
+
+    # Clean code prefix (remove trailing dashes)
+    code_prefix = str(code_prefix).rstrip("-")
+
+    # Detect target service explicitly
+    req_service = str(data.get("service") or "").lower().strip()
+    if req_service in ("rental", "wash", "driver", "partner"):
+        service = req_service
+    elif "wash" in title.lower() or "wash" in category.lower():
+        service = "wash"
+    elif "driver" in title.lower() or "chauffeur" in title.lower():
+        service = "driver"
+    elif "rental" in title.lower() or "self-drive" in title.lower() or "rides" in category.lower():
+        service = "rental"
+    else:
+        service = "partner"
+
+    # Determine discount amount
+    raw_discount = data.get("discountAmount") or data.get("discount_amount")
+    if raw_discount:
+        try:
+            discount_amount = int(raw_discount)
+        except Exception:
+            discount_amount = 0
+    else:
+        if "500" in title:
+            discount_amount = 500
+        elif "400" in title:
+            discount_amount = 400
+        elif "350" in title:
+            discount_amount = 350
+        elif "300" in title:
+            discount_amount = 300
+        elif "250" in title:
+            discount_amount = 250
+        elif "150" in title:
+            discount_amount = 150
+        elif "100" in title:
+            discount_amount = 100
+        else:
+            discount_amount = points_cost
+
+    if points_cost <= 0:
+        raise FnError("Invalid points cost.")
+
+    with db_role("service_role"):
+        ledger_rows, _ = run({
+            "table": "loyalty_ledger",
+            "select": "amount",
+            "filters": [["user_id", "eq", user_id]],
+        })
+        current_balance = sum(int(item.get("amount") or 0) for item in (ledger_rows or []))
+
+        # If user has no entries yet, initialize welcome bonus
+        if current_balance < points_cost and not ledger_rows:
+            initial_bonus = {
+                "user_id": user_id,
+                "amount": 1500,
+                "kind": "welcome_bonus",
+                "title": "Welcome Milestone Bonus",
+                "description": "Welcome to Starlight Mobility Club! 1,500 initial reward points.",
+            }
+            run({"table": "loyalty_ledger", "action": "insert", "values": [initial_bonus]})
+            current_balance = 1500
+
+        if current_balance < points_cost:
+            raise FnError(f"Insufficient points ({current_balance}). Needed: {points_cost}.")
+
+        # Generate a guaranteed unique coupon code scoped to this user
+        suffix = "".join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+        final_code = f"{code_prefix}-{suffix}"
+
+        now = datetime.now(timezone.utc)
+        expires_at = (now + timedelta(days=60)).isoformat()
+
+        run({
+            "table": "loyalty_ledger",
+            "action": "insert",
+            "values": [{
+                "user_id": user_id,
+                "amount": -points_cost,
+                "kind": "voucher_redemption",
+                "title": f"Redeemed: {title}",
+                "description": f"Saved voucher code {final_code} to My Vouchers",
+            }],
+        })
+
+        created_rows, _ = run({
+            "table": "claimed_vouchers",
+            "action": "insert",
+            "values": [{
+                "user_id": user_id,
+                "voucher_id": str(voucher_id),
+                "title": title,
+                "code": final_code,
+                "category": category,
+                "points_cost": points_cost,
+                "terms": terms,
+                "expires_at": expires_at,
+                "status": "active",
+            }],
+        })
+
+        # Insert into public.coupons with strict user ownership and service scoping
+        if discount_amount > 0:
+            run({
+                "table": "coupons",
+                "action": "insert",
+                "values": [{
+                    "code": final_code,
+                    "amount_off": discount_amount,
+                    "user_id": user_id,
+                    "service": service,
+                    "active": True,
+                    "used": False,
+                    "starts_at": (now - timedelta(minutes=5)).isoformat(),
+                    "ends_at": expires_at,
+                }],
+            })
+
+        new_balance = current_balance - points_cost
+        voucher_record = created_rows[0] if created_rows else {}
+
+        return {
+            "ok": True,
+            "pointsBalance": new_balance,
+            "voucher": {
+                "id": str(voucher_record.get("id")),
+                "voucherId": voucher_id,
+                "title": title,
+                "code": final_code,
+                "category": category,
+                "service": service,
+                "pointsCost": points_cost,
+                "discountAmount": discount_amount,
+                "terms": terms,
+                "claimedAt": now.isoformat(),
+                "expiresAt": expires_at,
+                "status": "active",
+            },
+        }
+
+
+def convert_points_to_wallet(data, user_id):
+    raise FnError("Points conversion to cash is disabled. Points can only be redeemed for Starlight discount coupons and mobility vouchers.")
+
+
 FUNCTIONS = {
     "createRazorpayOrder": create_razorpay_order,
     "verifyRazorpayPayment": verify_razorpay_payment,
@@ -568,6 +845,9 @@ FUNCTIONS = {
     "subscribeMembership": subscribe_membership,
     "cancelMembership": cancel_membership,
     "getMembershipStatus": get_membership_status,
+    "getRewardsSummary": get_rewards_summary,
+    "redeemRewardVoucher": redeem_reward_voucher,
+    "convertPointsToWallet": convert_points_to_wallet,
 }
 PUBLIC = {"getBookingByQr"}
 
@@ -581,6 +861,8 @@ def call(request, name):
     if user_id is None and name not in PUBLIC:
         return Response({"message": "Unauthorized"}, status=401)
     data = request.data if isinstance(request.data, dict) else {}
+    if isinstance(data.get("data"), dict):
+        data = data["data"]
     try:
         return Response({"data": fn(data, user_id)})
     except FnError as e:

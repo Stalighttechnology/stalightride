@@ -2,6 +2,7 @@ from django.db import migrations
 
 SQL = r"""
 DROP FUNCTION IF EXISTS public.compute_charges(numeric, text);
+DROP FUNCTION IF EXISTS public.compute_charges(numeric, text, text);
 
 CREATE OR REPLACE FUNCTION public.compute_charges(
   _base numeric,

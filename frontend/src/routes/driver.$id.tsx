@@ -530,7 +530,7 @@ function DriverProfile() {
                         membershipPlan={membershipPlan}
                       />
                       <div className="pt-2">
-                        <CouponField value={coupon} onChange={setCoupon} />
+                        <CouponField value={coupon} onChange={setCoupon} service="driver" />
                       </div>
                     </>
                   )}

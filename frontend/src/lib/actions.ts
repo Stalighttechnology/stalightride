@@ -16,8 +16,13 @@ type HandoverPhase = "pickup" | "return";
 
 const action =
   <I, O = any>(name: string) =>
-  (input: Input<I>) =>
-    api.fn<O>(name, input.data);
+  (input?: Input<I> | I) => {
+    const payload =
+      input && typeof input === "object" && "data" in input
+        ? (input as Input<I>).data
+        : input;
+    return api.fn<O>(name, payload as any);
+  };
 
 export const createRazorpayOrder = action<{ bookingId: string }, RazorpayOrder>(
   "createRazorpayOrder",
@@ -105,3 +110,69 @@ export const getMembershipStatus = action<
     autoRenew: boolean;
   }
 >("getMembershipStatus");
+
+export interface RewardVoucherItem {
+  id: string;
+  voucherId?: string;
+  title: string;
+  code: string;
+  category: string;
+  pointsCost: number;
+  terms?: string;
+  claimedAt: string;
+  expiresAt: string;
+  status?: string;
+}
+
+export interface RewardActivityItem {
+  id: string;
+  amount: number;
+  type: "earned" | "redeemed";
+  title: string;
+  description: string;
+  date: string;
+}
+
+export interface RewardsSummaryResponse {
+  pointsBalance: number;
+  lifetimeEarned: number;
+  lifetimeRedeemed: number;
+  currentTier: "Explorer" | "Silver" | "Gold" | "Platinum VIP";
+  claimedVouchers: RewardVoucherItem[];
+  activity: RewardActivityItem[];
+  walletBalance: number;
+}
+
+export const getRewardsSummary = action<
+  {},
+  RewardsSummaryResponse
+>("getRewardsSummary");
+
+export const redeemRewardVoucher = action<
+  {
+    voucherId: string;
+    pointsCost: number;
+    title: string;
+    category: string;
+    codePrefix: string;
+    terms?: string;
+  },
+  {
+    ok: boolean;
+    pointsBalance: number;
+    voucher: RewardVoucherItem;
+  }
+>("redeemRewardVoucher");
+
+export const convertPointsToWallet = action<
+  {
+    amount: number;
+  },
+  {
+    ok: boolean;
+    pointsBalance: number;
+    walletBalance: number;
+    amountConverted: number;
+  }
+>("convertPointsToWallet");
+

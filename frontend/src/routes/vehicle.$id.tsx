@@ -761,7 +761,7 @@ function VehiclePage() {
                       />
                     </div>
                     <div className="mt-3">
-                      <CouponField value={coupon} onChange={setCoupon} />
+                      <CouponField value={coupon} onChange={setCoupon} service="rental" />
                     </div>
                     {myProfile?.membership_plan === "black" && (
                       <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3 space-y-2 text-left">

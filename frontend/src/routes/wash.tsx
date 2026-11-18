@@ -478,7 +478,7 @@ function WashPage() {
                 </div>
                 {!freeWashApplied && (
                   <div className="mt-3">
-                    <CouponField value={coupon} onChange={setCoupon} />
+                    <CouponField value={coupon} onChange={setCoupon} service="wash" />
                   </div>
                 )}
               </div>

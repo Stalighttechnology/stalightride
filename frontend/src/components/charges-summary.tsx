@@ -8,15 +8,22 @@ import { computeCharges, round2 } from "@/lib/charges";
 import { currency } from "@/lib/format";
 import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
-export type AppliedCoupon = { code: string; percent_off: number | null; amount_off: number | null };
+export type AppliedCoupon = {
+  code: string;
+  percent_off: number | null;
+  amount_off: number | null;
+  service?: string | null;
+};
 
 /** Coupon entry that checks the code with the validate_coupon RPC. */
 export function CouponField({
   value,
   onChange,
+  service,
 }: {
   value: AppliedCoupon | null;
   onChange: (c: AppliedCoupon | null) => void;
+  service?: "rental" | "wash" | "driver" | "all";
 }) {
   const [code, setCode] = useState("");
   const [checking, setChecking] = useState(false);
@@ -25,21 +32,36 @@ export function CouponField({
     const trimmed = code.trim();
     if (!trimmed) return;
     setChecking(true);
-    const { data, error } = await api.rpc("validate_coupon", { _code: trimmed });
+    const { data, error } = await api.rpc("validate_coupon", {
+      _code: trimmed,
+      _service: service ?? null,
+    });
     setChecking(false);
     const res = data as {
       valid?: boolean;
       code?: string;
       percent_off?: number | null;
       amount_off?: number | null;
+      service?: string | null;
+      reason?: string | null;
     } | null;
-    if (error || !res?.valid) return toast.error("That coupon is invalid or has expired");
+
+    if (error || !res?.valid) {
+      return toast.error(res?.reason || "That coupon is invalid or has expired");
+    }
+
     onChange({
       code: res.code ?? trimmed.toUpperCase(),
       percent_off: res.percent_off ?? null,
       amount_off: res.amount_off ?? null,
+      service: res.service ?? null,
     });
-    toast.success("Coupon applied");
+    const savings = res.amount_off
+      ? `₹${Number(res.amount_off).toLocaleString("en-IN")} saved`
+      : res.percent_off
+        ? `${res.percent_off}% saved`
+        : "";
+    toast.success(`Coupon ${res.code || trimmed.toUpperCase()} applied! ${savings}`);
   };
 
   if (value) {
