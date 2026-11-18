@@ -470,7 +470,6 @@ function WashPage() {
                   <span className="tabular-nums">{currency(service.price)}</span>
                 </div>
                 <div className="mt-1.5">
-                <div className="mt-1.5">
                   <ChargeLines
                     base={Number(service.price)}
                     coupon={coupon}
