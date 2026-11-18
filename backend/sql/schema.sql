@@ -664,6 +664,7 @@ CREATE FUNCTION public.cancel_booking(_booking_id uuid, _reason text DEFAULT NUL
 DECLARE
   b RECORD; starts_at timestamptz; hours_left numeric; pct numeric := 0;
   refund numeric := 0; share numeric := 0; by_provider boolean; is_admin boolean; new_pay text;
+  m_plan text := 'free';
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
   SELECT * INTO b FROM public.bookings WHERE id = _booking_id FOR UPDATE;
@@ -684,10 +685,32 @@ BEGIN
   starts_at := (b.start_date::timestamp + b.pickup_time) AT TIME ZONE 'Asia/Kolkata';
   hours_left := EXTRACT(EPOCH FROM (starts_at - now())) / 3600.0;
 
+  SELECT COALESCE(membership_plan, 'free') INTO m_plan
+  FROM public.profiles
+  WHERE id = b.customer_id
+    AND (membership_expires_at IS NULL OR membership_expires_at > now());
+  IF m_plan IS NULL THEN m_plan := 'free'; END IF;
+
   IF b.payment_status = 'paid' THEN
-    IF is_admin OR by_provider OR hours_left >= 24 THEN pct := 1;
-    ELSIF hours_left >= 2 THEN pct := 0.5;
-    ELSE pct := 0; END IF;
+    IF is_admin OR by_provider THEN
+      pct := 1;
+    ELSIF m_plan = 'black' THEN
+      -- Free cancellation up to 2 hours before start for Black VIP
+      IF hours_left >= 2 THEN pct := 1;
+      ELSIF hours_left >= 0 THEN pct := 0.5;
+      ELSE pct := 0; END IF;
+    ELSIF m_plan = 'plus' THEN
+      -- Free cancellation up to 6 hours before start for Plus members
+      IF hours_left >= 6 THEN pct := 1;
+      ELSIF hours_left >= 2 THEN pct := 0.5;
+      ELSE pct := 0; END IF;
+    ELSE
+      -- Standard cancellation policy
+      IF hours_left >= 24 THEN pct := 1;
+      ELSIF hours_left >= 2 THEN pct := 0.5;
+      ELSE pct := 0; END IF;
+    END IF;
+
     refund := b.security_deposit + round((b.total_price - b.security_deposit) * pct, 2);
     share := round(b.provider_earning * (1 - pct), 2);
 
@@ -745,6 +768,7 @@ CREATE FUNCTION public.cancel_driver_booking(_driver_booking_id uuid, _reason te
 DECLARE
   b RECORD; starts_at timestamptz; hours_left numeric; pct numeric := 0;
   refund numeric := 0; share numeric := 0; is_driver boolean; is_admin boolean; new_pay_status text;
+  m_plan text := 'free';
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
   SELECT * INTO b FROM public.driver_bookings WHERE id = _driver_booking_id FOR UPDATE;
@@ -762,10 +786,29 @@ BEGIN
   starts_at := (b.start_date::timestamp + b.start_time) AT TIME ZONE 'Asia/Kolkata';
   hours_left := EXTRACT(EPOCH FROM (starts_at - now())) / 3600.0;
 
+  SELECT COALESCE(membership_plan, 'free') INTO m_plan
+  FROM public.profiles
+  WHERE id = b.customer_id
+    AND (membership_expires_at IS NULL OR membership_expires_at > now());
+  IF m_plan IS NULL THEN m_plan := 'free'; END IF;
+
   IF b.payment_status = 'paid' THEN
-    IF is_admin OR is_driver OR hours_left >= 24 THEN pct := 1;
-    ELSIF hours_left >= 2 THEN pct := 0.5;
-    ELSE pct := 0; END IF;
+    IF is_admin OR is_driver THEN
+      pct := 1;
+    ELSIF m_plan = 'black' THEN
+      IF hours_left >= 2 THEN pct := 1;
+      ELSIF hours_left >= 0 THEN pct := 0.5;
+      ELSE pct := 0; END IF;
+    ELSIF m_plan = 'plus' THEN
+      IF hours_left >= 6 THEN pct := 1;
+      ELSIF hours_left >= 2 THEN pct := 0.5;
+      ELSE pct := 0; END IF;
+    ELSE
+      IF hours_left >= 24 THEN pct := 1;
+      ELSIF hours_left >= 2 THEN pct := 0.5;
+      ELSE pct := 0; END IF;
+    END IF;
+
     refund := round(COALESCE(b.total_price, 0) * pct, 2);
     share := round(b.provider_earning * (1 - pct), 2);
 
@@ -932,21 +975,30 @@ $$;
 
 
 --
--- Name: compute_charges(numeric, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: compute_charges(numeric, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.compute_charges(_base numeric, _coupon text DEFAULT NULL::text) RETURNS jsonb
+CREATE FUNCTION public.compute_charges(_base numeric, _coupon text DEFAULT NULL::text, _membership_plan text DEFAULT 'free'::text) RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
 DECLARE
-  s RECORD; c RECORD; disc numeric := 0; fee numeric; gst numeric; comm numeric; comm_gst numeric;
+  s RECORD; c RECORD; disc numeric := 0; fee numeric := 0; gst numeric := 0; comm numeric; comm_gst numeric;
   coupon_norm text := NULLIF(upper(btrim(COALESCE(_coupon, ''))), '');
+  plan_norm text := lower(COALESCE(_membership_plan, 'free'));
+  m_disc numeric := 0;
 BEGIN
   IF _base IS NULL OR _base < 0 THEN RAISE EXCEPTION 'Invalid amount'; END IF;
   SELECT * INTO s FROM public.platform_settings WHERE id = 1;
 
-  IF coupon_norm IS NOT NULL THEN
+  -- 10% discount on self-drive and driver hires for Plus; 15% for Black VIP
+  IF plan_norm = 'plus' THEN
+    m_disc := round(_base * 0.10, 2);
+  ELSIF plan_norm = 'black' THEN
+    m_disc := round(_base * 0.15, 2);
+  END IF;
+
+  IF coupon_norm IS NOT NULL AND coupon_norm <> 'MEMBERSHIP_FREE_WASH' THEN
     SELECT * INTO c FROM public.coupons
      WHERE upper(btrim(coupons.code)) = coupon_norm AND active
        AND (starts_at IS NULL OR starts_at <= now())
@@ -958,14 +1010,25 @@ BEGIN
     disc := round(LEAST(_base, GREATEST(disc, 0)), 2);
   END IF;
 
-  fee := round((_base - disc) * COALESCE(s.service_fee_pct, 0) / 100.0, 2);
-  gst := round(fee * COALESCE(s.gst_pct, 0) / 100.0, 2);
+  disc := LEAST(_base, disc + m_disc);
+
+  -- 0% platform convenience fees for Plus and Black VIP members
+  IF plan_norm IN ('plus', 'black') THEN
+    fee := 0;
+    gst := 0;
+  ELSE
+    fee := round((_base - disc) * COALESCE(s.service_fee_pct, 0) / 100.0, 2);
+    gst := round(fee * COALESCE(s.gst_pct, 0) / 100.0, 2);
+  END IF;
+
   comm := round(_base * COALESCE(s.commission_pct, 0) / 100.0, 2);
   comm_gst := round(comm * COALESCE(s.gst_pct, 0) / 100.0, 2);
 
   RETURN jsonb_build_object(
     'base', _base,
     'coupon_code', coupon_norm,
+    'membership_plan', plan_norm,
+    'membership_discount', m_disc,
     'discount', disc,
     'service_fee', fee,
     'gst', gst,
@@ -2814,11 +2877,23 @@ CREATE FUNCTION public.tg_price_booking() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-DECLARE ch jsonb; base numeric; dep numeric;
+DECLARE ch jsonb; base numeric; dep numeric; m_plan text := 'free';
 BEGIN
   base := public.rental_base_price(NEW.vehicle_id, NEW.start_date, NEW.end_date, NEW.pickup_time, NEW.dropoff_time);
   SELECT COALESCE(security_deposit, 0) INTO dep FROM public.vehicles WHERE id = NEW.vehicle_id;
-  ch := public.compute_charges(base, NEW.coupon_code);
+
+  SELECT COALESCE(membership_plan, 'free') INTO m_plan
+  FROM public.profiles
+  WHERE id = NEW.customer_id
+    AND (membership_expires_at IS NULL OR membership_expires_at > now());
+  IF m_plan IS NULL THEN m_plan := 'free'; END IF;
+
+  -- Black VIP zero security deposit requirement
+  IF m_plan = 'black' THEN
+    dep := 0;
+  END IF;
+
+  ch := public.compute_charges(base, NEW.coupon_code, m_plan);
   NEW.base_price := base;
   NEW.security_deposit := dep;
   NEW.coupon_code := ch->>'coupon_code';
@@ -2845,10 +2920,17 @@ CREATE FUNCTION public.tg_price_driver_booking() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-DECLARE ch jsonb; p RECORD;
+DECLARE ch jsonb; p RECORD; m_plan text := 'free';
 BEGIN
   SELECT * INTO p FROM public.driver_base_price(NEW.driver_id, NEW.rate_type::text, NEW.start_date, NEW.end_date, NEW.start_time, NEW.end_time);
-  ch := public.compute_charges(p.base, NEW.coupon_code);
+
+  SELECT COALESCE(membership_plan, 'free') INTO m_plan
+  FROM public.profiles
+  WHERE id = NEW.customer_id
+    AND (membership_expires_at IS NULL OR membership_expires_at > now());
+  IF m_plan IS NULL THEN m_plan := 'free'; END IF;
+
+  ch := public.compute_charges(p.base, NEW.coupon_code, m_plan);
   NEW.hours := p.billed_hours;
   NEW.days := p.billed_days;
   NEW.base_price := p.base;
@@ -2876,11 +2958,36 @@ CREATE FUNCTION public.tg_price_wash_booking() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-DECLARE ch jsonb; base numeric;
+DECLARE ch jsonb; base numeric; m_plan text := 'free';
 BEGIN
   SELECT price INTO base FROM public.wash_services WHERE id = NEW.service_id AND active;
   IF base IS NULL THEN RAISE EXCEPTION 'Wash service not available'; END IF;
-  ch := public.compute_charges(base, NEW.coupon_code);
+
+  SELECT COALESCE(membership_plan, 'free') INTO m_plan
+  FROM public.profiles
+  WHERE id = NEW.customer_id
+    AND (membership_expires_at IS NULL OR membership_expires_at > now());
+  IF m_plan IS NULL THEN m_plan := 'free'; END IF;
+
+  -- 1 free doorstep wash per month (3 for Black VIP)
+  IF upper(btrim(COALESCE(NEW.coupon_code, ''))) = 'MEMBERSHIP_FREE_WASH' AND m_plan IN ('plus', 'black') THEN
+    NEW.base_price := base;
+    NEW.coupon_code := 'MEMBERSHIP_FREE_WASH';
+    NEW.discount := base;
+    NEW.service_fee := 0;
+    NEW.gst_amount := 0;
+    NEW.commission_amount := 0;
+    NEW.commission_gst := 0;
+    NEW.provider_earning := base;
+    NEW.price := 0;
+    NEW.payment_status := 'paid';
+    NEW.paid_at := now();
+    NEW.earning_credited_at := NULL;
+    NEW.refund_amount := 0;
+    RETURN NEW;
+  END IF;
+
+  ch := public.compute_charges(base, NEW.coupon_code, m_plan);
   NEW.base_price := base;
   NEW.coupon_code := ch->>'coupon_code';
   NEW.discount := (ch->>'discount')::numeric;
@@ -2890,8 +2997,13 @@ BEGIN
   NEW.commission_gst := (ch->>'commission_gst')::numeric;
   NEW.provider_earning := (ch->>'provider_earning')::numeric;
   NEW.price := (ch->>'customer_total')::numeric;
-  NEW.payment_status := 'unpaid';
-  NEW.paid_at := NULL;
+  IF NEW.price <= 0 THEN
+    NEW.payment_status := 'paid';
+    NEW.paid_at := now();
+  ELSE
+    NEW.payment_status := 'unpaid';
+    NEW.paid_at := NULL;
+  END IF;
   NEW.earning_credited_at := NULL;
   NEW.refund_amount := 0;
   RETURN NEW;
@@ -7628,13 +7740,13 @@ GRANT ALL ON FUNCTION public.claim_wash_job(_wash_booking_id uuid, id uuid) TO s
 
 
 --
--- Name: FUNCTION compute_charges(_base numeric, _coupon text); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION compute_charges(_base numeric, _coupon text, _membership_plan text); Type: ACL; Schema: public; Owner: -
 --
 
-REVOKE ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text) TO anon;
-GRANT ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text) TO authenticated;
-GRANT ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text) TO service_role;
+REVOKE ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text, _membership_plan text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text, _membership_plan text) TO anon;
+GRANT ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text, _membership_plan text) TO authenticated;
+GRANT ALL ON FUNCTION public.compute_charges(_base numeric, _coupon text, _membership_plan text) TO service_role;
 
 
 --

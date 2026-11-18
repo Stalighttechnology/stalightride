@@ -83,6 +83,19 @@ function DriverProfile() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [membershipPlan, setMembershipPlan] = useState<string>("free");
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .from("profiles")
+      .select("membership_plan")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.membership_plan) setMembershipPlan(data.membership_plan);
+      });
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +164,29 @@ function DriverProfile() {
 
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
 
+  // Auto-apply pending reward coupon from rewards page
+  useEffect(() => {
+    const pending = sessionStorage.getItem("synchoo_pending_coupon");
+    if (!pending || coupon) return;
+    const trimmed = pending.trim();
+    api.rpc("validate_coupon", { _code: trimmed }).then(({ data, error }) => {
+      const res = data as {
+        valid?: boolean;
+        code?: string;
+        percent_off?: number | null;
+        amount_off?: number | null;
+      } | null;
+      if (!error && res?.valid) {
+        setCoupon({
+          code: res.code ?? trimmed.toUpperCase(),
+          percent_off: res.percent_off ?? null,
+          amount_off: res.amount_off ?? null,
+        });
+        toast.success(`Reward voucher ${trimmed} applied to your driver booking!`);
+      }
+    });
+  }, [coupon]);
+
   const hire = async () => {
     if (!user) return navigate({ to: "/auth" });
     if (price.error || price.subtotal <= 0)
@@ -175,6 +211,32 @@ function DriverProfile() {
     });
     setSubmitting(false);
     if (error) return toast.error(error.message);
+
+    if (coupon?.code) {
+      try {
+        sessionStorage.removeItem("synchoo_pending_coupon");
+        const sKey = user.id ? `synchoo_rewards_${user.id}` : "synchoo_rewards_guest";
+        const saved = localStorage.getItem(`${sKey}_vouchers`);
+        if (saved) {
+          const list = JSON.parse(saved);
+          const updated = list.map((item: any) =>
+            item.code.toUpperCase() === coupon.code.toUpperCase()
+              ? {
+                  ...item,
+                  used: true,
+                  usedAt: new Date().toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  }),
+                }
+              : item,
+          );
+          localStorage.setItem(`${sKey}_vouchers`, JSON.stringify(updated));
+        }
+      } catch {}
+    }
+
     toast.success("Request sent — you'll pay once the driver accepts");
     navigate({ to: "/hires" });
   };
@@ -461,7 +523,12 @@ function DriverProfile() {
                           <span>{currency(l.value)}</span>
                         </div>
                       ))}
-                      <ChargeLines base={price.subtotal} coupon={coupon} totalLabel="Total" />
+                      <ChargeLines
+                        base={price.subtotal}
+                        coupon={coupon}
+                        totalLabel="Total"
+                        membershipPlan={membershipPlan}
+                      />
                       <div className="pt-2">
                         <CouponField value={coupon} onChange={setCoupon} />
                       </div>

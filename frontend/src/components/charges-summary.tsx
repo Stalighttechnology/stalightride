@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { computeCharges } from "@/lib/charges";
+import { computeCharges, round2 } from "@/lib/charges";
 import { currency } from "@/lib/format";
 import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
@@ -93,34 +93,58 @@ export function ChargeLines({
   deposit = 0,
   coupon,
   totalLabel = "Total payable",
+  membershipPlan,
 }: {
   base: number;
   deposit?: number;
   coupon: AppliedCoupon | null;
   totalLabel?: string;
+  membershipPlan?: string | null;
 }) {
   const settings = usePlatformSettings();
-  const c = computeCharges(base, settings, coupon);
+  const plan = (membershipPlan || "free").toLowerCase();
+  const isVip = plan === "plus" || plan === "black";
+  const effectiveDeposit = plan === "black" ? 0 : deposit;
+  const c = computeCharges(base, settings, coupon, membershipPlan);
+
   const row = (label: string, value: string, muted = false) => (
     <div className={`flex items-center justify-between ${muted ? "text-muted-foreground" : ""}`}>
       <span>{label}</span>
       <span className="tabular-nums">{value}</span>
     </div>
   );
+
+  const couponDiscount = round2(c.discount - c.membership_discount);
+
   return (
     <>
       <div className="space-y-1.5">
-        {c.discount > 0 &&
-          row(`Discount${coupon ? ` (${coupon.code})` : ""}`, `− ${currency(c.discount)}`)}
-        {c.service_fee > 0 &&
-          row(`Service fee (${settings.service_fee_pct}%)`, currency(c.service_fee), true)}
-        {c.gst > 0 && row(`GST on fee (${settings.gst_pct}%)`, currency(c.gst), true)}
-        {deposit > 0 && row("Refundable deposit", currency(deposit))}
+        {c.membership_discount > 0 &&
+          row(
+            plan === "black" ? "Black VIP Discount (15%)" : "Synchoo Plus Discount (10%)",
+            `− ${currency(c.membership_discount)}`,
+          )}
+        {couponDiscount > 0 &&
+          row(`Coupon${coupon ? ` (${coupon.code})` : ""}`, `− ${currency(couponDiscount)}`)}
+        {isVip ? (
+          row("Platform fee (0% VIP Perk)", "₹0 (Waived)", true)
+        ) : (
+          <>
+            {c.service_fee > 0 &&
+              row(`Service fee (${settings.service_fee_pct}%)`, currency(c.service_fee), true)}
+            {c.gst > 0 && row(`GST on fee (${settings.gst_pct}%)`, currency(c.gst), true)}
+          </>
+        )}
+        {plan === "black" && deposit > 0 ? (
+          row("Refundable deposit", "₹0 (Waived for Black VIP)", true)
+        ) : (
+          deposit > 0 && row("Refundable deposit", currency(deposit))
+        )}
       </div>
       <div className="mt-3 flex items-baseline justify-between border-t border-border/70 pt-3">
         <span className="text-sm font-medium">{totalLabel}</span>
         <span className="font-display text-xl font-bold">
-          {currency(c.customer_total + deposit)}
+          {currency(c.customer_total + effectiveDeposit)}
         </span>
       </div>
     </>

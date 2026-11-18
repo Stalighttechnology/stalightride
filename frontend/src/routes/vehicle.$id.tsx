@@ -34,6 +34,8 @@ import {
   ImageOff,
   MessageSquareQuote,
   Trash2,
+  Crown,
+  CheckCircle2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -91,6 +93,31 @@ function VehiclePage() {
   const [wished, setWished] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [airportMeet, setAirportMeet] = useState(false);
+  const [flightInfo, setFlightInfo] = useState("");
+
+  // Auto-apply pending reward coupon from rewards page
+  useEffect(() => {
+    const pending = sessionStorage.getItem("synchoo_pending_coupon");
+    if (!pending || coupon) return;
+    const trimmed = pending.trim();
+    api.rpc("validate_coupon", { _code: trimmed }).then(({ data, error }) => {
+      const res = data as {
+        valid?: boolean;
+        code?: string;
+        percent_off?: number | null;
+        amount_off?: number | null;
+      } | null;
+      if (!error && res?.valid) {
+        setCoupon({
+          code: res.code ?? trimmed.toUpperCase(),
+          percent_off: res.percent_off ?? null,
+          amount_off: res.amount_off ?? null,
+        });
+        toast.success(`Reward voucher ${trimmed} applied to your rental!`);
+      }
+    });
+  }, [coupon]);
 
   useEffect(() => {
     (async () => {
@@ -145,10 +172,10 @@ function VehiclePage() {
       .then(({ data }) => setWished(!!data));
     api
       .from("profiles")
-      .select("dl_status,dl_expiry")
+      .select("dl_status,dl_expiry,membership_plan")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => setMyProfile(data));
+      .then(({ data }) => setMyProfile(data as any));
   }, [user, id]);
 
   const images = (v?.vehicle_images ?? [])
@@ -206,6 +233,11 @@ function VehiclePage() {
 
     try {
       const qrPayload = crypto.randomUUID();
+      let finalNotes = notes || "";
+      if (airportMeet) {
+        const meetTag = `[VIP Airport Meet & Greet${flightInfo.trim() ? `: Flight ${flightInfo.trim()}` : ""}]`;
+        finalNotes = finalNotes ? `${meetTag} ${finalNotes}` : meetTag;
+      }
       const { error } = await api.from("bookings").insert({
         vehicle_id: v.id,
         vendor_id: v.vendor_id,
@@ -221,9 +253,33 @@ function VehiclePage() {
         coupon_code: coupon?.code ?? null,
         status: "pending",
         qr_code: qrPayload,
-        notes: notes || null,
+        notes: finalNotes || null,
       } as any);
       if (error) throw error;
+      if (coupon?.code) {
+        try {
+          sessionStorage.removeItem("synchoo_pending_coupon");
+          const sKey = user.id ? `synchoo_rewards_${user.id}` : "synchoo_rewards_guest";
+          const saved = localStorage.getItem(`${sKey}_vouchers`);
+          if (saved) {
+            const list = JSON.parse(saved);
+            const updated = list.map((item: any) =>
+              item.code.toUpperCase() === coupon.code.toUpperCase()
+                ? {
+                    ...item,
+                    used: true,
+                    usedAt: new Date().toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    }),
+                  }
+                : item,
+            );
+            localStorage.setItem(`${sKey}_vouchers`, JSON.stringify(updated));
+          }
+        } catch {}
+      }
       toast.success("Booking requested! The host will confirm shortly.");
       navigate({ to: "/bookings" });
     } catch (e: any) {
@@ -701,11 +757,54 @@ function VehiclePage() {
                         base={subtotal}
                         deposit={Number(v.security_deposit)}
                         coupon={coupon}
+                        membershipPlan={myProfile?.membership_plan}
                       />
                     </div>
                     <div className="mt-3">
                       <CouponField value={coupon} onChange={setCoupon} />
                     </div>
+                    {myProfile?.membership_plan === "black" && (
+                      <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3 space-y-2 text-left">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                            <Crown className="h-3.5 w-3.5 text-violet-500" />
+                            <span>Executive VIP Privileges Active</span>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] border-violet-400 text-violet-600 bg-violet-500/10">
+                            Black VIP
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-muted-foreground">
+                          <p className="flex items-center gap-1 text-foreground">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span>15% Flat VIP Discount & ₹0 Security Deposit applied</span>
+                          </p>
+                          <p className="flex items-center gap-1 text-foreground">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span>Guaranteed Model Availability (Free auto-upgrade if model unavailable)</span>
+                          </p>
+                        </div>
+                        <div className="pt-2 border-t border-violet-500/20">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={airportMeet}
+                              onChange={(e) => setAirportMeet(e.target.checked)}
+                              className="rounded border-border text-brand focus:ring-brand h-3.5 w-3.5"
+                            />
+                            <span>Request 24/7 Airport Meet & Greet</span>
+                          </label>
+                          {airportMeet && (
+                            <Input
+                              placeholder="Arrival Flight No. & Terminal (e.g. 6E 405, T2)"
+                              value={flightInfo}
+                              onChange={(e) => setFlightInfo(e.target.value)}
+                              className="mt-2 text-xs h-8 bg-background"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-center">
