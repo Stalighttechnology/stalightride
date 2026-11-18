@@ -1060,8 +1060,9 @@ function WashCentersQueue() {
 
   const toggleActive = async (center: any) => {
     setBusy(center.id);
+    const table = center.verification_status !== undefined ? "wash_centers" : "wash_vendors";
     const { error } = await api
-      .from("wash_vendors")
+      .from(table as any)
       .update({ active: !center.active } as any)
       .eq("id", center.id);
     setBusy(null);
@@ -1205,6 +1206,16 @@ function WashCentersQueue() {
                           onClick={() => decideCenter(c.id, "rejected")}
                         >
                           Reject
+                        </Button>
+                      )}
+                      {c.verification_status === "approved" && (
+                        <Button
+                          size="sm"
+                          variant={c.active ? "outline" : "default"}
+                          disabled={busy === c.id}
+                          onClick={() => toggleActive(c)}
+                        >
+                          {c.active ? "Deactivate" : "Approve & Activate"}
                         </Button>
                       )}
                     </>

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { comingSoon } from "@/components/coming-soon";
 import {
   Sparkles,
   Award,
@@ -426,44 +427,7 @@ export function RewardsPage() {
     : 100;
 
   const handleRedeem = (voucher: RewardVoucher) => {
-    if (pointsBalance < voucher.pointsCost) {
-      return toast.error(
-        `Insufficient points. You need ${voucher.pointsCost - pointsBalance} more points.`,
-      );
-    }
-
-    const nextPoints = pointsBalance - voucher.pointsCost;
-    setPointsBalance(nextPoints);
-
-    const newClaimed: ClaimedVoucher = {
-      ...voucher,
-      id: `${voucher.id}-${Date.now()}`,
-      claimedAt: "Just now",
-      expiresAt: "In 60 days",
-    };
-
-    const nextList = [newClaimed, ...claimedList];
-    setClaimedList(nextList);
-
-    const actItem: PointTransaction = {
-      id: `act-${Date.now()}`,
-      title: `Redeemed: ${voucher.title}`,
-      amount: -voucher.pointsCost,
-      type: "redeemed",
-      date: "Just now",
-      description: `Saved promo code ${voucher.code} to My Vouchers`,
-    };
-    const nextActivity = [actItem, ...activity];
-    setActivity(nextActivity);
-
-    try {
-      localStorage.setItem(`${storageKey}_points`, String(nextPoints));
-      localStorage.setItem(`${storageKey}_vouchers`, JSON.stringify(nextList));
-      localStorage.setItem(`${storageKey}_activity`, JSON.stringify(nextActivity));
-    } catch {}
-
-    toast.success(`Redeemed ${voucher.title}! Voucher code ${voucher.code} saved to My Vouchers.`);
-    setActiveTab("redeemed");
+    comingSoon();
   };
 
   const copyCode = (code: string) => {
@@ -495,69 +459,8 @@ export function RewardsPage() {
     toast.success(`Added ${amount} loyalty reward points to your balance!`);
   };
 
-  const handleConvertToWallet = async (amountToConvert: number) => {
-    if (pointsBalance < amountToConvert) {
-      return toast.error(`Insufficient points. You only have ${pointsBalance} points available.`);
-    }
-    if (amountToConvert <= 0) {
-      return toast.error("Please enter a valid points amount to convert.");
-    }
-
-    setIsConverting(true);
-    const nextPoints = pointsBalance - amountToConvert;
-    setPointsBalance(nextPoints);
-
-    const actItem: PointTransaction = {
-      id: `act-${Date.now()}`,
-      title: "Converted to Wallet Cash",
-      amount: -amountToConvert,
-      type: "converted",
-      date: "Just now",
-      description: `Transferred ${currency(amountToConvert)} to Synchoo Wallet (1 Pt = ₹1)`,
-    };
-    const nextActivity = [actItem, ...activity];
-    setActivity(nextActivity);
-
-    try {
-      localStorage.setItem(`${storageKey}_points`, String(nextPoints));
-      localStorage.setItem(`${storageKey}_activity`, JSON.stringify(nextActivity));
-
-      // Attempt to credit Supabase wallets table if signed in
-      if (user?.id) {
-        const { data: w } = await api
-          .from("wallets")
-          .select("balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        const currentBal = Number(w?.balance ?? 0);
-        const newBal = currentBal + amountToConvert;
-
-        await api.from("wallets").upsert({
-          user_id: user.id,
-          balance: newBal,
-          updated_at: new Date().toISOString(),
-        });
-
-        await api.from("wallet_transactions").insert({
-          user_id: user.id,
-          amount: amountToConvert,
-          kind: "promo_credit",
-          description: `Converted ${amountToConvert} Synchoo Points to Wallet Cash`,
-        });
-      }
-    } catch (e) {
-      console.warn("Wallet credit updated locally:", e);
-    } finally {
-      setIsConverting(false);
-    }
-
-    toast.success(
-      `Converted ${amountToConvert} Points to ${currency(amountToConvert)} Wallet Cash!`,
-      {
-        description: "Your Synchoo wallet has been credited and is ready for booking checkouts.",
-      },
-    );
+  const handleConvertToWallet = async (_amountToConvert: number) => {
+    comingSoon();
   };
 
   const filteredCatalog = useMemo(() => {

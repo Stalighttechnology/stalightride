@@ -107,12 +107,21 @@ function SafetyCenterPage() {
     }
     setSubmittingIncident(true);
 
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const bId = incidentBookingId.trim();
+    const validBookingId = isUUID.test(bId) ? bId : null;
+    const finalDesc = validBookingId
+      ? incidentDesc.trim()
+      : bId
+        ? `[Reference: ${bId}] ${incidentDesc.trim()}`
+        : incidentDesc.trim();
+
     const { error } = await api.from("incidents").insert({
       reporter_id: user.id,
       type: incidentType,
-      booking_id: incidentBookingId.trim() || null,
+      booking_id: validBookingId,
       location_text: incidentLocation.trim() || null,
-      description: incidentDesc.trim(),
+      description: finalDesc,
       status: "open",
     });
 
@@ -140,12 +149,21 @@ function SafetyCenterPage() {
     }
     setSubmittingLost(true);
 
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const tId = lostTripId.trim();
+    const validTripId = isUUID.test(tId) ? tId : null;
+    const finalLostDesc = validTripId
+      ? (lostDesc.trim() || null)
+      : tId
+        ? `[Trip Reference: ${tId}] ${lostDesc.trim()}`.trim()
+        : (lostDesc.trim() || null);
+
     const { error } = await api.from("incidents").insert({
       reporter_id: user.id,
       type: "lost_item",
-      booking_id: lostTripId.trim() || null,
+      booking_id: validTripId,
       item_name: lostItemName.trim(),
-      description: lostDesc.trim() || null,
+      description: finalLostDesc,
       status: "open",
     });
 
@@ -439,7 +457,6 @@ function SafetyCenterPage() {
                           value={incidentDesc}
                           onChange={(e) => setIncidentDesc(e.target.value)}
                           placeholder="Details of the event, third-party vehicle details, injuries (if any), and vehicle drivability status."
-                          required
                         />
                       </div>
 

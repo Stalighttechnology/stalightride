@@ -820,7 +820,7 @@ BEGIN
       PERFORM public.wallet_apply(b.driver_id, share, 'driver_earning', NULL, b.id::text,
         'Late-cancellation share (after commission)');
     END IF;
-    new_pay_status := CASE WHEN pct = 1 THEN 'refunded' ELSE 'partially_refunded' END;
+    new_pay_status := CASE WHEN pct = 1 THEN 'refunded' WHEN pct = 0 THEN 'no_refund' ELSE 'partially_refunded' END;
   ELSE
     new_pay_status := b.payment_status;
   END IF;
@@ -1144,6 +1144,9 @@ BEGIN
 
   UPDATE public.pool_trips SET status = 'cancelled', updated_at = now()
   WHERE driver_id = uid AND depart_at > now() AND status <> 'cancelled';
+
+  -- Deactivate login in accounts_user so deleted users cannot sign back in
+  UPDATE accounts_user SET is_active = false WHERE id = uid;
 
   RETURN jsonb_build_object('ok', true);
 END;
@@ -1826,8 +1829,9 @@ BEGIN
     FROM public.user_roles ur
     WHERE ur.role = 'admin';
   ELSIF NEW.type = 'lost_item' AND NEW.booking_id IS NOT NULL THEN
-    -- Look up vehicle host
-    SELECT vendor_id INTO v_host_id FROM public.bookings WHERE id = NEW.booking_id;
+    -- Look up vehicle host only if the reporter is party to the booking
+    SELECT vendor_id INTO v_host_id FROM public.bookings
+    WHERE id = NEW.booking_id AND (customer_id = NEW.user_id OR vendor_id = NEW.user_id);
     IF v_host_id IS NOT NULL THEN
       INSERT INTO public.notifications (user_id, title, body, link)
       VALUES (
@@ -2066,8 +2070,8 @@ END; $$;
 --
 
 CREATE FUNCTION public.recompute_vehicle_rating() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path TO 'public'
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
     AS $$
 DECLARE vid UUID;
 BEGIN

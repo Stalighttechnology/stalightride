@@ -47,15 +47,9 @@ function ReferralsPage() {
   // /auth reads ?ref= at sign-up and links the new account to this referrer.
   // External messaging apps (WhatsApp, Telegram, SMS) require a valid public domain with a TLD
   // (e.g. https://synchoo.com) rather than 'localhost' to recognize and render active blue clickable hyperlinks.
-  const isLocal =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname.endsWith(".local"));
-
   const publicBase =
     (import.meta.env.VITE_PUBLIC_APP_URL as string) ||
-    (isLocal ? "https://synchoo.com" : window.location.origin);
+    (typeof window !== "undefined" ? window.location.origin : "https://synchoo.com");
 
   const referralLink = `${publicBase}/auth?mode=signup&ref=${referralCode}`;
 

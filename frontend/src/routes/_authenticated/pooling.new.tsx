@@ -263,7 +263,7 @@ function NewPoolTrip() {
                   min={1}
                   max={8}
                   value={seats}
-                  onChange={(e) => setSeats(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+                  onChange={(e) => setSeats(Number(e.target.value) || 0)}
                 />
               </div>
               <div className="space-y-1.5">
