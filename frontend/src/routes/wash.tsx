@@ -24,6 +24,7 @@ const searchSchema = z.object({
   city: z.string().optional(),
   date: z.string().optional(),
   slot: z.string().optional(),
+  coupon: z.string().optional(),
 });
 
 export const Route = createFileRoute("/wash")({
@@ -110,6 +111,29 @@ function WashPage() {
     if (selectedCity) setForm((f) => (f.city ? f : { ...f, city: selectedCity }));
   }, [selectedCity]);
 
+  // Auto-apply voucher from search params or session storage
+  useEffect(() => {
+    const voucherParam = search.coupon || sessionStorage.getItem("synchoo_pending_wash_coupon");
+    if (!voucherParam) return;
+    const trimmed = voucherParam.trim();
+    api.rpc("validate_coupon", { _code: trimmed }).then(({ data, error }) => {
+      const res = data as {
+        valid?: boolean;
+        code?: string;
+        percent_off?: number | null;
+        amount_off?: number | null;
+      } | null;
+      if (!error && res?.valid) {
+        setCoupon({
+          code: res.code ?? trimmed.toUpperCase(),
+          percent_off: res.percent_off ?? null,
+          amount_off: res.amount_off ?? null,
+        });
+        toast.success(`Reward voucher ${trimmed} applied! Free foam wash unlocked.`);
+      }
+    });
+  }, [search.coupon]);
+
   useEffect(() => {
     if (!user) return;
     api
@@ -131,9 +155,19 @@ function WashPage() {
       .order("sort_order", { ascending: true })
       .then(({ data, error }) => {
         if (error) toast.error(error.message);
-        setServices(data ?? []);
+        const list = data ?? [];
+        setServices(list);
+        if (list.length > 0) {
+          const hasVoucher = Boolean(search.coupon || sessionStorage.getItem("synchoo_pending_wash_coupon"));
+          const target = hasVoucher
+            ? list.find((s) => s.vehicle_category === "car" && s.name.toLowerCase().includes("express")) ||
+              list.find((s) => s.vehicle_category === "car") ||
+              list[0]
+            : list[0];
+          setSelected((prev) => prev ?? target.id);
+        }
       });
-  }, []);
+  }, [search.coupon]);
 
   const service = useMemo(
     () => (services ?? []).find((s) => s.id === selected) ?? null,
@@ -162,7 +196,38 @@ function WashPage() {
     } as any);
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Slot requested — our team will confirm a washer partner shortly");
+
+    // Mark claimed voucher as used in rewards storage
+    if (coupon?.code) {
+      try {
+        const sKey = user.id ? `synchoo_rewards_${user.id}` : "synchoo_rewards_guest";
+        const saved = localStorage.getItem(`${sKey}_vouchers`);
+        if (saved) {
+          const list = JSON.parse(saved);
+          const updated = list.map((v: any) =>
+            v.code.toUpperCase() === coupon.code.toUpperCase()
+              ? {
+                  ...v,
+                  used: true,
+                  usedAt: new Date().toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  }),
+                }
+              : v,
+          );
+          localStorage.setItem(`${sKey}_vouchers`, JSON.stringify(updated));
+        }
+        sessionStorage.removeItem("synchoo_pending_wash_coupon");
+      } catch {}
+    }
+
+    toast.success(
+      coupon && (coupon.percent_off === 100 || Number(service.price) <= Number(coupon.amount_off ?? 0))
+        ? "Free wash booked successfully with your reward voucher!"
+        : "Slot requested — our team will confirm a washer partner shortly",
+    );
     navigate({ to: "/washes" });
   };
 
@@ -371,6 +436,35 @@ function WashPage() {
                     </Button>
                   </div>
                 )}
+                {coupon && coupon.code !== "MEMBERSHIP_FREE_WASH" && (
+                  <div className="mb-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 text-emerald-500 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                          <span>Reward Voucher Applied:</span>
+                          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-emerald-500/20">{coupon.code}</span>
+                        </p>
+                        <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                          {coupon.code.startsWith("SYN-WASH")
+                            ? "Free Doorstep Pressure Foam Wash (100% off)"
+                            : coupon.percent_off != null
+                              ? `${coupon.percent_off}% discount applied`
+                              : `₹${coupon.amount_off} discount applied`}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setCoupon(null)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span>{service.name}</span>
                   <span className="tabular-nums">{currency(service.price)}</span>
@@ -392,13 +486,18 @@ function WashPage() {
 
             <div className="mt-4 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
               <MapPin className="mb-1 h-3.5 w-3.5" />
-              No payment now. Once our team confirms a washer partner for your slot, pay from your
-              wallet or by card on the “My washes” page.
+              {coupon && (coupon.percent_off === 100 || Number(service?.price ?? 0) <= Number(coupon.amount_off ?? 0))
+                ? "Free wash voucher applied! Total payable is ₹0. No payment required."
+                : "No payment now. Once our team confirms a washer partner for your slot, pay from your wallet or by card on the “My washes” page."}
             </div>
 
             {user ? (
               <Button className="mt-4 w-full" disabled={saving || !service} onClick={submit}>
-                {saving ? "Requesting…" : "Request this slot"}
+                {saving
+                  ? "Requesting…"
+                  : coupon && (coupon.percent_off === 100 || Number(service?.price ?? 0) <= Number(coupon.amount_off ?? 0))
+                    ? "Book Free Wash with Voucher"
+                    : "Request this slot"}
               </Button>
             ) : (
               <Button asChild className="mt-4 w-full">

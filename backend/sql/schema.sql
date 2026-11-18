@@ -2997,8 +2997,13 @@ BEGIN
   NEW.commission_gst := (ch->>'commission_gst')::numeric;
   NEW.provider_earning := (ch->>'provider_earning')::numeric;
   NEW.price := (ch->>'customer_total')::numeric;
-  NEW.payment_status := 'unpaid';
-  NEW.paid_at := NULL;
+  IF NEW.price <= 0 THEN
+    NEW.payment_status := 'paid';
+    NEW.paid_at := now();
+  ELSE
+    NEW.payment_status := 'unpaid';
+    NEW.paid_at := NULL;
+  END IF;
   NEW.earning_credited_at := NULL;
   NEW.refund_amount := 0;
   RETURN NEW;

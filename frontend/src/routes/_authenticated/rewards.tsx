@@ -78,6 +78,8 @@ interface RewardVoucher {
 interface ClaimedVoucher extends RewardVoucher {
   claimedAt: string;
   expiresAt: string;
+  used?: boolean;
+  usedAt?: string;
 }
 
 interface PointTransaction {
@@ -326,6 +328,50 @@ export function RewardsPage() {
         if (data?.membership_plan) setMembershipPlan(data.membership_plan);
       });
   }, [user]);
+
+  // Sync claimed vouchers with placed bookings to detect redeemed vouchers
+  useEffect(() => {
+    if (!user) return;
+    api
+      .from("wash_bookings")
+      .select("coupon_code,created_at")
+      .eq("customer_id", user.id)
+      .not("coupon_code", "is", null)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const usedMap = new Map<string, string>();
+        for (const b of data) {
+          if (b.coupon_code) {
+            const dateStr = b.created_at
+              ? new Date(b.created_at).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "Recently";
+            usedMap.set(b.coupon_code.toUpperCase(), dateStr);
+          }
+        }
+        setClaimedList((prev) => {
+          let modified = false;
+          const next = prev.map((v) => {
+            const usedDate = usedMap.get(v.code.toUpperCase());
+            if (usedDate && !v.used) {
+              modified = true;
+              return { ...v, used: true, usedAt: usedDate };
+            }
+            return v;
+          });
+          if (modified) {
+            try {
+              localStorage.setItem(`${storageKey}_vouchers`, JSON.stringify(next));
+            } catch {}
+            return next;
+          }
+          return prev;
+        });
+      });
+  }, [user, storageKey]);
 
   // Dynamic Tier Calculation based on points balance
   const currentTier = useMemo(() => {
@@ -809,7 +855,9 @@ export function RewardsPage() {
                         Copy your promo code to apply on your next trip or booking
                       </CardDescription>
                     </div>
-                    <Badge variant="outline">{claimedList.length} Active Vouchers</Badge>
+                    <Badge variant="outline">
+                      {claimedList.filter((v) => !v.used).length} Active Vouchers
+                    </Badge>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {claimedList.length === 0 ? (
@@ -823,16 +871,36 @@ export function RewardsPage() {
                         return (
                           <div
                             key={v.id}
-                            className="p-4 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
+                              v.used
+                                ? "border-border/50 bg-muted/20 opacity-80"
+                                : "border-border bg-card"
+                            }`}
                           >
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                              <div
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                                  v.used
+                                    ? "bg-muted text-muted-foreground"
+                                    : "bg-brand/10 text-brand"
+                                }`}
+                              >
                                 <Icon className="h-5 w-5" />
                               </div>
                               <div>
-                                <p className="font-semibold text-sm">{v.title}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-sm">{v.title}</p>
+                                  {v.used && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] px-1.5 py-0 h-4"
+                                    >
+                                      Redeemed
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Claimed: {v.claimedAt} · Valid {v.expiresAt}
+                                  Claimed: {v.claimedAt} · {v.used ? `Used on ${v.usedAt ?? "booking"}` : `Valid ${v.expiresAt}`}
                                 </p>
                                 <p className="text-[11px] text-muted-foreground/80 mt-0.5">
                                   {v.terms}
@@ -841,40 +909,80 @@ export function RewardsPage() {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">
-                              <div className="font-mono text-xs font-bold bg-muted px-2.5 py-1.5 rounded-lg border border-border">
-                                {v.code}
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => copyCode(v.code)}
-                                className="h-8 text-xs"
-                              >
-                                <Copy className="mr-1 h-3.5 w-3.5" /> {isCopied ? "Copied" : "Copy"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                asChild
-                                className="h-8 text-xs bg-brand text-brand-foreground hover:bg-brand/90"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(v.code);
-                                  toast.info(`Code ${v.code} copied! Redirecting to booking...`);
-                                }}
-                              >
-                                <Link
-                                  to={
-                                    v.category === "Wash"
-                                      ? "/wash"
-                                      : v.category === "Carpool"
-                                        ? "/pooling"
-                                        : v.code.includes("DRIVER")
-                                          ? "/drivers"
-                                          : "/browse"
-                                  }
+                              {v.used ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  asChild
+                                  className="h-8 text-xs border-border"
                                 >
-                                  Book & Apply
-                                </Link>
-                              </Button>
+                                  <Link to={v.category === "Wash" ? "/washes" : "/bookings"}>
+                                    View Booking
+                                  </Link>
+                                </Button>
+                              ) : (
+                                <>
+                                  <div className="font-mono text-xs font-bold bg-muted px-2.5 py-1.5 rounded-lg border border-border">
+                                    {v.code}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => copyCode(v.code)}
+                                    className="h-8 text-xs"
+                                  >
+                                    <Copy className="mr-1 h-3.5 w-3.5" /> {isCopied ? "Copied" : "Copy"}
+                                  </Button>
+                                  {v.category === "Fuel" || v.category === "Lifestyle" ? (
+                                    <Button
+                                      size="sm"
+                                      className="h-8 text-xs bg-brand text-brand-foreground hover:bg-brand/90"
+                                      onClick={() => {
+                                        copyCode(v.code);
+                                        toast.info(
+                                          `Code ${v.code} copied! Present this code at any participating outlet or pump.`,
+                                        );
+                                      }}
+                                    >
+                                      Redeem at Counter / Pump
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      asChild
+                                      className="h-8 text-xs bg-brand text-brand-foreground hover:bg-brand/90"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(v.code);
+                                        if (v.category === "Wash") {
+                                          sessionStorage.setItem("synchoo_pending_wash_coupon", v.code);
+                                        } else {
+                                          sessionStorage.setItem("synchoo_pending_coupon", v.code);
+                                        }
+                                        toast.info(`Code ${v.code} copied! Redirecting to booking...`);
+                                      }}
+                                    >
+                                      <Link
+                                        to={
+                                          v.category === "Wash"
+                                            ? "/wash"
+                                            : v.category === "Carpool"
+                                              ? "/pooling"
+                                              : v.code.includes("DRIVER")
+                                                ? "/drivers"
+                                                : "/browse"
+                                        }
+                                        search={
+                                          v.category === "Wash"
+                                            ? ({ coupon: v.code } as any)
+                                            : undefined
+                                        }
+                                      >
+                                        Book & Apply
+                                      </Link>
+                                    </Button>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
                         );
