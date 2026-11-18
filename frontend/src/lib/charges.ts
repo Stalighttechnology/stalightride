@@ -23,6 +23,7 @@ export type Coupon = { percent_off?: number | null; amount_off?: number | null }
 export type Charges = {
   base: number;
   discount: number;
+  membership_discount: number;
   service_fee: number;
   gst: number;
   commission: number;
@@ -40,23 +41,37 @@ export function computeCharges(
   base: number,
   settings: PlatformSettings = DEFAULT_SETTINGS,
   coupon?: Coupon,
+  membershipPlan?: string | null,
 ): Charges {
   const b = Math.max(0, Number(base) || 0);
-  let discount = 0;
+  const plan = (membershipPlan || "free").toLowerCase();
+
+  let membership_discount = 0;
+  if (plan === "plus") {
+    membership_discount = round2((b * 10) / 100);
+  } else if (plan === "black") {
+    membership_discount = round2((b * 15) / 100);
+  }
+
+  let coupon_discount = 0;
   if (coupon) {
     const raw =
       coupon.percent_off != null
         ? (b * Number(coupon.percent_off)) / 100
         : Number(coupon.amount_off ?? 0);
-    discount = round2(Math.min(b, Math.max(0, raw)));
+    coupon_discount = round2(Math.min(b, Math.max(0, raw)));
   }
-  const service_fee = round2(((b - discount) * settings.service_fee_pct) / 100);
-  const gst = round2((service_fee * settings.gst_pct) / 100);
+
+  const discount = round2(Math.min(b, coupon_discount + membership_discount));
+  const isVip = plan === "plus" || plan === "black";
+  const service_fee = isVip ? 0 : round2(((b - discount) * settings.service_fee_pct) / 100);
+  const gst = isVip ? 0 : round2((service_fee * settings.gst_pct) / 100);
   const commission = round2((b * settings.commission_pct) / 100);
   const commission_gst = round2((commission * settings.gst_pct) / 100);
   return {
     base: b,
     discount,
+    membership_discount,
     service_fee,
     gst,
     commission,
@@ -66,9 +81,31 @@ export function computeCharges(
   };
 }
 
-/** Cancellation refund share: >=24h 100%, >=2h 50%, else 0. Provider/admin cancel = 100%. */
-export function refundFraction(hoursLeft: number, cancelledByProviderOrAdmin = false) {
-  if (cancelledByProviderOrAdmin || hoursLeft >= 24) return 1;
+/**
+ * Cancellation refund share:
+ * - Black VIP: >=2h 100%, >=0h 50%
+ * - Plus Member: >=6h 100%, >=2h 50%
+ * - Standard: >=24h 100%, >=2h 50%
+ * - Provider/admin cancel = 100%
+ */
+export function refundFraction(
+  hoursLeft: number,
+  cancelledByProviderOrAdmin = false,
+  membershipPlan?: string | null,
+) {
+  if (cancelledByProviderOrAdmin) return 1;
+  const plan = (membershipPlan || "free").toLowerCase();
+  if (plan === "black") {
+    if (hoursLeft >= 2) return 1;
+    if (hoursLeft >= 0) return 0.5;
+    return 0;
+  }
+  if (plan === "plus") {
+    if (hoursLeft >= 6) return 1;
+    if (hoursLeft >= 2) return 0.5;
+    return 0;
+  }
+  if (hoursLeft >= 24) return 1;
   if (hoursLeft >= 2) return 0.5;
   return 0;
 }

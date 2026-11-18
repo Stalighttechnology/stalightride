@@ -83,6 +83,19 @@ function DriverProfile() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [membershipPlan, setMembershipPlan] = useState<string>("free");
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .from("profiles")
+      .select("membership_plan")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.membership_plan) setMembershipPlan(data.membership_plan);
+      });
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -461,7 +474,12 @@ function DriverProfile() {
                           <span>{currency(l.value)}</span>
                         </div>
                       ))}
-                      <ChargeLines base={price.subtotal} coupon={coupon} totalLabel="Total" />
+                      <ChargeLines
+                        base={price.subtotal}
+                        coupon={coupon}
+                        totalLabel="Total"
+                        membershipPlan={membershipPlan}
+                      />
                       <div className="pt-2">
                         <CouponField value={coupon} onChange={setCoupon} />
                       </div>

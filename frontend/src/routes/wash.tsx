@@ -15,7 +15,7 @@ import { currency } from "@/lib/format";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { useSelectedCity } from "@/components/city-selector";
 import { toast } from "sonner";
-import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock } from "lucide-react";
+import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { z } from "zod";
@@ -83,6 +83,8 @@ function WashPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [membershipPlan, setMembershipPlan] = useState<string>("free");
+  const [freeWashApplied, setFreeWashApplied] = useState<boolean>(false);
   const [form, setForm] = useState({
     city: search.city ?? "",
     address: "",
@@ -112,11 +114,12 @@ function WashPage() {
     if (!user) return;
     api
       .from("profiles")
-      .select("city")
+      .select("city,membership_plan")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.city) setForm((f) => (f.city ? f : { ...f, city: data.city as string }));
+        if (data?.membership_plan) setMembershipPlan(data.membership_plan as string);
       });
   }, [user]);
 
@@ -334,16 +337,56 @@ function WashPage() {
 
             {service && (
               <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm">
+                {(membershipPlan === "plus" || membershipPlan === "black") && (
+                  <div className="mb-3 rounded-lg border border-brand/40 bg-brand/10 p-3 flex items-center justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <Sparkles className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">
+                          {membershipPlan === "black" ? "Black VIP Perk" : "Synchoo Plus Perk"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {membershipPlan === "black"
+                            ? "3 free doorstep detailing washes per month included"
+                            : "1 free doorstep foam wash every month included"}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={freeWashApplied ? "secondary" : "default"}
+                      className="shrink-0 text-xs h-7 px-2.5"
+                      onClick={() => {
+                        const next = !freeWashApplied;
+                        setFreeWashApplied(next);
+                        if (next) {
+                          setCoupon({ code: "MEMBERSHIP_FREE_WASH", percent_off: 100, amount_off: null });
+                        } else if (coupon?.code === "MEMBERSHIP_FREE_WASH") {
+                          setCoupon(null);
+                        }
+                      }}
+                    >
+                      {freeWashApplied ? "Perk Applied" : "Apply Free Wash"}
+                    </Button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span>{service.name}</span>
                   <span className="tabular-nums">{currency(service.price)}</span>
                 </div>
                 <div className="mt-1.5">
-                  <ChargeLines base={Number(service.price)} coupon={coupon} />
+                  <ChargeLines
+                    base={Number(service.price)}
+                    coupon={coupon}
+                    membershipPlan={membershipPlan}
+                  />
                 </div>
-                <div className="mt-3">
-                  <CouponField value={coupon} onChange={setCoupon} />
-                </div>
+                {!freeWashApplied && (
+                  <div className="mt-3">
+                    <CouponField value={coupon} onChange={setCoupon} />
+                  </div>
+                )}
               </div>
             )}
 

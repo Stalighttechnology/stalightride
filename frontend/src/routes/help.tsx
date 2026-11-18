@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
+import { useSession } from "@/hooks/use-session";
+import { api } from "@/lib/api";
 import { SupportTicketForm } from "@/components/support-ticket-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -27,6 +30,10 @@ import {
   MapPin,
   CreditCard,
   AlertTriangle,
+  PhoneCall,
+  Headphones,
+  Sparkles,
+  Crown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -162,6 +169,21 @@ const MODULES: { icon: LucideIcon; title: string; desc: string; to: string }[] =
 ];
 
 function Help() {
+  const { user } = useSession();
+  const [membershipPlan, setMembershipPlan] = useState<string>("free");
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .from("profiles")
+      .select("membership_plan")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.membership_plan) setMembershipPlan(data.membership_plan);
+      });
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -665,6 +687,63 @@ function Help() {
                   </AccordionItem>
                 ))}
               </Accordion>
+            </section>
+
+            {/* Priority Customer Support Hotline */}
+            <section className="mt-12" id="priority-hotline">
+              <Card className="border-brand/40 bg-gradient-to-r from-brand/10 via-brand/5 to-background shadow-xs">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Badge className="bg-brand/20 text-brand border-brand/30">
+                      <Crown className="mr-1 h-3 w-3" />
+                      {membershipPlan === "black"
+                        ? "Synchoo Black VIP Priority Hotline"
+                        : membershipPlan === "plus"
+                          ? "Synchoo Plus Priority Hotline"
+                          : "VIP Member Support Hotline"}
+                    </Badge>
+                    <span className="text-xs text-brand font-medium">Dedicated Queue · 24/7 Available</span>
+                  </div>
+                  <CardTitle className="text-lg font-bold mt-2 flex items-center gap-2">
+                    <Headphones className="h-5 w-5 text-brand" />
+                    Priority Customer Support Hotline
+                  </CardTitle>
+                  <CardDescription>
+                    {membershipPlan === "black" || membershipPlan === "plus"
+                      ? `As an active ${membershipPlan === "black" ? "Synchoo Black VIP" : "Synchoo Plus"} member, your calls and requests bypass the queue directly to our senior customer operations team with 0-wait priority.`
+                      : "Upgrade to Synchoo Plus or Black VIP for 24/7 direct phone support hotline, dedicated senior concierge, and zero queue wait times."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                      <PhoneCall className="h-5 w-5 text-brand shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium">Toll-Free Priority Line</p>
+                        <a href="tel:1800-796-847" className="font-semibold text-sm hover:underline text-foreground">
+                          1800-SYN-VIP (1800-796-847)
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                      <Headphones className="h-5 w-5 text-emerald-500 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium">Direct Concierge Operations</p>
+                        <a href="tel:+918047259000" className="font-semibold text-sm hover:underline text-foreground">
+                          +91 80 4725 9000
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  {membershipPlan === "free" && (
+                    <div className="pt-1">
+                      <Button asChild size="sm" variant="outline" className="border-brand/40 text-brand">
+                        <Link to="/membership">View Membership Plans</Link>
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </section>
 
             {/* Raise a Support Ticket Form */}

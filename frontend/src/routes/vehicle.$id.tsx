@@ -145,10 +145,10 @@ function VehiclePage() {
       .then(({ data }) => setWished(!!data));
     api
       .from("profiles")
-      .select("dl_status,dl_expiry")
+      .select("dl_status,dl_expiry,membership_plan")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => setMyProfile(data));
+      .then(({ data }) => setMyProfile(data as any));
   }, [user, id]);
 
   const images = (v?.vehicle_images ?? [])
@@ -701,6 +701,7 @@ function VehiclePage() {
                         base={subtotal}
                         deposit={Number(v.security_deposit)}
                         coupon={coupon}
+                        membershipPlan={myProfile?.membership_plan}
                       />
                     </div>
                     <div className="mt-3">

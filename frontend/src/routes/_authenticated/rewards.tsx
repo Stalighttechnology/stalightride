@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { useSession } from "@/hooks/use-session";
 import { api } from "@/lib/api";
@@ -313,6 +313,19 @@ export function RewardsPage() {
   const [voucherToRedeem, setVoucherToRedeem] = useState<RewardVoucher | null>(null);
   const [customConvertAmount, setCustomConvertAmount] = useState<string>("100");
   const [isConverting, setIsConverting] = useState(false);
+  const [membershipPlan, setMembershipPlan] = useState<string>("free");
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .from("profiles")
+      .select("membership_plan")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.membership_plan) setMembershipPlan(data.membership_plan);
+      });
+  }, [user]);
 
   // Dynamic Tier Calculation based on points balance
   const currentTier = useMemo(() => {
@@ -321,6 +334,12 @@ export function RewardsPage() {
     if (pointsBalance >= 400) return TIERS[1];
     return TIERS[0];
   }, [pointsBalance]);
+
+  const activeMultiplier = useMemo(() => {
+    if (membershipPlan === "black") return "2.5x (Black VIP Boost)";
+    if (membershipPlan === "plus") return "2.0x (Synchoo Plus Boost)";
+    return currentTier.multiplier;
+  }, [membershipPlan, currentTier]);
 
   const nextTier = useMemo(() => {
     if (currentTier.name === "Platinum VIP") return null;
@@ -603,6 +622,12 @@ export function RewardsPage() {
                       ? `Earn ${pointsToNext} more points to unlock ${nextTier.multiplier} Multiplier`
                       : "Enjoy highest 1.5x Multiplier & Platinum VIP perks"}
                   </p>
+                  {membershipPlan !== "free" && (
+                    <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      <Sparkles className="h-3 w-3 shrink-0" />
+                      <span>Cashback Perk: {activeMultiplier}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 pt-3 border-t border-border/60 space-y-2">

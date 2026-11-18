@@ -279,3 +279,29 @@ def test_membership_subscription_lifecycle(alice):
     status_res4 = client.post("/api/fn/getMembershipStatus/", {}, format="json")
     assert status_res4.json()["data"]["plan"] == "free"
     assert status_res4.json()["data"]["active"] is False
+
+
+def test_membership_charges_perks():
+    from core.query import run_rpc
+    # Plus Member: 10% base discount, 0% platform service fee & GST
+    plus_ch = run_rpc("compute_charges", {"_base": 1000, "_membership_plan": "plus"})
+    assert plus_ch["membership_discount"] == 100
+    assert plus_ch["discount"] == 100
+    assert plus_ch["service_fee"] == 0
+    assert plus_ch["gst"] == 0
+    assert plus_ch["customer_total"] == 900
+
+    # Black VIP Member: 15% base discount, 0% platform service fee & GST
+    black_ch = run_rpc("compute_charges", {"_base": 1000, "_membership_plan": "black"})
+    assert black_ch["membership_discount"] == 150
+    assert black_ch["discount"] == 150
+    assert black_ch["service_fee"] == 0
+    assert black_ch["gst"] == 0
+    assert black_ch["customer_total"] == 850
+
+    # Standard Member: Standard 5% platform fee & 18% GST
+    std_ch = run_rpc("compute_charges", {"_base": 1000, "_membership_plan": "free"})
+    assert std_ch["discount"] == 0
+    assert std_ch["service_fee"] == 50
+    assert std_ch["gst"] == 9
+    assert std_ch["customer_total"] == 1059
