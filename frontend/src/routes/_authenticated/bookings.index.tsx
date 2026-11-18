@@ -40,13 +40,14 @@ function Bookings() {
   const [asVendor, setAsVendor] = useState<any[] | null>(null);
   const [paying, setPaying] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [membershipPlan, setMembershipPlan] = useState<string>("free");
   const createOrder = createRazorpayOrder;
   const verifyPayment = verifyRazorpayPayment;
 
   const load = async () => {
     if (!user) return;
     const sel = "*, vehicles(id,title,city,vehicle_images(url,sort_order))";
-    const [c, v, w] = await Promise.all([
+    const [c, v, w, p] = await Promise.all([
       api
         .from("bookings")
         .select(sel)
@@ -58,10 +59,12 @@ function Bookings() {
         .eq("vendor_id", user.id)
         .order("created_at", { ascending: false }),
       api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      api.from("profiles").select("membership_plan").eq("id", user.id).maybeSingle(),
     ]);
     setAsCustomer(c.data ?? []);
     setAsVendor(v.data ?? []);
     setWalletBalance(Number(w.data?.balance ?? 0));
+    if (p.data?.membership_plan) setMembershipPlan(p.data.membership_plan);
   };
   useEffect(() => {
     load();
@@ -76,7 +79,11 @@ function Bookings() {
       const startsAt = new Date(
         `${b.start_date}T${(b.pickup_time ?? "10:00").slice(0, 5)}:00+05:30`,
       );
-      const pct = refundFraction((startsAt.getTime() - Date.now()) / 3_600_000, byHost);
+      const pct = refundFraction(
+        (startsAt.getTime() - Date.now()) / 3_600_000,
+        byHost,
+        membershipPlan,
+      );
       const deposit = Number(b.security_deposit ?? 0);
       const refund = round2(deposit + (Number(b.total_price) - deposit) * pct);
       message = byHost

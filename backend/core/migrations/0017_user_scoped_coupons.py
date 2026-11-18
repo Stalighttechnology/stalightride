@@ -17,6 +17,7 @@ DROP FUNCTION IF EXISTS public.validate_coupon(text);
 DROP FUNCTION IF EXISTS public.validate_coupon(text, text);
 DROP FUNCTION IF EXISTS public.compute_charges(numeric, text);
 DROP FUNCTION IF EXISTS public.compute_charges(numeric, text, text);
+DROP FUNCTION IF EXISTS public.compute_charges(numeric, text, text, text);
 
 -- 3. Replace validate_coupon with user scoping, usage checking, and service validation
 CREATE OR REPLACE FUNCTION public.validate_coupon(
@@ -85,24 +86,41 @@ REVOKE ALL ON FUNCTION public.validate_coupon(text, text) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.validate_coupon(text, text) TO authenticated;
 GRANT ALL ON FUNCTION public.validate_coupon(text, text) TO service_role;
 
--- 4. Replace compute_charges with user authorization and service matching
+-- 4. Replace compute_charges with user authorization, service matching, and membership perks
 CREATE OR REPLACE FUNCTION public.compute_charges(
     _base numeric,
     _coupon text DEFAULT NULL::text,
+    _membership_plan text DEFAULT 'free'::text,
     _service text DEFAULT NULL::text
 ) RETURNS jsonb
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
 DECLARE
-  s RECORD; c RECORD; disc numeric := 0; fee numeric; gst numeric; comm numeric; comm_gst numeric;
+  s RECORD; c RECORD; disc numeric := 0; fee numeric := 0; gst numeric := 0; comm numeric; comm_gst numeric;
   coupon_norm text := NULLIF(upper(btrim(COALESCE(_coupon, ''))), '');
   cur_uid uuid := auth.uid();
+  m_plan text := lower(COALESCE(_membership_plan, 'free'));
+  m_disc numeric := 0;
+  svc text := lower(COALESCE(_service, ''));
 BEGIN
   IF _base IS NULL OR _base < 0 THEN RAISE EXCEPTION 'Invalid amount'; END IF;
   SELECT * INTO s FROM public.platform_settings WHERE id = 1;
 
-  IF coupon_norm IS NOT NULL THEN
+  -- Disambiguate if service was passed into the 3rd argument position:
+  IF m_plan IN ('rental', 'wash', 'driver', 'all', 'partner') THEN
+    svc := m_plan;
+    m_plan := 'free';
+  END IF;
+
+  -- 10% discount on self-drive and driver hires for Plus; 15% for Black VIP
+  IF m_plan = 'plus' THEN
+    m_disc := round(_base * 0.10, 2);
+  ELSIF m_plan = 'black' THEN
+    m_disc := round(_base * 0.15, 2);
+  END IF;
+
+  IF coupon_norm IS NOT NULL AND coupon_norm <> 'MEMBERSHIP_FREE_WASH' THEN
     SELECT * INTO c FROM public.coupons
      WHERE upper(btrim(coupons.code)) = coupon_norm
      LIMIT 1;
@@ -121,7 +139,7 @@ BEGIN
     IF c.user_id IS NOT NULL AND cur_uid IS NOT NULL AND c.user_id <> cur_uid THEN
       RAISE EXCEPTION 'Coupon belongs to another account';
     END IF;
-    IF _service IS NOT NULL AND c.service IS NOT NULL AND c.service <> 'all' AND lower(c.service) <> lower(_service) THEN
+    IF svc <> '' AND c.service IS NOT NULL AND c.service <> 'all' AND lower(c.service) <> svc THEN
       RAISE EXCEPTION 'Coupon % is only valid for % bookings', c.code, c.service;
     END IF;
 
@@ -130,14 +148,25 @@ BEGIN
     disc := round(LEAST(_base, GREATEST(disc, 0)), 2);
   END IF;
 
-  fee := round((_base - disc) * COALESCE(s.service_fee_pct, 0) / 100.0, 2);
-  gst := round(fee * COALESCE(s.gst_pct, 0) / 100.0, 2);
+  disc := LEAST(_base, disc + m_disc);
+
+  -- 0% platform convenience fees for Plus and Black VIP members
+  IF m_plan IN ('plus', 'black') THEN
+    fee := 0;
+    gst := 0;
+  ELSE
+    fee := round((_base - disc) * COALESCE(s.service_fee_pct, 0) / 100.0, 2);
+    gst := round(fee * COALESCE(s.gst_pct, 0) / 100.0, 2);
+  END IF;
+
   comm := round(_base * COALESCE(s.commission_pct, 0) / 100.0, 2);
   comm_gst := round(comm * COALESCE(s.gst_pct, 0) / 100.0, 2);
 
   RETURN jsonb_build_object(
     'base', _base,
     'coupon_code', coupon_norm,
+    'membership_plan', m_plan,
+    'membership_discount', m_disc,
     'discount', disc,
     'service_fee', fee,
     'gst', gst,
@@ -148,10 +177,10 @@ BEGIN
   );
 END; $$;
 
-REVOKE ALL ON FUNCTION public.compute_charges(numeric, text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.compute_charges(numeric, text, text) TO anon;
-GRANT ALL ON FUNCTION public.compute_charges(numeric, text, text) TO authenticated;
-GRANT ALL ON FUNCTION public.compute_charges(numeric, text, text) TO service_role;
+REVOKE ALL ON FUNCTION public.compute_charges(numeric, text, text, text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.compute_charges(numeric, text, text, text) TO anon;
+GRANT ALL ON FUNCTION public.compute_charges(numeric, text, text, text) TO authenticated;
+GRANT ALL ON FUNCTION public.compute_charges(numeric, text, text, text) TO service_role;
 
 -- 5. Update triggers for rental, driver, and wash bookings to pass the exact service
 CREATE OR REPLACE FUNCTION public.tg_price_booking() RETURNS trigger
@@ -294,5 +323,5 @@ DROP FUNCTION IF EXISTS public.tg_mark_coupon_used();
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0014_loyalty_and_rewards")]
+    dependencies = [("core", "0016_loyalty_and_rewards")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]

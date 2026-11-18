@@ -7,6 +7,7 @@ describe("computeCharges (mirror of public.compute_charges)", () => {
     expect(c).toEqual({
       base: 1000,
       discount: 0,
+      membership_discount: 0,
       service_fee: 50,
       gst: 9,
       commission: 100,
@@ -53,6 +54,24 @@ describe("computeCharges (mirror of public.compute_charges)", () => {
     expect(c.customer_total).toBe(1200);
     expect(c.provider_earning).toBe(1200);
   });
+
+  test("Synchoo Plus: 10% discount and 0% convenience fees", () => {
+    const c = computeCharges(1000, DEFAULT_SETTINGS, null, "plus");
+    expect(c.membership_discount).toBe(100);
+    expect(c.discount).toBe(100);
+    expect(c.service_fee).toBe(0);
+    expect(c.gst).toBe(0);
+    expect(c.customer_total).toBe(900);
+  });
+
+  test("Synchoo Black: 15% discount and 0% convenience fees", () => {
+    const c = computeCharges(1000, DEFAULT_SETTINGS, null, "black");
+    expect(c.membership_discount).toBe(150);
+    expect(c.discount).toBe(150);
+    expect(c.service_fee).toBe(0);
+    expect(c.gst).toBe(0);
+    expect(c.customer_total).toBe(850);
+  });
 });
 
 describe("refundFraction", () => {
@@ -63,5 +82,20 @@ describe("refundFraction", () => {
     expect(refundFraction(2)).toBe(0.5);
     expect(refundFraction(1.9)).toBe(0);
     expect(refundFraction(0, true)).toBe(1);
+  });
+
+  test("Synchoo Plus cancellation: 100% refund up to 6 hours before trip", () => {
+    expect(refundFraction(6, false, "plus")).toBe(1);
+    expect(refundFraction(10, false, "plus")).toBe(1);
+    expect(refundFraction(4, false, "plus")).toBe(0.5);
+    expect(refundFraction(2, false, "plus")).toBe(0.5);
+    expect(refundFraction(1.5, false, "plus")).toBe(0);
+  });
+
+  test("Synchoo Black VIP cancellation: 100% refund up to 2 hours before trip", () => {
+    expect(refundFraction(2, false, "black")).toBe(1);
+    expect(refundFraction(3, false, "black")).toBe(1);
+    expect(refundFraction(1, false, "black")).toBe(0.5);
+    expect(refundFraction(0.1, false, "black")).toBe(0.5);
   });
 });
