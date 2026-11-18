@@ -47,13 +47,35 @@ export function BroadcastsTab() {
 
     setSending(true);
     try {
-      // Fetch a sample of profiles to receive broadcast notification
-      const { data: users, error: usersError } = await api.from("profiles").select("id").limit(100);
-      if (usersError) throw usersError;
+      // Fetch target audience users to receive broadcast notification
+      let userIds: string[] = [];
+      if (targetAudience === "hosts") {
+        const { data: hosts, error: hErr } = await api
+          .from("user_roles" as any)
+          .select("user_id")
+          .eq("role", "vendor")
+          .limit(100);
+        if (hErr) throw hErr;
+        userIds = (hosts ?? []).map((h: any) => h.user_id);
+      } else if (targetAudience === "drivers") {
+        const { data: drivers, error: dErr } = await api
+          .from("drivers")
+          .select("id")
+          .limit(100);
+        if (dErr) throw dErr;
+        userIds = (drivers ?? []).map((d: any) => d.id);
+      } else {
+        const { data: users, error: usersError } = await api
+          .from("profiles")
+          .select("id")
+          .limit(100);
+        if (usersError) throw usersError;
+        userIds = (users ?? []).map((u: any) => u.id);
+      }
 
-      if (users && users.length > 0) {
-        const rows = users.map((u) => ({
-          user_id: u.id,
+      if (userIds.length > 0) {
+        const rows = userIds.map((uid) => ({
+          user_id: uid,
           title: title.trim(),
           body: message.trim(),
           link: "/browse",

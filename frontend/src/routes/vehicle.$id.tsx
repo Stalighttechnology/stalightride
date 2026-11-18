@@ -1091,22 +1091,21 @@ function WriteReviewBox({
 
   useEffect(() => {
     (async () => {
-      const { data } = await api
+      const { data: bookings } = await api
         .from("bookings")
         .select("id,status,payment_status")
         .eq("vehicle_id", vehicleId)
         .eq("customer_id", userId)
         .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setEligibleBooking(data ?? null);
+        .order("created_at", { ascending: false });
+      const unreviewed = (bookings ?? []).find(
+        (b) => !reviews?.some((r) => r.booking_id === b.id),
+      );
+      setEligibleBooking(unreviewed ?? null);
     })();
-  }, [vehicleId, userId]);
+  }, [vehicleId, userId, reviews]);
 
   if (!eligibleBooking) return null;
-  const already = reviews?.some((r) => r.customer_id === userId);
-  if (already) return null;
 
   const submit = async () => {
     setSubmitting(true);

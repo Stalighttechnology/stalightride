@@ -130,10 +130,14 @@ def _serve(bucket, path):
 
 
 def public_file(request, bucket, path):
-    """Files in public buckets need no login, as before."""
+    """Files in public buckets need no login, but must satisfy storage.objects RLS policies."""
     path = _clean(path)
     if path is None or _bucket(bucket) is not True:
         raise Http404
+    with connection.cursor() as c:
+        c.execute("SELECT 1 FROM storage.objects WHERE bucket_id = %s AND name = %s", [bucket, path])
+        if c.fetchone() is None:
+            raise Http404
     return _serve(bucket, path)
 
 

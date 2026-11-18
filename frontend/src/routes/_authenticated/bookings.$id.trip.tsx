@@ -43,6 +43,7 @@ function TripInspection() {
   const { user } = useSession();
   const navigate = useNavigate();
   const [b, setB] = useState<any>(null);
+  const [hasReviewed, setHasReviewed] = useState(false);
   const [saving, setSaving] = useState<Phase | null>(null);
   const saveInspection = submitInspection;
 
@@ -53,6 +54,12 @@ function TripInspection() {
       .eq("id", id)
       .maybeSingle();
     setB(data);
+    const { data: rev } = await api
+      .from("reviews")
+      .select("id")
+      .eq("booking_id", id)
+      .maybeSingle();
+    setHasReviewed(Boolean(rev));
   };
   useEffect(() => {
     load();
@@ -285,7 +292,7 @@ function TripInspection() {
                 </Link>
               </Button>
             )}
-            {b.status === "completed" && role === "customer" && b.vehicle_id && (
+            {b.status === "completed" && role === "customer" && b.vehicle_id && !hasReviewed && (
               <Button asChild variant="outline">
                 <Link to="/vehicle/$id" params={{ id: b.vehicle_id }}>
                   Review this ride
