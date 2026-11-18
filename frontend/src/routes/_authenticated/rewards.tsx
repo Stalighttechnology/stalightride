@@ -329,48 +329,64 @@ export function RewardsPage() {
       });
   }, [user]);
 
-  // Sync claimed vouchers with placed bookings to detect redeemed vouchers
+  // Sync claimed vouchers with placed bookings to detect redeemed vouchers across all services
   useEffect(() => {
     if (!user) return;
-    api
-      .from("wash_bookings")
-      .select("coupon_code,created_at")
-      .eq("customer_id", user.id)
-      .not("coupon_code", "is", null)
-      .then(({ data }) => {
-        if (!data || data.length === 0) return;
-        const usedMap = new Map<string, string>();
-        for (const b of data) {
-          if (b.coupon_code) {
-            const dateStr = b.created_at
-              ? new Date(b.created_at).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
-              : "Recently";
-            usedMap.set(b.coupon_code.toUpperCase(), dateStr);
-          }
+    Promise.all([
+      api
+        .from("wash_bookings")
+        .select("coupon_code,created_at")
+        .eq("customer_id", user.id)
+        .not("coupon_code", "is", null),
+      api
+        .from("bookings")
+        .select("coupon_code,created_at")
+        .eq("customer_id", user.id)
+        .not("coupon_code", "is", null),
+      api
+        .from("driver_bookings")
+        .select("coupon_code,created_at")
+        .eq("customer_id", user.id)
+        .not("coupon_code", "is", null),
+    ]).then(([washRes, rentRes, driveRes]) => {
+      const allRows = [
+        ...(washRes.data ?? []),
+        ...(rentRes.data ?? []),
+        ...(driveRes.data ?? []),
+      ];
+      if (allRows.length === 0) return;
+      const usedMap = new Map<string, string>();
+      for (const b of allRows) {
+        if (b.coupon_code) {
+          const dateStr = b.created_at
+            ? new Date(b.created_at).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : "Recently";
+          usedMap.set(b.coupon_code.toUpperCase(), dateStr);
         }
-        setClaimedList((prev) => {
-          let modified = false;
-          const next = prev.map((v) => {
-            const usedDate = usedMap.get(v.code.toUpperCase());
-            if (usedDate && !v.used) {
-              modified = true;
-              return { ...v, used: true, usedAt: usedDate };
-            }
-            return v;
-          });
-          if (modified) {
-            try {
-              localStorage.setItem(`${storageKey}_vouchers`, JSON.stringify(next));
-            } catch {}
-            return next;
+      }
+      setClaimedList((prev) => {
+        let modified = false;
+        const next = prev.map((v) => {
+          const usedDate = usedMap.get(v.code.toUpperCase());
+          if (usedDate && !v.used) {
+            modified = true;
+            return { ...v, used: true, usedAt: usedDate };
           }
-          return prev;
+          return v;
         });
+        if (modified) {
+          try {
+            localStorage.setItem(`${storageKey}_vouchers`, JSON.stringify(next));
+          } catch {}
+          return next;
+        }
+        return prev;
       });
+    });
   }, [user, storageKey]);
 
   // Dynamic Tier Calculation based on points balance
