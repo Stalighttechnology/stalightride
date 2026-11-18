@@ -489,7 +489,22 @@ const INITIAL_HISTORY: PointHistoryItem[] = [
   },
 ];
 
-const INITIAL_REDEEMED = [
+interface RedeemedRewardItem {
+  id: string;
+  voucherId: string;
+  brand: string;
+  title: string;
+  code: string;
+  category: string;
+  service: "rental" | "driver" | "wash";
+  pointsCost: number;
+  claimedAt: string;
+  expiresAt: string;
+  terms: string;
+  serviceLink: string;
+}
+
+const INITIAL_REDEEMED: RedeemedRewardItem[] = [
   {
     id: "cl-1",
     voucherId: "rw-1",
@@ -497,7 +512,7 @@ const INITIAL_REDEEMED = [
     title: "Flat ₹500 OFF on Luxury & SUV Self-Drive Rentals",
     code: "STAR-RENT500-VIP",
     category: "Rentals",
-    service: "rental" as const,
+    service: "rental",
     pointsCost: 500,
     claimedAt: "12 Nov 2026",
     expiresAt: "12 Jan 2027",
@@ -533,7 +548,7 @@ export function StarlightRewardsPage() {
   const [pointsBalance, setPointsBalance] = useState<number>(1500);
   const [currentTier, setCurrentTier] = useState<string>("Platinum VIP");
   const [historyList, setHistoryList] = useState<PointHistoryItem[]>(INITIAL_HISTORY);
-  const [redeemedList, setRedeemedList] = useState(INITIAL_REDEEMED);
+  const [redeemedList, setRedeemedList] = useState<RedeemedRewardItem[]>(INITIAL_REDEEMED);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
