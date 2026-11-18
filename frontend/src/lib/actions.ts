@@ -156,6 +156,8 @@ export const redeemRewardVoucher = action<
     category: string;
     codePrefix: string;
     terms?: string;
+    service?: "rental" | "driver" | "wash" | "partner" | string;
+    discountAmount?: number;
   },
   {
     ok: boolean;
