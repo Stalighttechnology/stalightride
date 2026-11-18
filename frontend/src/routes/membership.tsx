@@ -105,6 +105,12 @@ const PLANS: Plan[] = [
   },
 ];
 
+const PLAN_RANK: Record<string, number> = {
+  free: 0,
+  plus: 1,
+  black: 2,
+};
+
 export function MembershipPage() {
   const { user } = useSession();
   const navigate = useNavigate();
@@ -420,6 +426,16 @@ export function MembershipPage() {
             const price =
               billingCycle === "monthly" ? plan.priceMonthly : Math.round(plan.priceAnnual / 12);
             const isCurrent = activePlan === plan.id;
+            const currentRank = PLAN_RANK[activePlan] ?? 0;
+            const targetRank = PLAN_RANK[plan.id] ?? 0;
+
+            const buttonLabel = isCurrent
+              ? "Current Plan"
+              : plan.id === "free"
+              ? "Downgrade to Standard"
+              : targetRank > currentRank
+              ? `Upgrade to ${plan.name}`
+              : `Downgrade to ${plan.name}`;
 
             return (
               <Card
@@ -481,11 +497,11 @@ export function MembershipPage() {
 
                   <Button
                     onClick={() => handlePlanClick(plan)}
-                    variant={isCurrent ? "outline" : plan.popular ? "default" : "outline"}
-                    className="w-full mt-6"
+                    variant={isCurrent ? "outline" : plan.popular && targetRank > currentRank ? "default" : "outline"}
+                    className={`w-full mt-6 ${targetRank < currentRank ? "text-muted-foreground hover:text-foreground" : ""}`}
                     disabled={isCurrent}
                   >
-                    {isCurrent ? "Current Plan" : `Upgrade to ${plan.name}`}
+                    {buttonLabel}
                   </Button>
                 </CardContent>
               </Card>

@@ -630,19 +630,11 @@ export function RewardsPage() {
                   )}
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
+                <div className="mt-3 pt-3 border-t border-border/60">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="w-full text-xs h-8 border-amber-400/40 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                    onClick={() => handleAddBonus(250)}
-                  >
-                    <Plus className="mr-1.5 h-3.5 w-3.5" /> +250 Bonus Points
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="w-full text-xs h-7 text-muted-foreground hover:text-foreground"
+                    className="w-full text-xs h-8 text-muted-foreground hover:text-foreground"
                     onClick={() => setActiveTab("convert")}
                   >
                     <Wallet className="mr-1.5 h-3.5 w-3.5 text-brand" /> Convert to Wallet Cash
