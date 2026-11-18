@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { computeCharges } from "@/lib/charges";
+import { computeCharges, round2 } from "@/lib/charges";
 import { currency } from "@/lib/format";
 import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
