@@ -735,6 +735,26 @@ function Help() {
                       </div>
                     </div>
                   </div>
+                  {membershipPlan === "black" && (
+                    <div className="flex items-center gap-3 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3">
+                      <Crown className="h-5 w-5 text-violet-500 shrink-0" />
+                      <div className="flex-1 text-xs">
+                        <p className="text-violet-600 dark:text-violet-300 font-semibold">
+                          Black VIP 24/7 Personal Concierge & Airport Meet Desk
+                        </p>
+                        <p className="text-muted-foreground mt-0.5">
+                          Dedicated flight arrival coordination, key handover at arrivals terminal, and priority dispatch. Direct Email:{" "}
+                          <a href="mailto:concierge@synchoo.com" className="underline font-medium text-foreground">
+                            concierge@synchoo.com
+                          </a>
+                          {" "}· Direct WhatsApp:{" "}
+                          <a href="https://wa.me/918047259000" target="_blank" rel="noreferrer" className="underline font-medium text-foreground">
+                            +91 80 4725 9000
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {membershipPlan === "free" && (
                     <div className="pt-1">
                       <Button asChild size="sm" variant="outline" className="border-brand/40 text-brand">

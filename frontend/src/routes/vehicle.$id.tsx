@@ -34,6 +34,8 @@ import {
   ImageOff,
   MessageSquareQuote,
   Trash2,
+  Crown,
+  CheckCircle2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -91,6 +93,8 @@ function VehiclePage() {
   const [wished, setWished] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [airportMeet, setAirportMeet] = useState(false);
+  const [flightInfo, setFlightInfo] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -206,6 +210,11 @@ function VehiclePage() {
 
     try {
       const qrPayload = crypto.randomUUID();
+      let finalNotes = notes || "";
+      if (airportMeet) {
+        const meetTag = `[VIP Airport Meet & Greet${flightInfo.trim() ? `: Flight ${flightInfo.trim()}` : ""}]`;
+        finalNotes = finalNotes ? `${meetTag} ${finalNotes}` : meetTag;
+      }
       const { error } = await api.from("bookings").insert({
         vehicle_id: v.id,
         vendor_id: v.vendor_id,
@@ -221,7 +230,7 @@ function VehiclePage() {
         coupon_code: coupon?.code ?? null,
         status: "pending",
         qr_code: qrPayload,
-        notes: notes || null,
+        notes: finalNotes || null,
       } as any);
       if (error) throw error;
       toast.success("Booking requested! The host will confirm shortly.");
@@ -707,6 +716,48 @@ function VehiclePage() {
                     <div className="mt-3">
                       <CouponField value={coupon} onChange={setCoupon} />
                     </div>
+                    {myProfile?.membership_plan === "black" && (
+                      <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3 space-y-2 text-left">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                            <Crown className="h-3.5 w-3.5 text-violet-500" />
+                            <span>Executive VIP Privileges Active</span>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] border-violet-400 text-violet-600 bg-violet-500/10">
+                            Black VIP
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-[11px] text-muted-foreground">
+                          <p className="flex items-center gap-1 text-foreground">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span>15% Flat VIP Discount & ₹0 Security Deposit applied</span>
+                          </p>
+                          <p className="flex items-center gap-1 text-foreground">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span>Guaranteed Model Availability (Free auto-upgrade if model unavailable)</span>
+                          </p>
+                        </div>
+                        <div className="pt-2 border-t border-violet-500/20">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={airportMeet}
+                              onChange={(e) => setAirportMeet(e.target.checked)}
+                              className="rounded border-border text-brand focus:ring-brand h-3.5 w-3.5"
+                            />
+                            <span>Request 24/7 Airport Meet & Greet</span>
+                          </label>
+                          {airportMeet && (
+                            <Input
+                              placeholder="Arrival Flight No. & Terminal (e.g. 6E 405, T2)"
+                              value={flightInfo}
+                              onChange={(e) => setFlightInfo(e.target.value)}
+                              className="mt-2 text-xs h-8 bg-background"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-4 text-center">
