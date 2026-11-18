@@ -463,7 +463,7 @@ function DriverProfile() {
                       ))}
                       <ChargeLines base={price.subtotal} coupon={coupon} totalLabel="Total" />
                       <div className="pt-2">
-                        <CouponField value={coupon} onChange={setCoupon} />
+                        <CouponField value={coupon} onChange={setCoupon} service="driver" />
                       </div>
                     </>
                   )}
