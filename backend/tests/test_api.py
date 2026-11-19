@@ -101,6 +101,13 @@ def test_password_reset_round_trip(alice, settings):
     assert again.status_code == 400
 
 
+def test_deleted_account_cannot_sign_in(alice):
+    res = client_for(alice).post("/api/rpc/delete_my_account_data/", {}, format="json")
+    assert res.json()["data"]["ok"] is True, res.json()
+    again = APIClient().post("/api/auth/signin/", {"email": alice.email, "password": "secret123"}, format="json")
+    assert again.status_code >= 400
+
+
 # -- table queries -------------------------------------------------------------
 
 def test_rows_follow_row_level_security(alice, bob):
@@ -142,6 +149,12 @@ def test_writes_embeds_and_database_errors(alice, bob):
                      VALUES (%s, 'Swift', 'Maruti', 'Swift', 2022, 'car', 'Bengaluru', 1000, 'active') RETURNING id""",
                   [alice.id])
         vehicle_id = c.fetchone()[0]
+    # New listings start as drafts; an admin approves this one so it can be booked.
+    admin = User.objects.create_user("admin@example.com", "secret123")
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", [admin.id])
+    q("SELECT set_config('request.jwt.claim.sub', %s, true)", [str(admin.id)])
+    q("UPDATE public.vehicles SET status = 'active', verification_status = 'approved' WHERE id = %s", [vehicle_id])
+    q("SELECT set_config('request.jwt.claim.sub', '', true)")
     booking = {"vehicle_id": str(vehicle_id), "vendor_id": str(alice.id), "customer_id": str(bob.id),
                "start_date": "2030-01-10", "end_date": "2030-01-11", "base_price": 1, "total_price": 1}
     res = client_for(bob).post("/api/query/", {"table": "bookings", "action": "insert", "values": booking,

@@ -12,15 +12,15 @@
 | ID | Problem | Impact | Evidence | Track |
 | --- | --- | --- | --- | --- |
 | GAP-01 | Membership activates with a made-up Razorpay payment ID. The signature is optional and the order amount is never checked | Anyone gets paid plans free | Reproduced | B |
-| GAP-02 | Two customers can request the same vehicle and dates. The overlap check can't see other customers' bookings. The host then can't accept either request | Double bookings and stuck requests | Reproduced | A |
-| GAP-03 | A customer can create a booking that is already `confirmed`, skipping host approval | Host approval can be bypassed | Reproduced | A |
+| ~~GAP-02~~ **Fixed** (migration 0020: overlap check runs as the owner after locking the vehicle, plus an EXCLUDE constraint) | Two customers can request the same vehicle and dates. The overlap check can't see other customers' bookings. The host then can't accept either request | Double bookings and stuck requests | Reproduced | A |
+| ~~GAP-03~~ **Fixed** (migration 0020: customer requests are forced to `pending`) | A customer can create a booking that is already `confirmed`, skipping host approval | Host approval can be bypassed | Reproduced | A |
 | GAP-04 | Re-sending a valid payment confirmation changes a refunded booking back to `paid` | Wrong payment records and reports | Reproduced | C |
 | GAP-05 | There is no Razorpay webhook. If the browser closes after payment, the booking stays unpaid | Customer is charged with no booking | Code review | C |
 | GAP-06 | If payment verification fails, the app shows "Payment successful". Its fallback write is silently discarded by the database | Customer believes an unpaid booking is paid | Code review | C |
-| GAP-07 | Two simultaneous top-up confirmations can both credit the wallet. The code notes this as a shortcut | Free wallet money | Code review | C |
+| ~~GAP-07~~ **Fixed** (`verify_wallet_topup`: the top-up is credited only by the call that flips it from `created` to `paid`) | Two simultaneous top-up confirmations can both credit the wallet. The code notes this as a shortcut | Free wallet money | Code review | C |
 | GAP-08 | Uploaded HTML files are served as web pages from public buckets. Sign-in tokens are kept in browser storage, so a malicious page could steal them | Account takeover | Reproduced | A |
 | GAP-09 | A cleaner can complete an unpaid wash in the app. The database also lets hosts and drivers complete unpaid work through the API | Service is delivered with no payment | Reproduced | A, B |
-| GAP-10 | A host can block dates over a confirmed booking. After that, the booking can't be cancelled or refunded | Customer money is stuck | Reproduced | A |
+| ~~GAP-10~~ **Fixed** (migration 0020: a block over a pending or confirmed booking is refused) | A host can block dates over a confirmed booking. After that, the booking can't be cancelled or refunded | Customer money is stuck | Reproduced | A |
 | GAP-11 | The customer alone can submit the return checklist, which completes the trip and releases the host's money and the deposit | Host loses the chance to inspect the vehicle | Reproduced | A |
 | GAP-12 | Customers and hosts can rewrite inspection readings after they are recorded | Dispute evidence can't be trusted | Reproduced | A |
 | GAP-13 | The deposit is always returned on completion, and resolving a dispute moves no money | Hosts can't recover damage costs | Code review | C |
@@ -33,10 +33,10 @@
 | GAP-15 | Membership benefits such as 0% fees and discounts aren't applied to prices. Auto-renew has no renewal job | Paying members don't get what was promised | Code review | B |
 | GAP-16 | Saving Admin Platform Settings fails because the form writes columns that don't exist | Admin can't change fees from the app | Reproduced | C |
 | GAP-17 | Rewards points live only in the browser. They are not linked to real trips or the wallet | Points can be lost or faked | Code review | B |
-| GAP-18 | The database accepts bookings for past dates and paused vehicles. The app's date picker hides the past-date case, but the API doesn't | Invalid bookings | Reproduced | A |
+| ~~GAP-18~~ **Fixed** (migration 0020: past dates and non-active vehicles are refused) | The database accepts bookings for past dates and paused vehicles. The app's date picker hides the past-date case, but the API doesn't | Invalid bookings | Reproduced | A |
 | GAP-19 | The pickup checklist can be submitted days before the 30-minute check-in window | Trip can start early | Reproduced | A |
 | GAP-20 | The driver page closes passenger requests in separate follow-up calls, but the database doesn't. Account deletion or a failed follow-up leaves passengers `confirmed` and not notified | Passengers can be left stranded | Reproduced | B |
-| GAP-21 | After account deletion, the user can still sign in | Deletion promise isn't kept | Reproduced | A |
+| ~~GAP-21~~ **Fixed** (migration 0020: the deletion function ran into invalid statuses and missing columns; it now works and deactivates the login) | After account deletion, the user can still sign in | Deletion promise isn't kept | Reproduced | A |
 | GAP-22 | City surge and category rules can be edited in Admin but are never applied | Admin settings have no effect | Code review | C |
 | GAP-23 | Revenue reports ignore coupon discounts, and total volume includes refundable deposits | Finance numbers are overstated | Code review | C |
 | GAP-24 | Sign-in has no attempt limit, passwords can be 6 characters, emails aren't verified, and sign-in logs email addresses | Weak account security | Code review | A |

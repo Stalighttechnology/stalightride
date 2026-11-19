@@ -5,12 +5,21 @@ from rest_framework.response import Response
 from .query import QueryError, run, run_rpc
 
 
+# Constraints that back up the friendly trigger checks (migration 0020).
+CONSTRAINT_MESSAGES = {
+    "bookings_no_overlap": "Vehicle not available for selected dates",
+    "driver_bookings_no_overlap": "Driver is already booked for the selected dates",
+    "wash_bookings_cleaner_slot_uniq": "You already have a wash job in this slot",
+}
+
+
 def pg_error(exc):
     """A database error in the shape the frontend reads: {message, code, details, hint}."""
     cause = exc.__cause__ or exc
     diag = getattr(cause, "diag", None)
     return {
-        "message": (diag and diag.message_primary) or str(cause),
+        "message": CONSTRAINT_MESSAGES.get(diag and diag.constraint_name)
+        or (diag and diag.message_primary) or str(cause),
         "code": getattr(cause, "sqlstate", None),
         "details": diag and diag.message_detail,
         "hint": diag and diag.message_hint,
