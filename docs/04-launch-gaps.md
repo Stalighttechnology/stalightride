@@ -39,7 +39,7 @@
 | ~~GAP-21~~ **Fixed** (migration 0020: the deletion function ran into invalid statuses and missing columns; it now works and deactivates the login) | After account deletion, the user can still sign in | Deletion promise isn't kept | Reproduced | A |
 | GAP-22 | City surge and category rules can be edited in Admin but are never applied | Admin settings have no effect | Code review | C |
 | GAP-23 | Revenue reports ignore coupon discounts, and total volume includes refundable deposits | Finance numbers are overstated | Code review | C |
-| GAP-24 | Sign-in has no attempt limit, passwords can be 6 characters, emails aren't verified, and sign-in logs email addresses | Weak account security | Code review | A |
+| GAP-24 **Partly fixed** (5 failed sign-ins per email and address lock for 15 min; reset emails rate limited; sign-in no longer logs emails. Password length and email verification still open) | Sign-in has no attempt limit, passwords can be 6 characters, emails aren't verified, and sign-in logs email addresses | Weak account security | Code review | A |
 
 ## Medium priority and decisions
 
@@ -51,7 +51,7 @@
 | GAP-28 | **Decision:** an hourly rental under 24 hours can cost more than a full day. 23 hours at ₹200 is ₹4,600 against a ₹2,000 daily price. Decide whether to cap it | Code review | A |
 | GAP-29 | A deleted vehicle with past bookings is hidden using browser storage, so it reappears on another device | Code review | A |
 | GAP-30 | Non-hosts see sample fleet data and a "Verified" badge on `/vendor` | Code review | A |
-| GAP-31 | Lists return at most 1000 rows, so large admin lists are cut off with no paging | Code review | C |
+| ~~GAP-31~~ **Fixed** (server-side paging on admin, wallet and trip lists; migration 0021 for the bookings feed and broadcasts) | Lists return at most 1000 rows, so large admin lists are cut off with no paging | Code review | C |
 
 ## Suggested fix order
 

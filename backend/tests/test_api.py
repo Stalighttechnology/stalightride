@@ -85,6 +85,18 @@ def test_signin_refresh_and_signout(alice):
     assert APIClient().post("/api/auth/refresh/", {"refresh_token": new_refresh}, format="json").status_code == 401
 
 
+def test_repeated_failed_signins_lock_the_account_for_that_address(alice):
+    from django.core.cache import cache
+    cache.clear()
+    c = APIClient()
+    for _ in range(5):
+        assert c.post("/api/auth/signin/", {"email": alice.email, "password": "wrong"}, format="json").status_code == 400
+    locked = c.post("/api/auth/signin/", {"email": alice.email, "password": "secret123"}, format="json")
+    assert locked.status_code == 429 and locked.json()["code"] == "over_request_rate_limit"
+    cache.clear()
+    assert c.post("/api/auth/signin/", {"email": alice.email, "password": "secret123"}, format="json").status_code == 200
+
+
 def test_password_reset_round_trip(alice, settings):
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     APIClient().post("/api/auth/password-reset/", {"email": alice.email}, format="json")
