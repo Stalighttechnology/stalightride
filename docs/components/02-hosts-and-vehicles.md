@@ -44,18 +44,18 @@ Hari and Ada.
 | ----- | -------------------------------------------------------------------- | ---------------------------------------------------- | ------ |
 | HV-09 | Submit the vehicle form with required fields empty                   | Clear validation messages                            | Pass — Browser required attributes and form validation stop empty submission. |
 | HV-10 | Admin rejects a vehicle with a reason                                | Host sees the reason                                 | Pass — Admin prompts for rejection reason; vehicle page renders `Listing rejected: <reason>`. |
-| HV-11 | Pause an active vehicle                                              | It disappears from `/browse`                       | Gap — UI lacks "Pause" button in `VehiclesGrid`; vehicle DB schema supports paused state. |
-| HV-12 | Reactivate it                                                        | It returns to `/browse`                            | Gap — Blocked by HV-11; no reactivate button in host console. |
+| HV-11 | Pause an active vehicle                                              | It disappears from `/browse`                       | Pass — Pause action button in `VehiclesGrid` toggles status to 'paused', hidden from `/browse` |
+| HV-12 | Reactivate it                                                        | It returns to `/browse`                            | Pass — Reactivate action button in `VehiclesGrid` toggles status back to 'active' |
 | HV-13 | Block two future dates on the calendar                               | Customers can't book those dates                     | Pass — Future blackout block added via Availability Calendar; dates marked as blocked. |
 | HV-14 | Remove the block                                                     | Dates can be booked again                            | Pass — Clicked "Remove block"; blackout removed and calendar immediately shows dates available. |
-| HV-15 | Block dates that overlap a confirmed booking                         | **GAP-10:** this must be refused               | Reproduced GAP-10 — Overlapping blocks are not refused by DB trigger or UI form. |
+| HV-15 | Block dates that overlap a confirmed booking                         | **GAP-10:** this must be refused               | Pass (GAP-10 fixed: `trg_prevent_availability_block_conflict` blocks blackout over active bookings) |
 | HV-16 | Add a maintenance record with a cost and date                        | Record is listed and saved after refresh             | Pass — Maintenance record saved (₹1,500 Oil change & detailing) and persisted after refresh. |
 | HV-17 | Enter a negative maintenance cost                                    | Save is refused                                      | Pass — Form validation blocks negative costs and DB check constraint `vehicle_maintenance_cost_check` refuses. |
 | HV-18 | Delete a vehicle with no bookings                                    | It is removed                                        | Pass — Vehicle and storage assets deleted cleanly from database. |
-| HV-19 | Delete a vehicle with past bookings, then sign in on another browser | **GAP-29:** it must stay hidden                | Reproduced GAP-29 — Soft-delete relies on `localStorage` key; visible again in a new browser session. |
+| HV-19 | Delete a vehicle with past bookings, then sign in on another browser | **GAP-29:** it must stay hidden                | Pass (GAP-29 fixed: DB soft-deletion column `is_deleted = true` permanently filters vehicle) |
 | HV-20 | Open a pending vehicle's URL as Ben                                  | Vehicle is not available                             | Pass — Postgres RLS policy restricts unapproved vehicles to the owner; non-owners get 404 / error. |
 | HV-21 | Upload a photo over 20 MB                                            | Upload is refused with a clear error                 | Pass — Upload rejected with HTTP 413 `EntityTooLarge` (max file size exceeded). |
-| HV-22 | Open `/vendor` as a user with no host profile                      | **GAP-30:** no sample data or "Verified" badge | Reproduced GAP-30 — Unregistered users see `SAMPLE_VEHICLES` demo array and mock "Verified" badge. |
+| HV-22 | Open `/vendor` as a user with no host profile                      | **GAP-30:** no sample data or "Verified" badge | Pass (GAP-30 fixed: Non-hosts see real empty state and onboarding prompt to /earn, no fake fleet) |
 | HV-23 | Check dashboard earnings after a completed trip                      | Matches the provider earning, not the customer total | Pass — Aggregate revenue uses `provider_earning` (net host payout minus platform fees). |
 
 ## Linked gaps

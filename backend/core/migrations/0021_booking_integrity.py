@@ -21,13 +21,15 @@ CREATE OR REPLACE FUNCTION public.prevent_booking_conflict() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-DECLARE v_status text;
+DECLARE
+  v_status text;
+  v_deleted boolean;
 BEGIN
   -- Customer requests (not the owner or an admin) always start as a pending request.
   IF TG_OP = 'INSERT' AND auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
     NEW.status := 'pending';
-    SELECT status::text INTO v_status FROM public.vehicles WHERE id = NEW.vehicle_id;
-    IF v_status IS DISTINCT FROM 'active' THEN
+    SELECT status::text, COALESCE(is_deleted, false) INTO v_status, v_deleted FROM public.vehicles WHERE id = NEW.vehicle_id;
+    IF v_deleted OR v_status IS DISTINCT FROM 'active' THEN
       RAISE EXCEPTION 'This vehicle is not available for booking';
     END IF;
     IF NEW.start_date < (now() AT TIME ZONE 'Asia/Kolkata')::date THEN
@@ -70,7 +72,10 @@ ALTER TABLE public.bookings ADD CONSTRAINT bookings_no_overlap
   WHERE (status IN ('pending', 'confirmed'));
 
 -- Host blocks ---------------------------------------------------------------------
-CREATE FUNCTION public.prevent_block_over_booking() RETURNS trigger
+DROP TRIGGER IF EXISTS trg_prevent_availability_block_conflict ON public.availability_blocks;
+DROP FUNCTION IF EXISTS public.prevent_availability_block_conflict();
+
+CREATE OR REPLACE FUNCTION public.prevent_block_over_booking() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -88,6 +93,7 @@ BEGIN
   RETURN NEW;
 END; $$;
 REVOKE ALL ON FUNCTION public.prevent_block_over_booking() FROM PUBLIC;
+DROP TRIGGER IF EXISTS trg_prevent_block_over_booking ON public.availability_blocks;
 CREATE TRIGGER trg_prevent_block_over_booking BEFORE INSERT OR UPDATE ON public.availability_blocks
   FOR EACH ROW EXECUTE FUNCTION public.prevent_block_over_booking();
 
@@ -226,5 +232,5 @@ DROP EXTENSION IF EXISTS btree_gist;
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0019_remediate_components_09_to_12_gaps")]
+    dependencies = [("core", "0020_remediate_components_01_to_04_gaps")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]

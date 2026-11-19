@@ -69,7 +69,16 @@ export const calculateRentalPrice = (input: RentalPriceInput): RentalPriceBreakd
 
   if (hours < 24 && hourly > 0) {
     const billedHours = Math.ceil(hours);
-    subtotal = billedHours * hourly;
+    const hourlyTotal = billedHours * hourly;
+    if (daily > 0 && hourlyTotal > daily) {
+      subtotal = daily;
+      lines.push({
+        label: `${currency(daily)} × 1 day (capped from ${billedHours} hours)`,
+        value: subtotal,
+      });
+      return { hours, weeks: 0, days: 1, remainingHours: 0, subtotal, lines };
+    }
+    subtotal = hourlyTotal;
     lines.push({
       label: `${currency(hourly)} × ${billedHours} hour${billedHours === 1 ? "" : "s"}`,
       value: subtotal,

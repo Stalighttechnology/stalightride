@@ -44,7 +44,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (51, 103, 91, 142, 998)
+    assert (tables, functions, triggers, policies, grants) == (51, 105, 93, 142, 998)
 
 
 def test_signup_trigger_creates_profile_and_role():
@@ -124,7 +124,7 @@ def test_wash_booking_status_and_advance_wash_status():
 
     # Confirm and assign cleaner (tests tg_notify_wash_booking & enforce_wash_booking_forward_progress)
     q(
-        "UPDATE public.wash_bookings SET status = 'confirmed', assigned_cleaner_id = %s WHERE id = %s RETURNING id",
+        "UPDATE public.wash_bookings SET status = 'confirmed', payment_status = 'paid', assigned_cleaner_id = %s WHERE id = %s RETURNING id",
         [cleaner, booking_id],
     )
     q(
