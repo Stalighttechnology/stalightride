@@ -336,7 +336,7 @@ def confirm_handover(data, user_id):
     if phase not in ("pickup", "return"):
         raise FnError("Invalid input: phase")
     b = _by_code("id, status, payment_status, vendor_id, start_date, end_date, pickup_time, dropoff_time, "
-                 "pickup_checked_at, return_checked_at", code)
+                 "pickup_checked_at, return_checked_at, return_odometer", code)
     if b is None:
         raise FnError("This QR code does not match any booking.")
     if b["vendor_id"] != user_id and not _is_admin(user_id):
@@ -356,8 +356,11 @@ def confirm_handover(data, user_id):
             raise FnError("Return was already confirmed.")
         if not gate["canCheckout"]:
             raise FnError(gate["checkoutReason"] or "Check-out is not available yet.")
+    patch = {f"{phase}_checked_at": _now()}
+    if phase == "return" and b.get("return_odometer") is not None:
+        patch["status"] = "completed"
     with db_role("service_role"):
-        _update("bookings", {f"{phase}_checked_at": _now()}, [["id", "eq", b["id"]]])
+        _update("bookings", patch, [["id", "eq", b["id"]]])
     return {"ok": True, "phase": phase, "bookingId": b["id"]}
 
 
@@ -397,9 +400,12 @@ def submit_inspection(data, user_id):
     if phase == "return" and b["pickup_odometer"] is not None and odo < b["pickup_odometer"]:
         raise FnError("Return odometer can't be lower than the pickup reading.")
     is_paid = b["payment_status"] == "paid" and b["status"] == "confirmed"
-    if phase == "pickup" and not gate["canCheckin"] and not pickup_scanned and not is_paid:
+    if not is_paid:
+        raise FnError("Booking must be paid and confirmed before inspection.")
+    is_customer = (user_id == b["customer_id"])
+    if phase == "pickup" and is_customer and not gate["canCheckin"] and not pickup_scanned:
         raise FnError(gate["checkinReason"] or "Check-in is not available yet.")
-    if phase == "return" and not gate["canCheckout"] and not return_scanned:
+    if phase == "return" and is_customer and not gate["canCheckout"] and not return_scanned:
         raise FnError(gate["checkoutReason"] or "Check-out is not available yet.")
 
     patch = {
@@ -408,7 +414,10 @@ def submit_inspection(data, user_id):
         f"{phase}_checked_at": b[f"{phase}_checked_at"] or _now(),
     }
     if phase == "return":
-        patch["status"] = "completed"
+        # Customer alone cannot close the trip; host return confirmation or inspection is required (GAP-11)
+        is_host_or_admin = (user_id == b["vendor_id"] or _is_admin(user_id))
+        if is_host_or_admin or bool(b["return_checked_at"]):
+            patch["status"] = "completed"
     with db_role("service_role"):
         _update("bookings", patch, [["id", "eq", b["id"]]])
     return {"ok": True, "phase": phase}

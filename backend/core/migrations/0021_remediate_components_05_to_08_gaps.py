@@ -429,7 +429,7 @@ END; $$;
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0019_remediate_components_09_to_12_gaps"),
+        ("core", "0020_remediate_components_01_to_04_gaps"),
     ]
 
     operations = [

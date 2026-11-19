@@ -36,6 +36,8 @@ import {
   AlertCircle,
   Trash2,
   Eye,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -201,7 +203,7 @@ function VendorDashboard() {
         deletedIds = JSON.parse(localStorage.getItem(storeKey) || "[]");
       } catch {}
     }
-    const filteredVehicles = (vhs ?? []).filter((item: any) => !deletedIds.includes(item.id));
+    const filteredVehicles = (vhs ?? []).filter((item: any) => !item.is_deleted && !deletedIds.includes(item.id));
     setVehicles(filteredVehicles);
     setBookings(bks ?? []);
     if (vend) {
@@ -253,10 +255,12 @@ function VendorDashboard() {
     setSaving(false);
   };
 
+  const isRegisteredHost = Boolean(vendor);
+
   const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
     setProcessingBookingId(id);
     try {
-      if (isDemo) {
+      if (!isRegisteredHost) {
         setBookings((prev) => {
           const base = prev ?? SAMPLE_BOOKINGS;
           return base.map((b) => (b.id === id ? { ...b, status } : b));
@@ -286,10 +290,23 @@ function VendorDashboard() {
     }
   };
 
+  const handleTogglePause = async (v: any) => {
+    const nextStatus = v.status === "paused" ? "active" : "paused";
+    const { error } = await api.from("vehicles").update({ status: nextStatus }).eq("id", v.id);
+    if (error) {
+      toast.error("Failed to update vehicle status: " + error.message);
+      return;
+    }
+    setVehicles((prev) =>
+      prev ? prev.map((item) => (item.id === v.id ? { ...item, status: nextStatus } : item)) : prev,
+    );
+    toast.success(nextStatus === "paused" ? `${v.title} paused` : `${v.title} reactivated!`);
+  };
+
   const handleDeleteVehicle = async (vehicleId: string) => {
     setIsDeleting(true);
     try {
-      if (isDemo) {
+      if (!isRegisteredHost) {
         setDemoVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
         toast.success("Vehicle deleted successfully");
         setVehicleToDelete(null);
@@ -332,7 +349,7 @@ function VendorDashboard() {
           delErr.message?.includes("violates foreign key constraint")
         ) {
           // Soft-delete to preserve historical booking records while removing it completely from host's listings
-          await api.from("vehicles").update({ status: "paused" }).eq("id", vehicleId);
+          await api.from("vehicles").update({ status: "paused", is_deleted: true }).eq("id", vehicleId);
           if (user?.id) {
             const storeKey = `synchoo_deleted_vehicles_${user.id}`;
             try {
@@ -374,20 +391,17 @@ function VendorDashboard() {
     }
   };
 
-  // Resolve display data (use database data if present, or demo fleet data for immediate preview)
-  const isDemo = !vendor;
+  // Resolve display data (HV-22 / GAP-30: unregistered users see their real empty state, no mock fleet or fake verified badge)
   const displayVendor = vendor || {
-    business_name: businessName || "Apex Fleet Hosts",
-    bio: "Verified vehicle host managing cars and SUVs in Bengaluru",
-    kyc_status: "approved",
+    business_name: businessName || "New Host",
+    bio: "",
+    kyc_status: "pending",
   };
 
-  // Sample data is only for visitors who haven't registered as a host yet;
-  // a real host with no bookings must see zeros, not fake numbers.
-  const displayVehicles = isDemo ? demoVehicles : (vehicles ?? []);
-  const displayBookings = isDemo ? (bookings ?? SAMPLE_BOOKINGS) : (bookings ?? []);
-  const displayPayouts = isDemo ? SAMPLE_PAYOUTS : (payouts ?? []);
-  const displayReviews = isDemo ? SAMPLE_REVIEWS : (vendorReviews ?? []);
+  const displayVehicles = vehicles ?? [];
+  const displayBookings = bookings ?? [];
+  const displayPayouts = payouts ?? [];
+  const displayReviews = vendorReviews ?? [];
 
   // Net of commission; excludes customer fees and deposits.
   const earnings = displayBookings
@@ -397,9 +411,7 @@ function VendorDashboard() {
   const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
     ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
-    : isDemo
-      ? 4.9
-      : 0;
+    : 0;
 
   const pendingCount = displayBookings.filter((b: any) => b.status === "pending").length;
 
@@ -420,7 +432,7 @@ function VendorDashboard() {
       id: "kyc",
       label: "Host Verification",
       icon: ShieldCheck,
-      badge: displayVendor.kyc_status === "approved" ? "Verified" : "Pending",
+      badge: isRegisteredHost && displayVendor.kyc_status === "approved" ? "Verified" : "Pending",
     },
   ] as const;
 
@@ -429,29 +441,36 @@ function VendorDashboard() {
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
-        {/* Demo Mode / Registration Banner */}
-        {isDemo && (
+        {/* Onboarding Banner for Non-Registered Hosts */}
+        {!isRegisteredHost && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-brand/30 bg-brand/10">
             <div className="flex items-center gap-3">
               <Sparkles className="h-5 w-5 text-brand shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  Host Dashboard Demo Mode Active
+                  Host Profile Not Registered
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Explore how fleet management, live availability, payouts, and bookings work. Click
-                  below to register your own listings.
+                  Register your host business and complete KYC verification to list vehicles and receive rental bookings.
                 </p>
               </div>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setShowProfileForm(!showProfileForm)}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0 text-xs"
-            >
-              <UserCheck className="mr-1.5 h-3.5 w-3.5" />
-              {showProfileForm ? "Close Form" : "Set Up Live Host Profile"}
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button asChild size="sm" className="rounded-xl">
+                <Link to="/earn">
+                  Get Started on /earn
+                </Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowProfileForm(!showProfileForm)}
+                className="text-xs rounded-xl"
+              >
+                <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+                {showProfileForm ? "Close Form" : "Host Quick Setup"}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -700,6 +719,7 @@ function VendorDashboard() {
                   <CardContent>
                     <VehiclesGrid
                       vehicles={displayVehicles}
+                      onTogglePause={handleTogglePause}
                       onDelete={(v) => setVehicleToDelete(v)}
                       isDeletingId={isDeleting ? vehicleToDelete?.id : null}
                     />
@@ -1116,10 +1136,12 @@ function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: a
 function VehiclesGrid({
   vehicles,
   onDelete,
+  onTogglePause,
   isDeletingId,
 }: {
   vehicles: any[];
   onDelete?: (vehicle: any) => void;
+  onTogglePause?: (vehicle: any) => void;
   isDeletingId?: string | null;
 }) {
   const paths = vehicles.map(
@@ -1208,6 +1230,25 @@ function VehiclesGrid({
                   <span className="text-xs text-muted-foreground"> / day</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {v.verification_status === "approved" && onTogglePause && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs rounded-lg shrink-0"
+                      onClick={() => onTogglePause(v)}
+                      title={v.status === "paused" ? "Reactivate vehicle" : "Pause vehicle"}
+                    >
+                      {v.status === "paused" ? (
+                        <>
+                          <Play className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Reactivate
+                        </>
+                      ) : (
+                        <>
+                          <Pause className="mr-1 h-3.5 w-3.5 text-amber-600" /> Pause
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <Button
                     asChild
                     variant="outline"
