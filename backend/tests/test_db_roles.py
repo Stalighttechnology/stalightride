@@ -5,6 +5,7 @@ import uuid
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.migrations.loader import MigrationLoader
 from django.http import HttpResponse
 
 from core.db import db_role, set_db_role
@@ -29,6 +30,11 @@ APP_SCHEMAS = ['public', 'auth', 'storage']
 DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 
+def test_core_migration_graph_has_one_leaf():
+    loader = MigrationLoader(connection)
+    assert loader.graph.leaf_nodes("core") == [("core", "0024_hot_path_indexes")]
+
+
 def test_schema_matches_the_original_migrations():
     """Counts taken from the 51 original migration files loaded on 2026-11-11, plus the
     realtime trigger (one function, six triggers) and the admin location policy from
@@ -44,7 +50,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (51, 105, 93, 142, 998)
+    assert (tables, functions, triggers, policies, grants) == (51, 106, 93, 142, 998)
 
 
 def test_signup_trigger_creates_profile_and_role():

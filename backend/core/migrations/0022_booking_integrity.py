@@ -232,5 +232,5 @@ DROP EXTENSION IF EXISTS btree_gist;
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0020_remediate_components_01_to_04_gaps")]
+    dependencies = [("core", "0021_remediate_components_05_to_08_gaps")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]
