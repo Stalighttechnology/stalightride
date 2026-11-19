@@ -6,7 +6,7 @@ These checks run without clicking through the app. Manual workflows are in the [
 
 | Check | Run from | Command | Latest result |
 | --- | --- | --- | --- |
-| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 41 passed |
+| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 44 passed |
 | Frontend rules and pricing | `frontend/` | `npm run test` | 209 passed in 14 files |
 | Type check | `frontend/` | `npx tsc --noEmit` | No errors |
 | Production build | `frontend/` | `npm run build` | Builds successfully |

@@ -12,6 +12,7 @@ Use these docs to split the work between three people, test each part by hand, a
 | 4 | Your component docs (below) | The manual workflows you own |
 | 5 | [Launch gaps](04-launch-gaps.md) | Known defects that must be fixed before launch |
 | 6 | [Automated tests](05-automated-tests.md) | Database, API and unit checks, kept separate from manual testing |
+| 7 | [Demo walkthrough](06-demo-walkthrough.md) | Click-by-click GUI journeys across customer, provider and admin windows, for demos and full passes |
 
 ## Who owns what
 
