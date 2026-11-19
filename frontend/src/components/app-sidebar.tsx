@@ -59,17 +59,13 @@ import synchooMark from "@/assets/synchoo-mark.png";
 
 type Item = { to: string; label: string; icon: any };
 
-const exploreItems: Item[] = [
+const bookItems: Item[] = [
   { to: "/", label: "Home", icon: Home },
   { to: "/browse", label: "Browse rides", icon: Car },
-  { to: "/pooling", label: "Car pooling", icon: Users },
   { to: "/drivers", label: "Hire a driver", icon: UserRound },
+  { to: "/pooling", label: "Car pooling", icon: Users },
   { to: "/wash", label: "Vehicle wash", icon: Droplets },
   { to: "/corporate", label: "Corporate travel", icon: Briefcase },
-  { to: "/rewards", label: "Synchoo Rewards", icon: Award },
-  { to: "/referrals", label: "Refer & earn", icon: Gift },
-  { to: "/safety", label: "Safety center", icon: ShieldAlert },
-  { to: "/membership", label: "Membership", icon: Crown },
 ];
 
 const historySubItems: Item[] = [
@@ -81,10 +77,20 @@ const historySubItems: Item[] = [
 
 const subsequentAccountItems: Item[] = [
   { to: "/wallet", label: "Wallet", icon: WalletIcon },
-  { to: "/rewards", label: "Synchoo Points", icon: Award },
-  { to: "/referrals", label: "Refer & earn", icon: Gift },
   { to: "/wishlist", label: "Saved", icon: Heart },
   { to: "/profile", label: "Profile", icon: UserIcon },
+];
+
+const rewardsItems: Item[] = [
+  { to: "/rewards", label: "Synchoo Rewards", icon: Award },
+  { to: "/referrals", label: "Refer & earn", icon: Gift },
+  { to: "/membership", label: "Membership", icon: Crown },
+];
+
+const helpItems: Item[] = [
+  { to: "/safety", label: "Safety center", icon: ShieldAlert },
+  { to: "/help", label: "User manual", icon: LifeBuoy },
+  { to: "/data-deletion", label: "Privacy & data", icon: ShieldCheck },
 ];
 
 const earnItems: Item[] = [{ to: "/earn", label: "Earn with us", icon: BadgeIndianRupee }];
@@ -183,7 +189,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {renderGroup("Explore", exploreItems)}
+        {renderGroup("Book", bookItems)}
 
         {/* Your account with History collapsible */}
         {user && (
@@ -272,6 +278,8 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {renderGroup("Rewards & perks", rewardsItems)}
 
         {/* Earn with us — single clean button for all users */}
         {renderGroup("Earn with us", earnItems)}
@@ -388,10 +396,7 @@ export function AppSidebar() {
         {user &&
           isAdmin &&
           renderGroup("Admin", [{ to: "/admin", label: "Admin panel", icon: ShieldCheck }])}
-        {renderGroup("Help & privacy", [
-          { to: "/help", label: "User manual", icon: LifeBuoy },
-          { to: "/data-deletion", label: "Privacy & data", icon: ShieldCheck },
-        ])}
+        {renderGroup("Help & safety", helpItems)}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">

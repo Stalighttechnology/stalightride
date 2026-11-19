@@ -353,6 +353,13 @@ describe("cleaner job board & atomic job claim (CJ-01, CJ-02)", () => {
     // Cleaner 2 tries to claim the same job -> rejected (already assigned)
     expect(() => be.claimWashJob(c2, job.id)).toThrow(/already assigned/);
 
+    // A second job in the same slot can't go to the same cleaner, but another day can
+    const sameSlot = be.createConfirmedWash(customer, "2026-08-22", "Bangalore", 499);
+    expect(() => be.claimWashJob(c1, sameSlot.id)).toThrow(/already have a wash job in this slot/);
+    expect(be.claimWashJob(c2, sameSlot.id).assigned_cleaner_id).toBe(c2);
+    const nextDay = be.createConfirmedWash(customer, "2026-08-23", "Bangalore", 499);
+    expect(be.claimWashJob(c1, nextDay.id).assigned_cleaner_id).toBe(c1);
+
     // Cleaner 1 can now move it forward in pipeline
     be.advanceWashStatus(c1, job.id, "on_the_way");
     expect(job.progress).toBe("on_the_way");

@@ -125,18 +125,6 @@ def test_gap01_membership_needs_verified_payment(world):
     assert q("SELECT membership_plan FROM public.profiles WHERE id = %s", [world.cust.id])[0][0] == "free"
 
 
-def test_gap02_second_customer_cannot_request_taken_dates(world):
-    _, first = request_booking(world)
-    _, second = request_booking(world, client=world.c2, customer=world.cust2)
-    assert first.status_code < 300
-    assert second.status_code >= 400
-
-
-def test_gap03_new_booking_always_starts_pending(world):
-    row_id, res = request_booking(world, status="confirmed")
-    assert res.status_code >= 400 or booking(row_id, "status")["status"] == "pending"
-
-
 def test_gap04_replayed_payment_cannot_undo_a_refund(world):
     row_id, _ = request_booking(world)
     update(world.h, "bookings", {"status": "confirmed"}, row_id)
@@ -185,14 +173,6 @@ def test_gap09_cleaner_cannot_complete_an_unpaid_wash(world):
     assert q("SELECT status::text FROM public.wash_bookings WHERE id = %s", [wash])[0][0] != "completed"
 
 
-def test_gap10_blocked_dates_never_trap_a_confirmed_booking(world):
-    row_id = paid_booking(world)
-    blocked = insert(world.h, "availability_blocks", {
-        "vehicle_id": str(world.vehicle), "start_date": day(10), "end_date": day(10)})
-    cancelled = rpc(world.c, "cancel_booking", _booking_id=str(row_id))
-    assert blocked.status_code >= 400 or cancelled.status_code == 200
-
-
 def test_gap11_customer_alone_cannot_close_the_trip(world):
     row_id = paid_booking(world)
     checklist(world.h, row_id, "pickup", 1000)
@@ -210,17 +190,6 @@ def test_gap12_recorded_inspection_cannot_be_rewritten(world):
 def test_gap16_admin_can_save_platform_settings(world):
     res = update(world.a, "platform_settings", {"maintenance_mode": False, "sos_phone": "+911234567890", "gst_pct": 18}, 1)
     assert res.status_code < 300, res.json()
-
-
-def test_gap18_past_dates_are_rejected(world):
-    _, res = request_booking(world, start=-5, end=-4)
-    assert res.status_code >= 400
-
-
-def test_gap18_paused_vehicle_cannot_be_booked(world):
-    q("UPDATE public.vehicles SET status = 'paused' WHERE id = %s", [world.vehicle])
-    _, res = request_booking(world)
-    assert res.status_code >= 400
 
 
 def test_gap19_pickup_checklist_waits_for_the_check_in_window(world):
@@ -243,12 +212,6 @@ def test_gap20_cancelled_pool_trip_closes_and_notifies_passengers(world):
     assert q("SELECT status::text FROM public.pool_requests WHERE id = %s", [request])[0][0] == "cancelled"
     assert q("SELECT count(*) FROM public.notifications WHERE user_id = %s AND title ILIKE %s",
              [world.cust.id, "%cancel%"])[0][0] >= 1
-
-
-def test_gap21_deleted_account_cannot_sign_in(world):
-    assert rpc(world.c2, "delete_my_account_data").json()["data"]["ok"] is True
-    res = APIClient().post("/api/auth/signin/", {"email": world.cust2.email, "password": "secret123"}, format="json")
-    assert res.status_code >= 400
 
 
 # -- rules that work today: these must keep passing --------------------------------

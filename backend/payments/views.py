@@ -250,12 +250,15 @@ def verify_wallet_topup(data, user_id):
             raise FnError("Top-up not found")
         if t["user_id"] != user_id:
             raise FnError("Not your top-up")
-        if t["status"] == "paid":
+        # The row lock makes a simultaneous second call wait, then match no row (GAP-07).
+        claimed, _ = run({"table": "wallet_topups", "action": "update", "select": "id",
+                          "values": {"status": "paid", "razorpay_payment_id": payment_id},
+                          "filters": [["id", "eq", t["id"]], ["status", "eq", "created"]]})
+        if not claimed:
+            if t["status"] == "failed":
+                raise FnError("This top-up can no longer be completed")
             w = _get("wallets", "balance", "user_id", user_id)
             return {"ok": True, "alreadyCredited": True, "newBalance": float((w or {}).get("balance") or 0)}
-        # shortcut: two simultaneous verify calls can both credit; fixed in the defects PR.
-        _update("wallet_topups", {"status": "paid", "razorpay_payment_id": payment_id},
-                [["id", "eq", t["id"]], ["status", "eq", "created"]])
         balance = run_rpc("wallet_apply", {
             "_user_id": user_id, "_amount": t["amount"], "_kind": "topup",
             "_reference": payment_id, "_description": "Money added to wallet"})

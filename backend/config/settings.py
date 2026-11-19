@@ -50,6 +50,10 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", "synchoo"),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", "5432"),
+        # Reuse connections instead of opening one per request. Safe: role and
+        # auth.uid() are set per transaction (core/db.py), never per session.
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 

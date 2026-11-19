@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,24 +14,32 @@ export function CustomersTab() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "approved" | "pending" | "none">("all");
   const [busy, setBusy] = useState<string | null>(null);
+  const pager = usePage();
 
   const load = async () => {
-    const { data, error } = await api
+    let q = api
       .from("profiles")
-      .select("id, full_name, phone, city, dl_status, dl_number, created_at, avatar_url")
+      .select("id, full_name, phone, city, dl_status, dl_number, created_at, avatar_url", {
+        count: "exact",
+      })
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(pager.from, pager.to);
+    if (filterStatus !== "all") q = q.eq("dl_status", filterStatus as any);
+    const term = search.trim().replace(/[,()%]/g, "");
+    if (term) q = q.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,city.ilike.%${term}%`);
+    const { data, error, count } = await q;
 
     if (error) {
       toast.error(error.message);
       return;
     }
     setCustomers(data || []);
+    pager.setTotal(count ?? 0);
   };
 
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page, search, filterStatus]);
 
   const toggleStatus = async (customer: any) => {
     const nextStatus = customer.dl_status === "approved" ? "rejected" : "approved";
@@ -54,14 +63,8 @@ export function CustomersTab() {
 
   if (!customers) return <Skeleton className="h-44 w-full mt-4" />;
 
-  const filtered = customers.filter((c) => {
-    const matchesSearch =
-      (c.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (c.phone || "").includes(search) ||
-      (c.city || "").toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filterStatus === "all" || c.dl_status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  // Search and filter run in the query, so paging counts stay right.
+  const filtered = customers;
 
   return (
     <div className="mt-4 space-y-4">
@@ -71,7 +74,10 @@ export function CustomersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              pager.setPage(0);
+            }}
             placeholder="Search customers by name, phone or city..."
             className="pl-9 text-xs"
           />
@@ -85,7 +91,10 @@ export function CustomersTab() {
               size="sm"
               variant={filterStatus === st ? "default" : "outline"}
               className="h-8 text-xs capitalize"
-              onClick={() => setFilterStatus(st)}
+              onClick={() => {
+                setFilterStatus(st);
+                pager.setPage(0);
+              }}
             >
               {st}
             </Button>
@@ -94,7 +103,7 @@ export function CustomersTab() {
       </div>
 
       <div className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {customers.length} registered customers
+        Showing {filtered.length} of {pager.total} registered customers
       </div>
 
       {/* Customer List */}
@@ -176,6 +185,7 @@ export function CustomersTab() {
           ))
         )}
       </div>
+      <ListPager {...pager} />
     </div>
   );
 }

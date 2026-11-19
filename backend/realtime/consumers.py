@@ -29,6 +29,8 @@ from core.query import columns
 
 log = logging.getLogger(__name__)
 TABLES = {"messages", "booking_locations", "notifications", "public_drivers", "wallets", "wallet_transactions"}
+# Rows only their owner reads live: skip other sockets before touching the database.
+OWNED = {"notifications", "wallets", "wallet_transactions"}
 EVENTS = {"*", "INSERT", "UPDATE", "DELETE"}
 _sockets = set()
 _listener = None
@@ -120,6 +122,8 @@ class ChangesConsumer(AsyncJsonWebsocketConsumer):
         matches = [(sid, s) for sid, s in self.subs.items()
                    if s[0] == change["table"] and s[1] in ("*", change["event"])]
         if not matches:
+            return
+        if change["table"] in OWNED and change.get("owner") and change["owner"] != self.user_id:
             return
         deleted = change["event"] == "DELETE"
         row = None if deleted else await _read_row(change["table"], change["key"], change["value"], self.user_id)
