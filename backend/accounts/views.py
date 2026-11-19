@@ -12,6 +12,7 @@ import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -33,6 +34,24 @@ _google_keys = jwt.PyJWKClient("https://www.googleapis.com/oauth2/v3/certs", cac
 
 def _error(message, code, status=400):
     return Response({"message": message, "code": code}, status=status)
+
+
+# shortcut: Django's default per-process memory cache; set a shared CACHES backend (e.g. Redis)
+# before running more than one server process, or each process counts separately.
+WINDOW = 15 * 60
+
+
+def _over_limit(key, limit):
+    return cache.get(key, 0) >= limit
+
+
+def _count(key):
+    cache.add(key, 0, WINDOW)
+    cache.incr(key)
+
+
+def _too_many():
+    return _error("Too many attempts. Please wait 15 minutes and try again.", "over_request_rate_limit", 429)
 
 
 def user_payload(user_id):
@@ -109,15 +128,20 @@ def signup(request):
 def signin(request):
     email = str(request.data.get("email") or "").strip().lower()
     password = str(request.data.get("password") or "")
+    # Failed attempts per account and address; a successful sign-in clears them.
+    key = f"signin-fail:{request.META.get('REMOTE_ADDR', '')}:{email}"
+    if _over_limit(key, 5):
+        return _too_many()
     with as_owner():
         user = User.objects.filter(email=email, is_active=True).first()
         ok = user is not None and (
             user.check_password(password) or
             user.check_password(password.strip())
         )
-    print(f"[SIGNIN] email={repr(email)} user_found={user is not None} ok={ok}", flush=True)
     if not ok:
+        _count(key)
         return _error("Invalid login credentials", "invalid_credentials")
+    cache.delete(key)
     session = session_for(user)
     return Response({"user": session["user"], "session": session})
 
@@ -191,6 +215,10 @@ def google(request):
 def password_reset(request):
     """Email a reset link. Always answers the same so it never reveals who has an account."""
     email = str(request.data.get("email") or "").strip().lower()
+    key = f"password-reset:{request.META.get('REMOTE_ADDR', '')}"
+    if _over_limit(key, 5):
+        return _too_many()
+    _count(key)
     with as_owner():
         user = User.objects.filter(email=email, is_active=True).first()
         if user:

@@ -67,54 +67,9 @@ export function RevenueCommissionsTab() {
           carpooling: Number(a.pool_volume || 0),
         },
       });
-    } else {
-      // Fallback: aggregate directly from tables if RPC is pending in local client
-      const [bRes, dRes, wRes, pRes] = await Promise.all([
-        api.from("bookings").select("total_price, security_deposit, discount, refund_amount, payment_status"),
-        api.from("driver_bookings").select("total_price, discount, refund_amount, payment_status"),
-        api.from("wash_bookings").select("price, refund_amount, payment_status"),
-        api.from("payouts").select("amount, status"),
-      ]);
-
-      const rentalVol = (bRes.data || [])
-        .filter((b) => b.payment_status === "paid")
-        .reduce((sum, b) => sum + Math.max(0, Number(b.total_price || 0) - Number(b.security_deposit || 0)), 0);
-
-      const driverVol = (dRes.data || [])
-        .filter((d) => d.payment_status === "paid")
-        .reduce((sum, d) => sum + Number(d.total_price || 0), 0);
-
-      const washVol = (wRes.data || [])
-        .filter((w) => w.payment_status === "paid")
-        .reduce((sum, w) => sum + Number(w.price || 0), 0);
-
-      const payouts = (pRes.data || [])
-        .filter((p) => p.status === "paid")
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-      const refunds =
-        (bRes.data || []).reduce((sum, b) => sum + Number(b.refund_amount || 0), 0) +
-        (dRes.data || []).reduce((sum, d) => sum + Number(d.refund_amount || 0), 0) +
-        (wRes.data || []).reduce((sum, w) => sum + Number(w.refund_amount || 0), 0);
-
-      const gmv = rentalVol + driverVol + washVol;
-      const platformRev =
-        rentalVol * (commissions.rental / 100) +
-        driverVol * (commissions.driver / 100) +
-        washVol * (commissions.wash / 100);
-
-      setRevenueStats({
-        gmv,
-        platformRevenue: Math.round(platformRev),
-        providerPayouts: payouts,
-        refunds,
-        serviceBreakdown: {
-          rentals: rentalVol,
-          driverHires: driverVol,
-          washes: washVol,
-          carpooling: 0,
-        },
-      });
+    } else if (error) {
+      // No browser-side fallback: summing capped row lists gives wrong totals.
+      toast.error(error.message);
     }
 
     setLoading(false);

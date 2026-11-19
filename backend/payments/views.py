@@ -260,8 +260,10 @@ def verify_wallet_topup(data, user_id):
             if status == "paid":
                 w = _get("wallets", "balance", "user_id", user_id)
                 return {"ok": True, "alreadyCredited": True, "newBalance": float((w or {}).get("balance") or 0)}
+            if status == "failed":
+                raise FnError("This top-up can no longer be completed")
             c.execute(
-                "UPDATE public.wallet_topups SET status = 'paid', razorpay_payment_id = %s, updated_at = now() WHERE id = %s",
+                "UPDATE public.wallet_topups SET status = 'paid', razorpay_payment_id = %s, updated_at = now() WHERE id = %s AND status = 'created'",
                 [payment_id, topup_id],
             )
         balance = run_rpc("wallet_apply", {

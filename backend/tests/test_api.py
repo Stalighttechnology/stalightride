@@ -85,6 +85,18 @@ def test_signin_refresh_and_signout(alice):
     assert APIClient().post("/api/auth/refresh/", {"refresh_token": new_refresh}, format="json").status_code == 401
 
 
+def test_repeated_failed_signins_lock_the_account_for_that_address(alice):
+    from django.core.cache import cache
+    cache.clear()
+    c = APIClient()
+    for _ in range(5):
+        assert c.post("/api/auth/signin/", {"email": alice.email, "password": "wrong"}, format="json").status_code == 400
+    locked = c.post("/api/auth/signin/", {"email": alice.email, "password": "secret123"}, format="json")
+    assert locked.status_code == 429 and locked.json()["code"] == "over_request_rate_limit"
+    cache.clear()
+    assert c.post("/api/auth/signin/", {"email": alice.email, "password": "secret123"}, format="json").status_code == 200
+
+
 def test_password_reset_round_trip(alice, settings):
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     APIClient().post("/api/auth/password-reset/", {"email": alice.email}, format="json")
@@ -99,6 +111,13 @@ def test_password_reset_round_trip(alice, settings):
     # A used link stops working: the token depends on the password.
     again = APIClient().post("/api/auth/password-reset/confirm/", {**params, "password": "another1"}, format="json")
     assert again.status_code == 400
+
+
+def test_deleted_account_cannot_sign_in(alice):
+    res = client_for(alice).post("/api/rpc/delete_my_account_data/", {}, format="json")
+    assert res.json()["data"]["ok"] is True, res.json()
+    again = APIClient().post("/api/auth/signin/", {"email": alice.email, "password": "secret123"}, format="json")
+    assert again.status_code >= 400
 
 
 # -- table queries -------------------------------------------------------------
@@ -142,6 +161,12 @@ def test_writes_embeds_and_database_errors(alice, bob):
                      VALUES (%s, 'Swift', 'Maruti', 'Swift', 2022, 'car', 'Bengaluru', 1000, 'active') RETURNING id""",
                   [alice.id])
         vehicle_id = c.fetchone()[0]
+    # New listings start as drafts; an admin approves this one so it can be booked.
+    admin = User.objects.create_user("admin@example.com", "secret123")
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", [admin.id])
+    q("SELECT set_config('request.jwt.claim.sub', %s, true)", [str(admin.id)])
+    q("UPDATE public.vehicles SET status = 'active', verification_status = 'approved' WHERE id = %s", [vehicle_id])
+    q("SELECT set_config('request.jwt.claim.sub', '', true)")
     booking = {"vehicle_id": str(vehicle_id), "vendor_id": str(alice.id), "customer_id": str(bob.id),
                "start_date": "2030-01-10", "end_date": "2030-01-11", "base_price": 1, "total_price": 1}
     res = client_for(bob).post("/api/query/", {"table": "bookings", "action": "insert", "values": booking,
@@ -305,3 +330,33 @@ def test_membership_charges_perks():
     assert std_ch["service_fee"] == 50
     assert std_ch["gst"] == 9
     assert std_ch["customer_total"] == 1059
+
+
+# -- admin lists (migration 0021) ---------------------------------------------------
+
+def test_broadcast_reaches_every_user_and_is_admin_only(alice, bob):
+    for i in range(120):  # more than the old 100-recipient cap
+        q("INSERT INTO auth.users (id, email) VALUES (%s, %s)", [uuid.uuid4(), f"crowd{i}@example.com"])
+    rpc = {"_title": "Hello", "_body": "News", "_audience": "all"}
+    assert client_for(bob).post("/api/rpc/admin_broadcast/", rpc, format="json").json()["message"] \
+        == "Only admins can send broadcasts"
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", [alice.id])
+    sent = client_for(alice).post("/api/rpc/admin_broadcast/", rpc, format="json").json()["data"]
+    users = q("SELECT count(*) FROM public.profiles")[0][0]
+    assert sent == users > 120
+    assert q("SELECT count(*) FROM public.notifications WHERE title = 'Hello'")[0][0] == users
+
+
+def test_bookings_feed_pages_with_an_exact_count(alice, bob):
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", [alice.id])
+    for i in range(30):
+        q("""INSERT INTO public.pool_trips (driver_id, vehicle_label, origin_label, origin_lat, origin_lng, dest_label,
+             dest_lat, dest_lng, depart_at, seats_total, seats_available, fare_per_seat)
+             VALUES (%s, 'Car', %s, 12.9, 77.6, 'Mysuru', 12.3, 76.6, now() + interval '2 days', 3, 3, 200)""",
+          [bob.id, f"Stop {i}"])
+    feed = {"select": "id, kind, title", "count": "exact", "order": [["created_at", False, None]],
+            "limit": 25, "offset": 25}
+    admin = select(client_for(alice), "admin_bookings_feed", **feed).json()
+    assert admin["count"] == 30 and len(admin["data"]) == 5 and admin["data"][0]["kind"] == "pooling"
+    # The view reads each table as the caller, so row-level security still applies.
+    assert q("SELECT reloptions FROM pg_class WHERE relname = 'admin_bookings_feed'") == [(["security_invoker=true"],)]

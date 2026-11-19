@@ -1503,6 +1503,17 @@ export function createBackend(
         );
       }
 
+      // wash_bookings_cleaner_slot_uniq (migration 0020): one person, one job per slot.
+      const busy = [...washes.values()].some(
+        (o) =>
+          o.id !== w.id &&
+          o.assigned_cleaner_id === cleaner_id &&
+          ["pending", "confirmed"].includes(o.status) &&
+          o.slot_date === w.slot_date &&
+          o.slot_time === w.slot_time,
+      );
+      if (busy) throw new RuleError("You already have a wash job in this slot");
+
       // Atomic claim
       w.assigned_cleaner_id = cleaner_id;
       w.progress = "assigned";

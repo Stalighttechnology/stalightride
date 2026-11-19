@@ -6,12 +6,12 @@ These checks run without clicking through the app. Manual workflows are in the [
 
 | Check | Run from | Command | Latest result |
 | --- | --- | --- | --- |
-| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 34 passed |
-| Frontend rules and pricing | `frontend/` | `npm run test` | 205 passed in 14 files |
+| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 44 passed |
+| Frontend rules and pricing | `frontend/` | `npm run test` | 209 passed in 14 files |
 | Type check | `frontend/` | `npx tsc --noEmit` | No errors |
 | Production build | `frontend/` | `npm run build` | Builds successfully |
 | Migration check | `backend/` | `.venv/Scripts/python manage.py makemigrations --check --dry-run` | No changes detected |
-| **Launch gates** | `backend/` | See below | **16 failed, 7 passed** |
+| **Launch gates** | `backend/` | See below | **9 failed, 7 passed** |
 
 GitHub Actions runs everything except the launch gates on each pull request. See `.github/workflows/ci.yml`.
 
@@ -39,23 +39,19 @@ The gates use the throwaway `test_synchoo` database and don't touch your local d
 | Gate | Gap |
 | --- | --- |
 | `test_gap01_membership_needs_verified_payment` | GAP-01 |
-| `test_gap02_second_customer_cannot_request_taken_dates` | GAP-02 |
-| `test_gap03_new_booking_always_starts_pending` | GAP-03 |
 | `test_gap04_replayed_payment_cannot_undo_a_refund` | GAP-04 |
 | `test_gap08_uploaded_html_is_never_served_as_a_web_page` | GAP-08 |
 | `test_gap09_host_cannot_complete_an_unpaid_booking` | GAP-09 |
 | `test_gap09_cleaner_cannot_complete_an_unpaid_wash` | GAP-09 |
-| `test_gap10_blocked_dates_never_trap_a_confirmed_booking` | GAP-10 |
 | `test_gap11_customer_alone_cannot_close_the_trip` | GAP-11 |
 | `test_gap12_recorded_inspection_cannot_be_rewritten` | GAP-12 |
 | `test_gap16_admin_can_save_platform_settings` | GAP-16 |
-| `test_gap18_past_dates_are_rejected` | GAP-18 |
-| `test_gap18_paused_vehicle_cannot_be_booked` | GAP-18 |
 | `test_gap19_pickup_checklist_waits_for_the_check_in_window` | GAP-19 |
 | `test_gap20_cancelled_pool_trip_closes_and_notifies_passengers` | GAP-20 |
-| `test_gap21_deleted_account_cannot_sign_in` | GAP-21 |
 
 The 7 `test_ok_*` tests protect rules that work today: price breakdown, the refund table, settlement, same-day conflicts and referral bonuses. They must always pass.
+
+GAP-02, 03, 10, 18 and 21 are fixed; their gates now live in `backend/tests/test_booking_integrity.py` and `backend/tests/test_api.py`, including a real two-connection race for GAP-02.
 
 When you fix a gap, run its gate, confirm it passes, then move the test into `backend/tests/` so CI protects the fix.
 

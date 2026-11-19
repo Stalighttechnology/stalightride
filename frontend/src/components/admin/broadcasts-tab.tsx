@@ -47,56 +47,29 @@ export function BroadcastsTab() {
 
     setSending(true);
     try {
-      // Fetch target audience users to receive broadcast notification
-      let userIds: string[] = [];
-      if (targetAudience === "hosts") {
-        const { data: hosts, error: hErr } = await api
-          .from("user_roles" as any)
-          .select("user_id")
-          .eq("role", "vendor")
-          .limit(100);
-        if (hErr) throw hErr;
-        userIds = (hosts ?? []).map((h: any) => h.user_id);
-      } else if (targetAudience === "drivers") {
-        const { data: drivers, error: dErr } = await api
-          .from("drivers")
-          .select("id")
-          .limit(100);
-        if (dErr) throw dErr;
-        userIds = (drivers ?? []).map((d: any) => d.id);
-      } else {
-        const { data: users, error: usersError } = await api
-          .from("profiles")
-          .select("id")
-          .limit(100);
-        if (usersError) throw usersError;
-        userIds = (users ?? []).map((u: any) => u.id);
-      }
-
-      if (userIds.length > 0) {
-        const rows = userIds.map((uid) => ({
-          user_id: uid,
-          title: title.trim(),
-          body: message.trim(),
-          link: "/browse",
-        }));
-        const { error } = await api.from("notifications").insert(rows as any);
-        if (error) throw error;
-      }
+      // The server picks every recipient in the audience (no 100-user cap).
+      const { data: sent, error } = await api.rpc("admin_broadcast" as any, {
+        _title: title.trim(),
+        _body: message.trim(),
+        _audience: targetAudience,
+      });
+      if (error) throw error;
 
       const logEntry: BroadcastLog = {
         id: String(Date.now()),
         title: title.trim(),
         message: message.trim(),
         audience:
-          targetAudience === "all" ? "All Users" : targetAudience === "hosts" ? "Hosts" : "Drivers",
+          { all: "All Users", hosts: "Hosts", drivers: "Drivers", cleaners: "Washers & Spas" }[
+            targetAudience
+          ] ?? targetAudience,
         sentAt: new Date().toLocaleString(),
       };
 
       setHistory([logEntry, ...history]);
       setTitle("");
       setMessage("");
-      toast.success("Broadcast sent to active users!");
+      toast.success(`Broadcast sent to ${sent ?? 0} users`);
     } catch (err: any) {
       toast.error(err.message || "Failed to dispatch broadcast");
     } finally {
