@@ -38,9 +38,12 @@ export function BookingsMonitorTab() {
   const [kindFilter, setKindFilter] = useState<"all" | BookingKind>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
 
   const loadAllBookings = async () => {
     try {
+      const offset = (page - 1) * pageSize;
       const [{ data: rentals }, { data: driverHires }, { data: washes }, { data: pools }] =
         await Promise.all([
           api
@@ -49,28 +52,28 @@ export function BookingsMonitorTab() {
               "id, customer_id, vendor_id, total_price, status, created_at, start_date, end_date, vehicles:vehicle_id(title)",
             )
             .order("created_at", { ascending: false })
-            .limit(50),
+            .range(offset, offset + pageSize - 1),
           api
             .from("driver_bookings")
             .select(
               "id, customer_id, driver_id, total_price, status, created_at, start_date, drivers:driver_id(full_name)",
             )
             .order("created_at", { ascending: false })
-            .limit(50),
+            .range(offset, offset + pageSize - 1),
           api
             .from("wash_bookings")
             .select(
               "id, customer_id, assigned_vendor_id, price, status, created_at, slot_date, slot_time, wash_services:service_id(name)",
             )
             .order("created_at", { ascending: false })
-            .limit(50),
+            .range(offset, offset + pageSize - 1),
           api
             .from("pool_trips")
             .select(
               "id, driver_id, origin_label, dest_label, fare_per_seat, status, created_at, depart_at",
             )
             .order("created_at", { ascending: false })
-            .limit(50),
+            .range(offset, offset + pageSize - 1),
         ]);
 
       const unified: UnifiedBooking[] = [];
@@ -137,7 +140,7 @@ export function BookingsMonitorTab() {
 
   useEffect(() => {
     loadAllBookings();
-  }, []);
+  }, [page]);
 
   if (!items) return <Skeleton className="h-44 w-full mt-4" />;
 
@@ -277,6 +280,34 @@ export function BookingsMonitorTab() {
             </Card>
           ))
         )}
+      </div>
+
+      {/* Pagination Controls (GAP-31) */}
+      <div className="flex items-center justify-between border-t border-border pt-3 mt-2">
+        <p className="text-xs text-muted-foreground">
+          Page {page} ({pageSize} records per query feed)
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </Button>
+          <span className="text-xs font-semibold px-2">Page {page}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={filtered.length < pageSize}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

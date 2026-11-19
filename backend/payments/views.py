@@ -476,12 +476,12 @@ def subscribe_membership(data, user_id):
                 "_description": f"Synchoo {plan.title()} Membership ({cycle.capitalize()})",
             })
     elif payment_method == "razorpay":
+        order_id = data.get("razorpay_order_id")
         payment_id = data.get("razorpay_payment_id")
         signature = data.get("razorpay_signature")
-        if not payment_id:
-            raise FnError("Missing Razorpay payment confirmation.")
-        if signature:
-            _check_signature(data)
+        if not order_id or not payment_id or not signature:
+            raise FnError("Missing required Razorpay payment confirmation (order_id, payment_id, signature).")
+        _check_signature(data)
         payment_ref = payment_id
     else:
         raise FnError("Invalid payment method.")
@@ -828,6 +828,23 @@ def convert_points_to_wallet(data, user_id):
     raise FnError("Points conversion to cash is disabled. Points can only be redeemed for Starlight discount coupons and mobility vouchers.")
 
 
+def resolve_dispute_compensation(data, user_id):
+    if not _is_admin(user_id):
+        raise FnError("Admins only", 403)
+    incident_id = _uuid(data, "incidentId")
+    amount = float(data.get("amount") or 0)
+    notes = data.get("notes") or "Damage dispute resolved"
+    award_to = data.get("awardTo")
+    with db_role("service_role"):
+        res = run_rpc("resolve_dispute_compensation", {
+            "_incident_id": incident_id,
+            "_amount": amount,
+            "_notes": notes,
+            "_award_to": award_to
+        })
+    return res
+
+
 FUNCTIONS = {
     "createRazorpayOrder": create_razorpay_order,
     "verifyRazorpayPayment": verify_razorpay_payment,
@@ -848,6 +865,7 @@ FUNCTIONS = {
     "getRewardsSummary": get_rewards_summary,
     "redeemRewardVoucher": redeem_reward_voucher,
     "convertPointsToWallet": convert_points_to_wallet,
+    "resolveDisputeCompensation": resolve_dispute_compensation,
 }
 PUBLIC = {"getBookingByQr"}
 

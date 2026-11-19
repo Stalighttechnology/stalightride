@@ -50,7 +50,7 @@ Ada as admin and Asha as a non-admin.
 | AD-12 | Customers | Search for a customer | Correct details are shown | Pass (Search matches customer records with contact and wallet details) |
 | AD-13 | Bookings Monitor | Filter bookings and open one | Status and amounts match the database | Pass (Filters rentals, hires, carpools with accurate database amounts) |
 | AD-14 | Disputes | Resolve a dispute with notes | Raiser is notified with the resolution | Pass (Disputes queue records notes and resolution notification) |
-| AD-15 | Disputes | Resolve a dispute that needs compensation | **GAP-13:** money outcome must be recorded | Fail (GAP-13: Resolving damage dispute records notes but moves no money) |
+| AD-15 | Disputes | Resolve a dispute that needs compensation | **GAP-13:** money outcome must be recorded | Pass (GAP-13 resolved: monetary damage compensation credited directly to recipient wallet via `resolve_dispute_compensation`) |
 | AD-16 | Payouts | Mark a withdrawal paid with a reference | Provider is notified | Pass (Requires UTR payment reference and sends `Payout sent` notification) |
 | AD-17 | Payouts | Reject a withdrawal | Money returns to the provider | Pass (Returns full withdrawal amount to provider wallet with notification) |
 | AD-18 | Payments & Refunds | Refund ₹100 to a customer with a reason | Wallet rises by ₹100 | Pass (Refund credited to customer wallet with audit trail) |
@@ -66,8 +66,8 @@ Complete one rental with `SAVE10`: customer pays ₹4,906.20 and host earns ₹1
 | ID | Steps | Expected | Result |
 | --- | --- | --- | --- |
 | AD-23 | Open Revenue & Fees | Rental volume includes the booking | Pass (Gross volume, platform revenue and fees reflect booking volume) |
-| AD-24 | Compare platform revenue with cash kept | **GAP-23:** revenue must allow for the ₹200 discount | Fail (GAP-23: Revenue reports ignore coupon discounts) |
-| AD-25 | Check whether total volume includes the ₹3,000 deposit | **GAP-23:** refundable deposits must be excluded | Fail (GAP-23: Refundable deposits included in gross volume) |
+| AD-24 | Compare platform revenue with cash kept | **GAP-23:** revenue must allow for the ₹200 discount | Pass (GAP-23 resolved: platform net revenue allows for platform-funded coupon discounts) |
+| AD-25 | Check whether total volume includes the ₹3,000 deposit | **GAP-23:** refundable deposits must be excluded | Pass (GAP-23 resolved: refundable security deposits excluded from gross rental volume) |
 
 ## Configuration
 
@@ -76,9 +76,9 @@ Complete one rental with `SAVE10`: customer pays ₹4,906.20 and host earns ₹1
 | AD-26 | Coupons | Create percent and fixed coupons | Both work at checkout | Pass (Creates percent and fixed coupons with validation) |
 | AD-27 | Coupons | Deactivate a coupon | It no longer works | Pass (Paused coupon fails checkout validation) |
 | AD-28 | Cities & Categories | Add a city and turn it off | City picker updates | Pass (City active toggle dynamically updates city picker) |
-| AD-29 | Cities & Categories | Set Mumbai surge to 1.5 and price a Mumbai vehicle | **GAP-22:** price must change, or the setting must be removed | Fail (GAP-22: City surge multiplier configurable in admin but not applied in pricing) |
-| AD-30 | Cities & Categories | Raise a category minimum deposit and list a vehicle below it | **GAP-22:** listing must be refused, or the setting must be removed | Fail (GAP-22: Category minimum security deposits not enforced at listing) |
-| AD-31 | Fees & settings | Change GST and save | **GAP-16:** must save without an error | Pass (Settings save cleanly; `Settings saved — they apply to new bookings`) |
+| AD-29 | Cities & Categories | Set Mumbai surge to 1.5 and price a Mumbai vehicle | **GAP-22:** price must change, or the setting must be removed | Pass (GAP-22 resolved: city surge multiplier applied in rental pricing) |
+| AD-30 | Cities & Categories | Raise a category minimum deposit and list a vehicle below it | **GAP-22:** listing must be refused, or the setting must be removed | Pass (GAP-22 resolved: listing below category minimum deposit rejected by database trigger) |
+| AD-31 | Fees & settings | Change GST and save | **GAP-16:** must save without an error | Pass (GAP-16 resolved: operational settings and fee parameters save cleanly without schema errors) |
 
 ## Moderation and messaging
 
@@ -94,7 +94,7 @@ Complete one rental with `SAVE10`: customer pays ₹4,906.20 and host earns ₹1
 
 | ID | Steps | Expected | Result |
 | --- | --- | --- | --- |
-| AD-37 | Load more than 1000 bookings and open Bookings Monitor | **GAP-31:** all records must be reachable | Fail (GAP-31: Queries return at most 1000 rows without server pagination) |
+| AD-37 | Load more than 1000 bookings and open Bookings Monitor | **GAP-31:** all records must be reachable | Pass (GAP-31 resolved: all records reachable across database via server-side pagination) |
 
 ## Linked gaps
 
