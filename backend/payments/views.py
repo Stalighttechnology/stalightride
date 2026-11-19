@@ -19,8 +19,9 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 from django.conf import settings
-from django.db import DatabaseError
-from rest_framework.decorators import api_view
+from django.db import DatabaseError, connection, transaction
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.db import db_role
@@ -134,13 +135,15 @@ def create_razorpay_order(data, user_id):
 def verify_razorpay_payment(data, user_id):
     booking_id = _uuid(data, "bookingId")
     order_id, payment_id = _check_signature(data)
-    b = _get("bookings", "id, customer_id, razorpay_order_id", "id", booking_id)
+    b = _get("bookings", "id, customer_id, status, payment_status, razorpay_order_id", "id", booking_id)
     if not b:
         raise FnError("Booking not found")
     if b["customer_id"] != user_id:
         raise FnError("Not your booking")
-    if b["razorpay_order_id"] != order_id:
+    if b.get("razorpay_order_id") != order_id:
         raise FnError("Order mismatch")
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded") or b.get("status") == "cancelled":
+        return {"ok": True}
     with db_role("service_role"):
         _update("bookings", _paid_patch(payment_id), [["id", "eq", b["id"]]])
     return {"ok": True}
@@ -169,14 +172,14 @@ def create_driver_razorpay_order(data, user_id):
 def verify_driver_razorpay_payment(data, user_id):
     hire_id = _uuid(data, "driverBookingId")
     order_id, payment_id = _check_signature(data)
-    b = _get("driver_bookings", "id, customer_id, driver_id, total_price, payment_status, razorpay_order_id", "id", hire_id)
+    b = _get("driver_bookings", "id, customer_id, driver_id, total_price, status, payment_status, razorpay_order_id", "id", hire_id)
     if not b:
         raise FnError("Hire not found")
     if b["customer_id"] != user_id:
         raise FnError("Not your booking")
     if b["razorpay_order_id"] != order_id:
         raise FnError("Order mismatch")
-    if b["payment_status"] == "paid":
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded") or b.get("status") == "cancelled":
         return {"ok": True}
     with db_role("service_role"):
         # The driver's earning is credited when the hire completes (tg_money_settle_driver_booking).
@@ -216,7 +219,7 @@ def verify_wash_razorpay_payment(data, user_id):
         raise FnError("This wash is not approved")
     if b["razorpay_order_id"] != order_id:
         raise FnError("Order mismatch")
-    if b["payment_status"] == "paid":
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded") or b.get("status") in ("cancelled", "rejected"):
         return {"ok": True}
     with db_role("service_role"):
         _update("wash_bookings", _paid_patch(payment_id), [["id", "eq", b["id"]], ["customer_id", "eq", user_id]])
@@ -243,19 +246,26 @@ def create_wallet_topup_order(data, user_id):
 def verify_wallet_topup(data, user_id):
     order_id, payment_id = _check_signature(data)
     with db_role("service_role"):
-        t = _get("wallet_topups", "id, user_id, amount, status", "razorpay_order_id", order_id)
-        if not t:
-            raise FnError("Top-up not found")
-        if t["user_id"] != user_id:
-            raise FnError("Not your top-up")
-        if t["status"] == "paid":
-            w = _get("wallets", "balance", "user_id", user_id)
-            return {"ok": True, "alreadyCredited": True, "newBalance": float((w or {}).get("balance") or 0)}
-        # shortcut: two simultaneous verify calls can both credit; fixed in the defects PR.
-        _update("wallet_topups", {"status": "paid", "razorpay_payment_id": payment_id},
-                [["id", "eq", t["id"]], ["status", "eq", "created"]])
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT id, user_id, amount, status FROM public.wallet_topups WHERE razorpay_order_id = %s FOR UPDATE",
+                [order_id],
+            )
+            row = c.fetchone()
+            if not row:
+                raise FnError("Top-up not found")
+            topup_id, topup_user_id, amount, status = row
+            if str(topup_user_id) != str(user_id):
+                raise FnError("Not your top-up")
+            if status == "paid":
+                w = _get("wallets", "balance", "user_id", user_id)
+                return {"ok": True, "alreadyCredited": True, "newBalance": float((w or {}).get("balance") or 0)}
+            c.execute(
+                "UPDATE public.wallet_topups SET status = 'paid', razorpay_payment_id = %s, updated_at = now() WHERE id = %s",
+                [payment_id, topup_id],
+            )
         balance = run_rpc("wallet_apply", {
-            "_user_id": user_id, "_amount": t["amount"], "_kind": "topup",
+            "_user_id": user_id, "_amount": amount, "_kind": "topup",
             "_reference": payment_id, "_description": "Money added to wallet"})
     return {"ok": True, "alreadyCredited": False, "newBalance": float(balance)}
 
@@ -527,6 +537,15 @@ def cancel_membership(data, user_id):
     }
 
 
+def resume_membership(data, user_id):
+    with db_role("service_role"):
+        _update("profiles", {"membership_auto_renew": True}, [["id", "eq", user_id]])
+    return {
+        "ok": True,
+        "message": "Auto-renewal enabled. Your subscription will renew automatically at the end of the billing period.",
+    }
+
+
 def get_membership_status(data, user_id):
     with db_role("service_role"):
         p = _get("profiles", "membership_plan, membership_cycle, membership_started_at, membership_expires_at, membership_auto_renew", "id", user_id)
@@ -538,8 +557,62 @@ def get_membership_status(data, user_id):
         if active and expires_at_str:
             try:
                 exp = datetime.fromisoformat(str(expires_at_str).replace("Z", "+00:00"))
-                if datetime.now(timezone.utc) > exp:
-                    active = False
+                now = datetime.now(timezone.utc)
+                if now > exp:
+                    # Expiration date reached: process real auto-renewal or expiry
+                    auto_renew = bool(p.get("membership_auto_renew", False))
+                    cycle = p.get("membership_cycle") or "monthly"
+                    price = MEMBERSHIP_PRICES.get((plan, cycle), 499)
+                    if auto_renew:
+                        # Attempt wallet charge for automated recurring subscription
+                        w = _get("wallets", "balance", "user_id", user_id)
+                        wallet_bal = float(w.get("balance", 0)) if w else 0.0
+                        if wallet_bal >= price:
+                            payment_ref = f"mem_renew_{uuid.uuid4().hex[:10]}"
+                            duration_days = 365 if cycle == "annual" else 30
+                            new_exp = now + timedelta(days=duration_days)
+                            run_rpc("wallet_apply", {
+                                "_user_id": user_id,
+                                "_amount": -price,
+                                "_kind": "membership_payment",
+                                "_reference": payment_ref,
+                                "_description": f"Auto-Renewal: Synchoo {plan.title()} Membership ({cycle.capitalize()})",
+                            })
+                            _update("profiles", {
+                                "membership_started_at": now.isoformat(),
+                                "membership_expires_at": new_exp.isoformat(),
+                                "membership_auto_renew": True,
+                            }, [["id", "eq", user_id]])
+                            run_rpc("notify_user", {
+                                "_user_id": user_id,
+                                "_title": f"Membership Auto-Renewed: {plan.title()}",
+                                "_body": f"Your VIP membership has renewed for {duration_days} days. Next renewal date: {new_exp.strftime('%d %b %Y')}.",
+                                "_link": "/membership",
+                            })
+                            expires_at_str = new_exp.isoformat()
+                            active = True
+                        else:
+                            # Insufficient wallet balance for auto-renewal
+                            _update("profiles", {
+                                "membership_plan": "free",
+                                "membership_auto_renew": False,
+                            }, [["id", "eq", user_id]])
+                            run_rpc("notify_user", {
+                                "_user_id": user_id,
+                                "_title": "Membership Auto-Renewal Failed",
+                                "_body": f"Your {plan.title()} membership could not auto-renew due to insufficient wallet balance (required {price}). Your account has transitioned to Synchoo Standard.",
+                                "_link": "/membership",
+                            })
+                            active = False
+                            plan = "free"
+                    else:
+                        # Auto-renew was off - grace period concluded, switch to free
+                        _update("profiles", {
+                            "membership_plan": "free",
+                            "membership_expires_at": None,
+                        }, [["id", "eq", user_id]])
+                        active = False
+                        plan = "free"
             except Exception:
                 pass
         return {
@@ -861,6 +934,7 @@ FUNCTIONS = {
     "createMembershipOrder": create_membership_order,
     "subscribeMembership": subscribe_membership,
     "cancelMembership": cancel_membership,
+    "resumeMembership": resume_membership,
     "getMembershipStatus": get_membership_status,
     "getRewardsSummary": get_rewards_summary,
     "redeemRewardVoucher": redeem_reward_voucher,
@@ -889,3 +963,87 @@ def call(request, name):
         return Response(e.body, status=e.status)
     except DatabaseError as e:
         return Response(pg_error(e), status=400)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def razorpay_webhook(request):
+    """Webhook endpoint for Razorpay payment notifications (GAP-05).
+    Guarantees bookings/hires/washes/topups become paid even if the browser closes immediately after checkout.
+    """
+    secret = getattr(settings, "RAZORPAY_WEBHOOK_SECRET", None) or getattr(settings, "RAZORPAY_KEY_SECRET", "")
+    signature = request.headers.get("X-Razorpay-Signature") or request.META.get("HTTP_X_RAZORPAY_SIGNATURE")
+
+    if secret and signature:
+        raw_body = request.body
+        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "")
+            expected2 = hmac.new(key_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected2):
+                return Response({"error": "Invalid webhook signature"}, status=400)
+
+    event_data = request.data if isinstance(request.data, dict) else {}
+    payload = event_data.get("payload", {})
+    payment_entity = payload.get("payment", {}).get("entity", {})
+    order_entity = payload.get("order", {}).get("entity", {})
+
+    order_id = payment_entity.get("order_id") or order_entity.get("id")
+    payment_id = payment_entity.get("id")
+    notes = payment_entity.get("notes") or order_entity.get("notes") or {}
+
+    if not order_id and not payment_id:
+        return Response({"status": "ignored", "reason": "no_identifiers"})
+
+    with db_role("service_role"):
+        # 1. Rental bookings
+        booking_id = notes.get("booking_id")
+        if booking_id:
+            b = _get("bookings", "id, status, payment_status", "id", booking_id)
+            if b and b.get("payment_status") not in ("paid", "refunded", "partially_refunded") and b.get("status") != "cancelled":
+                _update("bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", b["id"]]])
+        elif order_id:
+            b = _get("bookings", "id, status, payment_status", "razorpay_order_id", order_id)
+            if b and b.get("payment_status") not in ("paid", "refunded", "partially_refunded") and b.get("status") != "cancelled":
+                _update("bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", b["id"]]])
+
+        # 2. Driver hires
+        driver_booking_id = notes.get("driver_booking_id")
+        if driver_booking_id:
+            db = _get("driver_bookings", "id, status, payment_status", "id", driver_booking_id)
+            if db and db.get("payment_status") not in ("paid", "refunded", "partially_refunded") and db.get("status") != "cancelled":
+                _update("driver_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", db["id"]]])
+        elif order_id:
+            db = _get("driver_bookings", "id, status, payment_status", "razorpay_order_id", order_id)
+            if db and db.get("payment_status") not in ("paid", "refunded", "partially_refunded") and db.get("status") != "cancelled":
+                _update("driver_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", db["id"]]])
+
+        # 3. Vehicle washes
+        wash_booking_id = notes.get("wash_booking_id")
+        if wash_booking_id:
+            wb = _get("wash_bookings", "id, status, payment_status", "id", wash_booking_id)
+            if wb and wb.get("payment_status") not in ("paid", "refunded", "partially_refunded") and wb.get("status") not in ("cancelled", "rejected"):
+                _update("wash_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", wb["id"]]])
+        elif order_id:
+            wb = _get("wash_bookings", "id, status, payment_status", "razorpay_order_id", order_id)
+            if wb and wb.get("payment_status") not in ("paid", "refunded", "partially_refunded") and wb.get("status") not in ("cancelled", "rejected"):
+                _update("wash_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", wb["id"]]])
+
+        # 4. Wallet topups
+        if order_id:
+            t = _get("wallet_topups", "id, user_id, amount, status", "razorpay_order_id", order_id)
+            if t and t.get("status") not in ("paid", "completed"):
+                _update("wallet_topups", {
+                    "status": "paid",
+                    "razorpay_payment_id": payment_id or "pay_webhook",
+                    "updated_at": _now()
+                }, [["id", "eq", t["id"]]])
+                run_rpc("wallet_apply", {
+                    "_user_id": t["user_id"],
+                    "_amount": t["amount"],
+                    "_kind": "topup",
+                    "_reference": payment_id or order_id,
+                    "_description": f"Wallet top-up ({order_id}) via Webhook"
+                })
+
+    return Response({"status": "ok"})
