@@ -5,6 +5,7 @@ import uuid
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.migrations.loader import MigrationLoader
 from django.http import HttpResponse
 
 from core.db import db_role, set_db_role
@@ -27,6 +28,11 @@ def make_user(email):
 
 APP_SCHEMAS = ['public', 'auth', 'storage']
 DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
+
+
+def test_core_migration_graph_has_one_leaf():
+    loader = MigrationLoader(connection)
+    assert loader.leaf_nodes("core") == [("core", "0023_hot_path_indexes")]
 
 
 def test_schema_matches_the_original_migrations():
