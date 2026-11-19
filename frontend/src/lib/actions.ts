@@ -79,6 +79,7 @@ export const subscribeMembership = action<
   {
     plan: string;
     cycle?: "monthly" | "annual";
+    immediate?: boolean;
     payment_method?: "wallet" | "razorpay";
     razorpay_payment_id?: string;
     razorpay_order_id?: string;
@@ -98,6 +99,11 @@ export const cancelMembership = action<
   {},
   { ok: boolean; message: string }
 >("cancelMembership");
+
+export const resumeMembership = action<
+  {},
+  { ok: boolean; message: string }
+>("resumeMembership");
 
 export const getMembershipStatus = action<
   {},

@@ -18,6 +18,8 @@ urlpatterns = [
     path("api/query/", core.query),
     path("api/rpc/<str:name>/", core.rpc),
     path("api/fn/<str:name>/", payments.call),
+    path("api/payments/webhook/", payments.razorpay_webhook),
+    path("api/webhook/razorpay/", payments.razorpay_webhook),
     path("api/auth/signup/", auth.signup),
     path("api/auth/signin/", auth.signin),
     path("api/auth/refresh/", auth.refresh),

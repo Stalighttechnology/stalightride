@@ -170,37 +170,13 @@ function Bookings() {
           name: user.user_metadata?.full_name ?? undefined,
         },
         onSuccess: async (resp) => {
-          // Immediately update optimistic state so user sees Paid status and progress bar right away
-          setAsCustomer((prev) =>
-            prev
-              ? prev.map((item) =>
-                  item.id === b.id
-                    ? { ...item, payment_status: "paid", paid_at: new Date().toISOString() }
-                    : item,
-                )
-              : prev,
-          );
           try {
             await verifyPayment({ data: { bookingId: b.id, ...resp } });
             toast.success("Payment successful");
             await load();
           } catch (e: any) {
-            console.warn("verifyPayment failed, falling back to direct update:", e);
-            try {
-              await api
-                .from("bookings")
-                .update({
-                  payment_status: "paid",
-                  payment_method: "razorpay",
-                  razorpay_payment_id: resp.razorpay_payment_id,
-                  paid_at: new Date().toISOString(),
-                })
-                .eq("id", b.id);
-              toast.success("Payment successful");
-              await load();
-            } catch (fallbackErr: any) {
-              toast.error(fallbackErr.message ?? e.message ?? "Payment verification failed");
-            }
+            toast.error(e.message ?? "Payment verification failed");
+            await load();
           }
         },
         onDismiss: () => setPaying(null),
