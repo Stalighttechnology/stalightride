@@ -14,6 +14,7 @@ import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/forma
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { VehicleMap } from "@/components/vehicle-map";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
+import { SAVED_VEHICLES_EVENT } from "@/hooks/use-saved-items";
 import { toast } from "sonner";
 import {
   Star,
@@ -163,19 +164,29 @@ function VehiclePage() {
 
   useEffect(() => {
     if (!user || !id) return;
-    api
-      .from("wishlists")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("vehicle_id", id)
-      .maybeSingle()
-      .then(({ data }) => setWished(!!data));
+    const checkWished = () => {
+      api
+        .from("wishlists")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("vehicle_id", id)
+        .maybeSingle()
+        .then(({ data }) => setWished(!!data));
+    };
+
+    checkWished();
+    window.addEventListener(SAVED_VEHICLES_EVENT, checkWished);
+
     api
       .from("profiles")
       .select("dl_status,dl_expiry,membership_plan")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => setMyProfile(data as any));
+
+    return () => {
+      window.removeEventListener(SAVED_VEHICLES_EVENT, checkWished);
+    };
   }, [user, id]);
 
   const images = (v?.vehicle_images ?? [])
@@ -297,9 +308,13 @@ function VehiclePage() {
     if (wished) {
       await api.from("wishlists").delete().eq("user_id", user.id).eq("vehicle_id", id);
       setWished(false);
+      window.dispatchEvent(new Event(SAVED_VEHICLES_EVENT));
+      toast.success(v?.title ? `Removed ${v.title} from saved` : "Removed from saved rides");
     } else {
       await api.from("wishlists").insert({ user_id: user.id, vehicle_id: id });
       setWished(true);
+      window.dispatchEvent(new Event(SAVED_VEHICLES_EVENT));
+      toast.success(v?.title ? `Saved ${v.title} to favorites!` : "Saved to favorites!");
     }
   };
 

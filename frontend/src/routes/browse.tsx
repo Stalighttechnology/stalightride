@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
+import { useSavedVehicles } from "@/hooks/use-saved-items";
 import {
   MapPin,
   Star,
@@ -36,6 +37,7 @@ import {
   CalendarDays,
   ShieldCheck,
   CarFront,
+  Heart,
   X,
 } from "lucide-react";
 
@@ -598,6 +600,9 @@ function VehicleCard({
   imgUrl: string | null;
   dates: { from?: string; to?: string };
 }) {
+  const { isVehicleSaved, toggleSaveVehicle } = useSavedVehicles();
+  const isSaved = isVehicleSaved(v.id);
+
   return (
     <Link
       to="/vehicle/$id"
@@ -623,6 +628,29 @@ function VehicleCard({
           <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">
             {v.category === "bike" ? "Motorcycle" : v.category}
           </Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleSaveVehicle(v.id, v.title);
+            }}
+            className={`absolute right-3 top-3 z-10 h-9 w-9 rounded-full shadow-sm backdrop-blur-md transition-all duration-200 active:scale-90 hover:scale-110 ${
+              isSaved
+                ? "border-rose-300 bg-rose-50/95 text-rose-500 hover:bg-rose-100 hover:text-rose-600 dark:border-rose-800 dark:bg-rose-950/90 dark:text-rose-400"
+                : "border-border/80 bg-background/85 text-muted-foreground hover:border-rose-300 hover:bg-background hover:text-rose-500"
+            }`}
+            title={isSaved ? "Saved to favorites" : "Save ride"}
+            aria-label={isSaved ? "Saved to favorites" : "Save ride"}
+          >
+            <Heart
+              className={`h-4.5 w-4.5 transition-transform duration-200 ${
+                isSaved ? "fill-rose-500 text-rose-500 scale-110" : ""
+              }`}
+            />
+          </Button>
           <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium">
             <Star className="h-3.5 w-3.5 fill-brand text-brand" />
             {Number(v.avg_rating).toFixed(1)}

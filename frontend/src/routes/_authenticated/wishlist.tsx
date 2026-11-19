@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
-import { useSavedDrivers } from "@/hooks/use-saved-items";
+import { useSavedDrivers, SAVED_VEHICLES_EVENT } from "@/hooks/use-saved-items";
+import { toast } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,11 +53,23 @@ function Wishlist() {
   }, [user?.id]);
 
   useEffect(() => {
+    const handleVehiclesUpdate = () => {
+      loadVehicles();
+    };
+    window.addEventListener(SAVED_VEHICLES_EVENT, handleVehiclesUpdate);
+    return () => {
+      window.removeEventListener(SAVED_VEHICLES_EVENT, handleVehiclesUpdate);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     loadDrivers();
   }, [savedDriverIds]);
 
-  const removeVehicle = async (id: string) => {
+  const removeVehicle = async (id: string, title?: string) => {
     await api.from("wishlists").delete().eq("id", id);
+    window.dispatchEvent(new Event(SAVED_VEHICLES_EVENT));
+    toast.success(title ? `Removed ${title} from saved` : "Removed vehicle from saved");
     loadVehicles();
   };
 
@@ -159,7 +172,7 @@ function Wishlist() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => removeVehicle(w.id)}
+                            onClick={() => removeVehicle(w.id, v.title)}
                             className="h-8 w-8 rounded-full text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                             title="Remove from saved"
                           >
