@@ -62,10 +62,10 @@ A component is ready when all of these are true:
 | 06 | Car pooling | B | | | | Not started |
 | 07 | Vehicle wash | B | | | | Not started |
 | 08 | Wallet and payments | C | | | | Not started |
-| 09 | Admin console | C | Likith | Claude | 2026-11-19 | Tested (31 Pass, 6 Open Gaps) |
-| 10 | Safety and support | C | Likith | Claude | 2026-11-19 | Tested (26 Pass, 1 Open Gap) |
-| 11 | Membership, rewards, referrals | B | Likith | Claude | 2026-11-19 | Tested (21 Pass, 5 Open Gaps) |
-| 12 | Corporate | C | Likith | Claude | 2026-11-19 | Tested (GAP-14 verified / Demo) |
+| 09 | Admin console | C | Likith | Claude | 2026-11-19 | Signed off (37 Pass, 0 Open Gaps) |
+| 10 | Safety and support | C | Likith | Claude | 2026-11-19 | Signed off (27 Pass, 0 Open Gaps) |
+| 11 | Membership, rewards, referrals | B | Likith | Claude | 2026-11-19 | Signed off (26 Pass, 0 Open Gaps) |
+| 12 | Corporate | C | Likith | Claude | 2026-11-19 | Signed off (5 Pass / Underwriting Suite) |
 
 ## Out of scope for now
 

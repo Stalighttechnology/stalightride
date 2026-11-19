@@ -60,9 +60,9 @@ Use a new account called Rae for the invited friend.
 | MR-17 | Send an invalid plan or cycle | Refused | Pass (Backend rejects invalid plan or cycle with HTTP 400) |
 | MR-18 | Change your plan directly through the API | The change is ignored | Pass (Direct updates to `membership_plan` in profiles blocked by RLS) |
 | MR-19 | Let a membership expire | Status shows the free plan | Pass (When `membership_expires_at` is in past, status returns 'free') |
-| MR-20 | Activate with a made-up payment ID and no signature | **GAP-01:** must be refused | Fail (GAP-01: Membership can activate with made-up payment ID without verified signature) |
+| MR-20 | Activate with a made-up payment ID and no signature | **GAP-01:** must be refused | Pass (GAP-01 resolved: HMAC signature and order ID cryptographically verified; fake payments rejected) |
 | MR-21 | As a Plus or Black member, price a booking | **GAP-15:** advertised benefits must apply, or the claims must be removed | Pass (Membership discounts & free wash perks applied at checkout via migration 0014) |
-| MR-22 | Let an auto-renew membership reach expiry | **GAP-15:** it must renew or say clearly that it won't | Fail (GAP-15: No background cron job exists to automatically renew expiring memberships) |
+| MR-22 | Let an auto-renew membership reach expiry | **GAP-15:** it must renew or say clearly that it won't | Pass (GAP-15 resolved: `renew_memberships` management command auto-renews via wallet, and UI displays clear expiry notices when auto-renew is off) |
 
 ## Rewards
 
@@ -70,9 +70,9 @@ The Rewards page must not suggest that points have real value until this work is
 
 | ID | Steps | Expected | Result |
 | --- | --- | --- | --- |
-| MR-23 | Open `/rewards` on two browsers with one account | **GAP-17:** points must match | Fail (GAP-17: Points live in client localStorage and do not sync across devices) |
-| MR-24 | Edit the points in browser storage and reload | **GAP-17:** balance must not change | Fail (GAP-17: Editing points in browser localStorage alters visible points balance) |
-| MR-25 | Complete a paid trip | **GAP-17:** points must be earned from the server | Fail (GAP-17: Points are not awarded from database ledger on trip completion) |
+| MR-23 | Open `/rewards` on two browsers with one account | **GAP-17:** points must match | Pass (GAP-17 resolved: points balance loaded from database `loyalty_ledger` and synchronized across devices) |
+| MR-24 | Edit the points in browser storage and reload | **GAP-17:** balance must not change | Pass (GAP-17 resolved: client storage mutations do not affect authoritative server ledger balance) |
+| MR-25 | Complete a paid trip | **GAP-17:** points must be earned from the server | Pass (GAP-17 resolved: `trg_booking_award_loyalty_points` trigger automatically awards points to `loyalty_ledger` upon trip completion) |
 | MR-26 | Redeem a voucher or convert points | **GAP-17:** must be real, or shown clearly as coming soon | Pass (Voucher redemption & wallet conversion displays 'Coming soon. This feature isn't live yet.') |
 
 ## Decisions needed

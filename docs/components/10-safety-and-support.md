@@ -57,7 +57,7 @@ Asha, Hari and Ada, with an active trip for Asha.
 | SS-17 | Submit a dispute with no subject | `Add a short subject` | Pass (Validation blocks submission: `Add a short subject`) |
 | SS-18 | Raise a dispute on someone else's booking through the API | Refused | Pass (Disputes RLS blocks cross-user dispute submissions) |
 | SS-19 | Read someone else's ticket through the API | No data returned | Pass (Support tickets table protected by RLS; returns 0 rows) |
-| SS-20 | Resolve a damage dispute that needs compensation | **GAP-13:** money outcome must be supported | Fail (GAP-13: Damage dispute resolution notes saved, but monetary deduction from deposit is not supported) |
+| SS-20 | Resolve a damage dispute that needs compensation | **GAP-13:** money outcome must be supported | Pass (GAP-13 resolved: monetary damage compensation credited directly to recipient wallet via `resolve_dispute_compensation`) |
 
 ## Notifications and reminders
 

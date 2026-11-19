@@ -367,7 +367,7 @@ export function MembershipPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {membershipDetails.autoRenew && (
+                  {membershipDetails.autoRenew ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -376,6 +376,10 @@ export function MembershipPage() {
                     >
                       Turn Off Auto-Renew
                     </Button>
+                  ) : (
+                    <Badge variant="outline" className="text-[11px] text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/40">
+                      Auto-renew is off — plan will expire and not renew
+                    </Badge>
                   )}
                   <Button
                     variant="ghost"

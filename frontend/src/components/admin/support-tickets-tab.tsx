@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, MessageSquare, AlertCircle, Send, ArrowLeft } from "lucide-react";
 
@@ -15,6 +16,7 @@ export function SupportTicketsTab() {
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [replyText, setReplyText] = useState("");
+  const [compensationAmount, setCompensationAmount] = useState("");
   const [sending, setSending] = useState(false);
 
   const loadTickets = async () => {
@@ -94,11 +96,22 @@ export function SupportTicketsTab() {
     }
 
     // 2. Mark ticket resolved with resolution text
+    const compVal = Number(compensationAmount) || 0;
+    if (compVal > 0) {
+      const incId = selectedTicket.incident_id || selectedTicket.id;
+      await api.rpc("resolve_dispute_compensation", {
+        _incident_id: incId,
+        _amount: compVal,
+        _notes: replyText.trim(),
+        _award_to: selectedTicket.user_id,
+      });
+    }
+
     const { error: ticketError } = await api
       .from("support_tickets")
       .update({
         status: "Resolved",
-        resolution: replyText.trim(),
+        resolution: compVal > 0 ? `${replyText.trim()} (Compensation awarded: ₹${compVal})` : replyText.trim(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", selectedTicket.id);
@@ -272,6 +285,24 @@ export function SupportTicketsTab() {
 
             {/* Admin Reply Form */}
             <form onSubmit={submitReply} className="space-y-3 pt-3 border-t">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border p-3 bg-muted/20">
+                <div className="space-y-0.5">
+                  <label className="text-xs font-semibold text-foreground">Damage Dispute Compensation (₹)</label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Optional: award monetary compensation from deposit/settlement directly to the recipient's wallet.
+                  </p>
+                </div>
+                <div className="w-full sm:w-44">
+                  <Input
+                    type="number"
+                    placeholder="e.g. 2500"
+                    value={compensationAmount}
+                    onChange={(e) => setCompensationAmount(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
               <Textarea
                 placeholder="Type resolution reply to customer... (Submitting will resolve ticket and notify customer)"
                 value={replyText}

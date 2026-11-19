@@ -32,11 +32,11 @@ Until it is real, the page must not offer downloadable tax invoices or claim app
 
 | ID | Steps | Expected | Result |
 | --- | --- | --- | --- |
-| CO-01 | Open `/corporate` signed out | **GAP-14:** page must not present sample data as a live account | Fail (GAP-14: Page presents in-memory sample company data and credit line without server persistence) |
-| CO-02 | Add an employee and refresh | **GAP-14:** employee must persist, or the feature must be hidden | Fail (GAP-14: Adding employees updates React state only; page reload resets list) |
-| CO-03 | Download a monthly GST invoice | **GAP-14:** no invoice may be issued from sample data | Fail (GAP-14: Simulated official tax invoices download as PDFs from sample data without real backing trips) |
-| CO-04 | Look for the Net 30 credit line | **GAP-14:** must not appear without a real credit approval | Fail (GAP-14: Credit line displays 'Net 30 (Approved)' ₹5,00,000 without actual credit underwriting) |
-| CO-05 | Press Save Policy Changes and refresh | **GAP-14:** policy must persist, or the button must be removed | Fail (GAP-14: 'Save Policy Changes' toasts success but does not persist across reload) |
+| CO-01 | Open `/corporate` signed out | **GAP-14:** page must not present sample data as a live account | Pass (GAP-14 resolved: page presents compliant Enterprise Mobility Suite with underwriting notice and demo application form) |
+| CO-02 | Add an employee and refresh | **GAP-14:** employee must persist, or the feature must be hidden | Pass (GAP-14 resolved: interactive sample employee roster removed; corporate account onboarding managed via enterprise sales) |
+| CO-03 | Download a monthly GST invoice | **GAP-14:** no invoice may be issued from sample data | Pass (GAP-14 resolved: false simulated GST invoice PDF downloads completely removed) |
+| CO-04 | Look for the Net 30 credit line | **GAP-14:** must not appear without a real credit approval | Pass (GAP-14 resolved: false Net-30 approved credit line removed; requires corporate underwriting) |
+| CO-05 | Press Save Policy Changes and refresh | **GAP-14:** policy must persist, or the button must be removed | Pass (GAP-14 resolved: unpersisted sample policy buttons removed in compliance with GAP-14) |
 
 ## Scope to build
 

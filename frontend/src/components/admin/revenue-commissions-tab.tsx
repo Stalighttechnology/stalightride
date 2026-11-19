@@ -70,15 +70,15 @@ export function RevenueCommissionsTab() {
     } else {
       // Fallback: aggregate directly from tables if RPC is pending in local client
       const [bRes, dRes, wRes, pRes] = await Promise.all([
-        api.from("bookings").select("total_price, refund_amount, payment_status"),
-        api.from("driver_bookings").select("total_price, refund_amount, payment_status"),
+        api.from("bookings").select("total_price, security_deposit, discount, refund_amount, payment_status"),
+        api.from("driver_bookings").select("total_price, discount, refund_amount, payment_status"),
         api.from("wash_bookings").select("price, refund_amount, payment_status"),
         api.from("payouts").select("amount, status"),
       ]);
 
       const rentalVol = (bRes.data || [])
         .filter((b) => b.payment_status === "paid")
-        .reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+        .reduce((sum, b) => sum + Math.max(0, Number(b.total_price || 0) - Number(b.security_deposit || 0)), 0);
 
       const driverVol = (dRes.data || [])
         .filter((d) => d.payment_status === "paid")
