@@ -55,5 +55,5 @@ DROP INDEX IF EXISTS public.notifications_user_created_idx, public.vehicle_image
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0022_admin_feed_and_broadcast")]
+    dependencies = [("core", "0023_admin_feed_and_broadcast")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]

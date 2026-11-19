@@ -67,5 +67,5 @@ DROP VIEW IF EXISTS public.admin_bookings_feed;
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0021_booking_integrity")]
+    dependencies = [("core", "0022_booking_integrity")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]
