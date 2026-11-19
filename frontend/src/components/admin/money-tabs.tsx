@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,21 +23,23 @@ import { DatePicker } from "@/components/ui/date-picker";
 export function WithdrawalQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const [filter, setFilter] = useState<"requested" | "paid" | "rejected">("requested");
+  const pager = usePage();
 
   const load = async () => {
     setItems(null);
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("withdrawals")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("status", filter)
       .order("created_at", { ascending: filter === "requested" })
-      .limit(200);
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setItems(data ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, [filter]);
+  }, [filter, pager.page]);
 
   const decide = async (id: string, decision: "paid" | "rejected") => {
     const reference =
@@ -71,7 +74,10 @@ export function WithdrawalQueue() {
             key={f}
             size="sm"
             variant={filter === f ? "default" : "outline"}
-            onClick={() => setFilter(f)}
+            onClick={() => {
+              setFilter(f);
+              pager.setPage(0);
+            }}
             className="capitalize"
           >
             {f}
@@ -147,6 +153,7 @@ export function WithdrawalQueue() {
           })}
         </div>
       )}
+      <ListPager {...pager} />
     </div>
   );
 }
@@ -164,19 +171,21 @@ export function CouponManager() {
     ends_at: "",
   });
   const [saving, setSaving] = useState(false);
+  const pager = usePage();
 
   const load = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("coupons")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setItems(data ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const create = async () => {
     const code = form.code.trim().toUpperCase();
@@ -294,6 +303,7 @@ export function CouponManager() {
           ))}
         </div>
       )}
+      <ListPager {...pager} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -212,20 +213,23 @@ function AdminPage() {
 
 function VehicleQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const load = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("vehicles")
       .select(
         "id,title,brand,model,year,city,vendor_id,rc_url,insurance_url,pollution_url,fitness_url,verification_status,rejection_reason,created_at,vendors:vendor_id(business_name,kyc_status)" as any,
+        { count: "exact" },
       )
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const paths = (items ?? []).flatMap((v) =>
     [v.rc_url, v.insurance_url, v.pollution_url, v.fitness_url].filter(Boolean),
@@ -302,26 +306,31 @@ function VehicleQueue() {
           </CardContent>
         </Card>
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }
 
 function LicenceQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const load = async () => {
-    const { data } = await api
+    const { data, count } = await api
       .from("profiles")
       .select(
         "id,full_name,dl_number,dl_expiry,dl_front_url,dl_back_url,dl_status,dl_rejection_reason" as any,
+        { count: "exact" },
       )
       .in("dl_status" as any, ["pending", "rejected", "approved"])
       .order("dl_status", { ascending: true } as any)
-      .limit(200);
+      .order("id")
+      .range(pager.from, pager.to);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const paths = (items ?? []).flatMap((p) => [p.dl_front_url, p.dl_back_url].filter(Boolean));
   const signed = useSignedUrls("verification-docs", paths);
@@ -395,6 +404,7 @@ function LicenceQueue() {
           </CardContent>
         </Card>
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }
@@ -431,17 +441,19 @@ function DocLink({ label, url }: { label: string; url: string | null | undefined
 
 function DisputeQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const load = async () => {
-    const { data } = await api
+    const { data, count } = await api
       .from("disputes")
-      .select("*, bookings(id,vehicles(title))")
+      .select("*, bookings(id,vehicles(title))", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(pager.from, pager.to);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const resolve = async (id: string) => {
     const resolution = window.prompt("Resolution notes (visible to both parties)?");
@@ -482,6 +494,7 @@ function DisputeQueue() {
           onReview={() => startReview(d.id)}
         />
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }
@@ -553,18 +566,22 @@ function DisputeCard({
 
 function HostQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const load = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("vendors")
-      .select("id,business_name,bio,kyc_status,id_document_url,payout_email,created_at")
+      .select("id,business_name,bio,kyc_status,id_document_url,payout_email,created_at", {
+        count: "exact",
+      })
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const paths = (items ?? []).map((v) => v.id_document_url).filter(Boolean);
   const signed = useSignedUrls("kyc-docs", paths);
@@ -631,26 +648,30 @@ function HostQueue() {
           </CardContent>
         </Card>
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }
 
 function DriverQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const load = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("drivers")
       .select(
         "id,full_name,city,phone,experience_years,hourly_rate,daily_rate,dl_number,dl_expiry,dl_front_url,dl_back_url,id_document_url,verification_status,status,rejection_reason,created_at",
+        { count: "exact" },
       )
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const paths = (items ?? []).flatMap((d) =>
     [d.dl_front_url, d.dl_back_url, d.id_document_url].filter(Boolean),
@@ -723,25 +744,28 @@ function DriverQueue() {
           </CardContent>
         </Card>
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }
 
 function WashQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const [partners, setPartners] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [assign, setAssign] = useState<Record<string, string>>({});
 
   const load = async () => {
-    const [{ data, error }, { data: p }] = await Promise.all([
+    const [{ data, error, count }, { data: p }] = await Promise.all([
       api
         .from("wash_bookings")
         .select(
           "*, wash_services:service_id(name,duration_minutes,vehicle_category), wash_vendors:assigned_vendor_id(name,contact_phone,city)",
+          { count: "exact" },
         )
         .order("created_at", { ascending: false })
-        .limit(200),
+        .range(pager.from, pager.to),
       api
         .from("wash_vendors")
         .select("id,name,city,daily_capacity,contact_phone,active")
@@ -750,11 +774,12 @@ function WashQueue() {
     ]);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
     setPartners((p as any) ?? []);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const decide = async (b: any, decision: "confirmed" | "rejected" | "completed") => {
     let note: string | null = null;
@@ -906,26 +931,29 @@ function WashQueue() {
           </CardContent>
         </Card>
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }
 
 function CleanersQueue() {
   const [items, setItems] = useState<any[] | null>(null);
+  const pager = usePage();
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("cleaners")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(200);
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const decide = async (id: string, decision: "approved" | "rejected") => {
     let reason: string | null = null;
@@ -1004,6 +1032,7 @@ function CleanersQueue() {
           </CardContent>
         </Card>
       ))}
+      <ListPager {...pager} />
     </div>
   );
 }

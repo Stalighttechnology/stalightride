@@ -318,3 +318,33 @@ def test_membership_charges_perks():
     assert std_ch["service_fee"] == 50
     assert std_ch["gst"] == 9
     assert std_ch["customer_total"] == 1059
+
+
+# -- admin lists (migration 0021) ---------------------------------------------------
+
+def test_broadcast_reaches_every_user_and_is_admin_only(alice, bob):
+    for i in range(120):  # more than the old 100-recipient cap
+        q("INSERT INTO auth.users (id, email) VALUES (%s, %s)", [uuid.uuid4(), f"crowd{i}@example.com"])
+    rpc = {"_title": "Hello", "_body": "News", "_audience": "all"}
+    assert client_for(bob).post("/api/rpc/admin_broadcast/", rpc, format="json").json()["message"] \
+        == "Only admins can send broadcasts"
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", [alice.id])
+    sent = client_for(alice).post("/api/rpc/admin_broadcast/", rpc, format="json").json()["data"]
+    users = q("SELECT count(*) FROM public.profiles")[0][0]
+    assert sent == users > 120
+    assert q("SELECT count(*) FROM public.notifications WHERE title = 'Hello'")[0][0] == users
+
+
+def test_bookings_feed_pages_with_an_exact_count(alice, bob):
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin')", [alice.id])
+    for i in range(30):
+        q("""INSERT INTO public.pool_trips (driver_id, vehicle_label, origin_label, origin_lat, origin_lng, dest_label,
+             dest_lat, dest_lng, depart_at, seats_total, seats_available, fare_per_seat)
+             VALUES (%s, 'Car', %s, 12.9, 77.6, 'Mysuru', 12.3, 76.6, now() + interval '2 days', 3, 3, 200)""",
+          [bob.id, f"Stop {i}"])
+    feed = {"select": "id, kind, title", "count": "exact", "order": [["created_at", False, None]],
+            "limit": 25, "offset": 25}
+    admin = select(client_for(alice), "admin_bookings_feed", **feed).json()
+    assert admin["count"] == 30 and len(admin["data"]) == 5 and admin["data"][0]["kind"] == "pooling"
+    # The view reads each table as the caller, so row-level security still applies.
+    assert q("SELECT reloptions FROM pg_class WHERE relname = 'admin_bookings_feed'") == [(["security_invoker=true"],)]

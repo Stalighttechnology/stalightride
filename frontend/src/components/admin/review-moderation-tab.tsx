@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,39 +14,47 @@ export function ReviewModerationTab() {
   const [reports, setReports] = useState<any[] | null>(null);
   const [filterReported, setFilterReported] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const reviewPager = usePage();
+  const reportPager = usePage();
 
   const loadReviews = async () => {
-    const { data, error } = await api
+    let q = api
       .from("reviews")
-      .select("*, vehicles:vehicle_id(title)")
+      .select("*, vehicles:vehicle_id(title)", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(60);
+      .range(reviewPager.from, reviewPager.to);
+    if (filterReported) q = q.or("reported.eq.true,rating.lte.2");
+    const { data, error, count } = await q;
 
     if (error) {
       toast.error(error.message);
       return;
     }
     setReviews(data || []);
+    reviewPager.setTotal(count ?? 0);
   };
 
   const loadReports = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("user_reports")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(60);
+      .range(reportPager.from, reportPager.to);
 
     if (error) {
       setReports([]);
       return;
     }
     setReports(data || []);
+    reportPager.setTotal(count ?? 0);
   };
 
   useEffect(() => {
     loadReviews();
+  }, [reviewPager.page, filterReported]);
+  useEffect(() => {
     loadReports();
-  }, []);
+  }, [reportPager.page]);
 
   const deleteReview = async (id: string) => {
     if (!window.confirm("Permanently delete this review from the public listing?")) return;
@@ -117,9 +126,8 @@ export function ReviewModerationTab() {
 
   if (!reviews || !reports) return <Skeleton className="h-44 w-full mt-4" />;
 
-  const filteredReviews = filterReported
-    ? reviews.filter((r) => r.reported || (r.rating && r.rating <= 2))
-    : reviews;
+  // The flagged filter runs in the query, so paging counts stay right.
+  const filteredReviews = reviews;
 
   return (
     <div className="mt-4 space-y-4">
@@ -132,7 +140,7 @@ export function ReviewModerationTab() {
             className="text-xs h-8 rounded-full"
             onClick={() => setActiveSubTab("reviews")}
           >
-            Vehicle Reviews ({reviews.length})
+            Vehicle Reviews{filterReported ? "" : ` (${reviewPager.total})`}
           </Button>
           <Button
             size="sm"
@@ -141,7 +149,7 @@ export function ReviewModerationTab() {
             onClick={() => setActiveSubTab("reports")}
           >
             <ShieldAlert className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> User Reports (
-            {reports.length})
+            {reportPager.total})
           </Button>
         </div>
 
@@ -151,7 +159,10 @@ export function ReviewModerationTab() {
               size="sm"
               variant={!filterReported ? "secondary" : "ghost"}
               className="text-xs h-7"
-              onClick={() => setFilterReported(false)}
+              onClick={() => {
+                setFilterReported(false);
+                reviewPager.setPage(0);
+              }}
             >
               All
             </Button>
@@ -159,10 +170,13 @@ export function ReviewModerationTab() {
               size="sm"
               variant={filterReported ? "secondary" : "ghost"}
               className="text-xs h-7 text-amber-600"
-              onClick={() => setFilterReported(true)}
+              onClick={() => {
+                setFilterReported(true);
+                reviewPager.setPage(0);
+              }}
             >
-              <AlertTriangle className="mr-1 h-3 w-3" /> Flagged (
-              {reviews.filter((r) => r.reported || (r.rating && r.rating <= 2)).length})
+              <AlertTriangle className="mr-1 h-3 w-3" /> Flagged
+              {filterReported ? ` (${reviewPager.total})` : ""}
             </Button>
           </div>
         )}
@@ -241,6 +255,7 @@ export function ReviewModerationTab() {
               </Card>
             ))
           )}
+          <ListPager {...reportPager} />
         </div>
       ) : (
         <div className="grid gap-3">
@@ -314,6 +329,7 @@ export function ReviewModerationTab() {
               </Card>
             ))
           )}
+          <ListPager {...reviewPager} />
         </div>
       )}
     </div>

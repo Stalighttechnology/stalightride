@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,24 +25,30 @@ export function PaymentsRefundsTab() {
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [processing, setProcessing] = useState(false);
+  const pager = usePage();
 
   const loadTransactions = async () => {
-    const { data, error } = await api
+    let q = api
       .from("wallet_transactions")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(50);
+      .range(pager.from, pager.to);
+    const term = search.trim().replace(/[,()%]/g, "");
+    if (term)
+      q = q.or(`description.ilike.%${term}%,kind.ilike.%${term}%,reference.ilike.%${term}%`);
+    const { data, error, count } = await q;
 
     if (error) {
       toast.error(error.message);
       return;
     }
     setTransactions(data || []);
+    pager.setTotal(count ?? 0);
   };
 
   useEffect(() => {
     loadTransactions();
-  }, []);
+  }, [pager.page, search]);
 
   const handleManualRefund = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,13 +74,8 @@ export function PaymentsRefundsTab() {
 
   if (!transactions) return <Skeleton className="h-44 w-full mt-4" />;
 
-  const filtered = transactions.filter((t) => {
-    const desc = (t.description || "").toLowerCase();
-    const kind = (t.kind || "").toLowerCase();
-    const id = (t.id || "").toLowerCase();
-    const q = search.toLowerCase();
-    return desc.includes(q) || kind.includes(q) || id.includes(q);
-  });
+  // Search runs in the query, so paging counts stay right.
+  const filtered = transactions;
 
   return (
     <div className="mt-4 space-y-6">
@@ -136,7 +138,10 @@ export function PaymentsRefundsTab() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                pager.setPage(0);
+              }}
               placeholder="Filter transactions..."
               className="pl-8 h-8 text-xs"
             />
@@ -194,6 +199,7 @@ export function PaymentsRefundsTab() {
             })
           )}
         </div>
+        <ListPager {...pager} />
       </div>
     </div>
   );

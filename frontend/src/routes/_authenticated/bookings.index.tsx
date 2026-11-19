@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,8 @@ function Bookings() {
   const { user } = useSession();
   const [asCustomer, setAsCustomer] = useState<any[] | null>(null);
   const [asVendor, setAsVendor] = useState<any[] | null>(null);
+  const customerPager = usePage(10);
+  const vendorPager = usePage(10);
   const [paying, setPaying] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
@@ -50,25 +53,29 @@ function Bookings() {
     const [c, v, w, p] = await Promise.all([
       api
         .from("bookings")
-        .select(sel)
+        .select(sel, { count: "exact" })
         .eq("customer_id", user.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(customerPager.from, customerPager.to),
       api
         .from("bookings")
-        .select(sel)
+        .select(sel, { count: "exact" })
         .eq("vendor_id", user.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(vendorPager.from, vendorPager.to),
       api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
       api.from("profiles").select("membership_plan").eq("id", user.id).maybeSingle(),
     ]);
     setAsCustomer(c.data ?? []);
     setAsVendor(v.data ?? []);
+    customerPager.setTotal(c.count ?? 0);
+    vendorPager.setTotal(v.count ?? 0);
     setWalletBalance(Number(w.data?.balance ?? 0));
     if (p.data?.membership_plan) setMembershipPlan(p.data.membership_plan);
   };
   useEffect(() => {
     load();
-  }, [user?.id]);
+  }, [user?.id, customerPager.page, vendorPager.page]);
 
   type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled" | "completed";
   const cancel = async (b: any) => {
@@ -245,6 +252,7 @@ function Bookings() {
               walletBalance={walletBalance}
               paying={paying}
             />
+            <ListPager {...customerPager} />
           </TabsContent>
           <TabsContent value="vendor" className="mt-5">
             <List
@@ -256,6 +264,7 @@ function Bookings() {
               walletBalance={walletBalance}
               paying={paying}
             />
+            <ListPager {...vendorPager} />
           </TabsContent>
         </Tabs>
       </div>

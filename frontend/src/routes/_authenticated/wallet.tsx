@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,8 @@ function WalletPage() {
   const settings = usePlatformSettings();
   const [balance, setBalance] = useState<number | null>(null);
   const [txns, setTxns] = useState<any[] | null>(null);
+  const [promoCredits, setPromoCredits] = useState<any[]>([]);
+  const pager = usePage();
   const [amount, setAmount] = useState("500");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,23 +81,32 @@ function WalletPage() {
     if (!user) return;
     setRefreshing(true);
     try {
-      const [w, t] = await Promise.all([
+      const [w, t, promo] = await Promise.all([
         api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        api
+          .from("wallet_transactions")
+          .select("*", { count: "exact" })
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .range(pager.from, pager.to),
         api
           .from("wallet_transactions")
           .select("*")
           .eq("user_id", user.id)
+          .eq("kind", "promo_credit")
           .order("created_at", { ascending: false })
-          .limit(100),
+          .limit(50),
       ]);
       setBalance(Number(w.data?.balance ?? 0));
       setTxns(t.data ?? []);
+      pager.setTotal(t.count ?? 0);
+      setPromoCredits(promo.data ?? []);
     } catch (e) {
       console.error("Wallet refresh failed:", e);
     } finally {
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, pager.page]);
 
   useEffect(() => {
     if (!user) return;
@@ -167,7 +179,6 @@ function WalletPage() {
   };
 
   // Withdrawable / pending earnings come from the database (see PayoutsCard).
-  const promoCredits = (txns ?? []).filter((t) => t.kind === "promo_credit");
 
   return (
     <div className="min-h-screen bg-background">
@@ -314,6 +325,7 @@ function WalletPage() {
                       })}
                     </ul>
                   )}
+                  <ListPager {...pager} />
                 </CardContent>
               </Card>
             </TabsContent>

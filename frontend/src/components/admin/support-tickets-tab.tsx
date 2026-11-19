@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { ListPager, usePage } from "@/components/list-pager";
 import { useSession } from "@/hooks/use-session";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,22 +20,26 @@ export function SupportTicketsTab() {
   const [compensationAmount, setCompensationAmount] = useState("");
   const [sending, setSending] = useState(false);
 
+  const pager = usePage();
+
   const loadTickets = async () => {
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("support_tickets")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(pager.from, pager.to);
 
     if (error) {
       toast.error(error.message);
       return;
     }
     setTickets(data || []);
+    pager.setTotal(count ?? 0);
   };
 
   useEffect(() => {
     loadTickets();
-  }, []);
+  }, [pager.page]);
 
   const loadMessages = async (ticketId: string) => {
     const { data, error } = await api
@@ -111,7 +116,10 @@ export function SupportTicketsTab() {
       .from("support_tickets")
       .update({
         status: "Resolved",
-        resolution: compVal > 0 ? `${replyText.trim()} (Compensation awarded: ₹${compVal})` : replyText.trim(),
+        resolution:
+          compVal > 0
+            ? `${replyText.trim()} (Compensation awarded: ₹${compVal})`
+            : replyText.trim(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", selectedTicket.id);
@@ -287,9 +295,12 @@ export function SupportTicketsTab() {
             <form onSubmit={submitReply} className="space-y-3 pt-3 border-t">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border p-3 bg-muted/20">
                 <div className="space-y-0.5">
-                  <label className="text-xs font-semibold text-foreground">Damage Dispute Compensation (₹)</label>
+                  <label className="text-xs font-semibold text-foreground">
+                    Damage Dispute Compensation (₹)
+                  </label>
                   <p className="text-[11px] text-muted-foreground">
-                    Optional: award monetary compensation from deposit/settlement directly to the recipient's wallet.
+                    Optional: award monetary compensation from deposit/settlement directly to the
+                    recipient's wallet.
                   </p>
                 </div>
                 <div className="w-full sm:w-44">
@@ -364,6 +375,7 @@ export function SupportTicketsTab() {
               </Card>
             ))
           )}
+          <ListPager {...pager} />
         </div>
       )}
     </div>
