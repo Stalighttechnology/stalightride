@@ -67,6 +67,7 @@ GRANT ALL ON FUNCTION public.prevent_booking_conflict() TO service_role;
 -- trg_bookings_conflict already runs it on INSERT OR UPDATE.
 DROP TRIGGER IF EXISTS prevent_booking_conflict_ins ON public.bookings;
 
+ALTER TABLE public.bookings DROP CONSTRAINT IF EXISTS bookings_no_overlap;
 ALTER TABLE public.bookings ADD CONSTRAINT bookings_no_overlap
   EXCLUDE USING gist (vehicle_id WITH =, daterange(start_date, end_date, '[]') WITH &&)
   WHERE (status IN ('pending', 'confirmed'));
@@ -131,13 +132,14 @@ BEGIN
 END;
 $$;
 
+ALTER TABLE public.driver_bookings DROP CONSTRAINT IF EXISTS driver_bookings_no_overlap;
 ALTER TABLE public.driver_bookings ADD CONSTRAINT driver_bookings_no_overlap
   EXCLUDE USING gist (driver_id WITH =, daterange(start_date, end_date, '[]') WITH &&)
   WHERE (status IN ('pending', 'confirmed'));
 
 -- Washes: one doorstep cleaner can't hold two active jobs in the same slot.
 -- (Wash centers have several bays, so they are not limited per slot.)
-CREATE UNIQUE INDEX wash_bookings_cleaner_slot_uniq
+CREATE UNIQUE INDEX IF NOT EXISTS wash_bookings_cleaner_slot_uniq
   ON public.wash_bookings (assigned_cleaner_id, slot_date, slot_time)
   WHERE assigned_cleaner_id IS NOT NULL AND status IN ('pending', 'confirmed');
 
