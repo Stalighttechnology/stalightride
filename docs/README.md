@@ -20,8 +20,8 @@ Write a name in each track. Each track has four components.
 | Track | Owner | Components |
 | --- | --- | --- |
 | **A. Rentals** | ________ | [01 Accounts and licence](components/01-accounts-and-licence.md), [02 Hosts and vehicles](components/02-hosts-and-vehicles.md), [03 Rental booking](components/03-rental-booking.md), [04 Trip handover](components/04-trip-handover.md) |
-| **B. Services and growth** | ________ | [05 Driver hire](components/05-driver-hire.md), [06 Car pooling](components/06-car-pooling.md), [07 Vehicle wash](components/07-vehicle-wash.md), [11 Membership, rewards, referrals](components/11-membership-rewards-referrals.md) |
-| **C. Money and platform** | ________ | [08 Wallet and payments](components/08-wallet-and-payments.md), [09 Admin console](components/09-admin-console.md), [10 Safety and support](components/10-safety-and-support.md), [12 Corporate](components/12-corporate.md) |
+| **B. Services and growth** | Likith | [05 Driver hire](components/05-driver-hire.md), [06 Car pooling](components/06-car-pooling.md), [07 Vehicle wash](components/07-vehicle-wash.md), [11 Membership, rewards, referrals](components/11-membership-rewards-referrals.md) |
+| **C. Money and platform** | Likith | [08 Wallet and payments](components/08-wallet-and-payments.md), [09 Admin console](components/09-admin-console.md), [10 Safety and support](components/10-safety-and-support.md), [12 Corporate](components/12-corporate.md) |
 
 ## How to validate your part
 
@@ -62,10 +62,10 @@ A component is ready when all of these are true:
 | 06 | Car pooling | B | | | | Not started |
 | 07 | Vehicle wash | B | | | | Not started |
 | 08 | Wallet and payments | C | | | | Not started |
-| 09 | Admin console | C | | | | Not started |
-| 10 | Safety and support | C | | | | Not started |
-| 11 | Membership, rewards, referrals | B | | | | Not started |
-| 12 | Corporate | C | | | | Not started |
+| 09 | Admin console | C | Likith | Claude | 2026-11-19 | Tested (31 Pass, 6 Open Gaps) |
+| 10 | Safety and support | C | Likith | Claude | 2026-11-19 | Tested (26 Pass, 1 Open Gap) |
+| 11 | Membership, rewards, referrals | B | Likith | Claude | 2026-11-19 | Tested (21 Pass, 5 Open Gaps) |
+| 12 | Corporate | C | Likith | Claude | 2026-11-19 | Tested (GAP-14 verified / Demo) |
 
 ## Out of scope for now
 
