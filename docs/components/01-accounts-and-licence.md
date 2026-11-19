@@ -57,9 +57,9 @@ Asha, Ben and Ada from [doc 02](../02-local-setup-and-test-data.md).
 | AC-21 | Sign in with Google, if configured | Account is created or linked by email | Pass (Guarded: `Google sign-in is not configured`) |
 | AC-22 | Download your data at `/data-deletion` | A file with your data downloads | Pass (Downloaded `synchoo-data-*.json`) |
 | AC-23 | Request deletion with an open booking | Deletion is refused with a clear message | Pass (Returns `ok: false, reason: open_bookings`) |
-| AC-24 | Request deletion with no open bookings, then try to sign in | **GAP-21:** sign-in must fail | Reproduced GAP-21 (sign-in succeeds as auth.users is kept active) |
+| AC-24 | Request deletion with no open bookings, then try to sign in | **GAP-21:** sign-in must fail | Pass (GAP-21 fixed: `delete_my_account_data` deactivates login via `accounts_user.is_active = false`) |
 | AC-25 | Make 20 wrong sign-in attempts quickly | **GAP-24:** attempts must be limited | Reproduced GAP-24 (no rate limit / lockout on sign-in) |
-| AC-26 | Upload an `.html` file to the `avatars` bucket through the API, then open its public link | **GAP-08:** it must not open as a web page | Reproduced GAP-08 (served with `text/html`) |
+| AC-26 | Upload an `.html` file to the `avatars` bucket through the API, then open its public link | **GAP-08:** it must not open as a web page | Pass (GAP-08 fixed: HTML upload blocked and served as octet-stream attachment with `nosniff`) |
 
 ## Linked gaps
 

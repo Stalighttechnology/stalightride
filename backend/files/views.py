@@ -64,6 +64,8 @@ def upload(request, bucket):
         return _error("Bucket not found", 404)
     if path is None or file is None:
         return _error("path and file are required")
+    if path.lower().endswith((".html", ".htm", ".shtml", ".xhtml")):
+        return _error("HTML files are not permitted", 400)
     if file.size > MAX_UPLOAD:
         return _error("The object exceeded the maximum allowed size", 413, "EntityTooLarge")
     conflict = "DO UPDATE SET created_at = now()" if upsert else "DO NOTHING"
@@ -126,7 +128,13 @@ def _serve(bucket, path):
     if not full.is_file():
         raise Http404
     kind = mimetypes.guess_type(full.name)[0] or "application/octet-stream"
-    return FileResponse(open(full, "rb"), content_type=kind)
+    if kind.startswith("text/html") or kind.startswith("application/xhtml"):
+        kind = "application/octet-stream"
+    resp = FileResponse(open(full, "rb"), content_type=kind)
+    if kind == "application/octet-stream":
+        resp["Content-Disposition"] = "attachment"
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 def public_file(request, bucket, path):
