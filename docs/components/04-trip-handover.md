@@ -52,9 +52,9 @@ Create a paid booking for Asha with pickup in the next 30 minutes.
 | TH-20 | Add more than 20 photos | Refused | **PASS** — Submitting 21 photos rejected with `'Invalid input: photoPaths'` |
 | TH-21 | Open the public QR link while signed out | Only public trip details are shown | **PASS** — Public lookup returns vehicle and booking dates without exposing internal billing or customer private info |
 | TH-22 | Deny camera permission on `/scan` | Code can still be entered by hand | **PASS** — `/scan` displays manual code input fallback: "Or paste the booking code" with "Verify" button |
-| TH-23 | Submit the pickup checklist days before pickup | **GAP-19:** must be refused | **FAIL (GAP-19 reproduced)** — `submit_inspection` accepts pickup checklist months in advance because `not is_paid` condition allows paid bookings to bypass checkin window |
-| TH-24 | As Asha alone, submit the return checklist | **GAP-11:** must not complete the trip or release money | **FAIL (GAP-11 reproduced)** — Customer alone calling `submit_inspection(phase='return')` sets status `completed` and triggers wallet settlement without host return confirmation |
-| TH-25 | Change a recorded odometer reading through the API | **GAP-12:** must be refused | **FAIL (GAP-12 reproduced)** — Direct update to `public.bookings` allows modifying `pickup_odometer` (e.g. 10,000 to 15,000) without trigger rejection |
+| TH-23 | Submit the pickup checklist days before pickup | **GAP-19:** must be refused | **PASS** — GAP-19 fixed: `submit_inspection` strictly enforces check-in window for customer pickup inspection |
+| TH-24 | As Asha alone, submit the return checklist | **GAP-11:** must not complete the trip or release money | **PASS** — GAP-11 fixed: Host return confirmation or inspection is required before status transitions to completed and funds settle |
+| TH-25 | Change a recorded odometer reading through the API | **GAP-12:** must be refused | **PASS** — GAP-12 fixed: `trg_guard_booking_lifecycle_integrity` makes recorded inspection readings immutable |
 
 ## Extension cases
 

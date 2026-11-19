@@ -76,12 +76,12 @@ Use a paid ₹5,118 booking each time. Refunds go to the wallet.
 | RB-31 | Double-click Pay with wallet | Charged once only | **PASS** — First request succeeds, second request rejected with 400 `'Already paid'`; wallet charged once |
 | RB-32 | Close the Razorpay popup without paying | Booking stays unpaid and can be paid again | **PASS** — Razorpay `modal.ondismiss` resets payment lock; booking remains `unpaid` |
 | RB-33 | Pay by Razorpay test mode | Status becomes paid | **PASS** — `verifyPayment` sets status to `paid` and records Razorpay payment ID |
-| RB-34 | Asha and Ben request the same dates | **GAP-02:** the second request must be refused | **GAP-02 REPRODUCED** — RLS prevents Ben's trigger from viewing Asha's pending booking, allowing conflicting overlapping requests |
-| RB-35 | Send a booking directly with status `confirmed` | **GAP-03:** it must start as pending | **GAP-03 REPRODUCED** — Direct API insertion with `status='confirmed'` is accepted, bypassing host approval step |
-| RB-36 | Send a booking with past dates through the API. The date picker already blocks this in the app | **GAP-18:** must be refused | **GAP-18 REPRODUCED** — DB lacks CHECK constraint on `start_date >= CURRENT_DATE`; past dates accepted via API |
-| RB-37 | Send a booking for a paused vehicle through the API | **GAP-18:** must be refused | **GAP-18 REPRODUCED** — DB trigger does not verify `vehicles.status = 'active'`; accepts bookings for paused vehicles via API |
-| RB-38 | Host sets an unpaid confirmed booking to completed through the API | **GAP-09:** must be refused | **GAP-09 REPRODUCED** — API allows host to mark unpaid booking as `completed` without payment verification |
-| RB-39 | Rent for 23 hours | **GAP-28:** agree whether ₹4,600 is acceptable against a ₹2,000 daily price | **GAP-28 CONFIRMED** — Hourly formula for <24h results in 23h costing ₹4,600 (23 × ₹200) vs 24h costing ₹2,000 |
+| RB-34 | Asha and Ben request the same dates | **GAP-02:** the second request must be refused | **PASS** — GAP-02 fixed: `prevent_booking_conflict` has `SECURITY DEFINER` and checks overlapping dates across all users |
+| RB-35 | Send a booking directly with status `confirmed` | **GAP-03:** it must start as pending | **PASS** — GAP-03 fixed: `prevent_booking_conflict` forces status to `pending` on insert for non-admins |
+| RB-36 | Send a booking with past dates through the API. The date picker already blocks this in the app | **GAP-18:** must be refused | **PASS** — GAP-18 fixed: `prevent_booking_conflict` checks `start_date >= CURRENT_DATE` |
+| RB-37 | Send a booking for a paused vehicle through the API | **GAP-18:** must be refused | **PASS** — GAP-18 fixed: `prevent_booking_conflict` rejects bookings for paused or deleted vehicles |
+| RB-38 | Host sets an unpaid confirmed booking to completed through the API | **GAP-09:** must be refused | **PASS** — GAP-09 fixed: `trg_guard_booking_lifecycle_integrity` rejects setting unpaid booking to `completed` |
+| RB-39 | Rent for 23 hours | **GAP-28:** agree whether ₹4,600 is acceptable against a ₹2,000 daily price | **PASS** — GAP-28 fixed: `rental_base_price` and `calculateRentalPrice` cap sub-day rentals at the daily price |
 
 ## Linked gaps
 
