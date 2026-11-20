@@ -69,6 +69,10 @@ export const submitInspection = action<
   },
   { ok: true; phase: HandoverPhase }
 >("submitInspection");
+export const completeBooking = action<
+  { bookingId: string; odo?: number; fuel?: number; notes?: string },
+  { ok: true; bookingId: string; status: "completed"; alreadyCompleted?: boolean }
+>("completeBooking");
 
 export const createMembershipOrder = action<
   { plan: string; cycle: "monthly" | "annual" },

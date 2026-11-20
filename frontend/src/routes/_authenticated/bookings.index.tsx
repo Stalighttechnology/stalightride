@@ -657,12 +657,26 @@ function List({
                           </span>
                         );
                       return (
-                        <Button asChild size="sm" variant="outline" className="rounded-full">
-                          <Link to="/bookings/$id/trip" params={{ id: b.id }}>
-                            <ClipboardCheck className="mr-1.5 h-4 w-4" />
-                            {label}
-                          </Link>
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button asChild size="sm" variant="outline" className="rounded-full">
+                            <Link to="/bookings/$id/trip" params={{ id: b.id }}>
+                              <ClipboardCheck className="mr-1.5 h-4 w-4" />
+                              {label}
+                            </Link>
+                          </Button>
+                          {onTrip && (
+                            <Button asChild size="sm" className="btn-gradient rounded-full">
+                              <Link
+                                to="/bookings/$id/trip"
+                                params={{ id: b.id }}
+                                search={{ action: "return" } as any}
+                              >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                {role === "customer" ? "End ride early" : "Complete trip"}
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
                       );
                     })()}
                     {role === "vendor" &&

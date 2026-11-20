@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0025_notification_links")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0026_complete_booking_rpc")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -50,7 +50,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (51, 106, 93, 142, 998)
+    assert (tables, functions, triggers, policies, grants) == (51, 107, 93, 142, 998)
 
 
 def test_signup_trigger_creates_profile_and_role():

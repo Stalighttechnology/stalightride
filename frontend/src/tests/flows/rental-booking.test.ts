@@ -235,6 +235,33 @@ describe("handover, completion and reviews", () => {
     be.checkIn(customer, b.id, 90);
     expect(() => be.cancelBooking(customer, b.id)).toThrow(/already started/);
   });
+
+  test("allows early closing of ride after starting the ride and completes the trip", () => {
+    const { be, host, customer, vehicle } = setup();
+    const b = be.createBooking({
+      customer_id: customer,
+      vehicle_id: vehicle.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-25",
+      pickup_time: "10:00",
+      dropoff_time: "18:00",
+    });
+    be.hostDecide(host, b.id, "confirmed");
+    be.wallet.topup(customer, b.total_price);
+    be.payBookingWithWallet(customer, b.id);
+
+    // Trip starts on Aug 20
+    be.setNow("2026-08-20T10:00:00Z");
+    be.checkIn(customer, b.id, 90);
+
+    // Early closing on Aug 21 (4 days before scheduled dropoff on Aug 25)
+    be.setNow("2026-08-21T14:00:00Z");
+    const completed = be.checkOut(customer, b.id, 75);
+    expect(completed.status).toBe("completed");
+    expect(completed.return_checked_at).toBeTruthy();
+    expect(completed.return_fuel_pct).toBe(75);
+    expect(be.canReview(b.id)).toBe(true);
+  });
 });
 
 describe("rental cancellation refunds", () => {
