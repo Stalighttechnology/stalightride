@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createBackend, DAY_MS, RuleError } from "../harness/fake-backend";
+import { createBackend, DAY_MS, RuleError, bookingDeadline } from "../harness/fake-backend";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -352,5 +352,224 @@ describe("rental cancellation refunds", () => {
     const stranger = be.registerCustomer("approved");
     const b = be.createBooking({ customer_id: customer, vehicle_id: vehicle.id, ...range(5, 6) });
     expect(() => be.cancelBooking(stranger, b.id)).toThrow(/Not your booking/);
+  });
+});
+
+describe("rental booking windows & expiration", () => {
+  test("formula cases: 3pm->6pm gives 4:30pm, approve at 4pm gives 5pm, next week gives +12h, under 2h refused", () => {
+    // 3pm to 6pm with 1h buffer
+    const t3pm = new Date("2026-08-15T15:00:00+05:30");
+    const t6pm = new Date("2026-08-15T18:00:00+05:30");
+    const dl1 = bookingDeadline(t3pm, t6pm, 3600 * 1000);
+    expect(dl1.toISOString()).toBe(new Date("2026-08-15T16:30:00+05:30").toISOString());
+
+    // approve at 4pm for 6pm pickup with 30m buffer
+    const t4pm = new Date("2026-08-15T16:00:00+05:30");
+    const dl2 = bookingDeadline(t4pm, t6pm, 30 * 60 * 1000);
+    expect(dl2.toISOString()).toBe(new Date("2026-08-15T17:00:00+05:30").toISOString());
+
+    // next week gives created + 12h
+    const tNextWeek = new Date("2026-08-22T15:00:00+05:30");
+    const dl3 = bookingDeadline(t3pm, tNextWeek, 3600 * 1000);
+    expect(dl3.toISOString()).toBe(new Date(t3pm.getTime() + 12 * 3600 * 1000).toISOString());
+
+    // under 2h is refused
+    const be = createBackend(new Date("2026-08-15T15:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const v = be.listVehicle(host);
+    const admin = be.registerAdmin();
+    be.verifyVehicle(admin, v.id, "approved");
+
+    expect(() =>
+      be.createBooking({
+        customer_id: cust,
+        vehicle_id: v.id,
+        start_date: "2026-08-15",
+        end_date: "2026-08-16",
+        pickup_time: "16:30", // only 1.5h away
+      }),
+    ).toThrow(/Pickup must be at least 2 hours from now/);
+  });
+
+  test("approving after respond_by fails", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const v = be.listVehicle(host);
+    const admin = be.registerAdmin();
+    be.verifyVehicle(admin, v.id, "approved");
+
+    const b = be.createBooking({
+      customer_id: cust,
+      vehicle_id: v.id,
+      start_date: "2026-08-15",
+      end_date: "2026-08-16",
+      pickup_time: "16:00", // 6h away -> respond_by is 13:00 (10:00 + 3h)
+    });
+    expect(b.respond_by).toBeDefined();
+
+    // Advance clock past respond_by
+    be.setNow(new Date("2026-08-15T14:00:00+05:30"));
+    expect(() => be.hostDecide(host, b.id, "confirmed")).toThrow(/This request has expired/);
+  });
+
+  test("wallet payment after pay_by fails", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const v = be.listVehicle(host);
+    const admin = be.registerAdmin();
+    be.verifyVehicle(admin, v.id, "approved");
+
+    const b = be.createBooking({
+      customer_id: cust,
+      vehicle_id: v.id,
+      start_date: "2026-08-15",
+      end_date: "2026-08-16",
+      pickup_time: "16:00",
+    });
+    be.hostDecide(host, b.id, "confirmed");
+    expect(b.status).toBe("confirmed");
+    expect(b.pay_by).toBeDefined();
+
+    be.wallet.topup(cust, b.total_price);
+
+    // Advance clock past pay_by
+    be.setNow(new Date(new Date(b.pay_by!).getTime() + 60_000));
+    expect(() => be.payBookingWithWallet(cust, b.id)).toThrow(/Payment window has closed/);
+  });
+
+  test("a new request for the same car succeeds once the old one's respond_by is in the past", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust1 = be.registerCustomer("approved");
+    const cust2 = be.registerCustomer("approved");
+    const v = be.listVehicle(host);
+    const admin = be.registerAdmin();
+    be.verifyVehicle(admin, v.id, "approved");
+
+    const b1 = be.createBooking({
+      customer_id: cust1,
+      vehicle_id: v.id,
+      start_date: "2026-08-16",
+      end_date: "2026-08-17",
+      pickup_time: "10:00",
+    });
+
+    // Advance clock past b1's respond_by
+    be.setNow(new Date(new Date(b1.respond_by!).getTime() + 60_000));
+
+    // cust2 creates overlapping booking -> succeeds because b1 is lazily cancelled
+    const b2 = be.createBooking({
+      customer_id: cust2,
+      vehicle_id: v.id,
+      start_date: "2026-08-16",
+      end_date: "2026-08-17",
+      pickup_time: "10:00",
+    });
+    expect(b2.status).toBe("pending");
+    expect(b1.status).toBe("cancelled");
+    expect(b1.cancellation_reason).toBe("host_no_response");
+  });
+
+  test("expire_booking_windows cancels both kinds of expired booking and sends each reminder once", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust1 = be.registerCustomer("approved");
+    const cust2 = be.registerCustomer("approved");
+    const v = be.listVehicle(host);
+    const admin = be.registerAdmin();
+    be.verifyVehicle(admin, v.id, "approved");
+
+    const b1 = be.createBooking({
+      customer_id: cust1,
+      vehicle_id: v.id,
+      start_date: "2026-08-17",
+      end_date: "2026-08-18",
+    });
+
+    const b2 = be.createBooking({
+      customer_id: cust2,
+      vehicle_id: v.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-21",
+    });
+    be.hostDecide(host, b2.id, "confirmed");
+
+    // Manually set deadlines in the past for b1 and b2
+    b1.respond_by = new Date("2026-08-15T11:00:00+05:30").toISOString();
+    b2.pay_by = new Date("2026-08-15T11:00:00+05:30").toISOString();
+
+    // Create b3 (pending halfway) and b4 (confirmed unpaid halfway)
+    const b3 = be.createBooking({
+      customer_id: cust1,
+      vehicle_id: v.id,
+      start_date: "2026-08-25",
+      end_date: "2026-08-26",
+    });
+    b3.created_at = new Date("2026-08-15T08:00:00+05:30").toISOString();
+    b3.respond_by = new Date("2026-08-15T12:00:00+05:30").toISOString(); // halfway 10:00
+
+    const b4 = be.createBooking({
+      customer_id: cust2,
+      vehicle_id: v.id,
+      start_date: "2026-08-28",
+      end_date: "2026-08-29",
+    });
+    be.hostDecide(host, b4.id, "confirmed");
+    b4.confirmed_at = new Date("2026-08-15T09:00:00+05:30").toISOString();
+    b4.pay_by = new Date("2026-08-15T13:00:00+05:30").toISOString(); // halfway 11:00
+
+    be.setNow(new Date("2026-08-15T11:30:00+05:30"));
+
+    const res1 = be.expireBookingWindows();
+    expect(res1.rentals_cancelled).toBe(2);
+    expect(res1.reminders_sent).toBe(2);
+    expect(b1.status).toBe("cancelled");
+    expect(b1.cancellation_reason).toBe("host_no_response");
+    expect(b2.status).toBe("cancelled");
+    expect(b2.cancellation_reason).toBe("payment_timeout");
+    expect(b3.respond_reminded_at).toBeDefined();
+    expect(b4.pay_reminded_at).toBeDefined();
+
+    // Second call is idempotent - no duplicate reminders or cancellations
+    const notifCountBefore = be.notifications.length;
+    const res2 = be.expireBookingWindows();
+    expect(res2.rentals_cancelled).toBe(0);
+    expect(res2.reminders_sent).toBe(0);
+    expect(be.notifications.length).toBe(notifCountBefore);
+  });
+
+  test("a late Razorpay verify refunds to the wallet exactly once", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const v = be.listVehicle(host);
+    const admin = be.registerAdmin();
+    be.verifyVehicle(admin, v.id, "approved");
+
+    const b = be.createBooking({
+      customer_id: cust,
+      vehicle_id: v.id,
+      start_date: "2026-08-17",
+      end_date: "2026-08-18",
+    });
+    be.hostDecide(host, b.id, "confirmed");
+
+    // Booking expires and gets cancelled
+    b.status = "cancelled";
+    b.cancellation_reason = "payment_timeout";
+
+    expect(be.wallet.balance(cust)).toBe(0);
+
+    // Late Razorpay payment arrives
+    be.payBookingWithRazorpay(cust, b.id);
+    expect(b.payment_status).toBe("refunded");
+    expect(be.wallet.balance(cust)).toBe(b.total_price);
+
+    // Second late verify is idempotent
+    be.payBookingWithRazorpay(cust, b.id);
+    expect(be.wallet.balance(cust)).toBe(b.total_price);
   });
 });

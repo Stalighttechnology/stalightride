@@ -134,6 +134,7 @@ export type PlatformSettings = {
 
 export type Booking = Money & {
   id: string;
+  created_at?: string;
   vehicle_id: string;
   vendor_id: string;
   customer_id: string;
@@ -150,7 +151,28 @@ export type Booking = Money & {
   return_checked_at: string | null;
   pickup_fuel_pct?: number;
   return_fuel_pct?: number;
+  respond_by?: string | null;
+  pay_by?: string | null;
+  confirmed_at?: string | null;
+  respond_reminded_at?: string | null;
+  pay_reminded_at?: string | null;
+  cancellation_reason?: string | null;
+  cancelled_at?: string | null;
 };
+
+export function bookingDeadline(
+  from: Date,
+  start: Date,
+  bufferMs: number,
+  capMs: number = 12 * 3600 * 1000,
+): Date {
+  const fromMs = from.getTime();
+  const startMs = start.getTime();
+  const c1 = fromMs + capMs;
+  const c2 = fromMs + (startMs - fromMs) / 2;
+  const c3 = startMs - bufferMs;
+  return new Date(Math.min(c1, c2, c3));
+}
 
 export type Coupon = {
   code: string;
@@ -729,6 +751,31 @@ export function createBackend(
 
       const pickup_time = args.pickup_time ?? "10:00";
       const dropoff_time = args.dropoff_time ?? "18:00";
+      const startDateTime = new Date(`${args.start_date}T${pickup_time.slice(0, 5)}:00+05:30`);
+      if (startDateTime.getTime() - clock.now.getTime() < 2 * 3600 * 1000) {
+        throw new RuleError("Pickup must be at least 2 hours from now");
+      }
+
+      // Lazily cancel expired bookings for the same vehicle
+      for (const old of bookings.values()) {
+        if (old.vehicle_id === v.id) {
+          if (old.status === "pending" && old.respond_by && clock.now.getTime() > new Date(old.respond_by).getTime()) {
+            old.status = "cancelled";
+            old.cancellation_reason = "host_no_response";
+            old.cancelled_at = clock.now.toISOString();
+          } else if (
+            old.status === "confirmed" &&
+            old.payment_status !== "paid" &&
+            old.pay_by &&
+            clock.now.getTime() > new Date(old.pay_by).getTime()
+          ) {
+            old.status = "cancelled";
+            old.cancellation_reason = "payment_timeout";
+            old.cancelled_at = clock.now.toISOString();
+          }
+        }
+      }
+
       const clash = [...bookings.values()].some(
         (b) =>
           b.vehicle_id === v.id &&
@@ -755,10 +802,12 @@ export function createBackend(
       });
       if (rental.hours <= 0) throw new RuleError("Drop-off must be after pickup");
       const money = price(rental.subtotal, args.coupon_code);
+      const respond_by = bookingDeadline(clock.now, startDateTime, 3600 * 1000).toISOString();
 
       const b: Booking = {
         ...money,
         id: id("bk"),
+        created_at: clock.now.toISOString(),
         vehicle_id: v.id,
         vendor_id: v.vendor_id,
         customer_id: args.customer_id,
@@ -773,6 +822,13 @@ export function createBackend(
         refund_amount: 0,
         pickup_checked_at: null,
         return_checked_at: null,
+        respond_by,
+        pay_by: null,
+        confirmed_at: null,
+        respond_reminded_at: null,
+        pay_reminded_at: null,
+        cancellation_reason: null,
+        cancelled_at: null,
       };
       bookings.set(b.id, b);
       notify(v.vendor_id, "New booking request");
@@ -782,7 +838,17 @@ export function createBackend(
       const b = bookings.get(booking_id)!;
       if (b.vendor_id !== actor) throw new RuleError("Only the host can decide this booking");
       if (b.status !== "pending") throw new RuleError("This booking is no longer pending");
-      b.status = decision;
+      if (decision === "confirmed") {
+        if (b.respond_by && clock.now.getTime() > new Date(b.respond_by).getTime()) {
+          throw new RuleError("This request has expired");
+        }
+        b.status = "confirmed";
+        b.confirmed_at = clock.now.toISOString();
+        const start = new Date(`${b.start_date}T${b.pickup_time.slice(0, 5)}:00+05:30`);
+        b.pay_by = bookingDeadline(clock.now, start, 30 * 60 * 1000).toISOString();
+      } else {
+        b.status = decision;
+      }
       notify(b.customer_id, `Booking ${decision}`);
       return b;
     },
@@ -790,6 +856,9 @@ export function createBackend(
       const b = bookings.get(booking_id)!;
       if (b.customer_id !== actor) throw new RuleError("Not your booking");
       if (b.status !== "confirmed") throw new RuleError("Only confirmed bookings can be paid");
+      if (b.pay_by && clock.now.getTime() > new Date(b.pay_by).getTime()) {
+        throw new RuleError("Payment window has closed");
+      }
       if (b.payment_status === "paid") throw new RuleError("Already paid");
       wallet.apply(actor, -b.total_price, "booking_payment");
       b.payment_status = "paid";
@@ -816,6 +885,14 @@ export function createBackend(
     payBookingWithRazorpay(actor: string, booking_id: string) {
       const b = bookings.get(booking_id)!;
       if (b.customer_id !== actor) throw new RuleError("Not your booking");
+      if (b.status === "cancelled" || b.status === "rejected") {
+        if (b.payment_status !== "refunded") {
+          b.payment_status = "refunded";
+          wallet.apply(b.customer_id, b.total_price, "refund");
+          notify(b.customer_id, "Refund: payment arrived after booking closed");
+        }
+        return b;
+      }
       if (b.status !== "confirmed") throw new RuleError("Only confirmed bookings can be paid");
       if (b.payment_status === "paid") throw new RuleError("Already paid");
       b.payment_status = "paid";
@@ -1894,8 +1971,75 @@ export function createBackend(
       };
     },
 
+    /* ---------- Booking Windows Expiration ---------- */
+    expireBookingWindows() {
+      let cancelledCount = 0;
+      let remindedCount = 0;
+      const nowMs = clock.now.getTime();
+      for (const b of bookings.values()) {
+        if (b.status === "pending" && b.respond_by && nowMs > new Date(b.respond_by).getTime()) {
+          b.status = "cancelled";
+          b.cancellation_reason = "host_no_response";
+          b.cancelled_at = clock.now.toISOString();
+          cancelledCount++;
+          notify(b.customer_id, "Request expired", "The host did not respond in time.", "/bookings");
+          notify(b.vendor_id, "Request expired", "You did not respond to the booking request in time.", "/vendor");
+        } else if (
+          b.status === "confirmed" &&
+          b.payment_status !== "paid" &&
+          b.pay_by &&
+          nowMs > new Date(b.pay_by).getTime()
+        ) {
+          b.status = "cancelled";
+          b.cancellation_reason = "payment_timeout";
+          b.cancelled_at = clock.now.toISOString();
+          cancelledCount++;
+          notify(b.customer_id, "Payment window expired", "Payment was not completed in time.", "/bookings");
+          notify(b.vendor_id, "Payment window expired", "The guest did not complete payment in time.", "/vendor");
+        }
+
+        // Halfway reminders
+        if (b.status === "pending" && b.respond_by && !b.respond_reminded_at) {
+          const fromMs = new Date(b.created_at ?? clock.now).getTime();
+          const targetMs = new Date(b.respond_by).getTime();
+          const halfwayMs = fromMs + (targetMs - fromMs) / 2;
+          if (nowMs >= halfwayMs) {
+            b.respond_reminded_at = clock.now.toISOString();
+            remindedCount++;
+            notify(
+              b.vendor_id,
+              "Action required: rental request awaiting response",
+              "A rental request is awaiting your response.",
+              "/vendor",
+            );
+          }
+        } else if (
+          b.status === "confirmed" &&
+          b.payment_status !== "paid" &&
+          b.pay_by &&
+          !b.pay_reminded_at
+        ) {
+          const fromMs = new Date(b.confirmed_at ?? b.created_at ?? clock.now).getTime();
+          const targetMs = new Date(b.pay_by).getTime();
+          const halfwayMs = fromMs + (targetMs - fromMs) / 2;
+          if (nowMs >= halfwayMs) {
+            b.pay_reminded_at = clock.now.toISOString();
+            remindedCount++;
+            notify(
+              b.customer_id,
+              "Action required: complete payment for your booking",
+              "Please complete payment for your booking.",
+              "/bookings",
+            );
+          }
+        }
+      }
+      return { rentals_cancelled: cancelledCount, reminders_sent: remindedCount };
+    },
+
     /* ---------- Person 3: Scheduled Reminders (3.7) ---------- */
     generateScheduledReminders(): number {
+      this.expireBookingWindows();
       let created = 0;
       const nowMs = clock.now.getTime();
 

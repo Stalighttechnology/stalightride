@@ -28,8 +28,8 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const bk1 = b.createBooking({
         customer_id: customer1,
         vehicle_id: v.id,
-        start_date: "2026-08-10",
-        end_date: "2026-08-11",
+        start_date: "2026-08-18",
+        end_date: "2026-08-19",
       });
       const rev1 = b.addReview({
         booking_id: bk1.id,
@@ -42,8 +42,8 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const bk2 = b.createBooking({
         customer_id: customer2,
         vehicle_id: v.id,
-        start_date: "2026-08-12",
-        end_date: "2026-08-13",
+        start_date: "2026-08-20",
+        end_date: "2026-08-21",
       });
       const rev2 = b.addReview({
         booking_id: bk2.id,
@@ -78,8 +78,8 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const bk = b.createBooking({
         customer_id: customer1,
         vehicle_id: v.id,
-        start_date: "2026-08-10",
-        end_date: "2026-08-11",
+        start_date: "2026-08-18",
+        end_date: "2026-08-19",
       });
       const rev = b.addReview({
         booking_id: bk.id,
@@ -107,8 +107,8 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const bk = b.createBooking({
         customer_id: customer1,
         vehicle_id: v.id,
-        start_date: "2026-08-10",
-        end_date: "2026-08-11",
+        start_date: "2026-08-18",
+        end_date: "2026-08-19",
       });
       const rev = b.addReview({
         booking_id: bk.id,
@@ -195,8 +195,8 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const bk = b.createBooking({
         customer_id: customer1,
         vehicle_id: v.id,
-        start_date: "2026-08-15",
-        end_date: "2026-08-16",
+        start_date: "2026-08-18",
+        end_date: "2026-08-19",
       });
 
       const inc = b.triggerSos({
@@ -222,8 +222,8 @@ describe("Person 3: Admin, Trust and Safety, Platform Flow Tests", () => {
       const bk = b.createBooking({
         customer_id: customer1,
         vehicle_id: v.id,
-        start_date: "2026-08-14",
-        end_date: "2026-08-15",
+        start_date: "2026-08-18",
+        end_date: "2026-08-19",
       });
 
       const lost = b.reportIncident({

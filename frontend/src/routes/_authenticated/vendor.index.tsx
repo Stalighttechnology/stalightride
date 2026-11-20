@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -38,6 +38,7 @@ import {
   Eye,
   Play,
   Pause,
+  Clock,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -158,11 +159,28 @@ const SAMPLE_REVIEWS = [
   },
 ];
 
+function formatTimeLeft(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
 function VendorDashboard() {
   const { user } = useSession();
   const [vendor, setVendor] = useState<any>(null);
   const [vehicles, setVehicles] = useState<any[] | null>(null);
   const [bookings, setBookings] = useState<any[] | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
   const [payouts, setPayouts] = useState<any[] | null>(null);
   const [vendorReviews, setVendorReviews] = useState<any[] | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -258,6 +276,11 @@ function VendorDashboard() {
   const isRegisteredHost = Boolean(vendor);
 
   const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
+    const target = (bookings ?? []).find((x: any) => x.id === id);
+    if (target?.respond_by && Date.now() > new Date(target.respond_by).getTime()) {
+      toast.error("This request has expired");
+      return;
+    }
     setProcessingBookingId(id);
     try {
       if (!isRegisteredHost) {
@@ -399,7 +422,21 @@ function VendorDashboard() {
   };
 
   const displayVehicles = vehicles ?? [];
-  const displayBookings = bookings ?? [];
+  const displayBookings = useMemo(() => {
+    const list = [...(bookings ?? [])];
+    return list.sort((a: any, b: any) => {
+      const aPending = a.status === "pending";
+      const bPending = b.status === "pending";
+      if (aPending && bPending) {
+        const aTime = a.respond_by ? new Date(a.respond_by).getTime() : Infinity;
+        const bTime = b.respond_by ? new Date(b.respond_by).getTime() : Infinity;
+        return aTime - bTime;
+      }
+      if (aPending) return -1;
+      if (bPending) return 1;
+      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+    });
+  }, [bookings]);
   const displayPayouts = payouts ?? [];
   const displayReviews = vendorReviews ?? [];
 
@@ -858,6 +895,7 @@ function VendorDashboard() {
                       ) : (
                         displayBookings.map((b: any) => {
                           const isPending = b.status === "pending";
+                          const isExpired = b.respond_by ? now > new Date(b.respond_by).getTime() : false;
                           const isProcessing = processingBookingId === b.id;
                           return (
                             <li
@@ -872,9 +910,17 @@ function VendorDashboard() {
                                   {isPending && (
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium"
+                                      className={`text-[10px] font-medium ${
+                                        isExpired
+                                          ? "bg-destructive/10 text-destructive border-destructive/30"
+                                          : "bg-amber-500/10 text-amber-700 border-amber-300"
+                                      }`}
                                     >
-                                      Needs approval
+                                      {isExpired
+                                        ? "Request expired"
+                                        : b.respond_by
+                                          ? `Respond within ${formatTimeLeft(b.respond_by, now)}`
+                                          : "Needs approval"}
                                     </Badge>
                                   )}
                                 </div>
@@ -931,8 +977,9 @@ function VendorDashboard() {
                                     <Button
                                       size="sm"
                                       className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
-                                      disabled={isProcessing}
+                                      disabled={isProcessing || isExpired}
                                       onClick={() => decideBooking(b.id, "confirmed")}
+                                      title={isExpired ? "This request has expired" : undefined}
                                     >
                                       <Check className="mr-1 h-3.5 w-3.5" />
                                       {isProcessing ? "Approving…" : "Approve"}
@@ -941,8 +988,9 @@ function VendorDashboard() {
                                       size="sm"
                                       variant="outline"
                                       className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                                      disabled={isProcessing}
+                                      disabled={isProcessing || isExpired}
                                       onClick={() => decideBooking(b.id, "rejected")}
+                                      title={isExpired ? "This request has expired" : undefined}
                                     >
                                       <X className="mr-1 h-3.5 w-3.5" />
                                       Decline
