@@ -38,6 +38,7 @@ import {
   Eye,
   Play,
   Pause,
+  Loader2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1249,7 +1250,7 @@ function VehiclesGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
       {vehicles.map((v) => {
         const img = v.vehicle_images
           ?.slice()
@@ -1302,29 +1303,33 @@ function VehiclesGrid({
                   </Badge>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-sm">
-                <div className="min-w-0">
-                  <span className="font-semibold text-foreground text-sm sm:text-base">
-                    {currency(v.price_daily)}
-                  </span>
-                  <span className="text-xs text-muted-foreground"> / day</span>
+              <div className="mt-4 pt-3 border-t border-border/60 space-y-2.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <div>
+                    <span className="font-semibold text-foreground text-sm sm:text-base">
+                      {currency(v.price_daily)}
+                    </span>
+                    <span className="text-xs text-muted-foreground"> / day</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 w-full">
                   {v.verification_status === "approved" && onTogglePause && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 px-2.5 text-xs rounded-lg shrink-0"
+                      className="h-8 flex-1 px-2 text-xs rounded-lg min-w-0 gap-1.5 [&_svg]:size-3.5"
                       onClick={() => onTogglePause(v)}
                       title={v.status === "paused" ? "Reactivate vehicle" : "Pause vehicle"}
                     >
                       {v.status === "paused" ? (
                         <>
-                          <Play className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Reactivate
+                          <Play className="text-emerald-600 shrink-0" />
+                          <span className="truncate">Reactivate</span>
                         </>
                       ) : (
                         <>
-                          <Pause className="mr-1 h-3.5 w-3.5 text-amber-600" /> Pause
+                          <Pause className="text-amber-600 shrink-0" />
+                          <span className="truncate">Pause</span>
                         </>
                       )}
                     </Button>
@@ -1333,10 +1338,11 @@ function VehiclesGrid({
                     asChild
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2.5 text-xs rounded-lg"
+                    className="h-8 flex-1 px-2 text-xs rounded-lg min-w-0 gap-1.5 [&_svg]:size-3.5"
                   >
                     <Link to="/vehicle/$id" params={{ id: v.id }}>
-                      <Eye className="mr-1 h-3.5 w-3.5" /> View
+                      <Eye className="shrink-0" />
+                      <span className="truncate">View</span>
                     </Link>
                   </Button>
                   {onDelete && (
@@ -1344,12 +1350,16 @@ function VehiclesGrid({
                       variant="outline"
                       size="sm"
                       disabled={isDeletingId === v.id}
-                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 rounded-lg shrink-0"
+                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 rounded-lg shrink-0 flex items-center justify-center [&_svg]:size-3.5"
                       onClick={() => onDelete(v)}
                       title="Delete vehicle listing"
+                      aria-label="Delete vehicle listing"
                     >
-                      <Trash2 className="mr-1 h-3.5 w-3.5" />
-                      {isDeletingId === v.id ? "Deleting..." : "Delete"}
+                      {isDeletingId === v.id ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Trash2 />
+                      )}
                     </Button>
                   )}
                 </div>
