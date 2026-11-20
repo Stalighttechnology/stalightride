@@ -302,6 +302,7 @@ export type DriverBooking = Money & {
   id: string;
   driver_id: string;
   customer_id: string;
+  booking_id?: string | null;
   start_date: string;
   end_date: string;
   start_time?: string;
@@ -313,6 +314,13 @@ export type DriverBooking = Money & {
   trip_type?: string;
   pickup_address?: string;
   notes?: string;
+  respond_by?: string | null;
+  pay_by?: string | null;
+  confirmed_at?: string | null;
+  cancellation_reason?: string | null;
+  respond_reminded_at?: string | null;
+  pay_reminded_at?: string | null;
+  created_at?: string;
 };
 
 export type DriverReview = {
@@ -465,6 +473,22 @@ export function createBackend(
   const poolRequests = new Map<string, PoolRequest>();
   const washes = new Map<string, WashBooking>();
   const cleaners = new Map<string, Cleaner>();
+
+  function cancelLinkedDriverHires(rental_id: string) {
+    for (const db of driverBookings.values()) {
+      if (db.booking_id === rental_id && ["pending", "confirmed"].includes(db.status)) {
+        if (db.payment_status === "paid") {
+          wallet.apply(db.customer_id, db.total_price, "driver_refund");
+          db.payment_status = "refunded";
+          db.refund_amount = db.total_price;
+        }
+        db.status = "cancelled";
+        db.cancellation_reason = "linked_rental_cancelled";
+        notify(db.driver_id, "Driver hire cancelled", "The linked vehicle rental was cancelled.", "/driver-dashboard");
+        notify(db.customer_id, "Driver hire cancelled", "Your driver hire was cancelled because the linked vehicle rental was cancelled.", "/hires");
+      }
+    }
+  }
   const washCenters = new Map<string, WashCenter>();
   const washCenterStaff = new Map<string, WashCenterStaff>();
   const washCenterPackages = new Map<string, WashCenterPackage>();
@@ -913,6 +937,9 @@ export function createBackend(
       } else {
         b.status = decision;
         b.updated_at = clock.now.toISOString();
+        if (decision === "rejected") {
+          cancelLinkedDriverHires(b.id);
+        }
       }
       notify(b.customer_id, `Booking ${decision}`);
       return b;
@@ -1003,6 +1030,7 @@ export function createBackend(
       settleRental(b);
       return b;
     },
+
     /** public.cancel_booking — customer, host or admin. */
     cancelBooking(actor: string, booking_id: string) {
       const b = bookings.get(booking_id)!;
@@ -1028,6 +1056,7 @@ export function createBackend(
       }
       b.refund_amount = refund;
       b.status = "cancelled";
+      cancelLinkedDriverHires(b.id);
       notify(b.vendor_id, "Booking cancelled");
       return { booking: b, refund, percent: pct, provider_share: share };
     },
@@ -1104,6 +1133,7 @@ export function createBackend(
     hireDriver(args: {
       customer_id: string;
       driver_id: string;
+      booking_id?: string | null;
       start_date: string;
       end_date: string;
       rate_type?: "hourly" | "daily";
@@ -1118,6 +1148,30 @@ export function createBackend(
       const d = drivers.get(args.driver_id);
       if (!d || d.verification_status !== "approved" || d.status !== "active")
         throw new RuleError("This driver is not available");
+
+      const timePart = (args.start_time ?? "09:00").slice(0, 5);
+      const startDateTime = new Date(`${args.start_date}T${timePart}:00+05:30`);
+      const todayStr = clock.now.toISOString().slice(0, 10);
+      const isFutureOrToday = args.start_date >= todayStr;
+      if (args.start_date === todayStr) {
+        if (startDateTime.getTime() < clock.now.getTime() + 2 * 60 * 60 * 1000) {
+          throw new RuleError("Pickup must be at least 2 hours from now");
+        }
+      }
+
+      // Lazy expiry for this driver
+      for (const old of driverBookings.values()) {
+        if (old.driver_id === d.id) {
+          if (old.status === "pending" && old.respond_by && clock.now.getTime() > new Date(old.respond_by).getTime()) {
+            old.status = "cancelled";
+            old.cancellation_reason = "driver_no_response";
+          } else if (old.status === "confirmed" && old.payment_status !== "paid" && old.pay_by && clock.now.getTime() > new Date(old.pay_by).getTime()) {
+            old.status = "cancelled";
+            old.cancellation_reason = "payment_timeout";
+          }
+        }
+      }
+
       const clash = [...driverBookings.values()].some(
         (b) =>
           b.driver_id === d.id &&
@@ -1136,11 +1190,15 @@ export function createBackend(
       });
       if (quote.error) throw new RuleError(quote.error);
       const money = price(quote.subtotal, args.coupon_code);
+      const respond_by = isFutureOrToday
+        ? bookingDeadline(clock.now, startDateTime, 60 * 60 * 1000).toISOString()
+        : null;
       const b: DriverBooking = {
         ...money,
         id: id("dbk"),
         driver_id: d.id,
         customer_id: args.customer_id,
+        booking_id: args.booking_id ?? null,
         start_date: args.start_date,
         end_date: args.end_date,
         start_time: args.start_time,
@@ -1152,6 +1210,13 @@ export function createBackend(
         trip_type: args.trip_type,
         pickup_address: args.pickup_address,
         notes: args.notes,
+        respond_by,
+        pay_by: null,
+        confirmed_at: null,
+        cancellation_reason: null,
+        respond_reminded_at: null,
+        pay_reminded_at: null,
+        created_at: clock.now.toISOString(),
       };
       driverBookings.set(b.id, b);
       notify(d.id, "New driver hire request");
@@ -1161,7 +1226,19 @@ export function createBackend(
       const b = driverBookings.get(booking_id)!;
       if (b.driver_id !== driver_id) throw new RuleError("Not your hire request");
       if (b.status !== "pending") throw new RuleError("This request is no longer pending");
-      b.status = decision;
+      if (decision === "confirmed") {
+        if (b.respond_by && clock.now.getTime() > new Date(b.respond_by).getTime()) {
+          throw new RuleError("This request has expired");
+        }
+        b.status = "confirmed";
+        b.confirmed_at = clock.now.toISOString();
+        const start = new Date(`${b.start_date}T${(b.start_time ?? "09:00").slice(0, 5)}:00+05:30`);
+        b.pay_by = start.getTime() > clock.now.getTime()
+          ? bookingDeadline(clock.now, start, 60 * 60 * 1000).toISOString()
+          : null;
+      } else {
+        b.status = decision;
+      }
       notify(
         b.customer_id,
         `Driver ${decision === "confirmed" ? "accepted" : "declined"} your hire`,
@@ -1172,6 +1249,9 @@ export function createBackend(
       const b = driverBookings.get(booking_id)!;
       if (b.customer_id !== actor) throw new RuleError("Not your hire");
       if (b.status !== "confirmed") throw new RuleError("Only accepted hires can be paid");
+      if (b.pay_by && clock.now.getTime() > new Date(b.pay_by).getTime()) {
+        throw new RuleError("Payment window has closed");
+      }
       if (b.payment_status === "paid") throw new RuleError("Already paid");
       wallet.apply(actor, -b.total_price, "driver_payment");
       b.payment_status = "paid";
@@ -1185,9 +1265,15 @@ export function createBackend(
     payDriverBookingWithRazorpay(actor: string, booking_id: string, payment_id: string) {
       const b = driverBookings.get(booking_id)!;
       if (b.customer_id !== actor) throw new RuleError("Not your hire");
+      if (b.status === "cancelled" || b.status === "rejected") {
+        wallet.apply(actor, b.total_price, "driver_refund");
+        b.payment_status = "refunded";
+        b.refund_amount = b.total_price;
+        notify(actor, "Payment refunded", `Your payment of Rs ${b.total_price} was refunded to your wallet.`, "/hires");
+        return { ok: true, refunded: true, booking: b };
+      }
       if (b.status !== "confirmed") throw new RuleError("Driver has not accepted this request yet");
       if (b.payment_status === "paid") {
-        // Replay of verify payload (DH-10): already paid, do not credit driver again
         return { ok: true, replayed: true, booking: b };
       }
       b.payment_status = "paid";
@@ -1195,6 +1281,30 @@ export function createBackend(
       b.earning_credited_at = clock.now.toISOString();
       notify(b.driver_id, `Hire payment received via Razorpay (${payment_id})`);
       return { ok: true, replayed: false, booking: b };
+    },
+    similarDrivers(booking_id: string, actor: string) {
+      const b = driverBookings.get(booking_id);
+      if (!b) throw new RuleError("Driver booking not found");
+      if (actor !== b.customer_id && !admins.has(actor)) {
+        throw new RuleError("You are not the customer for this booking");
+      }
+      const origDriver = drivers.get(b.driver_id);
+      const city = origDriver?.city ?? "Bengaluru";
+      return [...drivers.values()]
+        .filter((d) => {
+          if (d.id === b.driver_id) return false;
+          if (d.verification_status !== "approved" || d.status !== "active") return false;
+          if ((d.city ?? "").toLowerCase() !== city.toLowerCase()) return false;
+          const hasClash = [...driverBookings.values()].some(
+            (db) =>
+              db.driver_id === d.id &&
+              ["pending", "confirmed"].includes(db.status) &&
+              datesOverlap(db.start_date, db.end_date, b.start_date, b.end_date),
+          );
+          return !hasClash;
+        })
+        .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
+        .slice(0, 5);
     },
     completeDriverBooking(actor: string, booking_id: string) {
       const b = driverBookings.get(booking_id);
@@ -2140,6 +2250,28 @@ export function createBackend(
             "Your listings are paused because 3 requests expired without a response. Turn them back on from your dashboard.",
             "/vendor",
           );
+        }
+      }
+
+      // Driver hire cancellations
+      for (const db of driverBookings.values()) {
+        if (db.status === "pending" && db.respond_by && nowMs > new Date(db.respond_by).getTime()) {
+          db.status = "cancelled";
+          db.cancellation_reason = "driver_no_response";
+          cancelledCount++;
+          notify(db.customer_id, "Request expired", "The driver did not respond in time.", "/hires");
+          notify(db.driver_id, "Request expired", "Driver hire request expired without response.", "/driver-dashboard");
+        } else if (
+          db.status === "confirmed" &&
+          db.payment_status !== "paid" &&
+          db.pay_by &&
+          nowMs > new Date(db.pay_by).getTime()
+        ) {
+          db.status = "cancelled";
+          db.cancellation_reason = "payment_timeout";
+          cancelledCount++;
+          notify(db.customer_id, "Payment window expired", "Payment was not completed in time.", "/hires");
+          notify(db.driver_id, "Payment window expired", "Customer did not pay in time.", "/driver-dashboard");
         }
       }
 

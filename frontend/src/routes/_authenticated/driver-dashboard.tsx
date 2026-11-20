@@ -75,6 +75,17 @@ const emptyDriver = {
   service_area: "",
 };
 
+function formatTimeLeft(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
 function DriverDashboard() {
   const { user } = useSession();
   const confirm = useConfirm();
@@ -278,7 +289,18 @@ function DriverDashboard() {
     load();
   };
 
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
   const decide = async (id: string, status: "confirmed" | "rejected" | "completed") => {
+    const target = (hires ?? []).find((x: any) => x.id === id);
+    if (status === "confirmed" && target?.respond_by && Date.now() > new Date(target.respond_by).getTime()) {
+      return toast.error("This request has expired");
+    }
     const { error } = await api.from("driver_bookings").update({ status }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Hire ${status}`);
@@ -900,60 +922,87 @@ function DriverDashboard() {
               <ul className="grid gap-3">
                 {(hires ?? [])
                   .filter((h) => h.status === "pending")
-                  .map((h) => (
-                    <Card key={h.id}>
-                      <CardContent className="p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">
-                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
-                                {h.rate_type === "hourly"
-                                  ? `${h.hours} hour(s)`
-                                  : `${h.days} day(s)`}
-                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
+                  .sort((a, b) => {
+                    const aTime = a.respond_by ? new Date(a.respond_by).getTime() : Infinity;
+                    const bTime = b.respond_by ? new Date(b.respond_by).getTime() : Infinity;
+                    return aTime - bTime;
+                  })
+                  .map((h) => {
+                    const isExpired = h.respond_by ? now > new Date(h.respond_by).getTime() : false;
+                    return (
+                      <Card key={h.id}>
+                        <CardContent className="p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">
+                                  {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
+                                  {h.rate_type === "hourly"
+                                    ? `${h.hours} hour(s)`
+                                    : `${h.days} day(s)`}
+                                  <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
+                                </p>
+                                {h.trip_type && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="capitalize text-xs font-normal"
+                                  >
+                                    🚗 {h.trip_type}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {h.start_date}
+                                {h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} ·{" "}
+                                {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
                               </p>
-                              {h.trip_type && (
+                              {h.pickup_address && (
+                                <p className="text-xs text-muted-foreground">📍 {h.pickup_address}</p>
+                              )}
+                              {h.notes && <p className="mt-1 text-sm">{h.notes}</p>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {h.respond_by && (
                                 <Badge
-                                  variant="secondary"
-                                  className="capitalize text-xs font-normal"
+                                  variant="outline"
+                                  className={`text-xs font-medium ${
+                                    isExpired
+                                      ? "bg-destructive/10 text-destructive border-destructive/30"
+                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300"
+                                  }`}
                                 >
-                                  🚗 {h.trip_type}
+                                  <Clock className="mr-1 h-3 w-3 inline" />
+                                  {isExpired ? "Request expired" : `Respond within ${formatTimeLeft(h.respond_by, now)}`}
                                 </Badge>
                               )}
+                              <Badge variant="outline">{h.status}</Badge>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {h.start_date}
-                              {h.end_date !== h.start_date ? ` → ${h.end_date}` : ""} ·{" "}
-                              {String(h.start_time).slice(0, 5)}–{String(h.end_time).slice(0, 5)}
-                            </p>
-                            {h.pickup_address && (
-                              <p className="text-xs text-muted-foreground">📍 {h.pickup_address}</p>
-                            )}
-                            {h.notes && <p className="mt-1 text-sm">{h.notes}</p>}
                           </div>
-                          <Badge variant="outline">{h.status}</Badge>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs"
-                            onClick={() => decide(h.id, "confirmed")}
-                          >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve Hire
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg"
-                            onClick={() => decide(h.id, "rejected")}
-                          >
-                            <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs"
+                              disabled={isExpired}
+                              onClick={() => decide(h.id, "confirmed")}
+                              title={isExpired ? "This request has expired" : undefined}
+                            >
+                              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve Hire
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-lg"
+                              disabled={isExpired}
+                              onClick={() => decide(h.id, "rejected")}
+                              title={isExpired ? "This request has expired" : undefined}
+                            >
+                              <CircleSlash className="mr-1.5 h-4 w-4" /> Decline
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
               </ul>
             </div>
           )}
