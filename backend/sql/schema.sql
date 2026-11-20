@@ -908,20 +908,7 @@ BEGIN
     RAISE EXCEPTION 'Wash booking ID is required';
   END IF;
 
-  -- 1. Verify cleaner profile and approved status
-  SELECT * INTO _cleaner
-    FROM public.cleaners
-   WHERE cleaners.id = auth.uid();
-
-  IF _cleaner IS NULL THEN
-    RAISE EXCEPTION 'Cleaner profile not found';
-  END IF;
-
-  IF _cleaner.verification_status != 'approved' THEN
-    RAISE EXCEPTION 'Only verified cleaners can claim jobs';
-  END IF;
-
-  -- 2. Lock the wash booking row atomically to prevent race conditions / double claiming (CJ-01)
+  -- 1. Lock the wash booking row atomically
   SELECT * INTO _booking
     FROM public.wash_bookings
    WHERE wash_bookings.id = _target_id
@@ -931,22 +918,17 @@ BEGIN
     RAISE EXCEPTION 'Wash booking not found';
   END IF;
 
-  -- 3. Check if already claimed or assigned
+  -- 2. Check if already claimed or assigned
   IF _booking.assigned_cleaner_id IS NOT NULL OR _booking.assigned_vendor_id IS NOT NULL THEN
-    RAISE EXCEPTION 'This wash job is already assigned';
+    RAISE EXCEPTION 'Another partner just claimed this job';
   END IF;
 
-  -- 4. Check if confirmed (must be confirmed)
-  IF _booking.status != 'confirmed' AND _booking.progress != 'confirmed' THEN
-    RAISE EXCEPTION 'Only confirmed wash jobs can be claimed';
+  -- 3. Check visibility rule
+  IF NOT public.can_cleaner_see_wash_job(auth.uid(), _target_id) THEN
+    RAISE EXCEPTION 'You are not eligible to claim this job';
   END IF;
 
-  -- 5. Check city match (case-insensitive) (CJ-02)
-  IF lower(trim(_cleaner.city)) != lower(trim(_booking.city)) THEN
-    RAISE EXCEPTION 'Cleaner cannot claim jobs outside their operating city (cleaner city: %, job city: %)', _cleaner.city, _booking.city;
-  END IF;
-
-  -- 6. Atomically assign job to cleaner
+  -- 4. Atomically assign job to cleaner
   UPDATE public.wash_bookings
      SET assigned_cleaner_id = auth.uid(),
          progress = 'assigned',
@@ -954,21 +936,20 @@ BEGIN
          updated_at = now()
    WHERE wash_bookings.id = _target_id;
 
-  -- 7. Notify customer
+  -- 5. Notify customer
   INSERT INTO public.notifications (user_id, title, body, link)
   VALUES (
     _booking.customer_id,
-    'Cleaner Assigned to Your Wash',
-    _cleaner.full_name || ' has claimed your wash booking and will arrive at your scheduled slot.',
+    'Washer partner assigned',
+    'A washer partner has accepted your booking and is assigned to your slot.',
     '/washes'
   );
 
   RETURN jsonb_build_object(
     'id', _booking.id,
-    'assigned_cleaner_id', auth.uid(),
-    'progress', 'assigned',
     'status', 'confirmed',
-    'cleaner_name', _cleaner.full_name
+    'progress', 'assigned',
+    'assigned_cleaner_id', auth.uid()
   );
 END;
 $$;
@@ -1644,7 +1625,11 @@ BEGIN
     END;
 
     IF next_step > 0 AND curr_step > 0 AND next_step < curr_step THEN
-      RAISE EXCEPTION 'Wash status cannot be moved backwards (current: %, requested: %)', norm_curr, norm_next;
+      IF norm_curr = 'assigned' AND norm_next = 'confirmed' AND coalesce(current_setting('app.wash_job_release', true), '') = '1' THEN
+        -- allowed release
+      ELSE
+        RAISE EXCEPTION 'Wash status cannot be moved backwards (current: %, requested: %)', norm_curr, norm_next;
+      END IF;
     END IF;
 
     IF norm_next = 'completed' AND COALESCE(array_length(NEW.after_photos, 1), 0) = 0 THEN
@@ -1686,8 +1671,13 @@ BEGIN
   IF s IS NULL OR NOT s.active THEN
     RAISE EXCEPTION 'This wash package is not available';
   END IF;
-  IF NEW.slot_date < (now() AT TIME ZONE 'Asia/Kolkata')::date THEN
-    RAISE EXCEPTION 'Choose a slot in the future';
+
+  IF NEW.lat IS NULL OR NEW.lng IS NULL THEN
+    RAISE EXCEPTION 'Latitude and longitude are required';
+  END IF;
+
+  IF ((NEW.slot_date + NEW.slot_time) AT TIME ZONE 'Asia/Kolkata') < (now() + INTERVAL '2 hours') THEN
+    RAISE EXCEPTION 'Slot must be at least 2 hours in the future';
   END IF;
 
   NEW.price := s.price;
@@ -1695,6 +1685,7 @@ BEGIN
   NEW.payment_status := 'unpaid';
   NEW.payment_method := NULL;
   NEW.paid_at := NULL;
+  NEW.pay_by := now() + INTERVAL '15 minutes';
   NEW.razorpay_order_id := NULL;
   NEW.razorpay_payment_id := NULL;
   NEW.assigned_vendor_id := NULL;
@@ -1835,8 +1826,19 @@ DECLARE
   v_driver_expired_unpaid integer := 0;
   v_driver_reminded_respond integer := 0;
   v_driver_reminded_pay integer := 0;
+  v_wash_expired_unpaid integer := 0;
+  v_wash_auto_cancelled integer := 0;
+  v_wash_admin_alerted integer := 0;
   r RECORD;
-  v_rec RECORD;
+  _v RECORD;
+  _slot_start timestamptz;
+  _lead_time interval;
+  _elapsed interval;
+  _alert_time timestamptz;
+  _cancel_time timestamptz;
+  _target_tier smallint;
+  admin_rec RECORD;
+  cleaner_rec RECORD;
 BEGIN
   -- 1a. Cancel expired pending rental requests (host_no_response)
   FOR r IN
@@ -1925,41 +1927,46 @@ BEGIN
     INSERT INTO public.notifications (user_id, title, body, link)
     VALUES (
       r.customer_id,
-      'Payment reminder',
-      format('Please complete payment for %s before %s.', COALESCE(r.vehicle_title, 'the vehicle'), to_char(r.pay_by AT TIME ZONE 'Asia/Kolkata', 'HH12:MI AM')),
+      'Payment required',
+      format('Please complete payment for %s before %s.', COALESCE(r.vehicle_title, 'your booking'), to_char(r.pay_by AT TIME ZONE 'Asia/Kolkata', 'HH12:MI AM')),
       '/bookings'
     );
 
     v_reminded_pay := v_reminded_pay + 1;
   END LOOP;
 
-  -- 1e. Auto-pause host listings on 3 or more host_no_response expiries in the last 30 days
-  FOR v_rec IN
-    SELECT v.id AS vendor_id, count(b.id) AS expiry_count
+  -- 1e. Host accountability: pause listings when a vendor reaches 3+ host_no_response in last 30 days
+  FOR _v IN
+    SELECT v.id AS vendor_id
     FROM public.vendors v
-    JOIN public.bookings b ON b.vendor_id = v.id
-    WHERE b.status = 'cancelled'
-      AND b.cancellation_reason = 'host_no_response'
-      AND b.cancelled_at >= now() - interval '30 days'
-      AND (v.listings_reactivated_at IS NULL OR b.cancelled_at > v.listings_reactivated_at)
-      AND (v.listings_paused_at IS NULL OR (v.listings_reactivated_at IS NOT NULL AND v.listings_reactivated_at > v.listings_paused_at))
-    GROUP BY v.id
-    HAVING count(b.id) >= 3
+    WHERE EXISTS (
+      SELECT 1
+      FROM public.bookings b
+      WHERE b.vendor_id = v.id
+        AND b.status = 'cancelled'
+        AND b.cancellation_reason = 'host_no_response'
+        AND b.cancelled_at >= (now() - interval '30 days')
+        AND (v.listings_reactivated_at IS NULL OR b.cancelled_at > v.listings_reactivated_at)
+      GROUP BY b.vendor_id
+      HAVING count(*) >= 3
+    )
+    AND (
+      v.listings_paused_at IS NULL
+      OR (v.listings_reactivated_at IS NOT NULL AND v.listings_reactivated_at > v.listings_paused_at)
+    )
   LOOP
-    -- Pause all active vehicles for this vendor
     UPDATE public.vehicles
     SET status = 'paused'
-    WHERE vendor_id = v_rec.vendor_id AND status = 'active';
+    WHERE vendor_id = _v.vendor_id
+      AND status = 'active';
 
-    -- Record listings_paused_at on the vendor
     UPDATE public.vendors
     SET listings_paused_at = now()
-    WHERE id = v_rec.vendor_id;
+    WHERE id = _v.vendor_id;
 
-    -- Notify the vendor
     INSERT INTO public.notifications (user_id, title, body, link)
     VALUES (
-      v_rec.vendor_id,
+      _v.vendor_id,
       'Listings paused',
       'Your listings are paused because 3 requests expired without a response. Turn them back on from your dashboard.',
       '/vendor'
@@ -2062,6 +2069,194 @@ BEGIN
     v_driver_reminded_pay := v_driver_reminded_pay + 1;
   END LOOP;
 
+  -- 3a. Cancel pending, unpaid wash bookings past pay_by
+  FOR r IN
+    SELECT wb.id, wb.customer_id, wb.slot_date, ws.name AS service_name
+    FROM public.wash_bookings wb
+    LEFT JOIN public.wash_services ws ON ws.id = wb.service_id
+    WHERE wb.status = 'pending'
+      AND wb.payment_status <> 'paid'
+      AND wb.pay_by IS NOT NULL
+      AND wb.pay_by < now()
+  LOOP
+    UPDATE public.wash_bookings
+    SET status = 'cancelled',
+        cancellation_reason = 'payment_timeout',
+        cancelled_at = now()
+    WHERE id = r.id;
+
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      r.customer_id,
+      'Payment window expired',
+      'Your wash booking was cancelled because payment was not completed in time.',
+      '/washes'
+    );
+
+    v_wash_expired_unpaid := v_wash_expired_unpaid + 1;
+  END LOOP;
+
+  -- 3b. Tier notifications: summary notification per newly eligible cleaner
+  -- Temporary table to collect newly eligible cleaner-job pairs
+  CREATE TEMP TABLE IF NOT EXISTS tmp_tier_alerts (
+    cleaner_id uuid,
+    wash_id uuid,
+    target_tier smallint
+  ) ON COMMIT DROP;
+  DELETE FROM tmp_tier_alerts;
+
+  FOR r IN
+    SELECT wb.id, wb.tier_notified, wb.paid_at, wb.slot_date, wb.slot_time
+    FROM public.wash_bookings wb
+    WHERE wb.status = 'confirmed'
+      AND wb.progress = 'confirmed'
+      AND wb.payment_status = 'paid'
+      AND wb.assigned_cleaner_id IS NULL
+  LOOP
+    _slot_start := (r.slot_date + r.slot_time) AT TIME ZONE 'Asia/Kolkata';
+    _lead_time := _slot_start - r.paid_at;
+    _elapsed := now() - r.paid_at;
+
+    IF r.tier_notified >= 3 THEN
+      _target_tier := 3;
+    ELSIF _lead_time > INTERVAL '24 hours' THEN
+      IF _elapsed >= INTERVAL '8 hours' THEN
+        _target_tier := 3;
+      ELSIF _elapsed >= INTERVAL '4 hours' THEN
+        _target_tier := 2;
+      ELSE
+        _target_tier := 1;
+      END IF;
+    ELSIF _lead_time >= INTERVAL '6 hours' THEN
+      IF _elapsed >= INTERVAL '2 hours' THEN
+        _target_tier := 3;
+      ELSIF _elapsed >= INTERVAL '1 hour' THEN
+        _target_tier := 2;
+      ELSE
+        _target_tier := 1;
+      END IF;
+    ELSE -- < 6 hours
+      IF _elapsed >= INTERVAL '30 minutes' THEN
+        _target_tier := 3;
+      ELSIF _elapsed >= INTERVAL '15 minutes' THEN
+        _target_tier := 2;
+      ELSE
+        _target_tier := 1;
+      END IF;
+    END IF;
+
+    IF _target_tier > r.tier_notified THEN
+      -- Find newly eligible cleaners
+      INSERT INTO tmp_tier_alerts (cleaner_id, wash_id, target_tier)
+      SELECT c.id, r.id, _target_tier
+      FROM public.cleaners c
+      WHERE public.can_cleaner_see_wash_job(c.id, r.id);
+
+      UPDATE public.wash_bookings
+      SET tier_notified = _target_tier
+      WHERE id = r.id;
+    END IF;
+  END LOOP;
+
+  -- Send ONE summary notification per cleaner
+  FOR cleaner_rec IN
+    SELECT cleaner_id, count(DISTINCT wash_id) AS job_count
+    FROM tmp_tier_alerts
+    GROUP BY cleaner_id
+  LOOP
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      cleaner_rec.cleaner_id,
+      'New wash jobs near you',
+      format('%s new wash job%s near you', cleaner_rec.job_count, CASE WHEN cleaner_rec.job_count > 1 THEN 's' ELSE '' END),
+      '/cleaner-dashboard'
+    );
+  END LOOP;
+
+  -- 3c. Admin alerts for at-risk wash jobs
+  FOR r IN
+    SELECT wb.id, wb.city, wb.slot_date, wb.slot_time, wb.paid_at
+    FROM public.wash_bookings wb
+    WHERE wb.status = 'confirmed'
+      AND wb.progress = 'confirmed'
+      AND wb.payment_status = 'paid'
+      AND wb.assigned_cleaner_id IS NULL
+      AND wb.admin_alerted_at IS NULL
+  LOOP
+    _slot_start := (r.slot_date + r.slot_time) AT TIME ZONE 'Asia/Kolkata';
+    _lead_time := _slot_start - r.paid_at;
+    IF _lead_time > INTERVAL '24 hours' THEN
+      _alert_time := _slot_start - INTERVAL '12 hours';
+    ELSIF _lead_time >= INTERVAL '6 hours' THEN
+      _alert_time := _slot_start - INTERVAL '3 hours';
+    ELSE
+      _alert_time := _slot_start - INTERVAL '1 hour';
+    END IF;
+
+    IF now() >= _alert_time THEN
+      UPDATE public.wash_bookings SET admin_alerted_at = now() WHERE id = r.id;
+      FOR admin_rec IN SELECT user_id FROM public.user_roles WHERE role = 'admin' LOOP
+        INSERT INTO public.notifications (user_id, title, body, link)
+        VALUES (
+          admin_rec.user_id,
+          'Wash job at risk',
+          format('Doorstep wash in %s on %s has no washer assigned yet.', r.city, r.slot_date),
+          '/admin'
+        );
+      END LOOP;
+      v_wash_admin_alerted := v_wash_admin_alerted + 1;
+    END IF;
+  END LOOP;
+
+  -- 3d. Auto-cancel and refund at auto-cancel time
+  FOR r IN
+    SELECT wb.id, wb.customer_id, wb.price, wb.slot_date, wb.slot_time, wb.paid_at
+    FROM public.wash_bookings wb
+    WHERE wb.status = 'confirmed'
+      AND wb.progress = 'confirmed'
+      AND wb.payment_status = 'paid'
+      AND wb.assigned_cleaner_id IS NULL
+  LOOP
+    _slot_start := (r.slot_date + r.slot_time) AT TIME ZONE 'Asia/Kolkata';
+    _lead_time := _slot_start - r.paid_at;
+    IF _lead_time > INTERVAL '24 hours' THEN
+      _cancel_time := _slot_start - INTERVAL '2 hours';
+    ELSIF _lead_time >= INTERVAL '6 hours' THEN
+      _cancel_time := _slot_start - INTERVAL '1 hour';
+    ELSE
+      _cancel_time := _slot_start - INTERVAL '30 minutes';
+    END IF;
+
+    IF now() >= _cancel_time THEN
+      UPDATE public.wash_bookings
+      SET status = 'cancelled',
+          cancellation_reason = 'no_washer',
+          cancelled_at = now(),
+          payment_status = 'refunded',
+          refund_amount = r.price
+      WHERE id = r.id;
+
+      PERFORM public.wallet_apply(
+        r.customer_id,
+        r.price,
+        'wash_refund',
+        NULL,
+        r.id::text,
+        'Full refund: no washer partner available'
+      );
+
+      INSERT INTO public.notifications (user_id, title, body, link)
+      VALUES (
+        r.customer_id,
+        'Wash cancelled & refunded',
+        'No washer was available in time for your slot. A full refund has been credited to your wallet.',
+        '/washes'
+      );
+
+      v_wash_auto_cancelled := v_wash_auto_cancelled + 1;
+    END IF;
+  END LOOP;
+
   RETURN jsonb_build_object(
     'bookings_expired_pending', v_expired_pending,
     'bookings_expired_unpaid', v_expired_unpaid,
@@ -2071,7 +2266,10 @@ BEGIN
     'driver_cancelled_pending', v_driver_expired_pending,
     'driver_cancelled_unpaid', v_driver_expired_unpaid,
     'driver_reminded_respond', v_driver_reminded_respond,
-    'driver_reminded_pay', v_driver_reminded_pay
+    'driver_reminded_pay', v_driver_reminded_pay,
+    'wash_expired_unpaid', v_wash_expired_unpaid,
+    'wash_auto_cancelled', v_wash_auto_cancelled,
+    'wash_admin_alerted', v_wash_admin_alerted
   );
 END;
 $$;
@@ -4034,7 +4232,8 @@ BEGIN
   SELECT * INTO b FROM public.wash_bookings WHERE id = _wash_booking_id FOR UPDATE;
   IF b IS NULL THEN RAISE EXCEPTION 'Wash booking not found'; END IF;
   IF b.customer_id <> auth.uid() THEN RAISE EXCEPTION 'Not your booking'; END IF;
-  IF b.status <> 'confirmed' THEN RAISE EXCEPTION 'Admin has not approved this wash yet'; END IF;
+  IF b.status NOT IN ('pending', 'confirmed') THEN RAISE EXCEPTION 'This wash booking cannot be paid'; END IF;
+  IF b.pay_by IS NOT NULL AND now() > b.pay_by THEN RAISE EXCEPTION 'Payment window has closed'; END IF;
   IF b.payment_status = 'paid' THEN RAISE EXCEPTION 'Already paid'; END IF;
 
   INSERT INTO public.wallets (user_id) VALUES (b.customer_id) ON CONFLICT (user_id) DO NOTHING;
@@ -4044,7 +4243,12 @@ BEGIN
   PERFORM public.wallet_apply(b.customer_id, -b.price, 'wash_payment', NULL, b.id::text, 'Payment for vehicle wash');
 
   UPDATE public.wash_bookings
-     SET payment_status = 'paid', paid_at = now(), payment_method = 'wallet'
+     SET payment_status = 'paid',
+         paid_at = now(),
+         payment_method = 'wallet',
+         status = 'confirmed',
+         progress = 'confirmed',
+         updated_at = now()
    WHERE id = b.id;
 
   SELECT balance INTO bal FROM public.wallets WHERE user_id = b.customer_id;
@@ -4278,6 +4482,9 @@ CREATE TABLE public.cleaners (
     services text[] DEFAULT '{}'::text[] NOT NULL,
     avg_rating numeric DEFAULT 0 NOT NULL,
     review_count integer DEFAULT 0 NOT NULL,
+    base_lat double precision,
+    base_lng double precision,
+    radius_km numeric DEFAULT 8 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -4684,6 +4891,360 @@ BEGIN
 END;
 $$;
 
+--
+-- Name: haversine_km(double precision, double precision, double precision, double precision); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.haversine_km(lat1 double precision, lng1 double precision, lat2 double precision, lng2 double precision) RETURNS double precision
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $$
+  SELECT 6371.0 * 2.0 * asin(
+    sqrt(
+      sin(radians(lat2 - lat1) / 2.0) ^ 2.0 +
+      cos(radians(lat1)) * cos(radians(lat2)) *
+      (sin(radians(lng2 - lng1) / 2.0) ^ 2.0)
+    )
+  );
+$$;
+
+
+--
+-- Name: can_cleaner_see_wash_job(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.can_cleaner_see_wash_job(_cleaner_id uuid, _wash_booking_id uuid) RETURNS boolean
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  _c RECORD;
+  _b RECORD;
+  _slot_start timestamptz;
+  _duration_mins integer := 45;
+  _lead_time interval;
+  _elapsed interval;
+  _dist double precision;
+  _current_tier smallint;
+  _late_releases_count integer;
+  _rank integer;
+  _clash_exists boolean;
+BEGIN
+  -- 1. Fetch cleaner
+  SELECT * INTO _c FROM public.cleaners WHERE cleaners.id = _cleaner_id;
+  IF _c IS NULL OR _c.verification_status <> 'approved' OR NOT _c.available THEN
+    RETURN false;
+  END IF;
+
+  -- 2. Fetch booking
+  SELECT wb.*, COALESCE(ws.duration_minutes, 45) AS duration_mins
+  INTO _b
+  FROM public.wash_bookings wb
+  LEFT JOIN public.wash_services ws ON ws.id = wb.service_id
+  WHERE wb.id = _wash_booking_id;
+
+  IF _b IS NULL OR _b.status <> 'confirmed' OR _b.progress <> 'confirmed'
+     OR _b.payment_status <> 'paid' OR _b.assigned_cleaner_id IS NOT NULL THEN
+    RETURN false;
+  END IF;
+
+  -- City match (case-insensitive)
+  IF lower(trim(_c.city)) <> lower(trim(_b.city)) THEN
+    RETURN false;
+  END IF;
+
+  -- Slot start in Asia/Kolkata
+  _slot_start := (_b.slot_date + _b.slot_time) AT TIME ZONE 'Asia/Kolkata';
+  _duration_mins := _b.duration_mins;
+
+  -- Clash check: cleaner has another assigned/on_the_way/started wash job overlapping [slot, slot + duration + 30m]
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.wash_bookings o
+    LEFT JOIN public.wash_services ows ON ows.id = o.service_id
+    WHERE o.assigned_cleaner_id = _cleaner_id
+      AND o.status = 'confirmed'
+      AND o.progress IN ('assigned', 'on_the_way', 'started')
+      AND (
+        _slot_start < ((o.slot_date + o.slot_time) AT TIME ZONE 'Asia/Kolkata') + ((COALESCE(ows.duration_minutes, 45) + 30) * INTERVAL '1 minute')
+        AND
+        ((o.slot_date + o.slot_time) AT TIME ZONE 'Asia/Kolkata') < _slot_start + ((_duration_mins + 30) * INTERVAL '1 minute')
+      )
+  ) INTO _clash_exists;
+
+  IF _clash_exists THEN
+    RETURN false;
+  END IF;
+
+  -- Distance
+  IF _c.base_lat IS NOT NULL AND _c.base_lng IS NOT NULL AND _b.lat IS NOT NULL AND _b.lng IS NOT NULL THEN
+    _dist := public.haversine_km(_c.base_lat, _c.base_lng, _b.lat::double precision, _b.lng::double precision);
+  ELSE
+    _dist := NULL;
+  END IF;
+
+  -- Determine current tier of booking
+  IF _b.paid_at IS NULL THEN
+    RETURN false;
+  END IF;
+
+  _lead_time := _slot_start - _b.paid_at;
+  _elapsed := now() - _b.paid_at;
+
+  IF _b.tier_notified >= 3 THEN
+    _current_tier := 3;
+  ELSIF _lead_time > INTERVAL '24 hours' THEN
+    IF _elapsed >= INTERVAL '8 hours' THEN
+      _current_tier := 3;
+    ELSIF _elapsed >= INTERVAL '4 hours' THEN
+      _current_tier := 2;
+    ELSE
+      _current_tier := 1;
+    END IF;
+  ELSIF _lead_time >= INTERVAL '6 hours' THEN
+    IF _elapsed >= INTERVAL '2 hours' THEN
+      _current_tier := 3;
+    ELSIF _elapsed >= INTERVAL '1 hour' THEN
+      _current_tier := 2;
+    ELSE
+      _current_tier := 1;
+    END IF;
+  ELSE -- < 6 hours
+    IF _elapsed >= INTERVAL '30 minutes' THEN
+      _current_tier := 3;
+    ELSIF _elapsed >= INTERVAL '15 minutes' THEN
+      _current_tier := 2;
+    ELSE
+      _current_tier := 1;
+    END IF;
+  END IF;
+
+  -- Check Tier 1 eligibility:
+  -- Top 3 eligible within 5 km, < 2 late releases in last 30 days
+  IF _dist IS NOT NULL AND _dist <= 5.0 AND (_c.radius_km IS NULL OR _dist <= _c.radius_km) THEN
+    SELECT count(*) INTO _late_releases_count
+    FROM public.wash_job_releases
+    WHERE cleaner_id = _cleaner_id AND late = true AND released_at >= now() - INTERVAL '30 days';
+
+    IF _late_releases_count < 2 THEN
+      WITH eligible_cleaners AS (
+        SELECT cl.id,
+               ROW_NUMBER() OVER (
+                 ORDER BY cl.avg_rating DESC,
+                          (SELECT count(*) FROM public.wash_bookings wb
+                           WHERE wb.assigned_cleaner_id = cl.id
+                             AND wb.slot_date = _b.slot_date
+                             AND wb.status NOT IN ('cancelled', 'rejected')) ASC,
+                          cl.id ASC
+               ) AS rnk
+        FROM public.cleaners cl
+        WHERE cl.verification_status = 'approved'
+          AND cl.available = true
+          AND lower(trim(cl.city)) = lower(trim(_b.city))
+          AND cl.base_lat IS NOT NULL AND cl.base_lng IS NOT NULL
+          AND public.haversine_km(cl.base_lat, cl.base_lng, _b.lat::double precision, _b.lng::double precision) <= 5.0
+          AND (cl.radius_km IS NULL OR public.haversine_km(cl.base_lat, cl.base_lng, _b.lat::double precision, _b.lng::double precision) <= cl.radius_km)
+          AND (SELECT count(*) FROM public.wash_job_releases r WHERE r.cleaner_id = cl.id AND r.late = true AND r.released_at >= now() - INTERVAL '30 days') < 2
+          AND NOT EXISTS (
+            SELECT 1 FROM public.wash_bookings o
+            LEFT JOIN public.wash_services ows ON ows.id = o.service_id
+            WHERE o.assigned_cleaner_id = cl.id
+              AND o.status = 'confirmed'
+              AND o.progress IN ('assigned', 'on_the_way', 'started')
+              AND (
+                _slot_start < ((o.slot_date + o.slot_time) AT TIME ZONE 'Asia/Kolkata') + ((COALESCE(ows.duration_minutes, 45) + 30) * INTERVAL '1 minute')
+                AND
+                ((o.slot_date + o.slot_time) AT TIME ZONE 'Asia/Kolkata') < _slot_start + ((_duration_mins + 30) * INTERVAL '1 minute')
+              )
+          )
+      )
+      SELECT rnk INTO _rank FROM eligible_cleaners WHERE id = _cleaner_id;
+
+      IF _rank IS NOT NULL AND _rank <= 3 THEN
+        RETURN true;
+      END IF;
+    END IF;
+  END IF;
+
+  -- Tier 2 eligibility (within own radius):
+  IF _current_tier >= 2 THEN
+    IF _dist IS NOT NULL AND _dist <= _c.radius_km THEN
+      RETURN true;
+    END IF;
+  END IF;
+
+  -- Tier 3 eligibility (whole city):
+  IF _current_tier >= 3 THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
+END;
+$$;
+
+
+--
+-- Name: wash_job_board(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.wash_job_board() RETURNS TABLE(id uuid, service_name text, duration_minutes integer, slot_date date, slot_time time without time zone, area text, distance_km double precision, payout numeric)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  _c RECORD;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT * INTO _c FROM public.cleaners WHERE cleaners.id = auth.uid();
+  IF _c IS NULL OR _c.verification_status <> 'approved' THEN
+    RAISE EXCEPTION 'Only verified cleaners can view the job board';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    wb.id,
+    COALESCE(ws.name, 'Doorstep Vehicle Wash') AS service_name,
+    COALESCE(ws.duration_minutes, 45) AS duration_minutes,
+    wb.slot_date,
+    wb.slot_time,
+    COALESCE(NULLIF(trim(split_part(wb.address, ',', 2)), ''), NULLIF(trim(split_part(wb.address, ',', 1)), ''), wb.city) AS area,
+    CASE
+      WHEN _c.base_lat IS NOT NULL AND _c.base_lng IS NOT NULL AND wb.lat IS NOT NULL AND wb.lng IS NOT NULL THEN
+        ROUND(public.haversine_km(_c.base_lat, _c.base_lng, wb.lat::double precision, wb.lng::double precision)::numeric, 1)::double precision
+      ELSE NULL
+    END AS distance_km,
+    COALESCE(wb.provider_earning, wb.price) AS payout
+  FROM public.wash_bookings wb
+  LEFT JOIN public.wash_services ws ON ws.id = wb.service_id
+  WHERE wb.status = 'confirmed'
+    AND wb.progress = 'confirmed'
+    AND wb.payment_status = 'paid'
+    AND wb.assigned_cleaner_id IS NULL
+    AND public.can_cleaner_see_wash_job(_c.id, wb.id)
+  ORDER BY wb.slot_date ASC, wb.slot_time ASC, wb.created_at ASC;
+END;
+$$;
+
+
+--
+-- Name: release_wash_job(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.release_wash_job(_wash_booking_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  b RECORD;
+  slot_start timestamptz;
+  is_late boolean;
+  admin_rec RECORD;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT * INTO b FROM public.wash_bookings WHERE id = _wash_booking_id FOR UPDATE;
+  IF b IS NULL THEN
+    RAISE EXCEPTION 'Wash booking not found';
+  END IF;
+
+  IF b.assigned_cleaner_id IS NULL OR b.assigned_cleaner_id <> auth.uid() THEN
+    RAISE EXCEPTION 'You are not the assigned cleaner for this job';
+  END IF;
+
+  IF b.status <> 'confirmed' OR b.progress <> 'assigned' THEN
+    RAISE EXCEPTION 'Only assigned jobs can be released';
+  END IF;
+
+  slot_start := (b.slot_date + b.slot_time) AT TIME ZONE 'Asia/Kolkata';
+  is_late := (slot_start - now() < INTERVAL '12 hours');
+
+  INSERT INTO public.wash_job_releases (cleaner_id, wash_booking_id, released_at, late)
+  VALUES (auth.uid(), b.id, now(), is_late);
+
+  PERFORM set_config('app.wash_job_release', '1', true);
+  UPDATE public.wash_bookings
+     SET assigned_cleaner_id = NULL,
+         progress = 'confirmed',
+         tier_notified = 3,
+         updated_at = now()
+   WHERE id = b.id;
+  PERFORM set_config('app.wash_job_release', '0', true);
+
+  -- Alert admins
+  FOR admin_rec IN SELECT user_id FROM public.user_roles WHERE role = 'admin' LOOP
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      admin_rec.user_id,
+      'Wash job released',
+      format('Cleaner released wash job for %s on %s (late: %s).', b.city, b.slot_date, is_late),
+      '/admin'
+    );
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'id', b.id,
+    'status', 'confirmed',
+    'progress', 'confirmed',
+    'late', is_late
+  );
+END;
+$$;
+
+
+--
+-- Name: admin_assign_wash_cleaner(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.admin_assign_wash_cleaner(_wash_booking_id uuid, _cleaner_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  b RECORD;
+  c RECORD;
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admins only';
+  END IF;
+
+  SELECT * INTO b FROM public.wash_bookings WHERE id = _wash_booking_id FOR UPDATE;
+  IF b IS NULL THEN RAISE EXCEPTION 'Wash booking not found'; END IF;
+
+  SELECT * INTO c FROM public.cleaners WHERE id = _cleaner_id;
+  IF c IS NULL OR c.verification_status <> 'approved' THEN
+    RAISE EXCEPTION 'Cleaner not found or not approved';
+  END IF;
+
+  UPDATE public.wash_bookings
+     SET assigned_cleaner_id = _cleaner_id,
+         progress = 'assigned',
+         status = 'confirmed',
+         updated_at = now()
+   WHERE id = _wash_booking_id;
+
+  INSERT INTO public.notifications (user_id, title, body, link)
+  VALUES (
+    b.customer_id,
+    'Washer partner assigned',
+    'A washer partner has been assigned to your booking.',
+    '/washes'
+  );
+
+  INSERT INTO public.notifications (user_id, title, body, link)
+  VALUES (
+    _cleaner_id,
+    'New wash job assigned',
+    format('You have been assigned a wash job on %s in %s.', b.slot_date, b.city),
+    '/cleaner-dashboard'
+  );
+END;
+$$;
+
+
 
 --
 -- Name: public_profiles; Type: TABLE; Schema: public; Owner: -
@@ -5003,7 +5564,23 @@ CREATE TABLE public.wash_bookings (
     before_photos text[] DEFAULT '{}'::text[] NOT NULL,
     after_photos text[] DEFAULT '{}'::text[] NOT NULL,
     assigned_cleaner_id uuid,
+    pay_by timestamp with time zone,
+    tier_notified smallint DEFAULT 0 NOT NULL,
+    admin_alerted_at timestamp with time zone,
     CONSTRAINT wash_bookings_price_check CHECK ((price >= (0)::numeric))
+);
+
+
+--
+-- Name: wash_job_releases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.wash_job_releases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    cleaner_id uuid NOT NULL,
+    wash_booking_id uuid NOT NULL,
+    released_at timestamp with time zone DEFAULT now() NOT NULL,
+    late boolean DEFAULT false NOT NULL
 );
 
 
@@ -5582,6 +6159,14 @@ ALTER TABLE ONLY public.wallets
 
 ALTER TABLE ONLY public.wash_bookings
     ADD CONSTRAINT wash_bookings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: wash_job_releases wash_job_releases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wash_job_releases
+    ADD CONSTRAINT wash_job_releases_pkey PRIMARY KEY (id);
 
 
 --
@@ -6862,6 +7447,22 @@ ALTER TABLE ONLY public.wash_bookings
 
 
 --
+-- Name: wash_job_releases wash_job_releases_cleaner_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wash_job_releases
+    ADD CONSTRAINT wash_job_releases_cleaner_id_fkey FOREIGN KEY (cleaner_id) REFERENCES public.cleaners(id) ON DELETE CASCADE;
+
+
+--
+-- Name: wash_job_releases wash_job_releases_wash_booking_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wash_job_releases
+    ADD CONSTRAINT wash_job_releases_wash_booking_id_fkey FOREIGN KEY (wash_booking_id) REFERENCES public.wash_bookings(id) ON DELETE CASCADE;
+
+
+--
 -- Name: wash_center_packages wash_center_packages_center_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7820,6 +8421,21 @@ CREATE POLICY "Vendors manage own vehicle maintenance" ON public.vehicle_mainten
 
 
 --
+
+--
+-- Name: wash_job_releases wash_job_releases_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY wash_job_releases_select ON public.wash_job_releases FOR SELECT TO authenticated USING (((cleaner_id = auth.uid()) OR public.has_role(auth.uid(), 'admin'::public.app_role)));
+
+
+--
+-- Name: wash_job_releases wash_job_releases_admin_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY wash_job_releases_admin_all ON public.wash_job_releases TO authenticated USING (public.has_role(auth.uid(), 'admin'::public.app_role)) WITH CHECK (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+--
 -- Name: wash_bookings Wash bookings access policy; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -8076,6 +8692,12 @@ ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.wash_bookings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: wash_job_releases; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.wash_job_releases ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: wash_center_packages; Type: ROW SECURITY; Schema: public; Owner: -
@@ -9600,6 +10222,51 @@ INSERT INTO storage.buckets VALUES ('kyc-docs', 'kyc-docs', false);
 INSERT INTO storage.buckets VALUES ('verification-docs', 'verification-docs', false);
 INSERT INTO storage.buckets VALUES ('trip-photos', 'trip-photos', false);
 
+
+--
+
+--
+-- Name: TABLE wash_job_releases; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT ON TABLE public.wash_job_releases TO authenticated;
+GRANT ALL ON TABLE public.wash_job_releases TO service_role;
+
+
+--
+-- Name: FUNCTION can_cleaner_see_wash_job(uuid, uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.can_cleaner_see_wash_job(uuid, uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.can_cleaner_see_wash_job(uuid, uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.can_cleaner_see_wash_job(uuid, uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION wash_job_board(); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.wash_job_board() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.wash_job_board() TO authenticated;
+GRANT ALL ON FUNCTION public.wash_job_board() TO service_role;
+
+
+--
+-- Name: FUNCTION release_wash_job(uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.release_wash_job(uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.release_wash_job(uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.release_wash_job(uuid) TO service_role;
+
+
+--
+-- Name: FUNCTION admin_assign_wash_cleaner(uuid, uuid); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.admin_assign_wash_cleaner(uuid, uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.admin_assign_wash_cleaner(uuid, uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.admin_assign_wash_cleaner(uuid, uuid) TO service_role;
 
 --
 -- PostgreSQL database dump complete

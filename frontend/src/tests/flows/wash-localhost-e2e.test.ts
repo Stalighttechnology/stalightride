@@ -53,10 +53,12 @@ describe("M11: Vehicle wash localhost integration and acceptance tests (WS-01 to
     expect(wash.address).toBe("Flat 402, Prestige Palms, Whitefield");
     expect(wash.slot_time).toBe("10:00:00");
 
-    // Payment must be blocked while pending admin approval
+    // Customer pays immediately before pay_by
     be.wallet.topup(customer, 699);
-    expect(() => be.payWashWithWallet(customer, wash.id)).toThrow(/admin approval/i);
-    expect(be.wallet.balance(customer)).toBe(699); // No deduction
+    be.payWashWithWallet(customer, wash.id);
+    expect(be.wallet.balance(customer)).toBe(0); // 699 - 699
+    expect(wash.status).toBe("confirmed");
+    expect(wash.payment_status).toBe("paid");
   });
 
   // WS-02: Pending wash -> Admin approves without a vendor -> Rejected (a vendor is required)

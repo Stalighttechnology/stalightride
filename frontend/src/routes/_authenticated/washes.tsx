@@ -97,15 +97,42 @@ function WashStepper({ status }: { status: string }) {
   );
 }
 
-function StatusBadge({ s }: { s: string }) {
-  if (s === "confirmed") return <Badge className="bg-emerald-600 text-white">Confirmed</Badge>;
-  if (s === "assigned") return <Badge className="bg-blue-600 text-white">Cleaner assigned</Badge>;
-  if (s === "on_the_way") return <Badge className="bg-cyan-600 text-white">On the way</Badge>;
-  if (s === "started") return <Badge className="bg-orange-500 text-white">In progress</Badge>;
-  if (s === "rejected") return <Badge variant="destructive">Rejected</Badge>;
-  if (s === "cancelled") return <Badge variant="outline">Cancelled</Badge>;
-  if (s === "completed") return <Badge variant="secondary">Completed</Badge>;
-  return <Badge variant="outline">Awaiting approval</Badge>;
+function StatusBadge({ b }: { b: any }) {
+  const isPaid = b.payment_status === "paid";
+  const isPayExpired = b.pay_by && new Date(b.pay_by).getTime() < Date.now();
+  const ended = ["cancelled", "rejected", "completed"].includes(b.status);
+  const currentStatus = ended ? b.status : b.progress || b.status;
+
+  if (b.status === "cancelled") {
+    if (b.cancellation_reason === "no_washer") {
+      return <Badge variant="outline" className="border-amber-400 text-amber-700">Cancelled (No washer)</Badge>;
+    }
+    if (b.cancellation_reason === "payment_timeout") {
+      return <Badge variant="outline" className="border-rose-400 text-rose-700">Payment expired</Badge>;
+    }
+    return <Badge variant="outline">Cancelled</Badge>;
+  }
+  if (b.status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
+  if (b.status === "completed" || b.progress === "completed") {
+    return <Badge variant="secondary">Completed</Badge>;
+  }
+
+  // Not ended:
+  if (!isPaid) {
+    if (isPayExpired) {
+      return <Badge variant="outline" className="border-rose-400 text-rose-700">Payment expired</Badge>;
+    }
+    return <Badge className="bg-amber-500 text-white">Payment pending</Badge>;
+  }
+
+  // Paid:
+  if (b.assigned_cleaner_id) {
+    if (b.progress === "on_the_way") return <Badge className="bg-cyan-600 text-white">On the way</Badge>;
+    if (b.progress === "started") return <Badge className="bg-orange-500 text-white">In progress</Badge>;
+    return <Badge className="bg-blue-600 text-white">Washer assigned</Badge>;
+  }
+
+  return <Badge className="bg-indigo-600 text-white animate-pulse">Finding a washer</Badge>;
 }
 
 /** Star rating picker */
@@ -306,10 +333,12 @@ function WashesPage() {
             // Cancelling, rejecting or completing changes only status; progress keeps its last step.
             const ended = ["cancelled", "rejected", "completed"].includes(b.status);
             const currentStatus = ended ? b.status : b.progress || b.status;
+            const isPayExpired = b.pay_by && new Date(b.pay_by).getTime() < Date.now();
             const canPay =
               !ended &&
-              (b.status === "confirmed" || b.progress === "confirmed") &&
-              b.payment_status !== "paid";
+              b.payment_status !== "paid" &&
+              !isPayExpired &&
+              (b.status === "pending" || b.status === "confirmed" || b.progress === "confirmed");
             const canCancel =
               !ended &&
               (b.status === "pending" ||
@@ -330,7 +359,7 @@ function WashesPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge s={currentStatus} />
+                      <StatusBadge b={b} />
                       {b.payment_status === "paid" && (
                         <Badge className="bg-emerald-600 text-white">Paid</Badge>
                       )}
@@ -371,10 +400,29 @@ function WashesPage() {
                     Total: <span className="font-semibold">{currency(b.price)}</span>
                   </p>
 
-                  {b.status === "pending" && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Our team is checking washer availability for this slot. You can pay once it's
-                      approved.
+                  {b.payment_status !== "paid" && !isPayExpired && b.pay_by && !ended && (
+                    <p className="mt-1 text-xs text-amber-600 font-medium">
+                      Payment pending (pay by {new Date(b.pay_by).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                    </p>
+                  )}
+                  {b.payment_status === "paid" && !b.assigned_cleaner_id && !ended && (
+                    <p className="mt-1 text-xs text-indigo-600 font-medium">
+                      Finding a washer partner near you for your slot…
+                    </p>
+                  )}
+                  {b.payment_status === "paid" && b.assigned_cleaner_id && !ended && (
+                    <p className="mt-1 text-xs text-blue-600 font-medium">
+                      Washer assigned and confirmed for your slot.
+                    </p>
+                  )}
+                  {b.status === "cancelled" && b.cancellation_reason === "no_washer" && (
+                    <p className="mt-1 text-xs text-amber-600 font-medium">
+                      No washer was available for your slot. A full refund has been credited to your wallet.
+                    </p>
+                  )}
+                  {b.status === "cancelled" && b.cancellation_reason === "payment_timeout" && (
+                    <p className="mt-1 text-xs text-rose-600 font-medium">
+                      Cancelled because payment was not completed in time.
                     </p>
                   )}
                   {b.status === "rejected" && b.rejection_reason && (
@@ -385,7 +433,7 @@ function WashesPage() {
                       Note from team: {b.admin_note}
                     </p>
                   )}
-                  {Number(b.refund_amount ?? 0) > 0 && (
+                  {Number(b.refund_amount ?? 0) > 0 && b.cancellation_reason !== "no_washer" && (
                     <p className="text-sm text-emerald-700">
                       Refunded {currency(b.refund_amount)} to your wallet
                     </p>

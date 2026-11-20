@@ -15,11 +15,20 @@ import { currency } from "@/lib/format";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { useSelectedCity } from "@/components/city-selector";
 import { toast } from "sonner";
-import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles } from "lucide-react";
+import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles, Wallet as WalletIcon, CreditCard } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { z } from "zod";
 import { MapPicker } from "@/components/map-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { createWashRazorpayOrder, verifyWashRazorpayPayment } from "@/lib/actions";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 const searchSchema = z.object({
   city: z.string().optional(),
@@ -87,6 +96,13 @@ function WashPage() {
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
   const [freeWashApplied, setFreeWashApplied] = useState<boolean>(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<{
+    id: string;
+    price: number;
+    name: string;
+  } | null>(null);
   const [form, setForm] = useState({
     city: search.city ?? "",
     address: "",
@@ -177,14 +193,76 @@ function WashPage() {
     [services, selected],
   );
 
+  useEffect(() => {
+    if (!user) return;
+    api
+      .from("wallets")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setWalletBalance(Number(data.balance) || 0);
+      });
+  }, [user]);
+
+  const payWallet = async (bookingId: string) => {
+    setPaying(true);
+    const { error } = await api.rpc("wallet_pay_wash_booking", { _wash_booking_id: bookingId } as any);
+    setPaying(false);
+    if (error) return toast.error(error.message);
+    toast.success("Paid successfully from wallet! Finding a nearby washer partner.");
+    navigate({ to: "/washes" });
+  };
+
+  const payCard = async (bookingId: string, serviceName: string) => {
+    if (!user) return;
+    setPaying(true);
+    try {
+      const order = await createWashRazorpayOrder({ data: { washBookingId: bookingId } });
+      await openRazorpayCheckout({
+        keyId: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        orderId: order.orderId,
+        name: "Synchoo",
+        description: serviceName,
+        prefill: {
+          email: user.email ?? undefined,
+          name: user.user_metadata?.full_name ?? undefined,
+        },
+        onSuccess: async (resp) => {
+          try {
+            await verifyWashRazorpayPayment({ data: { washBookingId: bookingId, ...resp } });
+            toast.success("Payment successful! Finding a nearby washer partner.");
+            navigate({ to: "/washes" });
+          } catch (e: any) {
+            toast.error(e.message ?? "Payment verification failed");
+          }
+        },
+        onDismiss: () => setPaying(false),
+      });
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not start card payment");
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const submit = async () => {
     if (!user) return navigate({ to: "/auth" });
     if (!service) return toast.error("Choose a wash package");
     if (!form.city.trim() || !form.address.trim()) return toast.error("Add your city and address");
+    if (form.lat == null || form.lng == null) return toast.error("Please pin your exact address on the map");
     if (!form.slot_date || !form.slot_time) return toast.error("Pick a slot date and time");
 
+    const timePart = form.slot_time.length === 5 ? `${form.slot_time}:00` : form.slot_time;
+    const slotStart = new Date(`${form.slot_date}T${timePart}+05:30`);
+    if (slotStart.getTime() < Date.now() + 2 * 3600 * 1000) {
+      return toast.error("Slot must be at least 2 hours in the future");
+    }
+
     setSaving(true);
-    const { error } = await api.from("wash_bookings").insert({
+    const { data: created, error } = await api.from("wash_bookings").insert({
       customer_id: user.id,
       service_id: service.id,
       city: form.city.trim(),
@@ -198,7 +276,7 @@ function WashPage() {
       // Money columns are recalculated by the database (tg_price_wash_booking).
       price: service.price,
       coupon_code: coupon?.code ?? null,
-    } as any);
+    } as any).select("id, price").single();
     setSaving(false);
     if (error) return toast.error(error.message);
 
@@ -228,12 +306,19 @@ function WashPage() {
       } catch {}
     }
 
-    toast.success(
-      coupon && (coupon.percent_off === 100 || Number(service.price) <= Number(coupon.amount_off ?? 0))
-        ? "Free wash booked successfully with your reward voucher!"
-        : "Slot requested — our team will confirm a washer partner shortly",
-    );
-    navigate({ to: "/washes" });
+    const isFree = coupon && (coupon.percent_off === 100 || Number(service.price) <= Number(coupon.amount_off ?? 0));
+    if (isFree || Number(created?.price ?? service.price) <= 0) {
+      toast.success("Free wash booked successfully with your reward voucher!");
+      navigate({ to: "/washes" });
+      return;
+    }
+
+    toast.success("Wash slot reserved! Please complete payment to notify nearby washers.");
+    setPendingPayment({
+      id: created.id,
+      price: Number(created.price ?? service.price),
+      name: service.name,
+    });
   };
 
   return (
@@ -250,25 +335,24 @@ function WashPage() {
             Vehicle wash & detailing
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Pick a package and a slot. Our team assigns a verified washer partner and confirms
-            availability — you only pay after the slot is approved.
+            Pick a package and a slot. Pay now; we'll assign a nearby washer and notify you.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
               {
                 icon: CalendarClock,
-                t: "1. Request a slot",
-                d: "Choose package, date, time and address.",
+                t: "1. Choose package & slot",
+                d: "Choose package, date, time and pin your address.",
               },
               {
                 icon: ShieldCheck,
-                t: "2. Team approval",
-                d: "We assign a washer partner and approve it.",
+                t: "2. Pay now",
+                d: "Pay securely by wallet or card (15 min payment window).",
               },
               {
                 icon: Droplets,
-                t: "3. Pay & relax",
-                d: "Pay by wallet or card, then we clean it.",
+                t: "3. Nearby washer assigned",
+                d: "A verified partner claims your slot and arrives at your door.",
               },
             ].map((s) => (
               <div key={s.t} className="rounded-2xl border border-border bg-card p-4">
@@ -495,16 +579,16 @@ function WashPage() {
               <MapPin className="mb-1 h-3.5 w-3.5" />
               {coupon && (coupon.percent_off === 100 || Number(service?.price ?? 0) <= Number(coupon.amount_off ?? 0))
                 ? "Free wash voucher applied! Total payable is ₹0. No payment required."
-                : "No payment now. Once our team confirms a washer partner for your slot, pay from your wallet or by card on the “My washes” page."}
+                : "Pay now; we'll assign a nearby washer and notify you. If no washer claims before your slot, you receive a full refund to your wallet."}
             </div>
 
             {user ? (
               <Button className="mt-4 w-full" disabled={saving || !service} onClick={submit}>
                 {saving
-                  ? "Requesting…"
+                  ? "Booking…"
                   : coupon && (coupon.percent_off === 100 || Number(service?.price ?? 0) <= Number(coupon.amount_off ?? 0))
                     ? "Book Free Wash with Voucher"
-                    : "Request this slot"}
+                    : "Book and pay now"}
               </Button>
             ) : (
               <Button asChild className="mt-4 w-full">
@@ -514,6 +598,79 @@ function WashPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Immediate Payment Dialog */}
+      <Dialog
+        open={Boolean(pendingPayment)}
+        onOpenChange={(open) => {
+          if (!open && !paying) {
+            setPendingPayment(null);
+            navigate({ to: "/washes" });
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete wash payment</DialogTitle>
+            <DialogDescription>
+              Pay {pendingPayment ? currency(pendingPayment.price) : ""} to confirm your slot and dispatch to nearby washer partners.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingPayment && (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-border bg-card p-3">
+                <p className="font-semibold text-sm">{pendingPayment.name}</p>
+                <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Payable amount:</span>
+                  <span className="font-bold text-foreground text-sm">{currency(pendingPayment.price)}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Button
+                  className="w-full justify-start"
+                  variant="outline"
+                  disabled={paying || walletBalance === null || walletBalance < pendingPayment.price}
+                  onClick={() => payWallet(pendingPayment.id)}
+                >
+                  <WalletIcon className="mr-2 h-4 w-4 text-emerald-600" />
+                  <span>Pay with Wallet {walletBalance !== null ? `(Balance: ${currency(walletBalance)})` : ""}</span>
+                </Button>
+                {walletBalance !== null && walletBalance < pendingPayment.price && (
+                  <p className="text-[11px] text-muted-foreground px-1">
+                    Insufficient wallet balance. Top up or pay with Card/UPI.
+                  </p>
+                )}
+
+                <Button
+                  className="w-full justify-start"
+                  disabled={paying}
+                  onClick={() => payCard(pendingPayment.id, pendingPayment.name)}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  <span>Pay via Card / UPI (Razorpay)</span>
+                </Button>
+              </div>
+
+              <div className="pt-2 text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground"
+                  disabled={paying}
+                  onClick={() => {
+                    setPendingPayment(null);
+                    navigate({ to: "/washes" });
+                  }}
+                >
+                  Pay later from My Washes (within 15 minutes)
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

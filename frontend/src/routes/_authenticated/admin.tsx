@@ -790,62 +790,72 @@ function DriverQueue() {
 function WashQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
-  const [partners, setPartners] = useState<any[]>([]);
+  const [cleaners, setCleaners] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [assign, setAssign] = useState<Record<string, string>>({});
 
   const load = async () => {
-    const [{ data, error, count }, { data: p }] = await Promise.all([
+    const [{ data, error, count }, { data: cl }] = await Promise.all([
       api
         .from("wash_bookings")
         .select(
-          "*, wash_services:service_id(name,duration_minutes,vehicle_category), wash_vendors:assigned_vendor_id(name,contact_phone,city)",
+          "*, wash_services:service_id(name,duration_minutes,vehicle_category), cleaners:cleaner_id(full_name,phone,city)",
           { count: "exact" },
         )
         .order("created_at", { ascending: false })
         .range(pager.from, pager.to),
       api
-        .from("wash_vendors")
-        .select("id,name,city,daily_capacity,contact_phone,active")
-        .eq("active", true)
-        .order("name"),
+        .from("cleaners")
+        .select("id,full_name,city,avg_rating")
+        .eq("verification_status", "approved")
+        .order("full_name"),
     ]);
     if (error) toast.error(error.message);
     setItems((data as any) ?? []);
     pager.setTotal(count ?? 0);
-    setPartners((p as any) ?? []);
+    setCleaners((cl as any) ?? []);
   };
   useEffect(() => {
     load();
   }, [pager.page]);
 
-  const decide = async (b: any, decision: "confirmed" | "rejected" | "completed") => {
-    let note: string | null = null;
-    let vendorId: string | null = null;
-    if (decision === "confirmed") {
-      vendorId = assign[b.id] ?? null;
-      if (!vendorId) return toast.error("Assign a washer partner first");
-      note = window.prompt("Note for the customer (optional)?") || null;
+  const handleAdminAssign = async (washId: string) => {
+    const cleanerId = assign[washId];
+    if (!cleanerId) return toast.error("Select a washer first");
+    setBusy(washId);
+    try {
+      const { error } = await api.rpc("admin_assign_wash_cleaner", {
+        _wash_booking_id: washId,
+        _cleaner_id: cleanerId,
+      } as any);
+      if (error) throw error;
+      toast.success("Washer assigned successfully");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to assign washer");
+    } finally {
+      setBusy(null);
     }
+  };
+
+  const decide = async (b: any, decision: "rejected" | "completed") => {
+    let note: string | null = null;
     if (decision === "rejected") {
-      note = window.prompt("Reason (no washer available, out of area, ...)?") || null;
+      note = window.prompt("Reason for cancellation / refund?") || null;
       if (!note) return;
     }
     setBusy(b.id);
     const { error } = await api.rpc("admin_decide_wash_booking", {
       _wash_booking_id: b.id,
       _decision: decision,
-      _vendor_id: vendorId,
       _note: note,
     } as any);
     setBusy(null);
     if (error) return toast.error(error.message);
     toast.success(
-      decision === "confirmed"
-        ? "Approved — customer can pay now"
-        : decision === "rejected"
-          ? "Rejected"
-          : "Marked completed",
+      decision === "rejected"
+        ? "Cancelled and refunded"
+        : "Marked completed",
     );
     load();
   };
@@ -854,121 +864,121 @@ function WashQueue() {
 
   return (
     <div className="mt-4 space-y-3">
-      {partners.length === 0 && (
-        <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-          No active washer partners yet — add them in the backend `wash_vendors` table to approve
-          bookings.
-        </p>
-      )}
       {items.length === 0 && (
         <p className="mt-6 text-sm text-muted-foreground">No wash bookings yet.</p>
       )}
-      {items.map((b) => (
-        <Card key={b.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{b.wash_services?.name ?? "Vehicle wash"}</p>
-                  <Badge
-                    variant={
-                      b.status === "confirmed"
-                        ? "secondary"
-                        : b.status === "rejected"
-                          ? "destructive"
-                          : "outline"
-                    }
-                  >
-                    {b.status}
-                  </Badge>
-                  {b.payment_status === "paid" && (
-                    <Badge className="bg-emerald-600 text-white">Paid</Badge>
+      {items.map((b) => {
+        const isAtRisk = Boolean(b.admin_alerted_at && !b.cleaner_id && b.status === "confirmed");
+        return (
+          <Card key={b.id} className={isAtRisk ? "border-amber-500/50 bg-amber-500/5" : ""}>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{b.wash_services?.name ?? "Vehicle wash"}</p>
+                    <Badge
+                      variant={
+                        b.status === "confirmed"
+                          ? "secondary"
+                          : b.status === "rejected" || b.status === "cancelled"
+                            ? "destructive"
+                            : "outline"
+                      }
+                    >
+                      {b.status}
+                    </Badge>
+                    {b.payment_status === "paid" && (
+                      <Badge className="bg-emerald-600 text-white">Paid</Badge>
+                    )}
+                    {(b.payment_status === "refunded" ||
+                      b.payment_status === "partially_refunded") && (
+                      <Badge variant="outline">{b.payment_status}</Badge>
+                    )}
+                    {isAtRisk && (
+                      <Badge variant="destructive" className="animate-pulse">
+                        At risk: unassigned
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {b.slot_date} at {String(b.slot_time).slice(0, 5)} · {b.city} · ₹{b.price}
+                    {b.cleaners?.full_name ? ` · Washer: ${b.cleaners.full_name}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    📍 {b.address}
+                    {b.vehicle_label ? ` · ${b.vehicle_label}` : ""}
+                  </p>
+                  {b.notes && <p className="mt-1 text-xs">📝 {b.notes}</p>}
+                  {b.cancellation_reason && (
+                    <p className="mt-1 text-xs text-destructive">
+                      Cancelled: {b.cancellation_reason}
+                    </p>
                   )}
-                  {(b.payment_status === "refunded" ||
-                    b.payment_status === "partially_refunded") && (
-                    <Badge variant="outline">{b.payment_status}</Badge>
+                  {b.rejection_reason && (
+                    <p className="mt-1 text-xs text-destructive">
+                      Rejected: {b.rejection_reason}
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {b.slot_date} at {String(b.slot_time).slice(0, 5)} · {b.city} · ₹{b.price}
-                  {b.wash_vendors?.name ? ` · Partner: ${b.wash_vendors.name}` : ""}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  📍 {b.address}
-                  {b.vehicle_label ? ` · ${b.vehicle_label}` : ""}
-                </p>
-                {b.notes && <p className="mt-1 text-xs">📝 {b.notes}</p>}
-                {b.rejection_reason && (
-                  <p className="mt-1 text-xs text-destructive">Rejected: {b.rejection_reason}</p>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {b.status === "pending" && (
-                  <>
-                    <select
-                      aria-label="Assign washer partner"
-                      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                      value={assign[b.id] ?? ""}
-                      onChange={(e) => setAssign({ ...assign, [b.id]: e.target.value })}
-                    >
-                      <option value="">Assign washer…</option>
-                      <option value="00000000-0000-0000-0000-000000000000">
-                        Doorstep Cleaners Pool (Open for Cleaners)
-                      </option>
-                      {partners.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} · {p.city} ({p.daily_capacity}/day)
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      disabled={busy === b.id}
-                      onClick={() => decide(b, "confirmed")}
-                    >
-                      <ShieldCheck className="mr-1 h-3 w-3" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy === b.id}
-                      onClick={() => decide(b, "rejected")}
-                    >
-                      Reject
-                    </Button>
-                  </>
-                )}
-                {b.status === "confirmed" && (
-                  <>
-                    {b.payment_status === "paid" ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {b.status === "pending" && (
+                    <span className="text-xs text-muted-foreground">
+                      Awaiting payment{b.pay_by ? ` (pay by ${new Date(b.pay_by).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ""}
+                    </span>
+                  )}
+                  {b.status === "confirmed" && !b.cleaner_id && (
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        aria-label="Assign washer partner"
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        value={assign[b.id] ?? ""}
+                        onChange={(e) => setAssign({ ...assign, [b.id]: e.target.value })}
+                      >
+                        <option value="">{isAtRisk ? "At risk — assign washer…" : "Assign washer…"}</option>
+                        {cleaners
+                          .filter((c) => !b.city || c.city.toLowerCase() === b.city.toLowerCase())
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.full_name} ({c.city} · ⭐{Number(c.avg_rating || 5).toFixed(1)})
+                            </option>
+                          ))}
+                      </select>
                       <Button
                         size="sm"
-                        disabled={busy === b.id}
-                        onClick={() => decide(b, "completed")}
+                        disabled={busy === b.id || !assign[b.id]}
+                        onClick={() => handleAdminAssign(b.id)}
                       >
-                        Mark completed
+                        Assign
                       </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Waiting for customer payment
-                      </span>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy === b.id}
-                      onClick={() => decide(b, "rejected")}
-                    >
-                      Cancel & refund
-                    </Button>
-                  </>
-                )}
+                    </div>
+                  )}
+                  {b.status === "confirmed" && (
+                    <>
+                      {b.payment_status === "paid" && b.progress !== "completed" && (
+                        <Button
+                          size="sm"
+                          disabled={busy === b.id}
+                          onClick={() => decide(b, "completed")}
+                        >
+                          Mark completed
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy === b.id}
+                        onClick={() => decide(b, "rejected")}
+                      >
+                        Cancel & refund
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       <ListPager {...pager} />
     </div>
   );

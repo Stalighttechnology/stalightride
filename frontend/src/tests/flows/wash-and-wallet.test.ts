@@ -8,17 +8,18 @@ function setup() {
   return { be, admin, customer, vendor: "washvendor_1" };
 }
 
-describe("vehicle wash approval flow", () => {
-  test("a wash request waits for admin approval before payment", () => {
-    const { be, admin, customer, vendor } = setup();
+describe("vehicle wash booking and payment flow", () => {
+  test("customer pays when booking without admin approval", () => {
+    const { be, customer, vendor } = setup();
     const w = be.bookWash(customer, "2026-08-20", 499);
     expect(w.status).toBe("pending");
+    expect(w.payment_status).toBe("unpaid");
+    expect(w.pay_by).toBeDefined();
     be.wallet.topup(customer, 499);
-    expect(() => be.payWashWithWallet(customer, w.id)).toThrow(/admin approval/);
-    be.adminDecideWash(admin, w.id, "confirmed", vendor);
     be.payWashWithWallet(customer, w.id);
     expect(be.wallet.balance(customer)).toBe(0);
-    expect(be.tables.washes.get(w.id)!.assigned_vendor_id).toBe(vendor);
+    expect(w.status).toBe("confirmed");
+    expect(w.payment_status).toBe("paid");
   });
 
   test("approval requires a wash vendor to be assigned", () => {
@@ -588,5 +589,214 @@ describe("wash provider payouts (tg_wash_settle)", () => {
 
     run(vendor);
     expect(be.wallet.balance(vendor)).toBe(0);
+  });
+});
+
+describe("doorstep wash tiered dispatch and booking windows", () => {
+  test("bookWash sets pay_by and enforces 2h minimum notice", () => {
+    const { be, customer } = setup();
+    // Booking under 2h in future should be rejected
+    be.setNow("2026-08-20T09:00:00+05:30");
+    expect(() =>
+      be.bookWash(customer, "2026-08-20", 499, "Bangalore", "MG Road", "10:30"),
+    ).toThrow(/at least 2 hours/i);
+
+    // Slot 3h ahead succeeds and sets pay_by = now + 15 min
+    const w = be.bookWash(customer, "2026-08-20", 499, "Bangalore", "MG Road", "12:30");
+    expect(w.status).toBe("pending");
+    expect(w.payment_status).toBe("unpaid");
+    const payByMs = new Date(w.pay_by!).getTime();
+    const nowMs = be.now.getTime();
+    expect(payByMs - nowMs).toBe(15 * 60 * 1000);
+  });
+
+  test("payment moves booking to confirmed and paid_at", () => {
+    const { be, customer } = setup();
+    be.setNow("2026-08-20T08:00:00+05:30");
+    const w = be.bookWash(customer, "2026-08-20", 499, "Bangalore", "MG Road", "12:00");
+    be.wallet.topup(customer, 500);
+
+    be.payWashWithWallet(customer, w.id);
+    expect(w.status).toBe("confirmed");
+    expect(w.progress).toBe("confirmed");
+    expect(w.payment_status).toBe("paid");
+    expect(w.paid_at).toBe(be.now.toISOString());
+  });
+
+  test("tier widening and radius-based visibility on job board", () => {
+    const { be, admin, customer } = setup();
+    // Cleaner 1: 2 km away, radius 8 km, rating 4.9
+    const c1User = be.registerCustomer();
+    const c1 = be.registerCleaner({
+      id: c1User,
+      full_name: "Washer 1",
+      city: "Bangalore",
+      experience_years: 5,
+      available: true,
+      services: ["Doorstep Car Wash"],
+      base_lat: 12.9716,
+      base_lng: 77.5946,
+      radius_km: 8,
+      avg_rating: 4.9,
+    });
+    be.verifyCleaner(admin, c1User, "approved");
+
+    // Cleaner 2: 7 km away, radius 8 km, rating 4.8
+    const c2User = be.registerCustomer();
+    const c2 = be.registerCleaner({
+      id: c2User,
+      full_name: "Washer 2",
+      city: "Bangalore",
+      experience_years: 3,
+      available: true,
+      services: ["Doorstep Car Wash"],
+      base_lat: 13.03, // ~6.5 km away
+      base_lng: 77.5946,
+      radius_km: 8,
+      avg_rating: 4.8,
+    });
+    be.verifyCleaner(admin, c2User, "approved");
+
+    // Cleaner 3: 15 km away, radius 8 km (Tier 3 only)
+    const c3User = be.registerCustomer();
+    const c3 = be.registerCleaner({
+      id: c3User,
+      full_name: "Washer 3",
+      city: "Bangalore",
+      experience_years: 2,
+      available: true,
+      services: ["Doorstep Car Wash"],
+      base_lat: 13.10, // ~14 km away
+      base_lng: 77.5946,
+      radius_km: 8,
+      avg_rating: 4.5,
+    });
+    be.verifyCleaner(admin, c3User, "approved");
+
+    // Book wash for tomorrow at 10:00 AM (lead time > 24h) at (12.9716, 77.5946)
+    be.setNow("2026-08-18T10:00:00+05:30");
+    const w = be.bookWash(customer, "2026-08-20", 499, "Bangalore", "MG Road", "10:00", null, 12.9716, 77.5946);
+    be.wallet.topup(customer, 500);
+    be.payWashWithWallet(customer, w.id);
+
+    // T = 0 (paid_at): Tier 1 only. C1 (<5km, top 3) sees it; C2 (>5km) and C3 do not
+    expect(be.washJobBoard(c1User).some((j) => j.id === w.id)).toBe(true);
+    expect(be.washJobBoard(c2User).some((j) => j.id === w.id)).toBe(false);
+    expect(be.washJobBoard(c3User).some((j) => j.id === w.id)).toBe(false);
+
+    // T = +4h1m: Tier 2 opens. C2 is within 8km radius, so C2 now sees it. C3 (>8km) still does not
+    be.setNow("2026-08-18T14:05:00+05:30");
+    expect(be.washJobBoard(c1User).some((j) => j.id === w.id)).toBe(true);
+    expect(be.washJobBoard(c2User).some((j) => j.id === w.id)).toBe(true);
+    expect(be.washJobBoard(c3User).some((j) => j.id === w.id)).toBe(false);
+
+    // T = +8h1m: Tier 3 opens (whole city). C3 now sees it
+    be.setNow("2026-08-18T18:05:00+05:30");
+    expect(be.washJobBoard(c3User).some((j) => j.id === w.id)).toBe(true);
+  });
+
+  test("job release with late strike and tier 1 exclusion", () => {
+    const { be, admin, customer } = setup();
+    const cUser = be.registerCustomer();
+    be.registerCleaner({
+      id: cUser,
+      full_name: "Washer Strike Test",
+      city: "Bangalore",
+      experience_years: 5,
+      available: true,
+      services: ["Doorstep Car Wash"],
+      base_lat: 12.9716,
+      base_lng: 77.5946,
+      radius_km: 8,
+      avg_rating: 5.0,
+    });
+    be.verifyCleaner(admin, cUser, "approved");
+
+    // Create job 20 hours ahead
+    be.setNow("2026-08-20T08:00:00+05:30");
+    const w1 = be.bookWash(customer, "2026-08-21", 499, "Bangalore", "City", "10:00", null, 12.9716, 77.5946);
+    be.wallet.topup(customer, 3000);
+    be.payWashWithWallet(customer, w1.id);
+
+    be.claimWashJob(cUser, w1.id);
+    expect(w1.assigned_cleaner_id).toBe(cUser);
+    expect(w1.progress).toBe("assigned");
+
+    // Release at slot - 5h (< 12h => late strike!)
+    be.setNow("2026-08-21T05:00:00+05:30");
+    const rel1 = be.releaseWashJob(cUser, w1.id);
+    expect(rel1.late).toBe(true);
+    expect(w1.assigned_cleaner_id).toBeNull();
+    expect(w1.tier_notified).toBe(3); // immediately opened to whole city
+
+    // Second late release on another job
+    const w2 = be.bookWash(customer, "2026-08-22", 499, "Bangalore", "City", "10:00", null, 12.9716, 77.5946);
+    be.payWashWithWallet(customer, w2.id);
+    be.claimWashJob(cUser, w2.id);
+
+    be.setNow("2026-08-22T04:00:00+05:30");
+    const rel2 = be.releaseWashJob(cUser, w2.id);
+    expect(rel2.late).toBe(true);
+
+    // Now cleaner has 2 late releases in 30 days -> Excluded from Tier 1 of new jobs!
+    const w3 = be.bookWash(customer, "2026-08-24", 499, "Bangalore", "City", "10:00", null, 12.9716, 77.5946);
+    be.payWashWithWallet(customer, w3.id);
+    // T = 0 (Tier 1): Cleaner cannot see w3
+    expect(be.washJobBoard(cUser).some((j) => j.id === w3.id)).toBe(false);
+  });
+
+  test("expireBookingWindows handles unpaid expiry, admin alert, and auto-cancel refund", () => {
+    const { be, admin, customer } = setup();
+    be.setNow("2026-08-20T08:00:00+05:30");
+
+    // 1. Unpaid booking expires after pay_by (15 min)
+    const unpaid = be.bookWash(customer, "2026-08-20", 499, "Bangalore", "City", "12:00");
+    be.setNow("2026-08-20T08:16:00+05:30");
+    be.expireBookingWindows();
+    expect(unpaid.status).toBe("cancelled");
+    expect(unpaid.cancellation_reason).toBe("payment_timeout");
+
+    // 2. Paid job approaching slot triggers admin alert and auto-cancel
+    // Slot at 12:00 (lead time = 3.5h, 2-6h band: alert at slot-1h = 11:00, cancel at slot-30m = 11:30)
+    be.setNow("2026-08-20T08:30:00+05:30");
+    const paidJob = be.bookWash(customer, "2026-08-20", 499, "Bangalore", "City", "12:00");
+    be.wallet.topup(customer, 500);
+    be.payWashWithWallet(customer, paidJob.id);
+
+    // Advance to 11:05 (past slot-1h, before slot-30m)
+    be.setNow("2026-08-20T11:05:00+05:30");
+    be.expireBookingWindows();
+    expect(paidJob.admin_alerted_at).toBeDefined();
+    expect(paidJob.status).toBe("confirmed");
+
+    // Admin can manually assign at-risk job
+    const cUser = be.registerCustomer();
+    be.registerCleaner({
+      id: cUser,
+      full_name: "Manual Assign Cleaner",
+      city: "Bangalore",
+      experience_years: 3,
+      available: true,
+      services: ["Doorstep Car Wash"],
+    });
+    be.verifyCleaner(admin, cUser, "approved");
+
+    be.adminAssignWashCleaner(admin, paidJob.id, cUser);
+    expect(paidJob.assigned_cleaner_id).toBe(cUser);
+    expect(paidJob.progress).toBe("assigned");
+
+    // 3. Unassigned job reaches auto-cancel threshold -> full refund
+    const unassigned = be.bookWash(customer, "2026-08-20", 499, "Bangalore", "City", "15:00");
+    be.wallet.topup(customer, 500);
+    be.payWashWithWallet(customer, unassigned.id);
+    const balanceBeforeCancel = be.wallet.balance(customer);
+
+    // Advance to slot - 20 min (past slot-30m)
+    be.setNow("2026-08-20T14:40:00+05:30");
+    be.expireBookingWindows();
+    expect(unassigned.status).toBe("cancelled");
+    expect(unassigned.cancellation_reason).toBe("no_washer");
+    expect(unassigned.payment_status).toBe("refunded");
+    expect(be.wallet.balance(customer)).toBe(balanceBeforeCancel + unassigned.price);
   });
 });
