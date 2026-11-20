@@ -124,8 +124,8 @@ def test_wash_booking_status_and_advance_wash_status():
     service_id = q("SELECT id FROM public.wash_services WHERE active LIMIT 1")[0][0]
     booking_id = q(
         """
-        INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
-        VALUES (%s, %s, 'Bengaluru', '123 MG Road', CURRENT_DATE + 1, '10:00', 499)
+        INSERT INTO public.wash_bookings (customer_id, service_id, city, address, lat, lng, slot_date, slot_time, price)
+        VALUES (%s, %s, 'Bengaluru', '123 MG Road', 12.9716, 77.5946, CURRENT_DATE + 1, '10:00', 499)
         RETURNING id
         """,
         [customer, service_id],
@@ -253,8 +253,8 @@ def test_cancelled_wash_is_not_told_to_pay():
     """A wash cancelled after approval gets 'Wash cancelled', not another 'Wash slot approved'."""
     customer = make_user("wa-cust@example.com")
     service_id = q("SELECT id FROM public.wash_services WHERE active LIMIT 1")[0][0]
-    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
-               VALUES (%s, %s, 'Bengaluru', 'x', CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
+    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, lat, lng, slot_date, slot_time, price)
+               VALUES (%s, %s, 'Bengaluru', 'x', 12.9716, 77.5946, CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
     q("UPDATE public.wash_bookings SET status = 'confirmed', progress = 'confirmed' WHERE id = %s RETURNING id", [wid])
     q("UPDATE public.wash_bookings SET status = 'cancelled' WHERE id = %s RETURNING id", [wid])
     titles = [r[0] for r in q("SELECT title FROM public.notifications WHERE user_id = %s ORDER BY created_at, title", [customer])]
@@ -275,8 +275,8 @@ def test_revenue_aggregates_use_stored_commission():
     admin, customer = make_user("rev-adm@example.com"), make_user("rev-cust@example.com")
     q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin') RETURNING user_id", [admin])
     service_id = q("SELECT id FROM public.wash_services WHERE name = 'Car Express Wash'")[0][0]
-    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
-               VALUES (%s, %s, 'Bengaluru', 'x', CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
+    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, lat, lng, slot_date, slot_time, price)
+               VALUES (%s, %s, 'Bengaluru', 'x', 12.9716, 77.5946, CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
     q("UPDATE public.wash_bookings SET payment_status = 'paid' WHERE id = %s RETURNING id", [wid])
     kept = q("SELECT commission_amount + service_fee FROM public.wash_bookings WHERE id = %s", [wid])[0][0]
     with db_role("authenticated", admin):
