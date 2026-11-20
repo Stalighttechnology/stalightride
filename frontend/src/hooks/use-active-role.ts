@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { useSession } from "@/hooks/use-session";
 import { useIsAdmin } from "@/hooks/use-is-admin";
@@ -90,23 +90,43 @@ export function useActiveRole() {
   const activeRole = useMemo<AppRole>(() => {
     if (!user) return "customer";
 
-    // Honor explicit management/provider route if the user holds that role
-    if (isAdmin && pathname.startsWith("/admin")) return "admin";
-    if (isHost && (pathname.startsWith("/vendor") || pathname === "/scan")) return "host";
-    if (
-      driverStatus === "approved" &&
-      (pathname.startsWith("/driver-dashboard") || pathname === "/pooling/driver")
-    ) {
-      return "driver";
-    }
-    if (cleanerStatus === "approved" && pathname.startsWith("/cleaner-dashboard")) {
-      return "cleaner";
-    }
-    if (washCenterStatus === "approved" && pathname.startsWith("/wash-center-dashboard")) {
-      return "wash_center";
+    // 1. Explicit management/provider route matching (instant check, no async delay)
+    if (pathname.startsWith("/admin")) return "admin";
+    if (pathname.startsWith("/vendor") || pathname === "/scan") return "host";
+    if (pathname.startsWith("/driver-dashboard") || pathname === "/pooling/driver") return "driver";
+    if (pathname.startsWith("/cleaner-dashboard")) return "cleaner";
+    if (pathname.startsWith("/wash-center-dashboard")) return "wash_center";
+
+    // 2. Remembered active provider role for shared routes (e.g. /wallet, /profile)
+    const storedRole =
+      typeof sessionStorage !== "undefined"
+        ? (sessionStorage.getItem("synchoo_active_role") as AppRole | null)
+        : null;
+    if (pathname === "/wallet" || pathname === "/scan") {
+      if (storedRole === "host" || isHost) return "host";
+      if (storedRole === "driver" && driverStatus === "approved") return "driver";
+      if (storedRole === "cleaner" && cleanerStatus === "approved") return "cleaner";
+      if (storedRole === "wash_center" && washCenterStatus === "approved") return "wash_center";
+      if (storedRole === "admin" && isAdmin) return "admin";
     }
 
-    // Default according to the account's approved role capability
+    // 3. Explicit customer-focused routes
+    if (
+      pathname === "/" ||
+      pathname.startsWith("/browse") ||
+      pathname.startsWith("/vehicle") ||
+      pathname.startsWith("/drivers") ||
+      pathname.startsWith("/pooling") ||
+      pathname.startsWith("/wash") ||
+      pathname.startsWith("/corporate") ||
+      pathname.startsWith("/membership") ||
+      pathname.startsWith("/rewards") ||
+      pathname.startsWith("/wishlist")
+    ) {
+      return "customer";
+    }
+
+    // 4. Default according to the account's approved role capability
     if (isAdmin) return "admin";
     if (cleanerStatus === "approved") return "cleaner";
     if (driverStatus === "approved") return "driver";
@@ -116,6 +136,11 @@ export function useActiveRole() {
     return "customer";
   }, [user, isAdmin, isHost, driverStatus, cleanerStatus, washCenterStatus, pathname]);
 
+  useEffect(() => {
+    if (activeRole && typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("synchoo_active_role", activeRole);
+    }
+  }, [activeRole]);
   const isDriver = driverStatus === "approved";
   const isCleaner = cleanerStatus === "approved";
   const isWashCenter = washCenterStatus === "approved";

@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
-import { Upload, X, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
+import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
 
 export const Route = createFileRoute("/_authenticated/bookings/$id/dispute")({
   component: DisputePage,
@@ -35,7 +36,6 @@ function DisputePage() {
   const [subject, setSubject] = useState("");
   const [detail, setDetail] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -64,12 +64,6 @@ function DisputePage() {
     if (user.id === b.vendor_id) return "vendor" as const;
     return null;
   }, [user, b]);
-
-  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(e.target.files ?? []).slice(0, 8);
-    setFiles(list);
-    setPreviews(list.map((f) => URL.createObjectURL(f)));
-  };
 
   const submit = async () => {
     if (!user || !b) return;
@@ -100,7 +94,6 @@ function DisputePage() {
       setSubject("");
       setDetail("");
       setFiles([]);
-      setPreviews([]);
       load();
     } catch (e: any) {
       toast.error(e.message ?? "Could not file dispute");
@@ -179,33 +172,14 @@ function DisputePage() {
                 placeholder="What happened and when?"
               />
             </div>
-            <div>
-              <Label>Photos / evidence</Label>
-              <label className="mt-1 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-6 text-center hover:border-primary/50">
-                <Upload className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xs">Add up to 8 photos</span>
-                <input type="file" accept="image/*" multiple className="hidden" onChange={pick} />
-              </label>
-              {previews.length > 0 && (
-                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {previews.map((src, i) => (
-                    <div key={i} className="relative aspect-square overflow-hidden rounded-lg">
-                      <img src={src} alt="" className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFiles(files.filter((_, x) => x !== i));
-                          setPreviews(previews.filter((_, x) => x !== i));
-                        }}
-                        className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <InspectionPhotoUploader
+              files={files}
+              onChange={setFiles}
+              maxPhotos={8}
+              label="Photos & evidence"
+              description="Upload photos supporting your report (damage, scratches, fuel gauge, odometer, or cleanliness)."
+              disabled={saving}
+            />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => navigate({ to: "/bookings" })}>
                 Cancel

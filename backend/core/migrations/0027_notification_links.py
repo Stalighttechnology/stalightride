@@ -76,7 +76,7 @@ UPDATE public.notifications
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core", "0024_hot_path_indexes"),
+        ("core", "0026_location_coordinates"),
     ]
 
     operations = [

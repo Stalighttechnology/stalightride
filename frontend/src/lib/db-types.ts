@@ -480,6 +480,8 @@ export type Database = {
           payment_method: string | null;
           payment_status: string;
           pickup_address: string | null;
+          pickup_lat: number | null;
+          pickup_lng: number | null;
           rate_type: string;
           razorpay_order_id: string | null;
           razorpay_payment_id: string | null;
@@ -518,6 +520,8 @@ export type Database = {
           payment_method?: string | null;
           payment_status?: string;
           pickup_address?: string | null;
+          pickup_lat?: number | null;
+          pickup_lng?: number | null;
           rate_type?: string;
           razorpay_order_id?: string | null;
           razorpay_payment_id?: string | null;
@@ -556,6 +560,8 @@ export type Database = {
           payment_method?: string | null;
           payment_status?: string;
           pickup_address?: string | null;
+          pickup_lat?: number | null;
+          pickup_lng?: number | null;
           rate_type?: string;
           razorpay_order_id?: string | null;
           razorpay_payment_id?: string | null;
@@ -1772,6 +1778,8 @@ export type Database = {
         Row: {
           active: boolean;
           address: string | null;
+          lat: number | null;
+          lng: number | null;
           avg_rating: number;
           city: string;
           closing_time: string;
@@ -1790,6 +1798,8 @@ export type Database = {
         Insert: {
           active?: boolean;
           address?: string | null;
+          lat?: number | null;
+          lng?: number | null;
           avg_rating?: number;
           city?: string;
           closing_time?: string;
@@ -1808,6 +1818,8 @@ export type Database = {
         Update: {
           active?: boolean;
           address?: string | null;
+          lat?: number | null;
+          lng?: number | null;
           avg_rating?: number;
           city?: string;
           closing_time?: string;

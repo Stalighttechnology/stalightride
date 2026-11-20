@@ -1985,27 +1985,59 @@ CREATE FUNCTION public.prevent_booking_conflict() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
+DECLARE
+  v_new_start timestamp without time zone;
+  v_new_end timestamp without time zone;
 BEGIN
+  v_new_start := (NEW.start_date + COALESCE(NEW.pickup_time, '10:00:00'::time));
+  v_new_end := (NEW.end_date + COALESCE(NEW.dropoff_time, '10:00:00'::time));
+
+  IF v_new_end <= v_new_start THEN
+    RAISE EXCEPTION 'Drop-off must be after pickup';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM public.bookings b
     WHERE b.vehicle_id = NEW.vehicle_id
       AND b.id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
       AND b.status IN ('pending','confirmed')
-      AND b.start_date <= NEW.end_date
-      AND b.end_date >= NEW.start_date
+      AND v_new_start <= (b.end_date + COALESCE(b.dropoff_time, '10:00:00'::time))
+      AND v_new_end >= (b.start_date + COALESCE(b.pickup_time, '10:00:00'::time))
   ) THEN
     RAISE EXCEPTION 'Vehicle not available for selected dates';
   END IF;
   IF EXISTS (
     SELECT 1 FROM public.availability_blocks a
     WHERE a.vehicle_id = NEW.vehicle_id
-      AND a.start_date <= NEW.end_date
-      AND a.end_date >= NEW.start_date
+      AND v_new_start <= (a.end_date + '23:59:59'::time)
+      AND v_new_end >= (a.start_date + '00:00:00'::time)
   ) THEN
     RAISE EXCEPTION 'Vehicle is blocked on selected dates';
   END IF;
   RETURN NEW;
 END; $$;
+
+CREATE FUNCTION public.vehicle_booked_ranges(_vehicle_id uuid)
+RETURNS TABLE (
+  start_date date,
+  end_date date,
+  pickup_time time without time zone,
+  dropoff_time time without time zone
+)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT b.start_date, b.end_date, b.pickup_time, b.dropoff_time
+  FROM public.bookings b
+  WHERE b.vehicle_id = _vehicle_id
+    AND b.status IN ('pending', 'confirmed')
+    AND b.end_date >= CURRENT_DATE
+  UNION ALL
+  SELECT a.start_date, a.end_date, '00:00:00'::time, '23:59:59'::time
+  FROM public.availability_blocks a
+  WHERE a.vehicle_id = _vehicle_id
+    AND a.end_date >= CURRENT_DATE;
+$$;
 
 
 --
@@ -7649,6 +7681,10 @@ GRANT ALL ON FUNCTION public.admin_remove_review(_review_id uuid) TO service_rol
 GRANT ALL ON FUNCTION public.admin_revenue_aggregates() TO anon;
 GRANT ALL ON FUNCTION public.admin_revenue_aggregates() TO authenticated;
 GRANT ALL ON FUNCTION public.admin_revenue_aggregates() TO service_role;
+
+GRANT ALL ON FUNCTION public.vehicle_booked_ranges(_vehicle_id uuid) TO anon;
+GRANT ALL ON FUNCTION public.vehicle_booked_ranges(_vehicle_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.vehicle_booked_ranges(_vehicle_id uuid) TO service_role;
 
 
 --

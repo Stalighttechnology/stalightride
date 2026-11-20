@@ -28,6 +28,7 @@ import {
 } from "@/lib/charges";
 import { calculateRentalPrice } from "@/lib/format";
 import { calculateDriverPrice } from "@/lib/driver-pricing";
+import { bookingIntervalsOverlap } from "@/lib/vehicle-availability";
 
 export type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled" | "completed";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
@@ -735,16 +736,25 @@ export function createBackend(
       if (v.vendor_id === args.customer_id) throw new RuleError("You cannot book your own vehicle");
       if ((profiles.get(args.customer_id)?.dl_status ?? "none") !== "approved")
         throw new RuleError("Your driving licence must be approved before booking");
+
+      const pickup_time = args.pickup_time ?? "10:00";
+      const dropoff_time = args.dropoff_time ?? "18:00";
       const clash = [...bookings.values()].some(
         (b) =>
           b.vehicle_id === v.id &&
           ["pending", "confirmed"].includes(b.status) &&
-          datesOverlap(b.start_date, b.end_date, args.start_date, args.end_date),
+          bookingIntervalsOverlap(
+            b.start_date,
+            b.pickup_time ?? "10:00",
+            b.end_date,
+            b.dropoff_time ?? "18:00",
+            args.start_date,
+            pickup_time,
+            args.end_date,
+            dropoff_time,
+          ),
       );
       if (clash) throw new RuleError("These dates are already booked");
-
-      const pickup_time = args.pickup_time ?? "10:00";
-      const dropoff_time = args.dropoff_time ?? "18:00";
       const rental = calculateRentalPrice({
         startDate: args.start_date,
         endDate: args.end_date,

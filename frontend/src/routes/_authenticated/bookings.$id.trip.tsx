@@ -10,14 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { useSignedUrls } from "@/hooks/use-signed-urls";
-import { toast } from "sonner";
-import { Upload, X, Fuel, Gauge, Camera, ShieldAlert, Radio, CheckCircle2 } from "lucide-react";
-import { getHandoverGate } from "@/lib/trip-window";
-import { submitInspection, completeBooking } from "@/lib/actions";
-import { LiveTracker } from "@/components/live-tracker";
-import { useIsAdmin } from "@/hooks/use-is-admin";
-import { TripSafetyExtension } from "@/components/trip-safety-extension";
 import {
   Dialog,
   DialogContent,
@@ -26,8 +18,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useSignedUrls } from "@/hooks/use-signed-urls";
+import { toast } from "sonner";
+import { Upload, X, Fuel, Gauge, Camera, ShieldAlert, Radio, CheckCircle2 } from "lucide-react";
+import { getHandoverGate } from "@/lib/trip-window";
+import { submitInspection, completeBooking } from "@/lib/actions";
+import { LiveTracker } from "@/components/live-tracker";
+import { useIsAdmin } from "@/hooks/use-is-admin";
+import { TripSafetyExtension } from "@/components/trip-safety-extension";
 import { useConfirm } from "@/components/confirm-dialog";
 import { currency } from "@/lib/format";
+import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
 
 export const Route = createFileRoute("/_authenticated/bookings/$id/trip")({
   component: TripInspection,
@@ -428,21 +429,10 @@ function InspectionForm({
   const [odo, setOdo] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [damage, setDamage] = useState<DamageEntry[]>(
     DAMAGE_AREAS.map((area) => ({ area, condition: "ok" })),
   );
-
-  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(e.target.files ?? []).slice(0, 8);
-    setFiles(list);
-    setPreviews(list.map((f) => URL.createObjectURL(f)));
-  };
-  const remove = (i: number) => {
-    setFiles(files.filter((_, x) => x !== i));
-    setPreviews(previews.filter((_, x) => x !== i));
-  };
 
   const submit = async () => {
     if (!odo) return toast.error("Enter odometer reading");
@@ -505,32 +495,14 @@ function InspectionForm({
           className="mt-1"
         />
       </div>
-      <div>
-        <Label className="flex items-center gap-2">
-          <Camera className="h-4 w-4" /> Vehicle photos
-        </Label>
-        <label className="mt-1 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary/50">
-          <Upload className="h-5 w-5 text-muted-foreground" />
-          <span className="text-xs">Add up to 8 photos (front, back, sides, dashboard)</span>
-          <input type="file" accept="image/*" multiple className="hidden" onChange={pick} />
-        </label>
-        {previews.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {previews.map((src, i) => (
-              <div key={i} className="relative aspect-square overflow-hidden rounded-lg">
-                <img src={src} alt="" className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => remove(i)}
-                  className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <InspectionPhotoUploader
+        files={files}
+        onChange={setFiles}
+        maxPhotos={8}
+        label="Vehicle photos"
+        description="Add clear photos of the vehicle (front, back, sides, dashboard, and odometer) to record condition."
+        disabled={saving || uploading}
+      />
       <div>
         <Label className="flex items-center gap-2">
           <ShieldAlert className="h-4 w-4" /> Damage checklist
@@ -628,6 +600,8 @@ function ReadOnlySnapshot({
 }) {
   const urls = useSignedUrls("trip-photos", photos ?? []);
   const flagged = (damage ?? []).filter((d) => d.condition !== "ok");
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+
   return (
     <div className="grid gap-3">
       <div className="grid gap-3 sm:grid-cols-3">
@@ -636,22 +610,73 @@ function ReadOnlySnapshot({
         <Stat label="Recorded" value={new Date(at).toLocaleString()} />
       </div>
       {photos && photos.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {photos.map((p) => (
-            <a
-              key={p}
-              href={urls[p] ?? "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="block aspect-square overflow-hidden rounded-lg border"
-            >
-              {urls[p] && (
-                <img src={urls[p]!} alt={`${phase} photo`} className="h-full w-full object-cover" />
-              )}
-            </a>
-          ))}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              Inspection photos ({photos.length})
+            </span>
+            <span>Click photo to enlarge</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+            {photos.map((p, idx) => (
+              <div
+                key={p}
+                onClick={() => urls[p] && setLightboxPhoto(urls[p]!)}
+                className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-all hover:border-primary/50 hover:shadow-md"
+              >
+                {urls[p] ? (
+                  <>
+                    <img
+                      src={urls[p]!}
+                      alt={`${phase} photo ${idx + 1}`}
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute top-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
+                      #{idx + 1}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 backdrop-blur-[2px] transition-opacity duration-150 group-hover:opacity-100">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-md backdrop-blur-md dark:bg-card/90">
+                        View
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-muted/40 text-xs text-muted-foreground">
+                    Loading…
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Lightbox Dialog */}
+      <Dialog open={!!lightboxPhoto} onOpenChange={(open) => !open && setLightboxPhoto(null)}>
+        <DialogContent className="max-w-3xl p-4 sm:p-6 bg-card border-border text-card-foreground">
+          {lightboxPhoto && (
+            <div className="grid gap-3">
+              <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-border">
+                <DialogTitle className="text-base font-semibold capitalize">
+                  {phase} Inspection Photo
+                </DialogTitle>
+              </DialogHeader>
+              <div className="relative aspect-video max-h-[70vh] w-full overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
+                <img
+                  src={lightboxPhoto}
+                  alt="Inspection preview"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setLightboxPhoto(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       {damage && damage.length > 0 && (
         <div className="rounded-md border border-border p-3">
           <p className="text-xs font-semibold uppercase text-muted-foreground">Damage checklist</p>

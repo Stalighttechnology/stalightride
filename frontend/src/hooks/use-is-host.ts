@@ -2,14 +2,23 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 
+const hostCache = new Map<string, boolean>();
+
 export function useIsHost() {
   const { user } = useSession();
-  const [isHost, setIsHost] = useState(false);
+  const [isHost, setIsHost] = useState<boolean>(() => {
+    if (!user) return false;
+    return hostCache.get(user.id) ?? false;
+  });
 
   useEffect(() => {
     if (!user) {
       setIsHost(false);
       return;
+    }
+
+    if (hostCache.has(user.id)) {
+      setIsHost(hostCache.get(user.id)!);
     }
 
     let isMounted = true;
@@ -27,8 +36,10 @@ export function useIsHost() {
         api.from("vendors").select("id").eq("id", user.id).maybeSingle(),
       ]);
 
+      const result = Boolean(roleData || vendorData);
+      hostCache.set(user.id, result);
       if (isMounted) {
-        setIsHost(Boolean(roleData || vendorData));
+        setIsHost(result);
       }
     }
 

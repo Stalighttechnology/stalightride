@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -49,6 +49,7 @@ export function refundPercent(b: any, now: number = Date.now()) {
 }
 
 function HiresPage() {
+  const navigate = useNavigate();
   const { user } = useSession();
   const confirm = useConfirm();
   const [items, setItems] = useState<any[] | null>(null);
@@ -216,8 +217,26 @@ function HiresPage() {
         <ul className="mt-6 grid gap-3">
           {(items ?? []).map((b) => {
             const canPay = b.status === "confirmed" && b.payment_status !== "paid";
+            const handleCardClick = (e: React.MouseEvent) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("button, a, input, textarea, select, [role='button']")) return;
+              if (b.driver_id) {
+                navigate({ to: "/driver/$id", params: { id: b.driver_id } });
+              }
+            };
             return (
-              <Card key={b.id}>
+              <Card
+                key={b.id}
+                onClick={handleCardClick}
+                role={b.driver_id ? "link" : undefined}
+                tabIndex={b.driver_id ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    handleCardClick(e as any);
+                  }
+                }}
+                className="overflow-hidden cursor-pointer hover:border-brand/50 transition-all duration-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-center gap-3">

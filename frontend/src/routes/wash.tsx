@@ -19,6 +19,7 @@ import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles } from "l
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { z } from "zod";
+import { MapPicker } from "@/components/map-picker";
 
 const searchSchema = z.object({
   city: z.string().optional(),
@@ -89,6 +90,8 @@ function WashPage() {
   const [form, setForm] = useState({
     city: search.city ?? "",
     address: "",
+    lat: null as number | null,
+    lng: null as number | null,
     vehicle_label: "",
     slot_date: search.date ?? todayISO(),
     slot_time: search.slot ?? "10:00",
@@ -186,6 +189,8 @@ function WashPage() {
       service_id: service.id,
       city: form.city.trim(),
       address: form.address.trim(),
+      lat: form.lat,
+      lng: form.lng,
       vehicle_label: form.vehicle_label.trim() || null,
       slot_date: form.slot_date,
       slot_time: form.slot_time,
@@ -343,13 +348,15 @@ function WashPage() {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="wash-address">Address where we should come</Label>
-                <Textarea
-                  id="wash-address"
-                  rows={2}
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  placeholder="Flat / building, street, landmark"
+                <Label>Address where we should come</Label>
+                <MapPicker
+                  value={{ lat: form.lat, lng: form.lng }}
+                  address={form.address}
+                  onChange={(v) =>
+                    setForm((f) => ({ ...f, lat: v.lat, lng: v.lng, address: v.address ?? f.address }))
+                  }
+                  onAddressChange={(address) => setForm((f) => ({ ...f, address }))}
+                  mapHeight="h-48"
                 />
               </div>
               <div className="grid gap-1.5">
@@ -395,7 +402,7 @@ function WashPage() {
                   rows={2}
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Parking level, gate code, pet hair, etc."
+                  placeholder="Flat / building, parking level, gate code, pet hair, etc."
                 />
               </div>
             </div>

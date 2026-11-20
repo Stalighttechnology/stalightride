@@ -180,7 +180,7 @@ END; $$;
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0026_complete_booking_rpc'),
+        ('core', '0028_complete_booking_rpc'),
     ]
 
     operations = [

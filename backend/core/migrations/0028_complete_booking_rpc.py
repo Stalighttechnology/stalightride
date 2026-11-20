@@ -81,7 +81,7 @@ DROP FUNCTION IF EXISTS public.complete_booking(uuid, integer, integer, text);
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('core', '0025_notification_links'),
+        ('core', '0027_notification_links'),
     ]
 
     operations = [

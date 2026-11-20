@@ -13,12 +13,28 @@ export interface ProviderStatus {
   hasAnyVerifiedRole: boolean;
 }
 
+const providerStatusCache = new Map<
+  string,
+  {
+    driverStatus: RoleVerificationStatus;
+    cleanerStatus: RoleVerificationStatus;
+    washCenterStatus: RoleVerificationStatus;
+  }
+>();
+
 export function useProviderStatus(): ProviderStatus {
   const { user } = useSession();
   const isHost = useIsHost();
-  const [driverStatus, setDriverStatus] = useState<RoleVerificationStatus>("none");
-  const [cleanerStatus, setCleanerStatus] = useState<RoleVerificationStatus>("none");
-  const [washCenterStatus, setWashCenterStatus] = useState<RoleVerificationStatus>("none");
+  const cached = user ? providerStatusCache.get(user.id) : undefined;
+  const [driverStatus, setDriverStatus] = useState<RoleVerificationStatus>(
+    () => cached?.driverStatus ?? "none",
+  );
+  const [cleanerStatus, setCleanerStatus] = useState<RoleVerificationStatus>(
+    () => cached?.cleanerStatus ?? "none",
+  );
+  const [washCenterStatus, setWashCenterStatus] = useState<RoleVerificationStatus>(
+    () => cached?.washCenterStatus ?? "none",
+  );
 
   useEffect(() => {
     if (!user) {
@@ -26,6 +42,13 @@ export function useProviderStatus(): ProviderStatus {
       setCleanerStatus("none");
       setWashCenterStatus("none");
       return;
+    }
+
+    if (providerStatusCache.has(user.id)) {
+      const c = providerStatusCache.get(user.id)!;
+      setDriverStatus(c.driverStatus);
+      setCleanerStatus(c.cleanerStatus);
+      setWashCenterStatus(c.washCenterStatus);
     }
 
     let isMounted = true;
@@ -40,13 +63,19 @@ export function useProviderStatus(): ProviderStatus {
 
         if (!isMounted) return;
 
-        setDriverStatus((driverRes.data?.verification_status as RoleVerificationStatus) || "none");
-        setCleanerStatus(
-          (cleanerRes.data?.verification_status as RoleVerificationStatus) || "none",
-        );
-        setWashCenterStatus(
-          (centerRes.data?.verification_status as RoleVerificationStatus) || "none",
-        );
+        const d = (driverRes.data?.verification_status as RoleVerificationStatus) || "none";
+        const c = (cleanerRes.data?.verification_status as RoleVerificationStatus) || "none";
+        const w = (centerRes.data?.verification_status as RoleVerificationStatus) || "none";
+
+        providerStatusCache.set(user!.id, {
+          driverStatus: d,
+          cleanerStatus: c,
+          washCenterStatus: w,
+        });
+
+        setDriverStatus(d);
+        setCleanerStatus(c);
+        setWashCenterStatus(w);
       } catch {
         // ignore errors
       }

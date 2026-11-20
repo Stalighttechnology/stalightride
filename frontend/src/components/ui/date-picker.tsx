@@ -10,24 +10,28 @@ export interface DatePickerProps {
   value?: string; // Format "yyyy-MM-dd"
   onChange?: (isoDate: string) => void;
   minDate?: string | Date;
+  maxDate?: string | Date;
   placeholder?: string;
   formatStr?: string;
   className?: string;
   disabled?: boolean;
   clearable?: boolean;
   id?: string;
+  isDateDisabled?: (date: Date) => boolean;
 }
 
 export function DatePicker({
   value,
   onChange,
   minDate,
+  maxDate,
   placeholder = "dd-mm-yyyy",
   formatStr = "d MMM yyyy",
   className,
   disabled,
   clearable = true,
   id,
+  isDateDisabled,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -48,6 +52,14 @@ export function DatePicker({
     d.setHours(0, 0, 0, 0);
     return d;
   }, [minDate]);
+
+  const maxMidnight = React.useMemo(() => {
+    if (!maxDate) return undefined;
+    const d = maxDate instanceof Date ? new Date(maxDate.getTime()) : parseISO(maxDate);
+    if (isNaN(d.getTime())) return undefined;
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, [maxDate]);
 
   const handleSelect = (date: Date | undefined) => {
     if (date) {
@@ -89,19 +101,27 @@ export function DatePicker({
                 e.preventDefault();
                 onChange?.("");
               }}
-              className="ml-1 -mr-1 rounded-full p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground"
+              className="ml-1 -mr-1 rounded-full p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground shrink-0"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5 shrink-0" />
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent
+        className="w-auto p-0 z-50 rounded-2xl border border-border/80 bg-popover shadow-2xl backdrop-blur-sm"
+        align="start"
+      >
         <Calendar
           mode="single"
           selected={selectedDate}
           onSelect={handleSelect}
-          disabled={minMidnight ? (d) => d < minMidnight : undefined}
+          disabled={(d) => {
+            if (minMidnight && d < minMidnight) return true;
+            if (maxMidnight && d > maxMidnight) return true;
+            if (isDateDisabled && isDateDisabled(d)) return true;
+            return false;
+          }}
           initialFocus
         />
       </PopoverContent>
