@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ListPager, usePage } from "@/components/list-pager";
@@ -312,6 +312,7 @@ function List({
   walletBalance: number | null;
   paying: string | null;
 }) {
+  const navigate = useNavigate();
   const paths = (items ?? []).map(
     (b) =>
       b.vehicles?.vehicle_images?.slice().sort((a: any, x: any) => a.sort_order - x.sort_order)[0]
@@ -369,20 +370,41 @@ function List({
           !b.paid_at;
         const shortBalance = (walletBalance ?? 0) < Number(b.total_price);
         const isPaid = b.payment_status === "paid" || !!b.paid_at;
+        const handleCardClick = (e: React.MouseEvent) => {
+          const target = e.target as HTMLElement;
+          // Ignore clicks on buttons, links, inputs, and interactive controls
+          if (target.closest("button, a, input, textarea, select, [role='button']")) {
+            return;
+          }
+          if (b.vehicles?.id) {
+            navigate({ to: "/vehicle/$id", params: { id: b.vehicles.id } });
+          }
+        };
+
         return (
           <li
             key={b.id}
             className="animate-fade-in"
             style={{ animationDelay: `${Math.min(idx, 6) * 60}ms` }}
           >
-            <Card className="lift overflow-hidden rounded-3xl border-border/70 p-0 shadow-card">
+            <Card
+              onClick={handleCardClick}
+              role={b.vehicles?.id ? "link" : undefined}
+              tabIndex={b.vehicles?.id ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  handleCardClick(e as any);
+                }
+              }}
+              className="lift group cursor-pointer overflow-hidden rounded-3xl border-border/70 p-0 shadow-card transition-all duration-200 hover:border-brand/50 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
               <CardContent className="flex flex-col gap-5 p-4 sm:flex-row sm:p-5">
                 <div className="relative h-36 w-full shrink-0 overflow-hidden rounded-2xl bg-muted sm:h-auto sm:w-52">
                   {url ? (
                     <img
                       src={url}
                       alt={b.vehicles?.title ?? ""}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">
