@@ -76,27 +76,29 @@ def test_booking_deadline_formula(db):
     t1 = datetime(2026, 8, 15, 15, 0, tzinfo=IST)
     t2 = datetime(2026, 8, 15, 18, 0, tzinfo=IST)
     # 3pm -> 6pm with 1h buffer gives 4:30pm (halfway is earlier than start - 1h)
-    r1 = q("SELECT public.booking_deadline(%s, %s, interval '1 hour')", [t1, t2])[0][0]
-    assert r1.strftime("%H:%M") == "16:30"
+    r1 = q("SELECT to_char(public.booking_deadline(%s, %s, interval '1 hour') AT TIME ZONE 'Asia/Kolkata', 'HH24:MI')", [t1, t2])[0][0]
+    assert r1 == "16:30"
 
     # Approve at 4pm for 6pm with 30m buffer gives pay_by 5:00pm (halfway 4pm + 1h = 5pm)
     t3 = datetime(2026, 8, 15, 16, 0, tzinfo=IST)
-    r2 = q("SELECT public.booking_deadline(%s, %s, interval '30 minutes')", [t3, t2])[0][0]
-    assert r2.strftime("%H:%M") == "17:00"
+    r2 = q("SELECT to_char(public.booking_deadline(%s, %s, interval '30 minutes') AT TIME ZONE 'Asia/Kolkata', 'HH24:MI')", [t3, t2])[0][0]
+    assert r2 == "17:00"
 
     # Next week gives created + 12h
     t_next_week = datetime(2026, 8, 22, 15, 0, tzinfo=IST)
-    r3 = q("SELECT public.booking_deadline(%s, %s, interval '1 hour')", [t1, t_next_week])[0][0]
-    assert r3.strftime("%H:%M") == "03:00"
+    r3 = q("SELECT to_char(public.booking_deadline(%s, %s, interval '1 hour') AT TIME ZONE 'Asia/Kolkata', 'HH24:MI')", [t1, t_next_week])[0][0]
+    assert r3 == "03:00"
 
 
 def test_pickup_under_2h_refused(world):
     """Requests with pickup less than 2h away are refused."""
     now_ist = datetime.now(IST)
     target = now_ist + timedelta(hours=1)
-    res = request(world, world.c, world.cust, start=0, end=1,
-                  pickup_time=target.strftime("%H:%M:%S"),
-                  dropoff_time="20:00:00")
+    res = insert(world.c, "bookings", {
+        "vehicle_id": str(world.vehicle), "vendor_id": str(world.host.id), "customer_id": str(world.cust.id),
+        "start_date": target.date().isoformat(), "end_date": (target + timedelta(days=1)).date().isoformat(),
+        "pickup_time": target.strftime("%H:%M:%S"), "dropoff_time": "20:00:00",
+        "base_price": 2000, "total_price": 2000})
     assert res.status_code == 400
     assert "Pickup must be at least 2 hours from now" in res.json()["message"]
 
@@ -237,8 +239,10 @@ def test_expire_booking_windows_cancels_and_reminds_once(world):
     assert count_after == count_before
 
 
-def test_late_razorpay_verify_refunds_wallet_once(world):
+def test_late_razorpay_verify_refunds_wallet_once(world, settings):
     """A late Razorpay verify refunds to the wallet exactly once."""
+    settings.RAZORPAY_KEY_ID = "rzp_test"
+    settings.RAZORPAY_KEY_SECRET = "test_secret"
     res = request(world, world.c, world.cust, start=5, end=6)
     assert res.status_code == 200
     bid = res.json()["data"]["id"]
@@ -253,7 +257,7 @@ def test_late_razorpay_verify_refunds_wallet_once(world):
     total_price = float(q("SELECT total_price FROM public.bookings WHERE id = %s", [bid])[0][0])
 
     # Signature for order_late123 and pay_late123
-    secret = getattr(settings, "RAZORPAY_KEY_SECRET", "test_secret")
+    secret = settings.RAZORPAY_KEY_SECRET
     sig = hmac.new(secret.encode(), b"order_late123|pay_late123", hashlib.sha256).hexdigest()
 
     # Call verifyRazorpayPayment endpoint as customer
