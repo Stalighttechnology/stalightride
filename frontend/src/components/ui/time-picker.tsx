@@ -13,6 +13,8 @@ export interface TimePickerProps {
   disabled?: boolean;
   id?: string;
   slots?: string[]; // Optional specific slots
+  disabledSlots?: string[];
+  isTimeDisabled?: (time: string) => boolean;
 }
 
 const DEFAULT_SLOTS = [
@@ -53,6 +55,8 @@ export function TimePicker({
   disabled,
   id,
   slots = DEFAULT_SLOTS,
+  disabledSlots,
+  isTimeDisabled,
 }: TimePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -116,21 +120,29 @@ export function TimePicker({
           <div>
             <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">Common slots</div>
             <div className="grid grid-cols-4 gap-1.5">
-              {slots.slice(0, 8).map((slot) => (
-                <button
-                  key={slot}
-                  type="button"
-                  onClick={() => selectSlot(slot)}
-                  className={cn(
-                    "rounded-md py-1 text-center text-xs transition-colors",
-                    value === slot
-                      ? "bg-primary text-primary-foreground font-semibold"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {slot}
-                </button>
-              ))}
+              {slots.slice(0, 8).map((slot) => {
+                const isSlotDisabled = isTimeDisabled
+                  ? isTimeDisabled(slot)
+                  : disabledSlots?.includes(slot);
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    disabled={isSlotDisabled}
+                    onClick={() => !isSlotDisabled && selectSlot(slot)}
+                    className={cn(
+                      "rounded-md py-1 text-center text-xs transition-colors",
+                      isSlotDisabled
+                        ? "opacity-35 line-through cursor-not-allowed bg-muted/30 text-muted-foreground"
+                        : value === slot
+                          ? "bg-primary text-primary-foreground font-semibold"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {slot}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -209,10 +221,17 @@ export function TimePicker({
             </div>
           </div>
 
+          {isTimeDisabled?.(value) && (
+            <p className="text-center text-[11px] font-medium text-destructive">
+              This time slot is unavailable
+            </p>
+          )}
+
           <Button
             type="button"
             size="sm"
             className="w-full text-xs h-8"
+            disabled={isTimeDisabled?.(value)}
             onClick={() => setOpen(false)}
           >
             Apply time

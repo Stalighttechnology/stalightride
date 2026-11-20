@@ -70,6 +70,13 @@ def test_second_customer_cannot_request_taken_dates(world):
     assert second.status_code == 400 and second.json()["message"] == "Vehicle not available for selected dates"
 
 
+def test_customer_can_book_after_vehicle_return_time(world):
+    assert request(world, world.c, world.cust, start=5, end=7, pickup_time="10:00:00", dropoff_time="10:00:00").status_code == 200
+    # Day 7 pickup at 11:00 is after 10:00 return -> succeeds
+    second = request(world, world.c2, world.cust2, start=7, end=8, pickup_time="11:00:00", dropoff_time="12:00:00")
+    assert second.status_code == 200
+
+
 def test_new_request_always_starts_pending(world):
     res = world.c.post("/api/query/", {"table": "bookings", "action": "insert", "select": "status", "single": "one",
                                        "values": {"vehicle_id": str(world.vehicle), "vendor_id": str(world.host.id),

@@ -113,6 +113,62 @@ describe("overbooking edge cases", () => {
     ).toThrow(/already booked/);
   });
 
+  test("car returned at 10am can be booked starting at 11am on the same date", () => {
+    const { be, customer, vehicle } = setup();
+    const ben = be.registerCustomer("approved");
+    // Asha: day 2 10am to day 4 10am
+    be.createBooking({
+      customer_id: customer,
+      vehicle_id: vehicle.id,
+      ...range(2, 4),
+      pickup_time: "10:00",
+      dropoff_time: "10:00",
+    });
+    // Ben: day 4 11am to day 5 12pm (after return) -> allowed!
+    const benBooking = be.createBooking({
+      customer_id: ben,
+      vehicle_id: vehicle.id,
+      ...range(4, 5),
+      pickup_time: "11:00",
+      dropoff_time: "12:00",
+    });
+    expect(benBooking.status).toBe("pending");
+  });
+
+  test("car returned at 10am CANNOT be booked at 10am or earlier on the same date", () => {
+    const { be, customer, vehicle } = setup();
+    const other1 = be.registerCustomer("approved");
+    const other2 = be.registerCustomer("approved");
+    // Asha: day 2 10am to day 4 10am
+    be.createBooking({
+      customer_id: customer,
+      vehicle_id: vehicle.id,
+      ...range(2, 4),
+      pickup_time: "10:00",
+      dropoff_time: "10:00",
+    });
+    // Attempt pickup at 10:00 (exact boundary when car is returned) -> rejected!
+    expect(() =>
+      be.createBooking({
+        customer_id: other1,
+        vehicle_id: vehicle.id,
+        ...range(4, 5),
+        pickup_time: "10:00",
+        dropoff_time: "12:00",
+      }),
+    ).toThrow(/already booked/);
+    // Attempt pickup at 09:00 (before return) -> rejected!
+    expect(() =>
+      be.createBooking({
+        customer_id: other2,
+        vehicle_id: vehicle.id,
+        ...range(4, 5),
+        pickup_time: "09:00",
+        dropoff_time: "12:00",
+      }),
+    ).toThrow(/already booked/);
+  });
+
   test("non-overlapping dates are allowed and stay bookable in browse", () => {
     const { be, customer, vehicle } = setup();
     const other = be.registerCustomer("approved");

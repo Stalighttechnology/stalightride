@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { CityPicker } from "@/components/city-picker";
+import { MapPicker } from "@/components/map-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,10 @@ function WashCenterDashboard() {
   const [centerName, setCenterName] = useState("");
   const [city, setCity] = useState("Bangalore");
   const [address, setAddress] = useState("");
+  const [pin, setPin] = useState<{ lat: number | null; lng: number | null }>({
+    lat: null,
+    lng: null,
+  });
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [capacity, setCapacity] = useState("15");
@@ -152,6 +157,10 @@ function WashCenterDashboard() {
         setCenterName(loaded.name);
         setCity(loaded.city);
         setAddress(loaded.address);
+        setPin({
+          lat: centerData.lat == null ? null : Number(centerData.lat),
+          lng: centerData.lng == null ? null : Number(centerData.lng),
+        });
         setPhone(loaded.contact_phone);
         setEmail(loaded.contact_email);
         setCapacity(String(loaded.daily_capacity));
@@ -215,6 +224,7 @@ function WashCenterDashboard() {
   const saveCenterProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!address.trim()) return toast.error("Add your facility address");
     setSaving(true);
 
     const centerPayload = {
@@ -222,6 +232,8 @@ function WashCenterDashboard() {
       name: centerName.trim(),
       city: city.trim() || "Bangalore",
       address: address.trim() || null,
+      lat: pin.lat,
+      lng: pin.lng,
       contact_phone: phone.trim() || null,
       contact_email: email.trim() || null,
       daily_capacity: Number(capacity) || 15,
@@ -433,13 +445,16 @@ function WashCenterDashboard() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="w-addr">Full Facility Address *</Label>
-                  <Input
-                    id="w-addr"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Plot 42, 100ft Road, Indiranagar"
-                    required
+                  <Label>Full Facility Address *</Label>
+                  <MapPicker
+                    value={pin}
+                    address={address}
+                    onChange={(v) => {
+                      setPin({ lat: v.lat, lng: v.lng });
+                      if (v.address) setAddress(v.address);
+                    }}
+                    onAddressChange={setAddress}
+                    mapHeight="h-48"
                   />
                 </div>
 
@@ -965,7 +980,16 @@ function WashCenterDashboard() {
                 </div>
                 <div>
                   <Label className="text-xs">Address</Label>
-                  <Input value={address} onChange={(e) => setAddress(e.target.value)} required />
+                  <MapPicker
+                    value={pin}
+                    address={address}
+                    onChange={(v) => {
+                      setPin({ lat: v.lat, lng: v.lng });
+                      if (v.address) setAddress(v.address);
+                    }}
+                    onAddressChange={setAddress}
+                    mapHeight="h-48"
+                  />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div>
