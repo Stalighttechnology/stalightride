@@ -1,6 +1,6 @@
 import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -83,6 +83,36 @@ function DriverDashboard() {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+
+  const routerLocation = useRouterState({ select: (s) => s.location });
+  const driverTabs = ["upcoming", "history", "ratings"] as const;
+  type DriverTab = (typeof driverTabs)[number];
+
+  const [activeTab, setActiveTab] = useState<DriverTab>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as DriverTab;
+      if (t && driverTabs.includes(t)) return t;
+    }
+    return "upcoming";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as DriverTab;
+      if (t && driverTabs.includes(t)) setActiveTab(t);
+    }
+  }, [routerLocation.search]);
+
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail as DriverTab;
+      if (tab && driverTabs.includes(tab)) setActiveTab(tab);
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
   const [replyText, setReplyText] = useState("");
   const [savingReply, setSavingReply] = useState(false);
 
@@ -622,7 +652,18 @@ function DriverDashboard() {
           <h2 className="font-display text-xl font-semibold">Hire requests</h2>
           {!hires && <Skeleton className="mt-4 h-32 rounded-2xl" />}
           {hires !== null && (
-            <Tabs defaultValue="upcoming" className="mt-4">
+            <Tabs
+              value={activeTab}
+              onValueChange={(val: any) => {
+                setActiveTab(val);
+                if (typeof window !== "undefined") {
+                  const u = new URL(window.location.href);
+                  u.searchParams.set("tab", val);
+                  window.history.replaceState({}, "", u.toString());
+                }
+              }}
+              className="mt-4"
+            >
               <TabsList>
                 <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>

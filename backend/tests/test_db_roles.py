@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0024_hot_path_indexes")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0025_notification_links")]
 
 
 def test_schema_matches_the_original_migrations():

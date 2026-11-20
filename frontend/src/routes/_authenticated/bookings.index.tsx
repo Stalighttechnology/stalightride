@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ListPager, usePage } from "@/components/list-pager";
@@ -44,6 +44,33 @@ function Bookings() {
   const [paying, setPaying] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
+
+  const routerLocation = useRouterState({ select: (s) => s.location });
+  const [activeTab, setActiveTab] = useState<"customer" | "vendor">(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab");
+      if (t === "customer" || t === "vendor") return t;
+    }
+    return "customer";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab");
+      if (t === "customer" || t === "vendor") setActiveTab(t);
+    }
+  }, [routerLocation.search]);
+
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail;
+      if (tab === "customer" || tab === "vendor") setActiveTab(tab);
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
   const createOrder = createRazorpayOrder;
   const verifyPayment = verifyRazorpayPayment;
 
@@ -209,7 +236,18 @@ function Bookings() {
             {walletBalance === null ? "…" : currency(walletBalance)}
           </Link>
         </div>
-        <Tabs defaultValue="customer" className="mt-7">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val: any) => {
+            setActiveTab(val);
+            if (typeof window !== "undefined") {
+              const u = new URL(window.location.href);
+              u.searchParams.set("tab", val);
+              window.history.replaceState({}, "", u.toString());
+            }
+          }}
+          className="mt-7"
+        >
           <TabsList className="rounded-full">
             <TabsTrigger value="customer" className="rounded-full">
               As renter

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
+import { useActiveRole } from "@/hooks/use-active-role";
+import { resolveNotificationDestination } from "@/lib/notification-router";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Bell, CheckCheck, Calendar, AlertTriangle, Banknote, BellRing } from "lucide-react";
+import { Bell, CheckCheck, Calendar, AlertTriangle, Banknote, BellRing, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type Notification = {
@@ -34,6 +36,8 @@ function NotifIcon({ icon }: { icon?: string }) {
 /** Live in-app notification centre — combines DB rows with client-side derived alerts. */
 export function NotificationBell({ className }: { className?: string }) {
   const { user } = useSession();
+  const { activeRole } = useActiveRole();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -123,6 +127,39 @@ export function NotificationBell({ className }: { className?: string }) {
     }
   };
 
+  const handleNotificationClick = async (n: Notification) => {
+    await openItem(n);
+    const dest = resolveNotificationDestination(n, activeRole);
+    if (!dest) return;
+
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+
+    // If already on destination page, seamlessly switch tab and dispatch tab event
+    if (dest.path === currentPath) {
+      if (dest.tab) {
+        window.dispatchEvent(new CustomEvent("synchoo:tab-change", { detail: dest.tab }));
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", dest.tab);
+          window.history.replaceState({}, "", url.toString());
+        }
+      }
+      return;
+    }
+
+    // Navigate to target path
+    if (dest.tab) {
+      navigate({
+        to: dest.path as any,
+        search: (dest.search || { tab: dest.tab }) as any,
+      });
+    } else {
+      navigate({
+        to: dest.path as any,
+      });
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -148,7 +185,7 @@ export function NotificationBell({ className }: { className?: string }) {
           {unread > 0 && (
             <button
               onClick={markAllRead}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark all read
@@ -162,36 +199,41 @@ export function NotificationBell({ className }: { className?: string }) {
             </p>
           )}
           {allItems.map((n) => {
-            const inner = (
-              <div
-                className={`flex gap-3 px-4 py-3 transition-colors hover:bg-muted/60 ${n.read ? "" : "bg-brand/5"}`}
-              >
-                <span className="mt-1.5 shrink-0">
-                  <span
-                    className={`block h-2 w-2 rounded-full ${n.read ? "bg-border" : "bg-brand"}`}
-                  />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{n.title}</p>
-                  {n.body && <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>}
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {timeAgo(n.created_at)}
-                  </p>
-                </div>
-              </div>
-            );
+            const dest = resolveNotificationDestination(n, activeRole);
             return (
-              <div key={n.id} className="border-b border-border/60 last:border-0">
-                {n.link ? (
-                  <Link to={n.link as any} onClick={() => openItem(n)} className="block">
-                    {inner}
-                  </Link>
-                ) : (
-                  <button className="block w-full text-left" onClick={() => openItem(n)}>
-                    {inner}
-                  </button>
-                )}
-              </div>
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => handleNotificationClick(n)}
+                className={`flex items-start justify-between gap-3 w-full p-4 text-left transition-colors hover:bg-muted/70 cursor-pointer border-b border-border/60 last:border-0 ${
+                  n.read ? "" : "bg-brand/5"
+                }`}
+              >
+                <div className="flex gap-3 min-w-0">
+                  <span className="mt-1.5 shrink-0">
+                    <span
+                      className={`block h-2 w-2 rounded-full ${n.read ? "bg-border" : "bg-brand"}`}
+                    />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{n.title}</p>
+                    {n.body && (
+                      <p className="line-clamp-2 text-xs text-muted-foreground mt-0.5">{n.body}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[11px] text-muted-foreground">
+                        {timeAgo(n.created_at)}
+                      </span>
+                      {dest.tab && (
+                        <span className="text-[10px] uppercase font-semibold px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
+                          {dest.tab}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 mt-1" />
+              </button>
             );
           })}
         </div>

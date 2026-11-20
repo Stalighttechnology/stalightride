@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -174,10 +174,65 @@ function VendorDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [demoVehicles, setDemoVehicles] = useState<any[]>(SAMPLE_VEHICLES);
 
+  const routerLocation = useRouterState({ select: (s) => s.location });
+
+  const validTabs = [
+    "fleet",
+    "calendar",
+    "analytics",
+    "bookings",
+    "payouts",
+    "maintenance",
+    "reviews",
+    "kyc",
+  ] as const;
+  type HostTab = (typeof validTabs)[number];
+
+  const getInitialTab = (): HostTab => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as HostTab;
+      if (t && validTabs.includes(t)) {
+        return t;
+      }
+    }
+    return "fleet";
+  };
+
   // Dedicated Host Dashboard Sidebar Tab State
-  const [activeTab, setActiveTab] = useState<
-    "fleet" | "calendar" | "analytics" | "bookings" | "payouts" | "maintenance" | "reviews" | "kyc"
-  >("fleet");
+  const [activeTab, setActiveTab] = useState<HostTab>(getInitialTab);
+
+  // Sync tab with URL search parameter changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as HostTab;
+      if (t && validTabs.includes(t)) {
+        setActiveTab(t);
+      }
+    }
+  }, [routerLocation.search]);
+
+  // Listen for direct tab switch events (e.g. from notification clicks while already on /vendor)
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail as HostTab;
+      if (tab && validTabs.includes(tab)) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
+
+  const handleTabClick = (tabId: HostTab) => {
+    setActiveTab(tabId);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tabId);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   const load = async () => {
     if (!user) return;
@@ -604,7 +659,7 @@ function VendorDashboard() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => handleTabClick(item.id)}
                       className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${
                         isActive
                           ? "bg-brand text-brand-foreground shadow-xs"
@@ -686,7 +741,7 @@ function VendorDashboard() {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => setActiveTab("bookings")}
+                      onClick={() => handleTabClick("bookings")}
                       className="bg-amber-600 hover:bg-amber-700 text-white shrink-0"
                     >
                       Review Requests
