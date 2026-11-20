@@ -498,6 +498,12 @@ function decodeClaims(token: string): Record<string, any> | null {
 }
 
 const auth = {
+  getStoredSession(): Session | null {
+    return session ?? readStored();
+  },
+  getStoredUser(): User | null {
+    return (session ?? readStored())?.user ?? null;
+  },
   async getSession() {
     return { data: { session: await validSession() }, error: null };
   },

@@ -56,6 +56,8 @@ const search = z
     to: z.string().optional(),
     start: z.string().optional(),
     end: z.string().optional(),
+    pickupTime: z.string().optional(),
+    dropoffTime: z.string().optional(),
   })
   .transform((val) => ({
     ...val,
@@ -321,13 +323,13 @@ function Browse() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-3">
         <div>
-          <Label className="text-xs font-medium">Pickup</Label>
+          <Label className="text-xs font-medium">Pickup date</Label>
           <DatePicker
             value={params.from ?? ""}
             minDate={today}
-            placeholder="dd-mm-yyyy"
+            placeholder="Select pickup date"
             className="mt-1.5 rounded-xl h-10 w-full"
             onChange={(date) =>
               update({ from: date || undefined, to: params.to ?? (date || undefined) })
@@ -335,11 +337,11 @@ function Browse() {
           />
         </div>
         <div>
-          <Label className="text-xs font-medium">Return</Label>
+          <Label className="text-xs font-medium">Return date</Label>
           <DatePicker
             value={params.to ?? ""}
             minDate={params.from ?? today}
-            placeholder="dd-mm-yyyy"
+            placeholder="Select return date"
             className="mt-1.5 rounded-xl h-10 w-full"
             onChange={(date) =>
               update({ to: date || undefined, from: params.from ?? (date || undefined) })
@@ -550,7 +552,12 @@ function Browse() {
                         key={v.id}
                         v={v}
                         imgUrl={url ?? null}
-                        dates={{ from: params.from, to: params.to }}
+                        dates={{
+                          from: params.from,
+                          to: params.to,
+                          pickupTime: params.pickupTime,
+                          dropoffTime: params.dropoffTime,
+                        }}
                       />
                     );
                   })}
@@ -598,7 +605,7 @@ function VehicleCard({
 }: {
   v: Vehicle;
   imgUrl: string | null;
-  dates: { from?: string; to?: string };
+  dates: { from?: string; to?: string; pickupTime?: string; dropoffTime?: string };
 }) {
   const { isVehicleSaved, toggleSaveVehicle } = useSavedVehicles();
   const isSaved = isVehicleSaved(v.id);
@@ -607,7 +614,12 @@ function VehicleCard({
     <Link
       to="/vehicle/$id"
       params={{ id: v.id }}
-      search={{ from: dates.from, to: dates.to } as any}
+      search={{
+        from: dates.from,
+        to: dates.to,
+        pickupTime: dates.pickupTime,
+        dropoffTime: dates.dropoffTime,
+      } as any}
       className="group block"
     >
       <Card className="lift overflow-hidden rounded-2xl border-border p-0 shadow-card">

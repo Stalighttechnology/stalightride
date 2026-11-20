@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,18 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
+import {
+  type BookedRange,
+  toIsoDate,
+  isPickupDateFullyBlocked,
+  isPickupSlotBlocked,
+  getAvailablePickupSlots,
+  getVehicleReturnInfoOnDate,
+  getNextBookingAfterPickup,
+  isReturnDateBlocked,
+  isDropoffSlotBlocked,
+  validateBookingAgainstRanges,
+} from "@/lib/vehicle-availability";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { VehicleMap } from "@/components/vehicle-map";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
@@ -52,7 +65,17 @@ import { useSession } from "@/hooks/use-session";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 
+const vehicleSearch = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  start: z.string().optional(),
+  end: z.string().optional(),
+  pickupTime: z.string().optional(),
+  dropoffTime: z.string().optional(),
+});
+
 export const Route = createFileRoute("/vehicle/$id")({
+  validateSearch: vehicleSearch,
   component: VehiclePage,
   head: () => ({
     meta: [
@@ -76,6 +99,7 @@ export const Route = createFileRoute("/vehicle/$id")({
 
 function VehiclePage() {
   const { id } = Route.useParams();
+  const searchParams = Route.useSearch();
   const { user } = useSession();
   const navigate = useNavigate();
   const [v, setV] = useState<any>(null);
@@ -84,10 +108,10 @@ function VehiclePage() {
   const [reviews, setReviews] = useState<any[] | null>(null);
   const [myProfile, setMyProfile] = useState<any>(null);
   const [activeImg, setActiveImg] = useState(0);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [pickupTime, setPickupTime] = useState("10:00");
-  const [dropoffTime, setDropoffTime] = useState("10:00");
+  const [start, setStart] = useState(() => searchParams.from || searchParams.start || "");
+  const [end, setEnd] = useState(() => searchParams.to || searchParams.end || "");
+  const [pickupTime, setPickupTime] = useState(() => searchParams.pickupTime || "10:00");
+  const [dropoffTime, setDropoffTime] = useState(() => searchParams.dropoffTime || "10:00");
   const [notes, setNotes] = useState("");
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [booking, setBooking] = useState(false);
@@ -96,6 +120,67 @@ function VehiclePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [airportMeet, setAirportMeet] = useState(false);
   const [flightInfo, setFlightInfo] = useState("");
+  const [bookedRanges, setBookedRanges] = useState<BookedRange[]>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const { data, error } = await api.rpc("vehicle_booked_ranges", { _vehicle_id: id });
+        if (!error && Array.isArray(data)) {
+          setBookedRanges(data);
+          return;
+        }
+      } catch {}
+      try {
+        const [{ data: blocks }, { data: bks }] = await Promise.all([
+          api.from("availability_blocks").select("start_date, end_date").eq("vehicle_id", id),
+          api
+            .from("bookings")
+            .select("start_date, end_date, pickup_time, dropoff_time, status")
+            .eq("vehicle_id", id)
+            .in("status", ["pending", "confirmed"]),
+        ]);
+        const ranges: BookedRange[] = [
+          ...(bks || []).map((b: any) => ({
+            start_date: b.start_date,
+            end_date: b.end_date,
+            pickup_time: b.pickup_time || "10:00",
+            dropoff_time: b.dropoff_time || "10:00",
+          })),
+          ...(blocks || []).map((bl: any) => ({
+            start_date: bl.start_date,
+            end_date: bl.end_date,
+            pickup_time: "00:00",
+            dropoff_time: "23:59",
+          })),
+        ];
+        setBookedRanges(ranges);
+      } catch {}
+    })();
+  }, [id]);
+
+  useEffect(() => {
+    if (searchParams.from || searchParams.start) {
+      setStart(searchParams.from || searchParams.start || "");
+    }
+    if (searchParams.to || searchParams.end) {
+      setEnd(searchParams.to || searchParams.end || "");
+    }
+    if (searchParams.pickupTime) {
+      setPickupTime(searchParams.pickupTime);
+    }
+    if (searchParams.dropoffTime) {
+      setDropoffTime(searchParams.dropoffTime);
+    }
+  }, [
+    searchParams.from,
+    searchParams.start,
+    searchParams.to,
+    searchParams.end,
+    searchParams.pickupTime,
+    searchParams.dropoffTime,
+  ]);
 
   // Auto-apply pending reward coupon from rewards page
   useEffect(() => {
@@ -219,6 +304,29 @@ function VehiclePage() {
   );
   const subtotal = priceBreakdown.subtotal;
 
+  const handleStartChange = (d: string) => {
+    setStart(d);
+    if (!d) return;
+    if (isPickupSlotBlocked(d, pickupTime, bookedRanges)) {
+      const available = getAvailablePickupSlots(d, bookedRanges);
+      if (available.length > 0) {
+        setPickupTime(available[0]);
+      }
+    }
+    if (end && (end < d || isReturnDateBlocked(end, d, pickupTime, bookedRanges))) {
+      setEnd("");
+    }
+  };
+
+  const returnInfo = useMemo(() => {
+    return start ? getVehicleReturnInfoOnDate(start, bookedRanges) : null;
+  }, [start, bookedRanges]);
+
+  const scheduleConflict = useMemo(() => {
+    if (!start || !end) return null;
+    return validateBookingAgainstRanges(start, pickupTime, end, dropoffTime, bookedRanges);
+  }, [start, pickupTime, end, dropoffTime, bookedRanges]);
+
   const dlOk = myProfile?.dl_status === "approved";
   const isOwner = user?.id === v?.vendor_id;
 
@@ -238,6 +346,17 @@ function VehiclePage() {
     }
     if (rentalHours <= 0) {
       toast.error("Drop-off must be after pickup");
+      return;
+    }
+    const conflictErr = validateBookingAgainstRanges(
+      start,
+      pickupTime,
+      end,
+      dropoffTime,
+      bookedRanges,
+    );
+    if (conflictErr) {
+      toast.error(conflictErr);
       return;
     }
     setBooking(true);
@@ -689,8 +808,11 @@ function VehiclePage() {
                       <SlotField icon={CalendarDays} label="Pickup date">
                         <DatePicker
                           value={start}
-                          onChange={(d) => setStart(d)}
+                          onChange={handleStartChange}
                           minDate={new Date()}
+                          isDateDisabled={(d) =>
+                            isPickupDateFullyBlocked(toIsoDate(d), bookedRanges)
+                          }
                           placeholder="dd-mm-yyyy"
                           className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
                         />
@@ -700,6 +822,15 @@ function VehiclePage() {
                           value={end}
                           onChange={(d) => setEnd(d)}
                           minDate={start || new Date()}
+                          maxDate={
+                            start
+                              ? getNextBookingAfterPickup(start, pickupTime, bookedRanges)
+                                  ?.start_date || undefined
+                              : undefined
+                          }
+                          isDateDisabled={(d) =>
+                            isReturnDateBlocked(toIsoDate(d), start, pickupTime, bookedRanges)
+                          }
                           placeholder="dd-mm-yyyy"
                           className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
                         />
@@ -710,6 +841,9 @@ function VehiclePage() {
                         <TimePicker
                           value={pickupTime}
                           onChange={(t) => setPickupTime(t)}
+                          isTimeDisabled={(t) =>
+                            start ? isPickupSlotBlocked(start, t, bookedRanges) : false
+                          }
                           placeholder="Select time"
                           className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
                         />
@@ -718,13 +852,38 @@ function VehiclePage() {
                         <TimePicker
                           value={dropoffTime}
                           onChange={(t) => setDropoffTime(t)}
+                          isTimeDisabled={(t) =>
+                            end
+                              ? isDropoffSlotBlocked(
+                                  end,
+                                  t,
+                                  start,
+                                  pickupTime,
+                                  bookedRanges,
+                                )
+                              : false
+                          }
                           placeholder="Select time"
                           className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
                         />
                       </SlotField>
                     </div>
                   </div>
-                  {start && end && rentalHours <= 0 && (
+                  {returnInfo && (
+                    <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-brand/30 bg-brand/5 px-3 py-1.5 text-xs text-brand animate-fade-in font-medium">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Vehicle returned at {returnInfo.returnTime} — pickup available from {returnInfo.availableFrom}.
+                      </span>
+                    </div>
+                  )}
+                  {scheduleConflict && (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-destructive animate-fade-in font-medium">
+                      <CircleAlert className="h-3.5 w-3.5 shrink-0" />
+                      {scheduleConflict}
+                    </p>
+                  )}
+                  {start && end && !scheduleConflict && rentalHours <= 0 && (
                     <p className="mt-2 flex items-center gap-1.5 text-xs text-destructive animate-fade-in">
                       <CircleAlert className="h-3.5 w-3.5" />
                       Drop-off must be after pickup.
@@ -845,7 +1004,14 @@ function VehiclePage() {
 
                 <Button
                   onClick={book}
-                  disabled={booking || !start || !end || (!!user && !dlOk)}
+                  disabled={
+                    booking ||
+                    !start ||
+                    !end ||
+                    rentalHours <= 0 ||
+                    !!scheduleConflict ||
+                    (!!user && !dlOk)
+                  }
                   className="btn-gradient group h-12 w-full rounded-2xl text-base"
                 >
                   {booking ? (
