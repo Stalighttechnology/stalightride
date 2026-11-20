@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/confirm-dialog";
 import {
   Users,
   CalendarClock,
@@ -60,6 +61,7 @@ function whenLabel(iso: string) {
 
 function MyPooling() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [ratedTrips, setRatedTrips] = useState<Set<string>>(new Set());
@@ -86,7 +88,14 @@ function MyPooling() {
   }, [user?.id]);
 
   const cancel = async (r: any) => {
-    if (!window.confirm("Cancel this pooling booking?")) return;
+    const ok = await confirm({
+      title: "Cancel this pooling booking?",
+      description: "Are you sure you want to cancel your seat request for this trip?",
+      confirmText: "Cancel booking",
+      cancelText: "Keep booking",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setBusy(r.id);
     const { error } = await api
       .from("pool_requests")

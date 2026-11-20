@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Star, Trash2, CheckCircle2, AlertTriangle, ShieldAlert } from "lucide-react";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export function ReviewModerationTab() {
+  const confirm = useConfirm();
   const [activeSubTab, setActiveSubTab] = useState<"reviews" | "reports">("reviews");
   const [reviews, setReviews] = useState<any[] | null>(null);
   const [reports, setReports] = useState<any[] | null>(null);
@@ -57,7 +59,14 @@ export function ReviewModerationTab() {
   }, [reportPager.page]);
 
   const deleteReview = async (id: string) => {
-    if (!window.confirm("Permanently delete this review from the public listing?")) return;
+    const ok = await confirm({
+      title: "Delete review permanently?",
+      description: "Permanently delete this review from the public listing? Vehicle ratings will be recalculated.",
+      confirmText: "Delete review",
+      cancelText: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setBusy(id);
 
     // Try admin RPC first, then fallback to direct delete

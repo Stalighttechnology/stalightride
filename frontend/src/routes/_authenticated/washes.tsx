@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { createWashRazorpayOrder, verifyWashRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/washes")({
   component: WashesPage,
@@ -161,6 +162,7 @@ function WashReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () =
 
 function WashesPage() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -193,14 +195,21 @@ function WashesPage() {
   const cancel = async (b: any) => {
     const paid = b.payment_status === "paid";
     const pct = refundPercent(b);
-    const msg = paid
+    const desc = paid
       ? pct === 100
-        ? `Cancel this wash? You'll get a full refund of ${currency(b.price)} to your wallet.`
+        ? `You'll get a full refund of ${currency(b.price)} to your wallet.`
         : pct === 50
-          ? `Cancel this wash? The slot is within 24 hours, so 50% (${currency(Number(b.price) / 2)}) will be refunded.`
-          : "Cancel this wash? The slot starts in under 2 hours, so no refund is available."
-      : "Cancel this wash request?";
-    if (!window.confirm(msg)) return;
+          ? `The slot is within 24 hours, so 50% (${currency(Number(b.price) / 2)}) will be refunded.`
+          : "The slot starts in under 2 hours, so no refund is available."
+      : "Are you sure you want to cancel this wash request?";
+    const ok = await confirm({
+      title: "Cancel this wash?",
+      description: desc,
+      confirmText: "Cancel wash",
+      cancelText: "Keep wash",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setBusy(b.id);
     const { data, error } = await api.rpc("cancel_wash_booking", {
       _wash_booking_id: b.id,

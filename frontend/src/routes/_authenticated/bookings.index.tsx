@@ -32,11 +32,13 @@ import {
 } from "lucide-react";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/bookings/")({ component: Bookings });
 
 function Bookings() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [asCustomer, setAsCustomer] = useState<any[] | null>(null);
   const [asVendor, setAsVendor] = useState<any[] | null>(null);
   const customerPager = usePage(10);
@@ -108,7 +110,7 @@ function Bookings() {
   const cancel = async (b: any) => {
     // Preview mirrors public.cancel_booking; the database computes the real refund.
     const byHost = b.vendor_id === user?.id;
-    let message = "Cancel this booking?";
+    let description = "Are you sure you want to cancel this booking request?";
     if (b.payment_status === "paid") {
       const startsAt = new Date(
         `${b.start_date}T${(b.pickup_time ?? "10:00").slice(0, 5)}:00+05:30`,
@@ -120,11 +122,18 @@ function Bookings() {
       );
       const deposit = Number(b.security_deposit ?? 0);
       const refund = round2(deposit + (Number(b.total_price) - deposit) * pct);
-      message = byHost
-        ? `Cancel this booking? The rider gets a full refund of ${currency(Number(b.total_price))}.`
-        : `Cancel this booking? You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
+      description = byHost
+        ? `The rider gets a full refund of ${currency(Number(b.total_price))}.`
+        : `You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
     }
-    if (!window.confirm(message)) return;
+    const ok = await confirm({
+      title: "Cancel this booking?",
+      description,
+      confirmText: "Cancel booking",
+      cancelText: "Keep booking",
+      variant: "destructive",
+    });
+    if (!ok) return;
     const { data, error } = await api.rpc("cancel_booking", { _booking_id: b.id });
     if (error) return toast.error(error.message);
     const refund = Number((data as any)?.refund ?? 0);

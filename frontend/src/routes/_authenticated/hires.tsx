@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { CreditCard, Wallet as WalletIcon, Star, UserRound, ReceiptText } from "lucide-react";
 import { createDriverRazorpayOrder, verifyDriverRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/hires")({
   component: HiresPage,
@@ -49,6 +50,7 @@ export function refundPercent(b: any, now: number = Date.now()) {
 
 function HiresPage() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -92,14 +94,21 @@ function HiresPage() {
   const cancel = async (b: any) => {
     const paid = b.payment_status === "paid";
     const pct = refundPercent(b);
-    const msg = paid
+    const desc = paid
       ? pct === 100
-        ? `Cancel this hire? You'll get a full refund of ${currency(b.total_price)} to your wallet.`
+        ? `You'll get a full refund of ${currency(b.total_price)} to your wallet.`
         : pct === 50
-          ? `Cancel this hire? It starts in under 24 hours, so 50% (${currency(Number(b.total_price) / 2)}) will be refunded to your wallet.`
-          : "Cancel this hire? It starts in under 2 hours, so no refund is available."
-      : "Cancel this hire request?";
-    if (!window.confirm(msg)) return;
+          ? `It starts in under 24 hours, so 50% (${currency(Number(b.total_price) / 2)}) will be refunded to your wallet.`
+          : "It starts in under 2 hours, so no refund is available."
+      : "Are you sure you want to cancel this hire request?";
+    const ok = await confirm({
+      title: "Cancel this hire?",
+      description: desc,
+      confirmText: "Cancel hire",
+      cancelText: "Keep hire",
+      variant: "destructive",
+    });
+    if (!ok) return;
 
     setBusy(b.id);
     const { data, error } = await api.rpc("cancel_driver_booking", {

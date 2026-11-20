@@ -30,6 +30,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/driver-dashboard")({
   component: DriverDashboard,
@@ -76,6 +77,7 @@ const emptyDriver = {
 
 function DriverDashboard() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [driver, setDriver] = useState<any>(null);
   const [form, setForm] = useState<any>(emptyDriver);
   const [hires, setHires] = useState<any[] | null>(null);
@@ -285,14 +287,16 @@ function DriverDashboard() {
 
   const cancelHire = async (h: any) => {
     const paid = h.payment_status === "paid";
-    if (
-      !window.confirm(
-        paid
-          ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
-          : "Cancel this hire?",
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Cancel this hire?",
+      description: paid
+        ? `The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
+        : "Are you sure you want to cancel this hire assignment?",
+      confirmText: "Cancel hire",
+      cancelText: "Keep hire",
+      variant: "destructive",
+    });
+    if (!ok) return;
     const { data, error } = await api.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
     if (error) return toast.error(error.message);
     const refund = Number((data as { refund?: number } | null)?.refund ?? 0);
