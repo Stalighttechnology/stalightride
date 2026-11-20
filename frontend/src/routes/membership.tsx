@@ -318,9 +318,9 @@ export function MembershipPage() {
     const currentRank = PLAN_RANK[activePlan] ?? 0;
     const targetRank = PLAN_RANK[plan.id] ?? 0;
 
-    // If active on a higher plan and switching to lower tier, open smart switch modal
+    // Disallow switching to a lower tier
     if (targetRank < currentRank) {
-      setSwitchPlanTarget(plan);
+      toast.info(`You are already on a higher tier (${currentPlanObj.name}).`);
       return;
     }
 
@@ -559,8 +559,9 @@ export function MembershipPage() {
                     billingCycle === "monthly" ? plan.priceMonthly : Math.round(plan.priceAnnual / 12);
                   const isCurrent = activePlan === plan.id;
                   const targetRank = PLAN_RANK[plan.id] ?? 0;
+                  const isLowerTier = targetRank < currentRank;
 
-                  // Intelligent button labels
+                  // Button labels and variants for available plans
                   let buttonLabel = "";
                   let buttonVariant: "default" | "outline" | "secondary" = "outline";
 
@@ -570,9 +571,6 @@ export function MembershipPage() {
                   } else if (targetRank > currentRank) {
                     buttonLabel = `Upgrade to ${plan.name}`;
                     buttonVariant = plan.popular ? "default" : "default";
-                  } else {
-                    buttonLabel = `Switch to ${plan.name}`;
-                    buttonVariant = "outline";
                   }
 
                   return (
@@ -648,29 +646,30 @@ export function MembershipPage() {
                           ))}
                         </div>
 
-                        <Button
-                          onClick={() => handlePlanClick(plan)}
-                          variant={buttonVariant}
-                          className="w-full mt-4 font-semibold rounded-xl"
-                          disabled={isCurrent}
-                        >
-                          {isCurrent ? (
-                            <>
-                              <Check className="mr-2 h-4 w-4 text-emerald-600" />
-                              Current Plan
-                            </>
-                          ) : targetRank > currentRank ? (
-                            <>
-                              <Zap className="mr-2 h-4 w-4" />
-                              {buttonLabel}
-                            </>
-                          ) : (
-                            <>
-                              <ArrowRight className="mr-2 h-4 w-4" />
-                              {buttonLabel}
-                            </>
-                          )}
-                        </Button>
+                        {isLowerTier ? (
+                          <div className="w-full mt-4 h-10 flex items-center justify-center rounded-xl bg-muted/40 border border-border/40 text-xs text-muted-foreground font-medium select-none">
+                            Included in higher tier
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handlePlanClick(plan)}
+                            variant={buttonVariant}
+                            className="w-full mt-4 font-semibold rounded-xl"
+                            disabled={isCurrent}
+                          >
+                            {isCurrent ? (
+                              <>
+                                <Check className="mr-2 h-4 w-4 text-emerald-600" />
+                                Current Plan
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="mr-2 h-4 w-4" />
+                                {buttonLabel}
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   );

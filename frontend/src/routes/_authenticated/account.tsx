@@ -25,7 +25,11 @@ import {
   Gift,
   Crown,
   LogOut,
+  Sparkles,
+  Building2,
+  BadgeIndianRupee,
 } from "lucide-react";
+import { useActiveRole } from "@/hooks/use-active-role";
 import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/account")({
@@ -110,13 +114,16 @@ function Account() {
         ? { icon: Clock, label: "Verification pending", tint: "text-ember" }
         : { icon: ShieldAlert, label: "Licence not verified", tint: "text-destructive" };
 
+  const { isHost, isDriver, isCleaner, isWashCenter, isAdmin } = useActiveRole();
+  const hasPartnerRole = isHost || isDriver || isCleaner || isWashCenter || isAdmin;
+
   const quick = [
     { to: "/bookings", icon: CalendarDays, label: "My trips", tint: "text-brand" },
     { to: "/wallet", icon: WalletIcon, label: "Wallet", tint: "text-emerald" },
     { to: "/wishlist", icon: Heart, label: "Saved", tint: "text-violet" },
     { to: "/hires", icon: UserRound, label: "My drivers", tint: "text-cyan" },
     { to: "/washes", icon: Droplets, label: "My washes", tint: "text-cyan" },
-    { to: "/scan", icon: ScanLine, label: "Scan QR", tint: "text-ember" },
+    ...(isHost ? [{ to: "/scan", icon: ScanLine, label: "Scan QR", tint: "text-ember" }] : []),
   ];
 
   const shortcuts = [
@@ -126,18 +133,66 @@ function Account() {
       label: "Profile & documents",
       body: "Update details, upload licence",
     },
-    {
-      to: "/vendor",
-      icon: LayoutDashboard,
-      label: "Host dashboard",
-      body: "Listings, earnings, calendar",
-    },
-    {
-      to: "/driver-dashboard",
-      icon: Steering,
-      label: "Driver dashboard",
-      body: "Hires, payouts, availability",
-    },
+    ...(isHost
+      ? [
+          {
+            to: "/vendor",
+            icon: LayoutDashboard,
+            label: "Host dashboard",
+            body: "Listings, earnings, calendar",
+          },
+        ]
+      : []),
+    ...(isDriver
+      ? [
+          {
+            to: "/driver-dashboard",
+            icon: Steering,
+            label: "Driver dashboard",
+            body: "Hires, payouts, availability",
+          },
+        ]
+      : []),
+    ...(isCleaner
+      ? [
+          {
+            to: "/cleaner-dashboard",
+            icon: Sparkles,
+            label: "Cleaner dashboard",
+            body: "Available & active wash jobs",
+          },
+        ]
+      : []),
+    ...(isWashCenter
+      ? [
+          {
+            to: "/wash-center-dashboard",
+            icon: Building2,
+            label: "Wash center",
+            body: "Bays, staff, package management",
+          },
+        ]
+      : []),
+    ...(isAdmin
+      ? [
+          {
+            to: "/admin",
+            icon: ShieldCheck,
+            label: "Super Admin",
+            body: "Verifications, bookings & platform settings",
+          },
+        ]
+      : []),
+    ...(!hasPartnerRole
+      ? [
+          {
+            to: "/earn",
+            icon: BadgeIndianRupee,
+            label: "Earn with us",
+            body: "Become a host, driver or cleaner partner",
+          },
+        ]
+      : []),
   ];
 
   return (

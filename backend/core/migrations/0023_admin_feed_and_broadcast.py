@@ -11,7 +11,7 @@ The browser used to pick recipients itself and stopped at the first 100.
 from django.db import migrations
 
 SQL = r"""
-CREATE VIEW public.admin_bookings_feed WITH (security_invoker = true) AS
+CREATE OR REPLACE VIEW public.admin_bookings_feed WITH (security_invoker = true) AS
 SELECT b.id, 'rental'::text AS kind, COALESCE(v.title, 'Self-drive Vehicle') AS title,
        b.customer_id, b.total_price AS amount, b.status::text AS status, b.created_at,
        b.start_date::text || ' → ' || b.end_date::text AS scheduled_time
@@ -30,7 +30,7 @@ SELECT p.id, 'pooling', 'Carpool: ' || p.origin_label || ' → ' || p.dest_label
   FROM public.pool_trips p;
 GRANT SELECT ON public.admin_bookings_feed TO authenticated;
 
-CREATE FUNCTION public.admin_broadcast(_title text, _body text, _audience text) RETURNS integer
+CREATE OR REPLACE FUNCTION public.admin_broadcast(_title text, _body text, _audience text) RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$

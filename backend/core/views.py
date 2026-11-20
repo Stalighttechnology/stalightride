@@ -28,9 +28,9 @@ def pg_error(exc):
 
 def guarded(fn):
     """Run fn(); map query and database errors to HTTP 400-style responses."""
-    with connection.cursor() as c:
-        c.execute("SET LOCAL statement_timeout = '10s'")
     try:
+        with connection.cursor() as c:
+            c.execute("SET LOCAL statement_timeout = '10s'")
         return Response(fn())
     except QueryError as e:
         return Response(e.body, status=e.status)
