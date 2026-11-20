@@ -400,6 +400,8 @@ const EARNING_KINDS = [
   "driver_earning",
   "driver_refund_reversal",
   "wash_earning",
+  "platform_fee",
+  "commission_earning",
 ];
 
 export function createBackend(
@@ -518,18 +520,26 @@ export function createBackend(
   const isProvider = (user: string) =>
     hosts.has(user) || drivers.has(user) || cleaners.has(user) || washCenters.has(user);
 
-  /** Earnings and deposit are released when a paid booking completes (tg_money_settle_*). */
+  /** Earnings, deposit and platform service fees are released when a paid booking completes (tg_money_settle_*). */
   const settleRental = (b: Booking) => {
     if (b.payment_status !== "paid" || b.earning_credited_at) return;
     if (b.vendor_id !== b.customer_id && b.provider_earning > 0)
       wallet.apply(b.vendor_id, b.provider_earning, "booking_earning");
     if (b.security_deposit > 0) wallet.apply(b.customer_id, b.security_deposit, "refund");
+    const admin = [...admins][0];
+    if (admin && Number(b.service_fee) > 0) {
+      wallet.apply(admin, b.service_fee, "platform_fee");
+    }
     b.earning_credited_at = clock.now.toISOString();
   };
   const settleDriver = (b: DriverBooking) => {
     if (b.payment_status !== "paid" || b.earning_credited_at) return;
     if (b.driver_id !== b.customer_id && b.provider_earning > 0)
       wallet.apply(b.driver_id, b.provider_earning, "driver_earning");
+    const admin = [...admins][0];
+    if (admin && Number(b.service_fee) > 0) {
+      wallet.apply(admin, b.service_fee, "platform_fee");
+    }
     b.earning_credited_at = clock.now.toISOString();
   };
 
@@ -1595,6 +1605,10 @@ export function createBackend(
           (washCenters.has(w.assigned_vendor_id ?? "") ? w.assigned_vendor_id : null);
         if (payee && payee !== w.customer_id && w.provider_earning > 0)
           wallet.apply(payee, w.provider_earning, "wash_earning");
+        const admin = [...admins][0];
+        if (admin && Number(w.service_fee) > 0) {
+          wallet.apply(admin, w.service_fee, "platform_fee");
+        }
         w.earning_credited_at = clock.now.toISOString();
       }
       notify(w.customer_id, `Wash status updated to ${nextStatus}`);

@@ -56,7 +56,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import synchooMark from "@/assets/synchoo-mark.png";
 
-type Item = { to: string; label: string; icon: any };
+type Item = { to: string; label: string; icon: any; search?: Record<string, any> };
 
 // Customer / Normal User Navigation Items
 const customerBookItems: Item[] = [
@@ -98,6 +98,7 @@ const helpItems: Item[] = [
 // Host / Vendor Navigation Items
 const hostFleetItems: Item[] = [
   { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
+  { to: "/bookings", label: "Host trips", icon: CalendarDays, search: { tab: "vendor" } },
   { to: "/vendor/vehicles/new", label: "Add vehicle", icon: Plus },
   { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];
@@ -164,10 +165,12 @@ export function AppSidebar() {
   const collapsed = state === "collapsed" && !isMobile;
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
-  const isActive = (to: string) =>
-    to === "/" || to === "/wash" || to === "/vendor" || to === "/admin"
-      ? pathname === to
-      : pathname.startsWith(to);
+  const isActive = (to: string) => {
+    const basePath = to.split("?")[0];
+    return basePath === "/" || basePath === "/wash" || basePath === "/vendor" || basePath === "/admin"
+      ? pathname === basePath
+      : pathname.startsWith(basePath);
+  };
 
   const isHistoryActive = customerHistoryItems.some((item) => isActive(item.to));
   const [historyOpen, setHistoryOpen] = useState(isHistoryActive);
@@ -199,9 +202,14 @@ export function AppSidebar() {
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.to}>
+            <SidebarMenuItem key={item.to + (item.search ? JSON.stringify(item.search) : "")}>
               <SidebarMenuButton asChild isActive={isActive(item.to)} tooltip={item.label}>
-                <Link to={item.to as any} onClick={close} className="flex items-center gap-2">
+                <Link
+                  to={item.to as any}
+                  search={item.search as any}
+                  onClick={close}
+                  className="flex items-center gap-2"
+                >
                   <item.icon className="h-4 w-4 shrink-0" />
                   {!collapsed && <span>{item.label}</span>}
                 </Link>

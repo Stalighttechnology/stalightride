@@ -1,6 +1,6 @@
 import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -30,6 +30,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/driver-dashboard")({
   component: DriverDashboard,
@@ -76,6 +77,7 @@ const emptyDriver = {
 
 function DriverDashboard() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [driver, setDriver] = useState<any>(null);
   const [form, setForm] = useState<any>(emptyDriver);
   const [hires, setHires] = useState<any[] | null>(null);
@@ -83,6 +85,36 @@ function DriverDashboard() {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
+
+  const routerLocation = useRouterState({ select: (s) => s.location });
+  const driverTabs = ["upcoming", "history", "ratings"] as const;
+  type DriverTab = (typeof driverTabs)[number];
+
+  const [activeTab, setActiveTab] = useState<DriverTab>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as DriverTab;
+      if (t && driverTabs.includes(t)) return t;
+    }
+    return "upcoming";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as DriverTab;
+      if (t && driverTabs.includes(t)) setActiveTab(t);
+    }
+  }, [routerLocation.search]);
+
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail as DriverTab;
+      if (tab && driverTabs.includes(tab)) setActiveTab(tab);
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
   const [replyText, setReplyText] = useState("");
   const [savingReply, setSavingReply] = useState(false);
 
@@ -255,14 +287,16 @@ function DriverDashboard() {
 
   const cancelHire = async (h: any) => {
     const paid = h.payment_status === "paid";
-    if (
-      !window.confirm(
-        paid
-          ? `Cancel this hire? The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
-          : "Cancel this hire?",
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Cancel this hire?",
+      description: paid
+        ? `The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
+        : "Are you sure you want to cancel this hire assignment?",
+      confirmText: "Cancel hire",
+      cancelText: "Keep hire",
+      variant: "destructive",
+    });
+    if (!ok) return;
     const { data, error } = await api.rpc("cancel_driver_booking", { _driver_booking_id: h.id });
     if (error) return toast.error(error.message);
     const refund = Number((data as { refund?: number } | null)?.refund ?? 0);
@@ -294,7 +328,14 @@ function DriverDashboard() {
           h.payment_status === "partially_refunded" ||
           h.status === "completed"),
     )
-    .reduce((s, h) => s + Number(h.provider_earning ?? h.total_price), 0);
+    .reduce((s, h) => {
+      const net = h.provider_earning != null
+        ? Number(h.provider_earning)
+        : h.base_price != null
+          ? Number(h.base_price) * 0.882
+          : Math.max(0, Number(h.total_price ?? 0) - Number(h.service_fee ?? 0));
+      return s + (isNaN(net) ? 0 : net);
+    }, 0);
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -622,7 +663,18 @@ function DriverDashboard() {
           <h2 className="font-display text-xl font-semibold">Hire requests</h2>
           {!hires && <Skeleton className="mt-4 h-32 rounded-2xl" />}
           {hires !== null && (
-            <Tabs defaultValue="upcoming" className="mt-4">
+            <Tabs
+              value={activeTab}
+              onValueChange={(val: any) => {
+                setActiveTab(val);
+                if (typeof window !== "undefined") {
+                  const u = new URL(window.location.href);
+                  u.searchParams.set("tab", val);
+                  window.history.replaceState({}, "", u.toString());
+                }
+              }}
+              className="mt-4"
+            >
               <TabsList>
                 <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
@@ -641,10 +693,11 @@ function DriverDashboard() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">
-                                {currency(h.total_price)} ·{" "}
+                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
                                 {h.rate_type === "hourly"
                                   ? `${h.hours} hour(s)`
                                   : `${h.days} day(s)`}
+                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
                               </p>
                               {h.trip_type && (
                                 <Badge
@@ -707,7 +760,10 @@ function DriverDashboard() {
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="font-medium">{currency(h.total_price)}</p>
+                              <p className="font-medium">
+                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))}
+                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
+                              </p>
                               {h.trip_type && (
                                 <Badge
                                   variant="secondary"
@@ -851,10 +907,11 @@ function DriverDashboard() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">
-                                {currency(h.total_price)} ·{" "}
+                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
                                 {h.rate_type === "hourly"
                                   ? `${h.hours} hour(s)`
                                   : `${h.days} day(s)`}
+                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
                               </p>
                               {h.trip_type && (
                                 <Badge

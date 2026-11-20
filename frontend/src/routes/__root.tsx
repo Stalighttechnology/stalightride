@@ -10,6 +10,7 @@ import {
 import { useEffect } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmDialogProvider } from "@/components/confirm-dialog";
 import { api } from "@/lib/api";
 import { landingPathForUser } from "@/lib/post-login";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
@@ -146,18 +147,20 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <HeadContent />
-      <SidebarProvider defaultOpenMobile={isHome}>
-        <div className="flex min-h-screen w-full">
-          <AppSidebar />
-          <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
-            <div className="flex-1">
-              <Outlet />
-            </div>
-            <SiteFooter />
-          </SidebarInset>
-        </div>
-        <MobileBottomNav />
-      </SidebarProvider>
+      <ConfirmDialogProvider>
+        <SidebarProvider defaultOpenMobile={isHome}>
+          <div className="flex min-h-screen w-full">
+            <AppSidebar />
+            <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
+              <div className="flex-1">
+                <Outlet />
+              </div>
+              <SiteFooter />
+            </SidebarInset>
+          </div>
+          <MobileBottomNav />
+        </SidebarProvider>
+      </ConfirmDialogProvider>
       <Toaster />
     </QueryClientProvider>
   );

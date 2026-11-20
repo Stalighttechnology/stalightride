@@ -175,6 +175,23 @@ describe("earnings are released on completion", () => {
     expect(be.wallet.txns(host).filter((t) => t.kind === "booking_earning")).toHaveLength(1);
   });
 
+  test("service fee is routed to admin wallet on booking completion", () => {
+    const { be, host, customer, admin, b } = paidRental();
+    be.setNow("2026-08-20T10:00:00Z");
+    be.checkIn(customer, b.id, 80);
+    be.checkOut(customer, b.id, 70);
+
+    // Host receives only provider_earning
+    const hostTxns = be.wallet.txns(host).filter((t) => t.kind === "booking_earning");
+    expect(hostTxns).toHaveLength(1);
+    expect(hostTxns[0].amount).toBe(b.provider_earning);
+
+    // Admin wallet receives the platform service fee
+    const adminTxns = be.wallet.txns(admin).filter((t) => t.kind === "platform_fee");
+    expect(adminTxns).toHaveLength(1);
+    expect(adminTxns[0].amount).toBe(b.service_fee);
+  });
+
   test("driver earnings release when the driver completes the hire", () => {
     const { be, admin, customer } = setup();
     const d = be.enrollDriver(200, 1500);

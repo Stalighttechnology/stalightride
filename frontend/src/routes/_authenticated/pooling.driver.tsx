@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/confirm-dialog";
 import {
   Users,
   CalendarClock,
@@ -73,6 +74,7 @@ function whenLabel(iso: string) {
 
 function PoolDriver() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [trips, setTrips] = useState<any[] | null>(null);
   const [requests, setRequests] = useState<Record<string, any[]>>({});
   const [profiles, setProfiles] = useState<Record<string, any>>({});
@@ -175,11 +177,16 @@ function PoolDriver() {
   };
 
   const setTripStatus = async (trip: any, status: "started" | "completed" | "cancelled") => {
-    if (
-      status === "cancelled" &&
-      !window.confirm("Cancel this pooling trip? Accepted riders will be notified.")
-    )
-      return;
+    if (status === "cancelled") {
+      const ok = await confirm({
+        title: "Cancel this pooling trip?",
+        description: "Accepted riders will be notified and any pending bookings will be cancelled.",
+        confirmText: "Cancel trip",
+        cancelText: "Keep trip",
+        variant: "destructive",
+      });
+      if (!ok) return;
+    }
     setBusy(trip.id);
     const { error } = await api
       .from("pool_trips")

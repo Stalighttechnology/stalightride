@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -90,6 +90,37 @@ function CleanerDashboard() {
   const [assignedJobs, setAssignedJobs] = useState<any[]>([]);
   const [availableRequests, setAvailableRequests] = useState<any[]>([]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+
+  const routerLocation = useRouterState({ select: (s) => s.location });
+
+  const cleanerTabs = ["jobs", "available", "schedule", "earnings", "profile"] as const;
+  type CleanerTab = (typeof cleanerTabs)[number];
+
+  const [activeTab, setActiveTab] = useState<CleanerTab>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as CleanerTab;
+      if (t && cleanerTabs.includes(t)) return t;
+    }
+    return "jobs";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as CleanerTab;
+      if (t && cleanerTabs.includes(t)) setActiveTab(t);
+    }
+  }, [routerLocation.search]);
+
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail as CleanerTab;
+      if (tab && cleanerTabs.includes(tab)) setActiveTab(tab);
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -683,7 +714,18 @@ function CleanerDashboard() {
         </div>
 
         {/* Dashboard Tabs */}
-        <Tabs defaultValue="jobs" className="space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val: any) => {
+            setActiveTab(val);
+            if (typeof window !== "undefined") {
+              const u = new URL(window.location.href);
+              u.searchParams.set("tab", val);
+              window.history.replaceState({}, "", u.toString());
+            }
+          }}
+          className="space-y-4"
+        >
           <TabsList className="bg-muted p-1">
             <TabsTrigger value="jobs">Assigned & Active Jobs ({inProgressJobs.length})</TabsTrigger>
             <TabsTrigger value="available">

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ListPager, usePage } from "@/components/list-pager";
@@ -34,6 +34,33 @@ export const Route = createFileRoute("/_authenticated/admin")({ component: Admin
 function AdminPage() {
   const { user } = useSession();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  const routerLocation = useRouterState({ select: (s) => s.location });
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab");
+      if (t) return t;
+    }
+    return "vehicles";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab");
+      if (t) setActiveTab(t);
+    }
+  }, [routerLocation.search]);
+
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -76,7 +103,18 @@ function AdminPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="vehicles" className="space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val: string) => {
+            setActiveTab(val);
+            if (typeof window !== "undefined") {
+              const u = new URL(window.location.href);
+              u.searchParams.set("tab", val);
+              window.history.replaceState({}, "", u.toString());
+            }
+          }}
+          className="space-y-4"
+        >
           <TabsList className="flex w-full items-center justify-start gap-1 p-1.5 rounded-xl h-auto bg-muted overflow-x-auto no-scrollbar">
             {/* Verification Queues */}
             <TabsTrigger value="vehicles" className="text-xs px-2.5 py-1.5">

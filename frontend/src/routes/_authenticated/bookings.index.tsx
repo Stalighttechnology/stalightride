@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { ListPager, usePage } from "@/components/list-pager";
@@ -13,6 +13,7 @@ import { refundFraction, round2 } from "@/lib/charges";
 import { getHandoverGate, formatWhen } from "@/lib/trip-window";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSession } from "@/hooks/use-session";
+import { useActiveRole } from "@/hooks/use-active-role";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import {
@@ -32,11 +33,14 @@ import {
 } from "lucide-react";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export const Route = createFileRoute("/_authenticated/bookings/")({ component: Bookings });
 
 function Bookings() {
   const { user } = useSession();
+  const { activeRole } = useActiveRole();
+  const confirm = useConfirm();
   const [asCustomer, setAsCustomer] = useState<any[] | null>(null);
   const [asVendor, setAsVendor] = useState<any[] | null>(null);
   const customerPager = usePage(10);
@@ -44,6 +48,39 @@ function Bookings() {
   const [paying, setPaying] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
+
+  const routerLocation = useRouterState({ select: (s) => s.location });
+  const [activeTab, setActiveTab] = useState<"customer" | "vendor">(() => {
+    if (activeRole === "host") return "vendor";
+    if (activeRole !== "admin") return "customer";
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab");
+      if (t === "customer" || t === "vendor") return t;
+    }
+    return "customer";
+  });
+
+  useEffect(() => {
+    if (activeRole === "host") {
+      setActiveTab("vendor");
+    } else if (activeRole !== "admin") {
+      setActiveTab("customer");
+    } else if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab");
+      if (t === "customer" || t === "vendor") setActiveTab(t);
+    }
+  }, [routerLocation.search, activeRole]);
+
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail;
+      if (tab === "customer" || tab === "vendor") setActiveTab(tab);
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
   const createOrder = createRazorpayOrder;
   const verifyPayment = verifyRazorpayPayment;
 
@@ -81,7 +118,7 @@ function Bookings() {
   const cancel = async (b: any) => {
     // Preview mirrors public.cancel_booking; the database computes the real refund.
     const byHost = b.vendor_id === user?.id;
-    let message = "Cancel this booking?";
+    let description = "Are you sure you want to cancel this booking request?";
     if (b.payment_status === "paid") {
       const startsAt = new Date(
         `${b.start_date}T${(b.pickup_time ?? "10:00").slice(0, 5)}:00+05:30`,
@@ -93,11 +130,18 @@ function Bookings() {
       );
       const deposit = Number(b.security_deposit ?? 0);
       const refund = round2(deposit + (Number(b.total_price) - deposit) * pct);
-      message = byHost
-        ? `Cancel this booking? The rider gets a full refund of ${currency(Number(b.total_price))}.`
-        : `Cancel this booking? You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
+      description = byHost
+        ? `The rider gets a full refund of ${currency(Number(b.total_price))}.`
+        : `You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
     }
-    if (!window.confirm(message)) return;
+    const ok = await confirm({
+      title: "Cancel this booking?",
+      description,
+      confirmText: "Cancel booking",
+      cancelText: "Keep booking",
+      variant: "destructive",
+    });
+    if (!ok) return;
     const { data, error } = await api.rpc("cancel_booking", { _booking_id: b.id });
     if (error) return toast.error(error.message);
     const refund = Number((data as any)?.refund ?? 0);
@@ -195,10 +239,12 @@ function Bookings() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="rise">
             <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Your trips
+              {activeRole === "host" ? "Host trips & handovers" : "Your trips"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Track requests, pay securely and manage handovers.
+              {activeRole === "host"
+                ? "Track reservations on your vehicles, verify check-ins, and manage handovers."
+                : "Track requests, pay securely and manage handovers."}
             </p>
           </div>
           <Link
@@ -209,15 +255,28 @@ function Bookings() {
             {walletBalance === null ? "…" : currency(walletBalance)}
           </Link>
         </div>
-        <Tabs defaultValue="customer" className="mt-7">
-          <TabsList className="rounded-full">
-            <TabsTrigger value="customer" className="rounded-full">
-              As renter
-            </TabsTrigger>
-            <TabsTrigger value="vendor" className="rounded-full">
-              As host
-            </TabsTrigger>
-          </TabsList>
+        <Tabs
+          value={activeTab}
+          onValueChange={(val: any) => {
+            setActiveTab(val);
+            if (typeof window !== "undefined") {
+              const u = new URL(window.location.href);
+              u.searchParams.set("tab", val);
+              window.history.replaceState({}, "", u.toString());
+            }
+          }}
+          className="mt-7"
+        >
+          {activeRole === "admin" && (
+            <TabsList className="rounded-full">
+              <TabsTrigger value="customer" className="rounded-full">
+                As renter
+              </TabsTrigger>
+              <TabsTrigger value="vendor" className="rounded-full">
+                As host
+              </TabsTrigger>
+            </TabsList>
+          )}
           <TabsContent value="customer" className="mt-5">
             <List
               items={asCustomer}
@@ -632,12 +691,26 @@ function List({
                           </span>
                         );
                       return (
-                        <Button asChild size="sm" variant="outline" className="rounded-full">
-                          <Link to="/bookings/$id/trip" params={{ id: b.id }}>
-                            <ClipboardCheck className="mr-1.5 h-4 w-4" />
-                            {label}
-                          </Link>
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button asChild size="sm" variant="outline" className="rounded-full">
+                            <Link to="/bookings/$id/trip" params={{ id: b.id }}>
+                              <ClipboardCheck className="mr-1.5 h-4 w-4" />
+                              {label}
+                            </Link>
+                          </Button>
+                          {onTrip && (
+                            <Button asChild size="sm" className="btn-gradient rounded-full">
+                              <Link
+                                to="/bookings/$id/trip"
+                                params={{ id: b.id }}
+                                search={{ action: "return" } as any}
+                              >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                {role === "customer" ? "End ride early" : "Complete trip"}
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
                       );
                     })()}
                     {role === "vendor" &&
