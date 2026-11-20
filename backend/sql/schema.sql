@@ -2809,7 +2809,7 @@ BEGIN
 
   IF TG_OP = 'INSERT' THEN
     PERFORM public.notify_user(NEW.vendor_id, 'New booking request',
-      COALESCE(v_title,'Your vehicle') || ' · ' || NEW.start_date || ' → ' || NEW.end_date, '/vendor');
+      COALESCE(v_title,'Your vehicle') || ' · ' || NEW.start_date || ' → ' || NEW.end_date, '/vendor?tab=bookings');
     PERFORM public.notify_user(NEW.customer_id, 'Booking requested',
       'Waiting for the host to accept ' || COALESCE(v_title,'the vehicle') || '.', '/bookings');
     RETURN NEW;
@@ -2825,17 +2825,17 @@ BEGIN
     ELSIF NEW.status = 'cancelled' THEN
       IF COALESCE(NEW.cancellation_reason, '') NOT IN ('host_no_response', 'payment_timeout') THEN
         PERFORM public.notify_user(NEW.customer_id, 'Booking cancelled', 'Your trip was cancelled.', '/bookings');
-        PERFORM public.notify_user(NEW.vendor_id, 'Booking cancelled', 'A trip on ' || COALESCE(v_title,'your vehicle') || ' was cancelled.', '/vendor');
+        PERFORM public.notify_user(NEW.vendor_id, 'Booking cancelled', 'A trip on ' || COALESCE(v_title,'your vehicle') || ' was cancelled.', '/vendor?tab=bookings');
       END IF;
     ELSIF NEW.status = 'completed' THEN
       PERFORM public.notify_user(NEW.customer_id, 'Trip completed', 'Rate your ride and view your invoice.', '/bookings');
-      PERFORM public.notify_user(NEW.vendor_id, 'Trip completed', COALESCE(v_title,'Your vehicle') || ' is back. Earnings updated.', '/vendor');
+      PERFORM public.notify_user(NEW.vendor_id, 'Trip completed', COALESCE(v_title,'Your vehicle') || ' is back. Earnings updated.', '/vendor?tab=bookings');
     END IF;
   END IF;
 
   IF NEW.payment_status = 'paid' AND OLD.payment_status IS DISTINCT FROM 'paid' THEN
     PERFORM public.notify_user(NEW.vendor_id, 'Payment received',
-      'Payment of Rs ' || NEW.total_price || ' received for ' || COALESCE(v_title,'your vehicle') || '.', '/vendor');
+      'Payment of Rs ' || NEW.total_price || ' received for ' || COALESCE(v_title,'your vehicle') || '.', '/vendor?tab=payouts');
     PERFORM public.notify_user(NEW.customer_id, 'Payment successful',
       'Your booking is confirmed. Show your QR at pickup.', '/bookings');
   END IF;

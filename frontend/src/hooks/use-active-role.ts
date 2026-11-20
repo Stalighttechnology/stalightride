@@ -141,7 +141,6 @@ export function useActiveRole() {
       sessionStorage.setItem("synchoo_active_role", activeRole);
     }
   }, [activeRole]);
-
   const isDriver = driverStatus === "approved";
   const isCleaner = cleanerStatus === "approved";
   const isWashCenter = washCenterStatus === "approved";

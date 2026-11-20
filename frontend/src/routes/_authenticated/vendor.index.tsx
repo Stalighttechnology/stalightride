@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
@@ -96,6 +96,9 @@ const SAMPLE_BOOKINGS = [
     vehicles: { title: "Mahindra Thar 4x4 Petrol AT" },
     start_date: "14 Nov 2026",
     end_date: "16 Nov 2026",
+    base_price: 5500,
+    service_fee: 500,
+    provider_earning: 4851,
     total_price: 6500,
     payment_status: "unpaid",
     status: "pending",
@@ -105,6 +108,9 @@ const SAMPLE_BOOKINGS = [
     vehicles: { title: "Hyundai Creta SX(O) AT" },
     start_date: "Today, 10:00 AM",
     end_date: "10 Nov 2026, 08:00 PM",
+    base_price: 7000,
+    service_fee: 700,
+    provider_earning: 6174,
     total_price: 8400,
     payment_status: "paid",
     status: "confirmed",
@@ -114,6 +120,9 @@ const SAMPLE_BOOKINGS = [
     vehicles: { title: "Tata Nexon EV Max" },
     start_date: "04 Nov 2026",
     end_date: "05 Nov 2026",
+    base_price: 1800,
+    service_fee: 180,
+    provider_earning: 1587,
     total_price: 2200,
     payment_status: "paid",
     status: "completed",
@@ -123,6 +132,9 @@ const SAMPLE_BOOKINGS = [
     vehicles: { title: "Mahindra Thar 4x4" },
     start_date: "01 Nov 2026",
     end_date: "03 Nov 2026",
+    base_price: 5800,
+    service_fee: 580,
+    provider_earning: 5115,
     total_price: 7000,
     payment_status: "paid",
     status: "completed",
@@ -192,10 +204,65 @@ function VendorDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [demoVehicles, setDemoVehicles] = useState<any[]>(SAMPLE_VEHICLES);
 
+  const routerLocation = useRouterState({ select: (s) => s.location });
+
+  const validTabs = [
+    "fleet",
+    "calendar",
+    "analytics",
+    "bookings",
+    "payouts",
+    "maintenance",
+    "reviews",
+    "kyc",
+  ] as const;
+  type HostTab = (typeof validTabs)[number];
+
+  const getInitialTab = (): HostTab => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as HostTab;
+      if (t && validTabs.includes(t)) {
+        return t;
+      }
+    }
+    return "fleet";
+  };
+
   // Dedicated Host Dashboard Sidebar Tab State
-  const [activeTab, setActiveTab] = useState<
-    "fleet" | "calendar" | "analytics" | "bookings" | "payouts" | "maintenance" | "reviews" | "kyc"
-  >("fleet");
+  const [activeTab, setActiveTab] = useState<HostTab>(getInitialTab);
+
+  // Sync tab with URL search parameter changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      const t = p.get("tab") as HostTab;
+      if (t && validTabs.includes(t)) {
+        setActiveTab(t);
+      }
+    }
+  }, [routerLocation.search]);
+
+  // Listen for direct tab switch events (e.g. from notification clicks while already on /vendor)
+  useEffect(() => {
+    const onTabChange = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail as HostTab;
+      if (tab && validTabs.includes(tab)) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener("synchoo:tab-change", onTabChange);
+    return () => window.removeEventListener("synchoo:tab-change", onTabChange);
+  }, []);
+
+  const handleTabClick = (tabId: HostTab) => {
+    setActiveTab(tabId);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tabId);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   const load = async () => {
     if (!user) return;
@@ -440,10 +507,17 @@ function VendorDashboard() {
   const displayPayouts = payouts ?? [];
   const displayReviews = vendorReviews ?? [];
 
-  // Net of commission; excludes customer fees and deposits.
+  // Net host earnings: strictly provider_earning (excludes platform service fee, GST, and security deposits).
   const earnings = displayBookings
     .filter((b: any) => b.payment_status === "paid" || b.payment_status === "partially_refunded")
-    .reduce((s: number, b: any) => s + Number(b.provider_earning ?? b.total_price ?? 0), 0);
+    .reduce((s: number, b: any) => {
+      const net = b.provider_earning != null
+        ? Number(b.provider_earning)
+        : b.base_price != null
+          ? Number(b.base_price) * 0.882
+          : Math.max(0, Number(b.total_price ?? 0) - Number(b.service_fee ?? 0) - Number(b.security_deposit ?? 0));
+      return s + (isNaN(net) ? 0 : net);
+    }, 0);
 
   const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
@@ -641,7 +715,7 @@ function VendorDashboard() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => handleTabClick(item.id)}
                       className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${
                         isActive
                           ? "bg-brand text-brand-foreground shadow-xs"
@@ -723,7 +797,7 @@ function VendorDashboard() {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => setActiveTab("bookings")}
+                      onClick={() => handleTabClick("bookings")}
                       className="bg-amber-600 hover:bg-amber-700 text-white shrink-0"
                     >
                       Review Requests
@@ -938,8 +1012,14 @@ function VendorDashboard() {
                               <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
                                 <div className="text-left sm:text-right">
                                   <p className="text-sm font-bold text-foreground">
-                                    {currency(b.total_price)}
+                                    {currency(b.provider_earning ?? (b.base_price ? Number(b.base_price) * 0.882 : b.total_price))}
+                                    <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
                                   </p>
+                                  {Number(b.service_fee) > 0 && (
+                                    <p className="text-[10px] text-muted-foreground">
+                                      Fee {currency(b.service_fee)} to Admin
+                                    </p>
+                                  )}
                                   <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                                     <Badge
                                       variant={

@@ -406,7 +406,7 @@ def confirm_handover(data, user_id):
         if not gate["canCheckout"]:
             raise FnError(gate["checkoutReason"] or "Check-out is not available yet.")
     patch = {f"{phase}_checked_at": _now()}
-    if phase == "return" and b.get("return_odometer") is not None:
+    if phase == "return":
         patch["status"] = "completed"
     with db_role("service_role"):
         _update("bookings", patch, [["id", "eq", b["id"]]])
@@ -463,13 +463,74 @@ def submit_inspection(data, user_id):
         f"{phase}_checked_at": b[f"{phase}_checked_at"] or _now(),
     }
     if phase == "return":
-        # Customer alone cannot close the trip; host return confirmation or inspection is required (GAP-11)
-        is_host_or_admin = (user_id == b["vendor_id"] or _is_admin(user_id))
-        if is_host_or_admin or bool(b["return_checked_at"]):
-            patch["status"] = "completed"
+        # Completing return inspection allows the ride to complete early or on schedule
+        patch["status"] = "completed"
     with db_role("service_role"):
         _update("bookings", patch, [["id", "eq", b["id"]]])
     return {"ok": True, "phase": phase}
+
+
+def complete_booking(data, user_id):
+    booking_id = _uuid(data, "bookingId")
+    b = _get("bookings", "id, status, payment_status, customer_id, vendor_id, pickup_checked_at, "
+                         "return_checked_at, pickup_odometer, return_odometer, pickup_fuel_pct, "
+                         "return_fuel_pct, security_deposit, provider_earning", "id", booking_id)
+    if not b:
+        raise FnError("Booking not found.")
+    if user_id not in (b["customer_id"], b["vendor_id"]) and not _is_admin(user_id):
+        raise FnError("You don't have access to this trip.")
+    if b["status"] == "completed":
+        return {"ok": True, "bookingId": b["id"], "status": "completed", "alreadyCompleted": True}
+    if b["status"] != "confirmed":
+        raise FnError("Only confirmed active bookings can be completed.")
+    if b["payment_status"] != "paid":
+        raise FnError("Only paid bookings can be completed.")
+
+    odo = data.get("odo")
+    fuel = data.get("fuel")
+    notes = data.get("notes")
+
+    now_str = _now()
+    patch = {
+        "status": "completed",
+        "return_checked_at": b["return_checked_at"] or now_str,
+    }
+    if not b["pickup_checked_at"]:
+        patch["pickup_checked_at"] = now_str
+
+    if odo is not None:
+        try:
+            odo_val = int(odo)
+            if 0 <= odo_val <= 3_000_000:
+                patch["return_odometer"] = odo_val
+                if b["pickup_odometer"] is None:
+                    patch["pickup_odometer"] = odo_val
+        except (ValueError, TypeError):
+            pass
+    elif b["return_odometer"] is None and b["pickup_odometer"] is not None:
+        patch["return_odometer"] = b["pickup_odometer"]
+
+    if fuel is not None:
+        try:
+            fuel_val = int(fuel)
+            if 0 <= fuel_val <= 100:
+                patch["return_fuel_pct"] = fuel_val
+                if b["pickup_fuel_pct"] is None:
+                    patch["pickup_fuel_pct"] = fuel_val
+        except (ValueError, TypeError):
+            pass
+    elif b["return_fuel_pct"] is None and b["pickup_fuel_pct"] is not None:
+        patch["return_fuel_pct"] = b["pickup_fuel_pct"]
+
+    if notes and isinstance(notes, str):
+        patch["return_notes"] = notes[:2000]
+
+    with db_role("service_role"):
+        _update("bookings", patch, [["id", "eq", b["id"]]])
+        _notify(b["customer_id"], "Trip completed", "Vehicle returned. Security deposit returned to your wallet.", f"/bookings/{b['id']}/trip")
+        _notify(b["vendor_id"], "Trip completed", "Vehicle returned. Your earnings have been credited to wallet.", "/vendor?tab=payouts")
+
+    return {"ok": True, "bookingId": b["id"], "status": "completed"}
 
 
 # -- membership subscriptions ----------------------------------------------------
@@ -989,6 +1050,7 @@ FUNCTIONS = {
     "resolveHandoverCode": resolve_handover_code,
     "confirmHandover": confirm_handover,
     "submitInspection": submit_inspection,
+    "completeBooking": complete_booking,
     "createMembershipOrder": create_membership_order,
     "subscribeMembership": subscribe_membership,
     "cancelMembership": cancel_membership,

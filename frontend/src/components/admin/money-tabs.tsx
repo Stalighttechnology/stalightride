@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useConfirm } from "@/components/confirm-dialog";
 
 /* ------------------------------------------------------------------ */
 /* Payouts                                                             */
@@ -388,6 +389,7 @@ export function PlatformSettingsForm() {
 /* Promo credit                                                        */
 /* ------------------------------------------------------------------ */
 export function GrantCreditForm() {
+  const confirm = useConfirm();
   const [form, setForm] = useState({ email: "", amount: "", note: "" });
   const [saving, setSaving] = useState(false);
 
@@ -396,7 +398,14 @@ export function GrantCreditForm() {
     if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return toast.error("Enter the user's email");
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000)
       return toast.error("Amount must be between 1 and 100000");
-    if (!window.confirm(`Credit ${currency(amount)} to ${form.email.trim()}?`)) return;
+    const ok = await confirm({
+      title: "Confirm Promo Credit",
+      description: `Credit ${currency(amount)} to ${form.email.trim()}?`,
+      confirmText: "Grant Credit",
+      cancelText: "Cancel",
+      variant: "default",
+    });
+    if (!ok) return;
     setSaving(true);
     const { error } = await api.rpc("admin_grant_credit", {
       _email: form.email.trim(),

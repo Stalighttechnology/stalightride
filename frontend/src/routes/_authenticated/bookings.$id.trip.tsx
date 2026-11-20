@@ -13,17 +13,21 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
-import { Upload, X, Fuel, Gauge, Camera, ShieldAlert, Radio } from "lucide-react";
+import { Upload, X, Fuel, Gauge, Camera, ShieldAlert, Radio, CheckCircle2 } from "lucide-react";
 import { getHandoverGate } from "@/lib/trip-window";
-import { submitInspection } from "@/lib/actions";
+import { submitInspection, completeBooking } from "@/lib/actions";
 import { LiveTracker } from "@/components/live-tracker";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { TripSafetyExtension } from "@/components/trip-safety-extension";
+import { useConfirm } from "@/components/confirm-dialog";
+import { currency } from "@/lib/format";
 import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
 
 export const Route = createFileRoute("/_authenticated/bookings/$id/trip")({
@@ -52,6 +56,12 @@ function TripInspection() {
   const [b, setB] = useState<any>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [saving, setSaving] = useState<Phase | null>(null);
+  const [endRideModalOpen, setEndRideModalOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("action") === "return";
+    }
+    return false;
+  });
   const saveInspection = submitInspection;
 
   const load = async () => {
@@ -114,11 +124,12 @@ function TripInspection() {
   const gate = getHandoverGate(b);
   // Checklist is "done" once readings exist; a QR scan alone only stamps the handover time.
   const pickupDone = b.pickup_odometer != null;
-  const returnDone = b.return_odometer != null;
+  const returnDone = b.return_odometer != null || b.status === "completed";
   const isPaid = (b.payment_status === "paid" || !!b.paid_at) && b.status === "confirmed";
+  const tripStarted = !!b.pickup_checked_at || pickupDone;
   const canCheckin = !pickupDone && (gate.canCheckin || !!b.pickup_checked_at || isPaid);
-  const canCheckout = pickupDone && !returnDone && (gate.canCheckout || !!b.return_checked_at);
-  const tripActive = !!b.pickup_checked_at && !b.return_checked_at && b.status === "confirmed";
+  const canCheckout = tripStarted && !returnDone && b.status === "confirmed";
+  const tripActive = tripStarted && !returnDone && b.status === "confirmed";
 
   return (
     <div className="min-h-screen bg-background">
@@ -141,6 +152,32 @@ function TripInspection() {
 
         <div className="grid gap-6">
           <TripSafetyExtension booking={b} role={role} onExtensionSubmitted={load} />
+
+          {tripActive && (
+            <Card className="border-emerald-500/30 bg-emerald-950/20">
+              <CardContent className="p-5 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm text-foreground">
+                      Ride is currently in progress
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Returning the vehicle early? You can finalize your trip now. Your host will be notified and your security deposit will be returned to your wallet immediately.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setEndRideModalOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" /> End ride early &amp; Complete trip
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {tripActive && (
             <Card>
@@ -255,12 +292,24 @@ function TripInspection() {
                         damage: payload.damage as any,
                       },
                     });
+                    try {
+                      await completeBooking({
+                        data: {
+                          bookingId: b.id,
+                          odo: payload.odo,
+                          fuel: payload.fuel,
+                          notes: payload.notes || undefined,
+                        },
+                      });
+                    } catch {
+                      // Handled by saveInspection or database trigger
+                    }
                   } catch (e: any) {
                     setSaving(null);
                     return toast.error(e?.message ?? "Could not record the return.");
                   }
                   setSaving(null);
-                  toast.success("Return recorded — trip completed");
+                  toast.success("Return recorded — trip completed successfully!");
                   load();
                 }}
               />
@@ -310,6 +359,13 @@ function TripInspection() {
               <span>Done</span>
             </Button>
           </div>
+
+          <EndRideModal
+            open={endRideModalOpen}
+            onOpenChange={setEndRideModalOpen}
+            booking={b}
+            onComplete={load}
+          />
         </div>
       </div>
     </div>
@@ -647,5 +703,147 @@ function ReadOnlySnapshot({
       )}
       {notes && <p className="whitespace-pre-line rounded-md bg-muted p-3 text-sm">{notes}</p>}
     </div>
+  );
+}
+
+function EndRideModal({
+  open,
+  onOpenChange,
+  booking,
+  onComplete,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  booking: any;
+  onComplete: () => void;
+}) {
+  const [odo, setOdo] = useState<string>("");
+  const [fuel, setFuel] = useState<number>(100);
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const confirm = useConfirm();
+
+  useEffect(() => {
+    if (booking?.pickup_odometer) {
+      setOdo(String(booking.pickup_odometer));
+    }
+    if (booking?.pickup_fuel_pct != null) {
+      setFuel(booking.pickup_fuel_pct);
+    }
+  }, [booking?.pickup_odometer, booking?.pickup_fuel_pct, open]);
+
+  const handleEndRide = async () => {
+    const odoNum = odo ? parseInt(odo, 10) : undefined;
+    if (odoNum !== undefined && booking?.pickup_odometer && odoNum < booking.pickup_odometer) {
+      return toast.error("Return odometer cannot be less than pickup odometer");
+    }
+
+    const ok = await confirm({
+      title: "End Ride Early & Complete Trip?",
+      description: `Are you sure you want to end this ride early and return the vehicle now?
+This will finalize the trip, credit host earnings, and return your security deposit (${currency(Number(booking?.security_deposit || 0))}) to your wallet.`,
+      confirmText: "End Ride & Complete",
+      cancelText: "Keep Riding",
+      variant: "destructive",
+    });
+    if (!ok) return;
+
+    setLoading(true);
+    try {
+      await completeBooking({
+        data: {
+          bookingId: booking.id,
+          odo: odoNum,
+          fuel,
+          notes: notes.trim() || undefined,
+        },
+      });
+      toast.success("Ride ended early — trip completed successfully!");
+      onOpenChange(false);
+      onComplete();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to end ride");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            End Ride Early &amp; Complete Trip
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Returning the vehicle before scheduled dropoff? Confirm your final vehicle readings to complete the trip now.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {booking?.pickup_odometer != null && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs">
+              <span className="text-muted-foreground">Pickup Odometer: </span>
+              <span className="font-semibold">{booking.pickup_odometer} km</span>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Return Odometer (km)</Label>
+            <Input
+              type="number"
+              placeholder={booking?.pickup_odometer ? String(booking.pickup_odometer) : "e.g. 15420"}
+              value={odo}
+              onChange={(e) => setOdo(e.target.value)}
+              className="h-9 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium">Return Fuel Level</Label>
+              <span className="text-xs font-semibold text-brand">{fuel}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={fuel}
+              onChange={(e) => setFuel(Number(e.target.value))}
+              className="w-full accent-brand"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Return Notes / Remarks (Optional)</Label>
+            <Textarea
+              placeholder="e.g. Parked in designated bay, handed keys to host"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="h-20 text-xs"
+            />
+          </div>
+
+          <div className="rounded-lg bg-emerald-500/10 p-3 text-xs text-emerald-600 dark:text-emerald-400">
+            ✓ Security deposit of {currency(Number(booking?.security_deposit || 0))} will be credited back to your wallet upon completion.
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEndRide}
+            disabled={loading}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {loading ? "Completing Trip…" : "Confirm & Complete Trip"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
