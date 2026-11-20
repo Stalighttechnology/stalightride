@@ -147,8 +147,20 @@ async function request(
 
 function toError(raw: Raw): ApiError {
   const b = raw.body ?? {};
+  let msg = b.message || `Request failed (${raw.status})`;
+  if (
+    typeof msg === "string" &&
+    (msg.trim().startsWith("<!DOCTYPE") ||
+      msg.trim().startsWith("<html") ||
+      msg.includes("<!DOCTYPE html>"))
+  ) {
+    const match = msg.match(/<title>(.*?)<\/title>/i);
+    msg = match
+      ? match[1].replace(/\s+/g, " ").trim()
+      : `Server temporary error (${raw.status}). Please try again.`;
+  }
   return {
-    message: b.message || `Request failed (${raw.status})`,
+    message: msg,
     code: b.code ?? null,
     details: b.details ?? null,
     hint: b.hint ?? null,

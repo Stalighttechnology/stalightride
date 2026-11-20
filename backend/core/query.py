@@ -234,7 +234,23 @@ class _Builder:
 
     def order(self, table, alias, order):
         parts = []
-        for col, ascending, nulls_first in order or []:
+        for entry in order or []:
+            if isinstance(entry, (list, tuple)):
+                if len(entry) == 2:
+                    col, ascending = entry
+                    nulls_first = None
+                elif len(entry) >= 3:
+                    col, ascending, nulls_first = entry[0], entry[1], entry[2]
+                elif len(entry) == 1:
+                    col = entry[0]
+                    ascending = True
+                    nulls_first = None
+                else:
+                    continue
+            else:
+                col = entry
+                ascending = True
+                nulls_first = None
             _column_type(table, col)
             frag = sql.SQL("{} {}").format(sql.Identifier(alias, col), sql.SQL("ASC" if ascending else "DESC"))
             if nulls_first is not None:
