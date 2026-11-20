@@ -328,7 +328,14 @@ function DriverDashboard() {
           h.payment_status === "partially_refunded" ||
           h.status === "completed"),
     )
-    .reduce((s, h) => s + Number(h.provider_earning ?? h.total_price), 0);
+    .reduce((s, h) => {
+      const net = h.provider_earning != null
+        ? Number(h.provider_earning)
+        : h.base_price != null
+          ? Number(h.base_price) * 0.882
+          : Math.max(0, Number(h.total_price ?? 0) - Number(h.service_fee ?? 0));
+      return s + (isNaN(net) ? 0 : net);
+    }, 0);
   const locked = vs === "pending";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -686,10 +693,11 @@ function DriverDashboard() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">
-                                {currency(h.total_price)} ·{" "}
+                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
                                 {h.rate_type === "hourly"
                                   ? `${h.hours} hour(s)`
                                   : `${h.days} day(s)`}
+                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
                               </p>
                               {h.trip_type && (
                                 <Badge
@@ -752,7 +760,10 @@ function DriverDashboard() {
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="font-medium">{currency(h.total_price)}</p>
+                              <p className="font-medium">
+                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))}
+                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
+                              </p>
                               {h.trip_type && (
                                 <Badge
                                   variant="secondary"
@@ -896,10 +907,11 @@ function DriverDashboard() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">
-                                {currency(h.total_price)} ·{" "}
+                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
                                 {h.rate_type === "hourly"
                                   ? `${h.hours} hour(s)`
                                   : `${h.days} day(s)`}
+                                <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
                               </p>
                               {h.trip_type && (
                                 <Badge

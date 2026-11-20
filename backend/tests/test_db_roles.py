@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0026_complete_booking_rpc")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0027_route_service_fee_to_admin")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -280,3 +280,44 @@ def test_revenue_aggregates_use_stored_commission():
         agg = q("SELECT public.admin_revenue_aggregates()")[0][0]
     agg = json.loads(agg) if isinstance(agg, str) else agg
     assert kept > 0 and float(agg["platform_revenue"]) == float(kept)
+
+
+def test_service_fee_routes_to_admin_wallet_on_settlement():
+    """Verify that when a rental booking completes, provider_earning goes to the host,
+    and service_fee routes directly to the platform admin wallet."""
+    admin = make_user("admin-fee@example.com")
+    host = make_user("host-fee@example.com")
+    customer = make_user("cust-fee@example.com")
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin') RETURNING user_id", [admin])
+    q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'vendor') RETURNING user_id", [host])
+    q("INSERT INTO public.vendors (id, business_name) VALUES (%s, 'Host Fleet') RETURNING id", [host])
+    q("UPDATE public.profiles SET dl_status = 'approved' WHERE id = %s RETURNING id", [customer])
+
+    vid = q("""INSERT INTO public.vehicles (vendor_id, title, city, category, brand, model, year, transmission, fuel, seats, price_daily, security_deposit)
+               VALUES (%s, 'Test Fee Vehicle', 'Bengaluru', 'car', 'Test', 'Fee', 2024, 'automatic', 'petrol', 5, 2000, 3000) RETURNING id""", [host])[0][0]
+
+    bid = q("""INSERT INTO public.bookings (
+                 customer_id, vendor_id, vehicle_id, start_date, end_date, pickup_time, dropoff_time,
+                 base_price, service_fee, gst_amount, commission_amount, commission_gst, provider_earning,
+                 security_deposit, total_price, status, payment_status
+               ) VALUES (
+                 %s, %s, %s, CURRENT_DATE + 5, CURRENT_DATE + 6, '10:00', '10:00',
+                 2000, 100, 18, 200, 36, 1764,
+                 3000, 5118, 'confirmed', 'paid'
+               ) RETURNING id""", [customer, host, vid])[0][0]
+
+    # Pay and complete the booking
+    q("UPDATE public.bookings SET payment_status = 'paid' WHERE id = %s RETURNING id", [bid])
+    q("UPDATE public.bookings SET status = 'completed' WHERE id = %s RETURNING id", [bid])
+
+    # Host receives only provider_earning
+    host_txns = q("SELECT kind, amount FROM public.wallet_transactions WHERE user_id = %s", [host])
+    assert len(host_txns) == 1
+    assert host_txns[0][0] == 'booking_earning'
+    assert float(host_txns[0][1]) == 1764.00
+
+    # Admin receives platform_fee (service fee)
+    admin_txns = q("SELECT kind, amount FROM public.wallet_transactions WHERE user_id = %s AND kind = 'platform_fee'", [admin])
+    assert len(admin_txns) >= 1
+    assert any(float(t[1]) == 100.00 for t in admin_txns)
+
