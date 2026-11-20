@@ -36,6 +36,7 @@ export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded
 export class RuleError extends Error {}
 
 const day = 86_400_000;
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
 /** Harness default: fees off, so legacy flow tests keep their round numbers. */
 export const ZERO_FEES: FeeSettings = {
@@ -62,6 +63,7 @@ export type Vehicle = {
   city?: string;
   avg_rating?: number;
   review_count?: number;
+  instant_book?: boolean;
 };
 
 export type Review = {
@@ -158,6 +160,12 @@ export type Booking = Money & {
   pay_reminded_at?: string | null;
   cancellation_reason?: string | null;
   cancelled_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type VendorAccountability = {
+  listings_paused_at: string | null;
+  listings_reactivated_at: string | null;
 };
 
 export function bookingDeadline(
@@ -464,6 +472,16 @@ export function createBackend(
   const poolRatings = new Map<string, PoolRating>();
   const userReports = new Map<string, UserReport>();
   const userRoles = new Map<string, Set<string>>();
+  const vendorStates = new Map<string, VendorAccountability>();
+
+  const getVendorState = (vendor_id: string): VendorAccountability => {
+    let s = vendorStates.get(vendor_id);
+    if (!s) {
+      s = { listings_paused_at: null, listings_reactivated_at: null };
+      vendorStates.set(vendor_id, s);
+    }
+    return s;
+  };
 
   const assignRole = (userId: string, role: string) => {
     let r = userRoles.get(userId);
@@ -587,6 +605,9 @@ export function createBackend(
 
   return {
     clock,
+    get now() {
+      return clock.now;
+    },
     setNow: (d: string | Date) => (clock.now = new Date(d)),
     wallet,
     notifications,
@@ -611,6 +632,7 @@ export function createBackend(
       cities,
       platformSettings,
       poolRatings,
+      vendorStates,
     },
 
     /* ---------- accounts ---------- */
@@ -674,6 +696,7 @@ export function createBackend(
       security_deposit = 2000,
       price_hourlyOrCity?: number | string,
       cityParam = "Bengaluru",
+      instant_book = false,
     ): Vehicle {
       const price_hourly = typeof price_hourlyOrCity === "number" ? price_hourlyOrCity : undefined;
       const city = typeof price_hourlyOrCity === "string" ? price_hourlyOrCity : cityParam;
@@ -689,9 +712,19 @@ export function createBackend(
         verification_status: "pending",
         avg_rating: 0,
         review_count: 0,
+        instant_book,
       };
       vehicles.set(v.id, v);
       hosts.add(vendor_id);
+      return v;
+    },
+    setVehicleInstantBook(actor: string, vehicle_id: string, instant_book: boolean) {
+      const v = vehicles.get(vehicle_id);
+      if (!v) throw new RuleError("Vehicle not found");
+      if (v.vendor_id !== actor && !admins.has(actor)) {
+        throw new RuleError("Only the vehicle host or admin can update this vehicle");
+      }
+      v.instant_book = instant_book;
       return v;
     },
     verifyVehicle(actor: string, vehicle_id: string, decision: "approved" | "rejected") {
@@ -730,13 +763,20 @@ export function createBackend(
           )
           .map((b) => b.vehicle_id),
       );
-      return [...vehicles.values()].filter(
-        (v) =>
-          v.status === "active" &&
-          v.verification_status === "approved" &&
-          !blocked.has(v.id) &&
-          (!city || v.city === city),
-      );
+      return [...vehicles.values()]
+        .filter(
+          (v) =>
+            v.status === "active" &&
+            v.verification_status === "approved" &&
+            !blocked.has(v.id) &&
+            (!city || v.city === city),
+        )
+        .sort((a, b) => {
+          if (!!b.instant_book !== !!a.instant_book) {
+            return b.instant_book ? 1 : -1;
+          }
+          return 0;
+        });
     },
 
     /* ---------- rental bookings ---------- */
@@ -812,7 +852,15 @@ export function createBackend(
       });
       if (rental.hours <= 0) throw new RuleError("Drop-off must be after pickup");
       const money = price(rental.subtotal, args.coupon_code);
-      const respond_by = bookingDeadline(clock.now, startDateTime, 3600 * 1000).toISOString();
+      const isInstant = !!v.instant_book;
+      const respond_by = isInstant
+        ? null
+        : bookingDeadline(clock.now, startDateTime, 3600 * 1000).toISOString();
+      const confirmed_at = isInstant ? clock.now.toISOString() : null;
+      const pay_by = isInstant
+        ? bookingDeadline(clock.now, startDateTime, 30 * 60 * 1000).toISOString()
+        : null;
+      const status: BookingStatus = isInstant ? "confirmed" : "pending";
 
       const b: Booking = {
         ...money,
@@ -827,21 +875,26 @@ export function createBackend(
         dropoff_time,
         security_deposit: v.security_deposit,
         total_price: round2(money.customer_total + v.security_deposit),
-        status: "pending",
+        status,
         payment_status: "unpaid",
         refund_amount: 0,
         pickup_checked_at: null,
         return_checked_at: null,
         respond_by,
-        pay_by: null,
-        confirmed_at: null,
+        pay_by,
+        confirmed_at,
         respond_reminded_at: null,
         pay_reminded_at: null,
         cancellation_reason: null,
         cancelled_at: null,
       };
       bookings.set(b.id, b);
-      notify(v.vendor_id, "New booking request");
+      if (isInstant) {
+        notify(v.vendor_id, "Instant booking confirmed");
+        notify(b.customer_id, "Booking confirmed");
+      } else {
+        notify(v.vendor_id, "New booking request");
+      }
       return b;
     },
     hostDecide(actor: string, booking_id: string, decision: "confirmed" | "rejected") {
@@ -854,10 +907,12 @@ export function createBackend(
         }
         b.status = "confirmed";
         b.confirmed_at = clock.now.toISOString();
+        b.updated_at = clock.now.toISOString();
         const start = new Date(`${b.start_date}T${b.pickup_time.slice(0, 5)}:00+05:30`);
         b.pay_by = bookingDeadline(clock.now, start, 30 * 60 * 1000).toISOString();
       } else {
         b.status = decision;
+        b.updated_at = clock.now.toISOString();
       }
       notify(b.customer_id, `Booking ${decision}`);
       return b;
@@ -2048,7 +2103,124 @@ export function createBackend(
           }
         }
       }
+
+      // 3 or more cancellations with 'host_no_response' in last 30 days pause active vehicles
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      for (const hostId of hosts) {
+        const vState = getVendorState(hostId);
+        const recentExpiries = [...bookings.values()].filter((b) => {
+          if (b.vendor_id !== hostId) return false;
+          if (b.status !== "cancelled" || b.cancellation_reason !== "host_no_response") return false;
+          if (!b.cancelled_at) return false;
+          const cancelledMs = new Date(b.cancelled_at).getTime();
+          if (nowMs - cancelledMs > thirtyDaysMs) return false;
+          if (vState.listings_reactivated_at) {
+            const reactivatedMs = new Date(vState.listings_reactivated_at).getTime();
+            if (cancelledMs <= reactivatedMs) return false;
+          }
+          return true;
+        });
+
+        const isCurrentlyPaused =
+          vState.listings_paused_at &&
+          (!vState.listings_reactivated_at ||
+            new Date(vState.listings_paused_at).getTime() >
+              new Date(vState.listings_reactivated_at).getTime());
+
+        if (recentExpiries.length >= 3 && !isCurrentlyPaused) {
+          vState.listings_paused_at = clock.now.toISOString();
+          for (const v of vehicles.values()) {
+            if (v.vendor_id === hostId && v.status === "active") {
+              v.status = "paused";
+            }
+          }
+          notify(
+            hostId,
+            "Your listings are paused",
+            "Your listings are paused because 3 requests expired without a response. Turn them back on from your dashboard.",
+            "/vendor",
+          );
+        }
+      }
+
       return { rentals_cancelled: cancelledCount, reminders_sent: remindedCount };
+    },
+
+    reactivateVendorListings(actor: string, vendor_id: string) {
+      if (actor !== vendor_id && !admins.has(actor)) {
+        throw new RuleError("Only the vendor or admin can reactivate listings");
+      }
+      const vState = getVendorState(vendor_id);
+      vState.listings_paused_at = null;
+      vState.listings_reactivated_at = clock.now.toISOString();
+      for (const v of vehicles.values()) {
+        if (v.vendor_id === vendor_id && v.status === "paused") {
+          v.status = "active";
+        }
+      }
+      return true;
+    },
+
+    hostResponseStats(vendor_id: string) {
+      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+      const nowMs = clock.now.getTime();
+      const eligible = [...bookings.values()].filter((b) => {
+        if (b.vendor_id !== vendor_id) return false;
+        if (!b.respond_by) return false;
+        const createdMs = new Date(b.created_at ?? clock.now).getTime();
+        return nowMs - createdMs <= ninetyDaysMs;
+      });
+
+      const request_count = eligible.length;
+      if (request_count === 0) {
+        return {
+          response_rate: null,
+          median_response_minutes: null,
+          request_count: 0,
+        };
+      }
+
+      let answeredInTimeCount = 0;
+      const responseMinutesList: number[] = [];
+
+      for (const b of eligible) {
+        const createdMs = new Date(b.created_at ?? clock.now).getTime();
+        const respondByMs = new Date(b.respond_by!).getTime();
+
+        if (b.confirmed_at || b.status === "confirmed" || b.status === "completed") {
+          const respMs = b.confirmed_at
+            ? new Date(b.confirmed_at).getTime()
+            : new Date(b.updated_at ?? b.created_at ?? clock.now).getTime();
+          if (respMs <= respondByMs) answeredInTimeCount++;
+          const mins = Math.max(0, (respMs - createdMs) / 60000);
+          responseMinutesList.push(mins);
+        } else if (b.status === "rejected") {
+          const respMs = new Date(b.updated_at ?? b.created_at ?? clock.now).getTime();
+          if (respMs <= respondByMs) answeredInTimeCount++;
+          const mins = Math.max(0, (respMs - createdMs) / 60000);
+          responseMinutesList.push(mins);
+        }
+      }
+
+      const response_rate = round4(answeredInTimeCount / request_count);
+      let median_response_minutes: number | null = null;
+      if (responseMinutesList.length > 0) {
+        responseMinutesList.sort((a, b) => a - b);
+        const mid = Math.floor(responseMinutesList.length / 2);
+        if (responseMinutesList.length % 2 === 1) {
+          median_response_minutes = Math.round(responseMinutesList[mid]);
+        } else {
+          median_response_minutes = Math.round(
+            (responseMinutesList[mid - 1] + responseMinutesList[mid]) / 2,
+          );
+        }
+      }
+
+      return {
+        response_rate,
+        median_response_minutes,
+        request_count,
+      };
     },
 
     /* ---------- Person 3: Scheduled Reminders (3.7) ---------- */

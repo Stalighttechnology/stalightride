@@ -51,6 +51,7 @@ import {
   Trash2,
   Crown,
   CheckCircle2,
+  Zap,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -98,6 +99,17 @@ export const Route = createFileRoute("/vehicle/$id")({
   }),
 });
 
+function formatResponseTime(minutes: number | null): string {
+  if (minutes == null) return "a few hours";
+  if (minutes <= 1) return "1 minute";
+  if (minutes < 60) return `${Math.round(minutes)} minutes`;
+  const hours = Math.round(minutes / 60);
+  if (hours === 1) return "1 hour";
+  if (hours < 24) return `${hours} hours`;
+  const days = Math.round(hours / 24);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
 function VehiclePage() {
   const { id } = Route.useParams();
   const searchParams = Route.useSearch();
@@ -122,6 +134,11 @@ function VehiclePage() {
   const [airportMeet, setAirportMeet] = useState(false);
   const [flightInfo, setFlightInfo] = useState("");
   const [bookedRanges, setBookedRanges] = useState<BookedRange[]>([]);
+  const [hostStats, setHostStats] = useState<{
+    response_rate: number | null;
+    median_response_minutes: number | null;
+    request_count: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -227,6 +244,14 @@ function VehiclePage() {
           .eq("id", data.vendor_id)
           .maybeSingle();
         setVendorProfile(prof);
+        if (data.vendor_id) {
+          api
+            .rpc("host_response_stats", { _vendor_id: data.vendor_id })
+            .then(({ data: stats }) => {
+              if (stats) setHostStats(stats as any);
+            })
+            .catch(() => {});
+        }
         const { data: r } = await api
           .from("reviews")
           .select("*")
@@ -397,7 +422,7 @@ function VehiclePage() {
           qr_code: qrPayload,
           notes: finalNotes || null,
         } as any)
-        .select("id, respond_by")
+        .select("id, status, respond_by, pay_by")
         .single();
       if (error) throw error;
       if (coupon?.code) {
@@ -424,10 +449,17 @@ function VehiclePage() {
           }
         } catch {}
       }
-      const respondMsg = created?.respond_by
-        ? `Host will respond by ${formatWhen(new Date(created.respond_by))}`
-        : "The host will confirm shortly";
-      toast.success(`Booking requested! ${respondMsg}.`);
+      if (created?.status === "confirmed" || v.instant_book) {
+        const payMsg = created?.pay_by
+          ? ` Please complete payment by ${formatWhen(new Date(created.pay_by))}.`
+          : " Please complete payment to secure your ride.";
+        toast.success(`Booking confirmed instantly!${payMsg}`);
+      } else {
+        const respondMsg = created?.respond_by
+          ? `Host will respond by ${formatWhen(new Date(created.respond_by))}`
+          : "The host will confirm shortly";
+        toast.success(`Booking requested! ${respondMsg}.`);
+      }
       navigate({ to: "/bookings" });
     } catch (e: any) {
       toast.error(e.message ?? "Could not book");
@@ -571,7 +603,15 @@ function VehiclePage() {
               <Star className="h-3.5 w-3.5 fill-foreground text-foreground" />
               {Number(v.avg_rating).toFixed(1)} ({v.review_count})
             </div>
-            <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
+              {v.instant_book && (
+                <Badge variant="secondary" className="mt-1 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Zap className="h-3.5 w-3.5 fill-current text-emerald-500" />
+                  Instant Book
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {v.brand} {v.model} · {v.year}
             </p>
@@ -640,9 +680,17 @@ function VehiclePage() {
                   aria-hidden
                   className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent"
                 />
-                <Badge className="absolute left-4 top-4 rounded-full bg-background/85 capitalize text-foreground backdrop-blur">
-                  {v.category === "bike" ? "Motorcycle" : v.category}
-                </Badge>
+                <div className="absolute left-4 top-4 flex items-center gap-1.5">
+                  <Badge className="rounded-full bg-background/85 capitalize text-foreground backdrop-blur">
+                    {v.category === "bike" ? "Motorcycle" : v.category}
+                  </Badge>
+                  {v.instant_book && (
+                    <Badge className="rounded-full bg-emerald-600 text-white shadow-sm flex items-center gap-1 border-0">
+                      <Zap className="h-3 w-3 fill-current" />
+                      Instant Book
+                    </Badge>
+                  )}
+                </div>
                 {images.length > 1 && (
                   <span className="absolute bottom-4 right-4 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium backdrop-blur">
                     {activeImg + 1} / {images.length}
@@ -737,6 +785,19 @@ function VehiclePage() {
                       </Badge>
                     )}
                   </div>
+                  {hostStats && hostStats.request_count > 0 && hostStats.response_rate != null && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 text-brand shrink-0" />
+                      <span>
+                        Responds to{" "}
+                        {hostStats.response_rate <= 1
+                          ? Math.round(hostStats.response_rate * 100)
+                          : Math.round(hostStats.response_rate)}
+                        % of requests, usually within{" "}
+                        {formatResponseTime(hostStats.median_response_minutes)}
+                      </span>
+                    </p>
+                  )}
                   {vendor?.bio && (
                     <p className="line-clamp-2 text-sm text-muted-foreground">{vendor.bio}</p>
                   )}
@@ -1034,12 +1095,12 @@ function VehiclePage() {
                   {booking ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending request…
+                      {v?.instant_book ? "Booking…" : "Sending request…"}
                     </>
                   ) : user ? (
                     dlOk ? (
                       <>
-                        Request to book
+                        {v?.instant_book ? "Book now" : "Request to book"}
                         <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                       </>
                     ) : (
@@ -1053,7 +1114,9 @@ function VehiclePage() {
                   )}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  No charge until the host accepts your request.
+                  {v?.instant_book
+                    ? "Instant confirmation — pay within 30 minutes to secure your ride."
+                    : "No charge until the host accepts your request."}
                 </p>
 
                 <div className="grid grid-cols-3 gap-2 border-t border-border/60 pt-4 text-center">

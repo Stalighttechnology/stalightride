@@ -1920,12 +1920,136 @@ BEGIN
     v_reminded_pay := v_reminded_pay + 1;
   END LOOP;
 
+  -- 1e. Auto-pause host listings on 3 or more host_no_response expiries in the last 30 days
+  FOR v_rec IN
+    SELECT v.id AS vendor_id, count(b.id) AS expiry_count
+    FROM public.vendors v
+    JOIN public.bookings b ON b.vendor_id = v.id
+    WHERE b.status = 'cancelled'
+      AND b.cancellation_reason = 'host_no_response'
+      AND b.cancelled_at >= now() - interval '30 days'
+      AND (v.listings_reactivated_at IS NULL OR b.cancelled_at > v.listings_reactivated_at)
+      AND (v.listings_paused_at IS NULL OR (v.listings_reactivated_at IS NOT NULL AND v.listings_reactivated_at > v.listings_paused_at))
+    GROUP BY v.id
+    HAVING count(b.id) >= 3
+  LOOP
+    -- Pause all active vehicles for this vendor
+    UPDATE public.vehicles
+    SET status = 'paused'
+    WHERE vendor_id = v_rec.vendor_id AND status = 'active';
+
+    -- Record listings_paused_at on the vendor
+    UPDATE public.vendors
+    SET listings_paused_at = now()
+    WHERE id = v_rec.vendor_id;
+
+    -- Notify the vendor
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      v_rec.vendor_id,
+      'Listings paused',
+      'Your listings are paused because 3 requests expired without a response. Turn them back on from your dashboard.',
+      '/vendor'
+    );
+
+    v_listings_paused := v_listings_paused + 1;
+  END LOOP;
+
   RETURN jsonb_build_object(
     'bookings_expired_pending', v_expired_pending,
     'bookings_expired_unpaid', v_expired_unpaid,
     'bookings_reminded_respond', v_reminded_respond,
-    'bookings_reminded_pay', v_reminded_pay
+    'bookings_reminded_pay', v_reminded_pay,
+    'vendors_listings_paused', v_listings_paused
   );
+END;
+$$;
+
+
+CREATE FUNCTION public.host_response_stats(_vendor_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_request_count integer := 0;
+  v_responded_count integer := 0;
+  v_response_rate numeric := NULL;
+  v_median_minutes numeric := NULL;
+BEGIN
+  WITH eligible AS (
+    SELECT
+      b.id,
+      b.status,
+      b.created_at,
+      b.respond_by,
+      b.confirmed_at,
+      b.updated_at,
+      CASE
+        WHEN b.confirmed_at IS NOT NULL AND (b.respond_by IS NULL OR b.confirmed_at <= b.respond_by) THEN true
+        WHEN b.status IN ('confirmed', 'completed') AND (b.confirmed_at IS NULL OR b.confirmed_at <= b.respond_by) THEN true
+        WHEN b.status = 'rejected' AND b.updated_at <= b.respond_by THEN true
+        ELSE false
+      END AS answered_in_time,
+      CASE
+        WHEN b.confirmed_at IS NOT NULL THEN
+          GREATEST(0, EXTRACT(EPOCH FROM (b.confirmed_at - b.created_at)) / 60.0)
+        WHEN b.status IN ('confirmed', 'completed') THEN
+          GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(b.confirmed_at, b.updated_at) - b.created_at)) / 60.0)
+        WHEN b.status = 'rejected' THEN
+          GREATEST(0, EXTRACT(EPOCH FROM (b.updated_at - b.created_at)) / 60.0)
+        ELSE NULL
+      END AS response_minutes
+    FROM public.bookings b
+    WHERE b.vendor_id = _vendor_id
+      AND b.respond_by IS NOT NULL
+      AND b.created_at >= now() - interval '90 days'
+  )
+  SELECT
+    count(*),
+    count(*) FILTER (WHERE answered_in_time),
+    CASE WHEN count(*) > 0 THEN
+      round(count(*) FILTER (WHERE answered_in_time)::numeric / count(*)::numeric, 4)
+    ELSE NULL END,
+    round((percentile_cont(0.5) WITHIN GROUP (ORDER BY response_minutes))::numeric)
+  INTO
+    v_request_count,
+    v_responded_count,
+    v_response_rate,
+    v_median_minutes
+  FROM eligible;
+
+  RETURN jsonb_build_object(
+    'response_rate', v_response_rate,
+    'median_response_minutes', v_median_minutes,
+    'request_count', v_request_count
+  );
+END;
+$$;
+
+
+CREATE FUNCTION public.reactivate_vendor_listings(_vendor_id uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
+  IF auth.uid() <> _vendor_id AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Not permitted';
+  END IF;
+
+  UPDATE public.vehicles
+  SET status = 'active'
+  WHERE vendor_id = _vendor_id
+    AND status = 'paused'
+    AND verification_status = 'approved'
+    AND NOT COALESCE(is_deleted, false);
+
+  UPDATE public.vendors
+  SET listings_paused_at = NULL,
+      listings_reactivated_at = now()
+  WHERE id = _vendor_id;
+
+  RETURN true;
 END;
 $$;
 
@@ -2139,14 +2263,18 @@ CREATE FUNCTION public.prevent_booking_conflict() RETURNS trigger
 DECLARE
   v_status text;
   v_deleted boolean;
+  v_instant_book boolean;
   v_new_start timestamp without time zone;
   v_new_end timestamp without time zone;
   v_start_tz timestamptz;
 BEGIN
-  -- Customer requests (not the owner or an admin) always start as a pending request.
+  -- Customer requests (not the owner or an admin)
   IF TG_OP = 'INSERT' AND auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
-    NEW.status := 'pending';
-    SELECT status::text, COALESCE(is_deleted, false) INTO v_status, v_deleted FROM public.vehicles WHERE id = NEW.vehicle_id;
+    SELECT status::text, COALESCE(is_deleted, false), COALESCE(instant_book, false)
+      INTO v_status, v_deleted, v_instant_book
+      FROM public.vehicles
+     WHERE id = NEW.vehicle_id;
+
     IF v_deleted OR v_status IS DISTINCT FROM 'active' THEN
       RAISE EXCEPTION 'This vehicle is not available for booking';
     END IF;
@@ -2154,14 +2282,22 @@ BEGIN
       RAISE EXCEPTION 'Pickup date cannot be in the past';
     END IF;
 
-    -- a. Refuse when the start is less than 2h from now(): 'Pickup must be at least 2 hours from now'.
+    -- Refuse when the start is less than 2h from now: 'Pickup must be at least 2 hours from now'.
     v_start_tz := (NEW.start_date + COALESCE(NEW.pickup_time, '10:00:00'::time)) AT TIME ZONE 'Asia/Kolkata';
     IF v_start_tz < now() + interval '2 hours' THEN
       RAISE EXCEPTION 'Pickup must be at least 2 hours from now';
     END IF;
 
-    -- b. Set NEW.respond_by.
-    NEW.respond_by := public.booking_deadline(COALESCE(NEW.created_at, now()), v_start_tz, interval '1 hour');
+    -- Instant Book vs Standard Request
+    IF v_instant_book THEN
+      NEW.status := 'confirmed';
+      NEW.confirmed_at := now();
+      NEW.pay_by := public.booking_deadline(now(), v_start_tz, interval '30 minutes');
+      NEW.respond_by := NULL;
+    ELSE
+      NEW.status := 'pending';
+      NEW.respond_by := public.booking_deadline(COALESCE(NEW.created_at, now()), v_start_tz, interval '1 hour');
+    END IF;
   END IF;
 
   IF NEW.status NOT IN ('pending', 'confirmed') THEN
@@ -2808,10 +2944,17 @@ BEGIN
   SELECT title INTO v_title FROM public.vehicles WHERE id = NEW.vehicle_id;
 
   IF TG_OP = 'INSERT' THEN
-    PERFORM public.notify_user(NEW.vendor_id, 'New booking request',
-      COALESCE(v_title,'Your vehicle') || ' · ' || NEW.start_date || ' → ' || NEW.end_date, '/vendor?tab=bookings');
-    PERFORM public.notify_user(NEW.customer_id, 'Booking requested',
-      'Waiting for the host to accept ' || COALESCE(v_title,'the vehicle') || '.', '/bookings');
+    IF NEW.status = 'confirmed' THEN
+      PERFORM public.notify_user(NEW.vendor_id, 'Instant booking confirmed',
+        COALESCE(v_title,'Your vehicle') || ' · ' || NEW.start_date || ' → ' || NEW.end_date || ' confirmed immediately via Instant Book.', '/vendor?tab=bookings');
+      PERFORM public.notify_user(NEW.customer_id, 'Booking confirmed',
+        COALESCE(v_title,'Your vehicle') || ' is confirmed via Instant Book. Complete the payment to lock it in.', '/bookings');
+    ELSE
+      PERFORM public.notify_user(NEW.vendor_id, 'New booking request',
+        COALESCE(v_title,'Your vehicle') || ' · ' || NEW.start_date || ' → ' || NEW.end_date, '/vendor?tab=bookings');
+      PERFORM public.notify_user(NEW.customer_id, 'Booking requested',
+        'Waiting for the host to accept ' || COALESCE(v_title,'the vehicle') || '.', '/bookings');
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -4456,7 +4599,8 @@ CREATE TABLE public.vehicles (
     insurance_url text,
     pollution_url text,
     fitness_url text,
-    verified_at timestamp with time zone
+    verified_at timestamp with time zone,
+    instant_book boolean DEFAULT false NOT NULL
 );
 
 
@@ -4472,7 +4616,9 @@ CREATE TABLE public.vendors (
     kyc_status public.kyc_status DEFAULT 'unsubmitted'::public.kyc_status NOT NULL,
     payout_email text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    listings_paused_at timestamp with time zone,
+    listings_reactivated_at timestamp with time zone
 );
 
 
@@ -8594,6 +8740,12 @@ GRANT ALL ON FUNCTION public.booking_deadline(timestamp with time zone, timestam
 
 REVOKE ALL ON FUNCTION public.expire_booking_windows() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.expire_booking_windows() TO service_role;
+
+REVOKE ALL ON FUNCTION public.host_response_stats(uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.host_response_stats(uuid) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.reactivate_vendor_listings(uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.reactivate_vendor_listings(uuid) TO authenticated, service_role;
 
 
 --

@@ -1,5 +1,6 @@
 """Tests for booking windows: deadlines, auto-expiry, halfway reminders, and late payment refund."""
 
+import json
 import hmac
 import hashlib
 import uuid
@@ -20,6 +21,10 @@ def q(sql, params=None):
     with connection.cursor() as c:
         c.execute(sql, params)
         return c.fetchall() if c.description else None
+
+
+def parse_json(val):
+    return json.loads(val) if isinstance(val, str) else val
 
 
 def day(offset):
@@ -288,3 +293,145 @@ def test_late_razorpay_verify_refunds_wallet_once(world, settings):
 
     bal_after2 = q("SELECT balance FROM public.wallets WHERE user_id = %s", [world.cust.id])[0][0]
     assert float(bal_after2) == float(bal_after)
+
+
+def test_instant_book_insert_lands_as_confirmed_with_pay_by(world):
+    """An Instant Book insert lands as confirmed with pay_by, respond_by NULL, and notifies both sides."""
+    # Enable instant_book on the vehicle as the host
+    q("SELECT set_config('request.jwt.claim.sub', %s, true)", [str(world.host.id)])
+    q("UPDATE public.vehicles SET instant_book = true WHERE id = %s", [world.vehicle])
+    q("SELECT set_config('request.jwt.claim.sub', '', true)")
+
+    # Customer books the instant_book car
+    res = request(world, world.c, world.cust, start=15, end=16)
+    assert res.status_code == 200, res.json()
+    b = res.json()["data"]
+
+    assert b["status"] == "confirmed"
+    assert b["pay_by"] is not None
+    assert b["respond_by"] is None
+
+    # Check database row
+    row = q("SELECT status, confirmed_at, pay_by, respond_by FROM public.bookings WHERE id = %s", [b["id"]])[0]
+    assert row[0] == "confirmed"
+    assert row[1] is not None
+    assert row[2] is not None
+    assert row[3] is None
+
+    # Check notifications sent to both sides
+    notes_vendor = q("SELECT title, body FROM public.notifications WHERE user_id = %s AND title = 'Instant booking confirmed'", [world.host.id])
+    assert len(notes_vendor) == 1
+    assert "confirmed immediately via Instant Book" in notes_vendor[0][1]
+
+    notes_cust = q("SELECT title, body FROM public.notifications WHERE user_id = %s AND title = 'Booking confirmed'", [world.cust.id])
+    assert len(notes_cust) == 1
+    assert "Instant Book" in notes_cust[0][1]
+
+
+def test_host_response_stats_numbers(world):
+    """host_response_stats returns response_rate, median_response_minutes, request_count over 90 days."""
+    # Initially no bookings requiring response
+    stats_raw = parse_json(q("SELECT public.host_response_stats(%s)", [world.host.id])[0][0])
+    assert stats_raw["request_count"] == 0
+    assert stats_raw["response_rate"] is None
+    assert stats_raw["median_response_minutes"] is None
+
+    # Create 3 bookings:
+    # 1. Responded (confirmed) in 20 minutes (before respond_by)
+    # 2. Responded (rejected) in 40 minutes (before respond_by)
+    # 3. Expired without response (host_no_response)
+    now = datetime.now(IST)
+    b1_id = uuid.uuid4()
+    b2_id = uuid.uuid4()
+    b3_id = uuid.uuid4()
+
+    # b1: confirmed in 20 min
+    q("""INSERT INTO public.bookings (id, vehicle_id, vendor_id, customer_id, start_date, end_date,
+         base_price, total_price, status, created_at, respond_by, confirmed_at)
+         VALUES (%s, %s, %s, %s, %s, %s, 2000, 2000, 'confirmed', %s, %s, %s)""",
+      [b1_id, world.vehicle, world.host.id, world.cust.id, day(10), day(11),
+       now - timedelta(days=5), now - timedelta(days=5) + timedelta(hours=6),
+       now - timedelta(days=5) + timedelta(minutes=20)])
+
+    # b2: rejected in 40 min
+    q("""INSERT INTO public.bookings (id, vehicle_id, vendor_id, customer_id, start_date, end_date,
+         base_price, total_price, status, created_at, respond_by, updated_at)
+         VALUES (%s, %s, %s, %s, %s, %s, 2000, 2000, 'rejected', %s, %s, %s)""",
+      [b2_id, world.vehicle, world.host.id, world.cust.id, day(12), day(13),
+       now - timedelta(days=3), now - timedelta(days=3) + timedelta(hours=6),
+       now - timedelta(days=3) + timedelta(minutes=40)])
+
+    # b3: expired without response
+    q("""INSERT INTO public.bookings (id, vehicle_id, vendor_id, customer_id, start_date, end_date,
+         base_price, total_price, status, cancellation_reason, created_at, respond_by, cancelled_at)
+         VALUES (%s, %s, %s, %s, %s, %s, 2000, 2000, 'cancelled', 'host_no_response', %s, %s, %s)""",
+      [b3_id, world.vehicle, world.host.id, world.cust.id, day(14), day(15),
+       now - timedelta(days=1), now - timedelta(days=1) + timedelta(hours=6),
+       now - timedelta(days=1) + timedelta(hours=7)])
+
+    # Query host_response_stats
+    stats = parse_json(q("SELECT public.host_response_stats(%s)", [world.host.id])[0][0])
+    assert stats["request_count"] == 3
+    # 2 out of 3 responded in time -> 2/3 = 0.6667
+    assert float(stats["response_rate"]) == pytest.approx(0.6667, abs=0.001)
+    # Median of [20, 40] is 30 minutes
+    assert stats["median_response_minutes"] == 30
+
+
+def test_three_expiries_pause_listings_once(world):
+    """3 expiries in 30 days pause the listings once; re-activating resets the count."""
+    now = datetime.now(IST)
+    # Ensure vehicle is active
+    q("UPDATE public.vehicles SET status = 'active' WHERE id = %s", [world.vehicle])
+    q("UPDATE public.vendors SET listings_paused_at = NULL, listings_reactivated_at = NULL WHERE id = %s", [world.host.id])
+
+    # Insert 3 expired bookings in the last 30 days
+    for i in range(3):
+        q("""INSERT INTO public.bookings (id, vehicle_id, vendor_id, customer_id, start_date, end_date,
+             base_price, total_price, status, cancellation_reason, created_at, respond_by, cancelled_at)
+             VALUES (%s, %s, %s, %s, %s, %s, 2000, 2000, 'cancelled', 'host_no_response', %s, %s, %s)""",
+          [uuid.uuid4(), world.vehicle, world.host.id, world.cust.id, day(20 + i), day(21 + i),
+           now - timedelta(days=10), now - timedelta(days=10) + timedelta(hours=6), now - timedelta(days=10) + timedelta(hours=7)])
+
+    # Call expire_booking_windows
+    res = parse_json(q("SELECT public.expire_booking_windows()")[0][0])
+    assert res.get("vendors_listings_paused") == 1
+
+    # Check vehicle is paused
+    v_status = q("SELECT status FROM public.vehicles WHERE id = %s", [world.vehicle])[0][0]
+    assert v_status == "paused"
+
+    # Check vendor listings_paused_at is recorded
+    paused_at = q("SELECT listings_paused_at FROM public.vendors WHERE id = %s", [world.host.id])[0][0]
+    assert paused_at is not None
+
+    # Check notification sent
+    notes = q("SELECT title, body FROM public.notifications WHERE user_id = %s AND title = 'Listings paused'", [world.host.id])
+    assert len(notes) == 1
+    assert "Your listings are paused because 3 requests expired without a response." in notes[0][1]
+
+    # Running expire_booking_windows again does NOT pause or notify again (only once per breach)
+    res2 = parse_json(q("SELECT public.expire_booking_windows()")[0][0])
+    assert res2.get("vendors_listings_paused") == 0
+    notes2 = q("SELECT count(*) FROM public.notifications WHERE user_id = %s AND title = 'Listings paused'", [world.host.id])[0][0]
+    assert notes2 == 1
+
+    # Reactivate listings
+    q("SELECT set_config('request.jwt.claim.sub', %s, true)", [str(world.host.id)])
+    reactivate_res = q("SELECT public.reactivate_vendor_listings(%s)", [world.host.id])[0][0]
+    assert reactivate_res is True
+    q("SELECT set_config('request.jwt.claim.sub', '', true)")
+
+    # Vehicle is active again, listings_paused_at is cleared, listings_reactivated_at is set
+    v_status_after = q("SELECT status FROM public.vehicles WHERE id = %s", [world.vehicle])[0][0]
+    assert v_status_after == "active"
+    v_row = q("SELECT listings_paused_at, listings_reactivated_at FROM public.vendors WHERE id = %s", [world.host.id])[0]
+    assert v_row[0] is None
+    assert v_row[1] is not None
+
+    # Running expire_booking_windows again does NOT re-pause because the 3 expiries happened before reactivated_at
+    res3 = parse_json(q("SELECT public.expire_booking_windows()")[0][0])
+    assert res3.get("vendors_listings_paused") == 0
+    v_status_final = q("SELECT status FROM public.vehicles WHERE id = %s", [world.vehicle])[0][0]
+    assert v_status_final == "active"
+

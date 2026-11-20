@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -14,6 +14,7 @@ import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { HostAnalytics } from "@/components/host-analytics";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Plus,
@@ -34,11 +35,14 @@ import {
   Check,
   X,
   AlertCircle,
+  AlertTriangle,
+  Clock,
+  Zap,
   Trash2,
   Eye,
   Play,
   Pause,
-  Clock,
+  Loader2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -171,28 +175,11 @@ const SAMPLE_REVIEWS = [
   },
 ];
 
-function formatTimeLeft(target: string | Date | null | undefined, now: number) {
-  if (!target) return "";
-  const diff = new Date(target).getTime() - now;
-  if (diff <= 0) return "Expired";
-  const totalMins = Math.floor(diff / 60_000);
-  const hours = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  if (hours > 0) return `${hours}h ${mins}m`;
-  return `${mins}m`;
-}
-
 function VendorDashboard() {
   const { user } = useSession();
   const [vendor, setVendor] = useState<any>(null);
   const [vehicles, setVehicles] = useState<any[] | null>(null);
   const [bookings, setBookings] = useState<any[] | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 15000);
-    return () => clearInterval(timer);
-  }, []);
   const [payouts, setPayouts] = useState<any[] | null>(null);
   const [vendorReviews, setVendorReviews] = useState<any[] | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -202,6 +189,8 @@ function VendorDashboard() {
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [vehicleToDelete, setVehicleToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [responseStats, setResponseStats] = useState<any>(null);
+  const [isReactivating, setIsReactivating] = useState(false);
   const [demoVehicles, setDemoVehicles] = useState<any[]>(SAMPLE_VEHICLES);
 
   const routerLocation = useRouterState({ select: (s) => s.location });
@@ -286,7 +275,7 @@ function VendorDashboard() {
     if (storeKey) {
       try {
         deletedIds = JSON.parse(localStorage.getItem(storeKey) || "[]");
-      } catch {}
+      } catch { }
     }
     const filteredVehicles = (vhs ?? []).filter((item: any) => !item.is_deleted && !deletedIds.includes(item.id));
     setVehicles(filteredVehicles);
@@ -316,6 +305,12 @@ function VendorDashboard() {
     } else {
       setVendorReviews([]);
     }
+
+    // Host response stats
+    try {
+      const { data: rStats } = await api.rpc("host_response_stats", { _vendor_id: user.id });
+      setResponseStats(rStats);
+    } catch {}
   };
 
   useEffect(() => {
@@ -343,11 +338,6 @@ function VendorDashboard() {
   const isRegisteredHost = Boolean(vendor);
 
   const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
-    const target = (bookings ?? []).find((x: any) => x.id === id);
-    if (target?.respond_by && Date.now() > new Date(target.respond_by).getTime()) {
-      toast.error("This request has expired");
-      return;
-    }
     setProcessingBookingId(id);
     try {
       if (!isRegisteredHost) {
@@ -448,7 +438,7 @@ function VendorDashboard() {
                 currentDeleted.push(vehicleId);
                 localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
               }
-            } catch {}
+            } catch { }
           }
           setVehicles((prev) => (prev ? prev.filter((v) => v.id !== vehicleId) : prev));
           setVehicleToDelete(null);
@@ -467,7 +457,7 @@ function VendorDashboard() {
             currentDeleted.push(vehicleId);
             localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
           }
-        } catch {}
+        } catch { }
       }
 
       toast.success("Vehicle deleted successfully");
@@ -481,6 +471,32 @@ function VendorDashboard() {
     }
   };
 
+  const handleReactivateListings = async () => {
+    if (!user) return;
+    setIsReactivating(true);
+    try {
+      const { error } = await api.rpc("reactivate_vendor_listings", { _vendor_id: user.id });
+      if (error) throw error;
+      toast.success("Listings re-activated! Your vehicles are live.");
+      await load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to re-activate listings");
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
+  const handleToggleInstantBook = async (vehicle: any, val: boolean) => {
+    try {
+      const { error } = await api.from("vehicles").update({ instant_book: val }).eq("id", vehicle.id);
+      if (error) throw error;
+      setVehicles((prev) => (prev ? prev.map((v) => (v.id === vehicle.id ? { ...v, instant_book: val } : v)) : prev));
+      toast.success(val ? "Instant Book enabled" : "Instant Book disabled");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update Instant Book setting");
+    }
+  };
+
   // Resolve display data (HV-22 / GAP-30: unregistered users see their real empty state, no mock fleet or fake verified badge)
   const displayVendor = vendor || {
     business_name: businessName || "New Host",
@@ -489,21 +505,7 @@ function VendorDashboard() {
   };
 
   const displayVehicles = vehicles ?? [];
-  const displayBookings = useMemo(() => {
-    const list = [...(bookings ?? [])];
-    return list.sort((a: any, b: any) => {
-      const aPending = a.status === "pending";
-      const bPending = b.status === "pending";
-      if (aPending && bPending) {
-        const aTime = a.respond_by ? new Date(a.respond_by).getTime() : Infinity;
-        const bTime = b.respond_by ? new Date(b.respond_by).getTime() : Infinity;
-        return aTime - bTime;
-      }
-      if (aPending) return -1;
-      if (bPending) return 1;
-      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
-    });
-  }, [bookings]);
+  const displayBookings = bookings ?? [];
   const displayPayouts = payouts ?? [];
   const displayReviews = vendorReviews ?? [];
 
@@ -582,6 +584,33 @@ function VendorDashboard() {
                 {showProfileForm ? "Close Form" : "Host Quick Setup"}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Listings Paused Warning Banner */}
+        {displayVendor?.listings_paused_at && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-rose-900 dark:text-rose-200 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Your listings are paused
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Your listings were paused because 3 requests expired without a response. Turn them back on from your dashboard.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={handleReactivateListings}
+              disabled={isReactivating}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl shrink-0 text-xs font-semibold px-4"
+            >
+              {isReactivating ? "Re-activating..." : "Re-activate listings"}
+            </Button>
           </div>
         )}
 
@@ -698,9 +727,19 @@ function VendorDashboard() {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-border/80 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Total Earnings:</span>
-                  <span className="font-bold text-foreground">{currency(earnings)}</span>
+                <div className="mt-3 pt-3 border-t border-border/80 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total Earnings:</span>
+                    <span className="font-bold text-foreground">{currency(earnings)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Response Rate:</span>
+                    <span className="font-semibold text-foreground">
+                      {responseStats && responseStats.request_count > 0 && responseStats.response_rate != null
+                        ? `${Math.round(responseStats.response_rate * 100)}%`
+                        : "—"}
+                    </span>
+                  </div>
                 </div>
               </Card>
 
@@ -716,11 +755,10 @@ function VendorDashboard() {
                     <button
                       key={item.id}
                       onClick={() => handleTabClick(item.id)}
-                      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${
-                        isActive
-                          ? "bg-brand text-brand-foreground shadow-xs"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
+                      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${isActive
+                        ? "bg-brand text-brand-foreground shadow-xs"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
@@ -731,13 +769,12 @@ function VendorDashboard() {
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
-                          className={`text-[10px] px-2 py-0 shrink-0 font-medium ${
-                            isActive
-                              ? "bg-white/20 text-brand-foreground border-transparent"
-                              : item.id === "bookings" && pendingCount > 0
-                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 font-semibold"
-                                : "text-muted-foreground"
-                          }`}
+                          className={`text-[10px] px-2 py-0 shrink-0 font-medium ${isActive
+                            ? "bg-white/20 text-brand-foreground border-transparent"
+                            : item.id === "bookings" && pendingCount > 0
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 font-semibold"
+                              : "text-muted-foreground"
+                            }`}
                         >
                           {item.badge}
                         </Badge>
@@ -805,10 +842,19 @@ function VendorDashboard() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <Stat icon={Car} label="Fleet Size" value={displayVehicles.length} />
                   <Stat icon={Calendar} label="Total Bookings" value={displayBookings.length} />
                   <Stat icon={DollarSign} label="Gross Earnings" value={currency(earnings)} />
+                  <Stat
+                    icon={Clock}
+                    label="Response Rate"
+                    value={
+                      responseStats && responseStats.request_count > 0 && responseStats.response_rate != null
+                        ? `${Math.round(responseStats.response_rate * 100)}%`
+                        : "100%"
+                    }
+                  />
                 </div>
 
                 <Card>
@@ -831,6 +877,7 @@ function VendorDashboard() {
                     <VehiclesGrid
                       vehicles={displayVehicles}
                       onTogglePause={handleTogglePause}
+                      onToggleInstantBook={handleToggleInstantBook}
                       onDelete={(v) => setVehicleToDelete(v)}
                       isDeletingId={isDeleting ? vehicleToDelete?.id : null}
                     />
@@ -969,7 +1016,6 @@ function VendorDashboard() {
                       ) : (
                         displayBookings.map((b: any) => {
                           const isPending = b.status === "pending";
-                          const isExpired = b.respond_by ? now > new Date(b.respond_by).getTime() : false;
                           const isProcessing = processingBookingId === b.id;
                           return (
                             <li
@@ -984,17 +1030,9 @@ function VendorDashboard() {
                                   {isPending && (
                                     <Badge
                                       variant="outline"
-                                      className={`text-[10px] font-medium ${
-                                        isExpired
-                                          ? "bg-destructive/10 text-destructive border-destructive/30"
-                                          : "bg-amber-500/10 text-amber-700 border-amber-300"
-                                      }`}
+                                      className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium"
                                     >
-                                      {isExpired
-                                        ? "Request expired"
-                                        : b.respond_by
-                                          ? `Respond within ${formatTimeLeft(b.respond_by, now)}`
-                                          : "Needs approval"}
+                                      Needs approval
                                     </Badge>
                                   )}
                                 </div>
@@ -1031,13 +1069,12 @@ function VendorDashboard() {
                                               ? "destructive"
                                               : "outline"
                                       }
-                                      className={`text-[10px] capitalize ${
-                                        b.status === "confirmed"
-                                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                                          : b.status === "pending"
-                                            ? "bg-amber-50 text-amber-700 border-amber-300"
-                                            : ""
-                                      }`}
+                                      className={`text-[10px] capitalize ${b.status === "confirmed"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                        : b.status === "pending"
+                                          ? "bg-amber-50 text-amber-700 border-amber-300"
+                                          : ""
+                                        }`}
                                     >
                                       {b.status}
                                     </Badge>
@@ -1057,9 +1094,8 @@ function VendorDashboard() {
                                     <Button
                                       size="sm"
                                       className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
-                                      disabled={isProcessing || isExpired}
+                                      disabled={isProcessing}
                                       onClick={() => decideBooking(b.id, "confirmed")}
-                                      title={isExpired ? "This request has expired" : undefined}
                                     >
                                       <Check className="mr-1 h-3.5 w-3.5" />
                                       {isProcessing ? "Approving…" : "Approve"}
@@ -1068,9 +1104,8 @@ function VendorDashboard() {
                                       size="sm"
                                       variant="outline"
                                       className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                                      disabled={isProcessing || isExpired}
+                                      disabled={isProcessing}
                                       onClick={() => decideBooking(b.id, "rejected")}
-                                      title={isExpired ? "This request has expired" : undefined}
                                     >
                                       <X className="mr-1 h-3.5 w-3.5" />
                                       Decline
@@ -1265,11 +1300,13 @@ function VehiclesGrid({
   vehicles,
   onDelete,
   onTogglePause,
+  onToggleInstantBook,
   isDeletingId,
 }: {
   vehicles: any[];
   onDelete?: (vehicle: any) => void;
   onTogglePause?: (vehicle: any) => void;
+  onToggleInstantBook?: (vehicle: any, val: boolean) => void;
   isDeletingId?: string | null;
 }) {
   const paths = vehicles.map(
@@ -1297,7 +1334,7 @@ function VehiclesGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
       {vehicles.map((v) => {
         const img = v.vehicle_images
           ?.slice()
@@ -1350,29 +1387,55 @@ function VehiclesGrid({
                   </Badge>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-sm">
-                <div className="min-w-0">
-                  <span className="font-semibold text-foreground text-sm sm:text-base">
-                    {currency(v.price_daily)}
-                  </span>
-                  <span className="text-xs text-muted-foreground"> / day</span>
+              <div className="mt-4 pt-3 border-t border-border/60 space-y-2.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <div>
+                    <span className="font-semibold text-foreground text-sm sm:text-base">
+                      {currency(v.price_daily)}
+                    </span>
+                    <span className="text-xs text-muted-foreground"> / day</span>
+                  </div>
+                  {v.instant_book && (
+                    <Badge variant="secondary" className="gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 text-[10px] px-1.5 py-0">
+                      <Zap className="h-2.5 w-2.5 fill-current" /> Instant
+                    </Badge>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                {onToggleInstantBook && (
+                  <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-muted/30 border border-border/50 text-xs">
+                    <div className="space-y-0.5 pr-2 min-w-0">
+                      <span className="font-medium text-foreground flex items-center gap-1 text-xs">
+                        <Zap className="h-3 w-3 text-amber-500 fill-current shrink-0" /> Instant Book
+                      </span>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        Guests are confirmed immediately; you can't decline.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={Boolean(v.instant_book)}
+                      onCheckedChange={(checked) => onToggleInstantBook(v, checked)}
+                      aria-label="Toggle Instant Book"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 w-full">
                   {v.verification_status === "approved" && onTogglePause && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 px-2.5 text-xs rounded-lg shrink-0"
+                      className="h-8 flex-1 px-2 text-xs rounded-lg min-w-0 gap-1.5 [&_svg]:size-3.5"
                       onClick={() => onTogglePause(v)}
                       title={v.status === "paused" ? "Reactivate vehicle" : "Pause vehicle"}
                     >
                       {v.status === "paused" ? (
                         <>
-                          <Play className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Reactivate
+                          <Play className="text-emerald-600 shrink-0" />
+                          <span className="truncate">Reactivate</span>
                         </>
                       ) : (
                         <>
-                          <Pause className="mr-1 h-3.5 w-3.5 text-amber-600" /> Pause
+                          <Pause className="text-amber-600 shrink-0" />
+                          <span className="truncate">Pause</span>
                         </>
                       )}
                     </Button>
@@ -1381,10 +1444,11 @@ function VehiclesGrid({
                     asChild
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2.5 text-xs rounded-lg"
+                    className="h-8 flex-1 px-2 text-xs rounded-lg min-w-0 gap-1.5 [&_svg]:size-3.5"
                   >
                     <Link to="/vehicle/$id" params={{ id: v.id }}>
-                      <Eye className="mr-1 h-3.5 w-3.5" /> View
+                      <Eye className="shrink-0" />
+                      <span className="truncate">View</span>
                     </Link>
                   </Button>
                   {onDelete && (
@@ -1392,12 +1456,16 @@ function VehiclesGrid({
                       variant="outline"
                       size="sm"
                       disabled={isDeletingId === v.id}
-                      className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 rounded-lg shrink-0"
+                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30 rounded-lg shrink-0 flex items-center justify-center [&_svg]:size-3.5"
                       onClick={() => onDelete(v)}
                       title="Delete vehicle listing"
+                      aria-label="Delete vehicle listing"
                     >
-                      <Trash2 className="mr-1 h-3.5 w-3.5" />
-                      {isDeletingId === v.id ? "Deleting..." : "Delete"}
+                      {isDeletingId === v.id ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Trash2 />
+                      )}
                     </Button>
                   )}
                 </div>

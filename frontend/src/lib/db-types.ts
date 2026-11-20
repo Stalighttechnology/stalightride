@@ -1437,6 +1437,7 @@ export type Database = {
           verification_status: Database["public"]["Enums"]["verification_status"];
           verified_at: string | null;
           year: number;
+          instant_book: boolean;
         };
         Insert: {
           address?: string | null;
@@ -1471,6 +1472,7 @@ export type Database = {
           verification_status?: Database["public"]["Enums"]["verification_status"];
           verified_at?: string | null;
           year: number;
+          instant_book?: boolean;
         };
         Update: {
           address?: string | null;
@@ -1505,6 +1507,7 @@ export type Database = {
           verification_status?: Database["public"]["Enums"]["verification_status"];
           verified_at?: string | null;
           year?: number;
+          instant_book?: boolean;
         };
         Relationships: [
           {
@@ -1526,6 +1529,8 @@ export type Database = {
           kyc_status: Database["public"]["Enums"]["kyc_status"];
           payout_email: string | null;
           updated_at: string;
+          listings_paused_at: string | null;
+          listings_reactivated_at: string | null;
         };
         Insert: {
           bio?: string | null;
@@ -1536,6 +1541,8 @@ export type Database = {
           kyc_status?: Database["public"]["Enums"]["kyc_status"];
           payout_email?: string | null;
           updated_at?: string;
+          listings_paused_at?: string | null;
+          listings_reactivated_at?: string | null;
         };
         Update: {
           bio?: string | null;
@@ -1546,6 +1553,8 @@ export type Database = {
           kyc_status?: Database["public"]["Enums"]["kyc_status"];
           payout_email?: string | null;
           updated_at?: string;
+          listings_paused_at?: string | null;
+          listings_reactivated_at?: string | null;
         };
         Relationships: [];
       };
@@ -2523,6 +2532,22 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      host_response_stats: {
+        Args: {
+          _vendor_id: string;
+        };
+        Returns: {
+          response_rate: number | null;
+          median_response_minutes: number | null;
+          request_count: number;
+        };
+      };
+      reactivate_vendor_listings: {
+        Args: {
+          _vendor_id: string;
+        };
+        Returns: boolean;
+      };
       admin_remove_review: {
         Args: {
           _review_id: string;

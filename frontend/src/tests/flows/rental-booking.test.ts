@@ -599,4 +599,160 @@ describe("rental booking windows & expiration", () => {
     be.payBookingWithRazorpay(cust, b.id);
     expect(be.wallet.balance(cust)).toBe(b.total_price);
   });
+
+  test("an Instant Book insert lands as confirmed with pay_by, notifies both sides, and sorts first in browse", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const admin = be.registerAdmin();
+
+    const standardCar = be.listVehicle(host, 1500, 2000, undefined, "Bengaluru", false);
+    const instantCar = be.listVehicle(host, 2000, 2000, undefined, "Bengaluru", true);
+    be.verifyVehicle(admin, standardCar.id, "approved");
+    be.verifyVehicle(admin, instantCar.id, "approved");
+
+    // Browse order: instant book vehicle is sorted first
+    const catalog = be.browse();
+    expect(catalog[0].id).toBe(instantCar.id);
+    expect(catalog[1].id).toBe(standardCar.id);
+
+    // Book instant vehicle
+    const b = be.createBooking({
+      customer_id: cust,
+      vehicle_id: instantCar.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-22",
+    });
+
+    expect(b.status).toBe("confirmed");
+    expect(b.confirmed_at).toBe(be.now.toISOString());
+    expect(b.pay_by).toBeDefined();
+    expect(b.respond_by).toBeNull();
+
+    // Notified both sides
+    expect(be.notifications.some((n) => n.user_id === host && n.title === "Instant booking confirmed")).toBe(true);
+    expect(be.notifications.some((n) => n.user_id === cust && n.title === "Booking confirmed")).toBe(true);
+  });
+
+  test("host_response_stats numbers calculate accurately over 90 days", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const admin = be.registerAdmin();
+    const v = be.listVehicle(host);
+    be.verifyVehicle(admin, v.id, "approved");
+
+    // Initially 0 requests
+    const initialStats = be.hostResponseStats(host);
+    expect(initialStats.request_count).toBe(0);
+    expect(initialStats.response_rate).toBeNull();
+    expect(initialStats.median_response_minutes).toBeNull();
+
+    // 1. Responded (confirmed) in 20 minutes (before respond_by)
+    be.setNow(new Date("2026-08-10T10:00:00+05:30"));
+    const b1 = be.createBooking({
+      customer_id: cust,
+      vehicle_id: v.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-21",
+    });
+    be.setNow(new Date("2026-08-10T10:20:00+05:30"));
+    be.hostDecide(host, b1.id, "confirmed");
+
+    // 2. Responded (rejected) in 40 minutes (before respond_by)
+    be.setNow(new Date("2026-08-12T10:00:00+05:30"));
+    const b2 = be.createBooking({
+      customer_id: cust,
+      vehicle_id: v.id,
+      start_date: "2026-08-22",
+      end_date: "2026-08-23",
+    });
+    be.setNow(new Date("2026-08-12T10:40:00+05:30"));
+    be.hostDecide(host, b2.id, "rejected");
+
+    // 3. Expired without response (host_no_response)
+    be.setNow(new Date("2026-08-14T10:00:00+05:30"));
+    const b3 = be.createBooking({
+      customer_id: cust,
+      vehicle_id: v.id,
+      start_date: "2026-08-25",
+      end_date: "2026-08-26",
+    });
+    // Fast forward past respond_by (which is capped at +12h -> 22:00)
+    be.setNow(new Date("2026-08-14T23:00:00+05:30"));
+    be.expireBookingWindows();
+    expect(b3.status).toBe("cancelled");
+    expect(b3.cancellation_reason).toBe("host_no_response");
+
+    // Check host_response_stats
+    const stats = be.hostResponseStats(host);
+    expect(stats.request_count).toBe(3);
+    // 2 answered in time out of 3 = 0.6667
+    expect(stats.response_rate).toBeCloseTo(0.6667, 3);
+    // Median of [20, 40] is 30 minutes
+    expect(stats.median_response_minutes).toBe(30);
+  });
+
+  test("3 expiries pause the listings once and reactivating resets the breach count", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00+05:30"));
+    const host = be.registerCustomer();
+    const cust = be.registerCustomer("approved");
+    const admin = be.registerAdmin();
+
+    const v1 = be.listVehicle(host, 1200);
+    const v2 = be.listVehicle(host, 1500);
+    be.verifyVehicle(admin, v1.id, "approved");
+    be.verifyVehicle(admin, v2.id, "approved");
+
+    expect(v1.status).toBe("active");
+    expect(v2.status).toBe("active");
+
+    // Expiry 1
+    be.setNow(new Date("2026-08-10T10:00:00+05:30"));
+    be.createBooking({ customer_id: cust, vehicle_id: v1.id, start_date: "2026-08-20", end_date: "2026-08-21" });
+    be.setNow(new Date("2026-08-10T23:00:00+05:30"));
+    be.expireBookingWindows();
+    expect(v1.status).toBe("active");
+
+    // Expiry 2
+    be.setNow(new Date("2026-08-11T10:00:00+05:30"));
+    be.createBooking({ customer_id: cust, vehicle_id: v1.id, start_date: "2026-08-22", end_date: "2026-08-23" });
+    be.setNow(new Date("2026-08-11T23:00:00+05:30"));
+    be.expireBookingWindows();
+    expect(v1.status).toBe("active");
+
+    // Expiry 3 - breaches threshold of 3 in 30 days
+    be.setNow(new Date("2026-08-12T10:00:00+05:30"));
+    be.createBooking({ customer_id: cust, vehicle_id: v1.id, start_date: "2026-08-24", end_date: "2026-08-25" });
+    be.setNow(new Date("2026-08-12T23:00:00+05:30"));
+    be.expireBookingWindows();
+
+    // Both vehicles should now be paused
+    expect(v1.status).toBe("paused");
+    expect(v2.status).toBe("paused");
+
+    // Notified vendor with exact message
+    const pauseNote = be.notifications.find(
+      (n) => n.user_id === host && n.title === "Your listings are paused",
+    );
+    expect(pauseNote).toBeDefined();
+    expect(pauseNote?.body).toContain(
+      "Your listings are paused because 3 requests expired without a response. Turn them back on from your dashboard.",
+    );
+
+    // Calling expire again is idempotent (only runs once per breach)
+    const notifsCount = be.notifications.length;
+    be.expireBookingWindows();
+    expect(be.notifications.length).toBe(notifsCount);
+
+    // Host reactivates listings
+    be.reactivateVendorListings(host, host);
+    expect(v1.status).toBe("active");
+    expect(v2.status).toBe("active");
+
+    // After reactivation, previous 3 expiries do not cause instant re-pause
+    be.expireBookingWindows();
+    expect(v1.status).toBe("active");
+    expect(v2.status).toBe("active");
+  });
 });

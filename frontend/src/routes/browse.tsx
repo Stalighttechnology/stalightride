@@ -38,6 +38,7 @@ import {
   ShieldCheck,
   CarFront,
   Heart,
+  Zap,
   X,
 } from "lucide-react";
 
@@ -104,6 +105,7 @@ type Vehicle = {
   review_count: number;
   transmission: string;
   fuel: string;
+  instant_book?: boolean | null;
   vehicle_images: { url: string; sort_order: number }[];
 };
 
@@ -190,10 +192,11 @@ function Browse() {
       let q = api
         .from("vehicles")
         .select(
-          "id,title,brand,model,year,category,city,price_daily,price_hourly,seats,avg_rating,review_count,transmission,fuel,vehicle_images(url,sort_order)",
+          "id,title,brand,model,year,category,city,price_daily,price_hourly,seats,avg_rating,review_count,transmission,fuel,instant_book,vehicle_images(url,sort_order)",
           { count: "exact" },
         )
         .eq("status", "active")
+        .order("instant_book", { ascending: false })
         .order("created_at", { ascending: false })
         .range(from, to);
       if (params.category) {
@@ -637,9 +640,16 @@ function VehicleCard({
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" />
-          <Badge className="absolute left-3 top-3 rounded-full bg-background/90 capitalize text-foreground">
-            {v.category === "bike" ? "Motorcycle" : v.category}
-          </Badge>
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 z-10">
+            <Badge className="rounded-full bg-background/90 capitalize text-foreground shadow-xs">
+              {v.category === "bike" ? "Motorcycle" : v.category}
+            </Badge>
+            {v.instant_book && (
+              <Badge className="rounded-full bg-amber-500 text-white border-transparent gap-1 shadow-xs font-semibold">
+                <Zap className="h-3 w-3 fill-current" /> Instant
+              </Badge>
+            )}
+          </div>
           <Button
             type="button"
             variant="outline"
