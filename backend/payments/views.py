@@ -114,9 +114,50 @@ def _paid_patch(payment_id):
 
 # -- rentals -------------------------------------------------------------------
 
+def _parse_dt(val):
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+    if isinstance(val, str):
+        return datetime.fromisoformat(val.replace("Z", "+00:00"))
+    return None
+
+
+def _refund_late_rental_payment(b, payment_id):
+    """Refund payment for a cancelled/rejected booking to customer wallet under service_role. Idempotent."""
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded"):
+        return
+    with db_role("service_role"):
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT public.wallet_apply(%s, %s, 'refund', %s, %s, 'Refund: payment arrived after booking closed')",
+                [b["customer_id"], b["total_price"], b["id"], payment_id],
+            )
+            cur.execute(
+                """UPDATE public.bookings
+                   SET payment_status = 'refunded',
+                       payment_method = 'razorpay',
+                       razorpay_payment_id = %s,
+                       refund_amount = %s
+                   WHERE id = %s""",
+                [payment_id, b["total_price"], b["id"]],
+            )
+            cur.execute(
+                """INSERT INTO public.notifications (user_id, title, body, link)
+                   VALUES (%s, %s, %s, %s)""",
+                [
+                    b["customer_id"],
+                    "Payment refunded",
+                    f"Your payment of Rs {b['total_price']} was refunded to your wallet because the booking was closed.",
+                    "/bookings",
+                ],
+            )
+
+
 def create_razorpay_order(data, user_id):
     booking_id = _uuid(data, "bookingId")
-    b = _get("bookings", "id, customer_id, status, payment_status, total_price, razorpay_order_id", "id", booking_id)
+    b = _get("bookings", "id, customer_id, status, payment_status, total_price, razorpay_order_id, pay_by", "id", booking_id)
     if not b:
         raise FnError("Booking not found")
     if b["customer_id"] != user_id:
@@ -125,6 +166,9 @@ def create_razorpay_order(data, user_id):
         raise FnError("Host has not accepted this booking yet")
     if b["payment_status"] == "paid":
         raise FnError("Already paid")
+    pay_by = _parse_dt(b.get("pay_by"))
+    if pay_by and pay_by <= datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise FnError("Payment window has closed or expires in less than 5 minutes")
     order = _create_order({"amount": _paise(b["total_price"]), "currency": "INR", "receipt": b["id"],
                            "notes": {"booking_id": b["id"], "customer_id": user_id}}, "Razorpay order failed")
     with db_role("service_role"):
@@ -135,14 +179,17 @@ def create_razorpay_order(data, user_id):
 def verify_razorpay_payment(data, user_id):
     booking_id = _uuid(data, "bookingId")
     order_id, payment_id = _check_signature(data)
-    b = _get("bookings", "id, customer_id, status, payment_status, razorpay_order_id", "id", booking_id)
+    b = _get("bookings", "id, customer_id, status, payment_status, razorpay_order_id, total_price, razorpay_payment_id", "id", booking_id)
     if not b:
         raise FnError("Booking not found")
     if b["customer_id"] != user_id:
         raise FnError("Not your booking")
     if b.get("razorpay_order_id") != order_id:
         raise FnError("Order mismatch")
-    if b.get("payment_status") in ("paid", "refunded", "partially_refunded") or b.get("status") == "cancelled":
+    if b.get("status") in ("cancelled", "rejected"):
+        _refund_late_rental_payment(b, payment_id)
+        return {"ok": True}
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded"):
         return {"ok": True}
     with db_role("service_role"):
         _update("bookings", _paid_patch(payment_id), [["id", "eq", b["id"]]])
@@ -1072,13 +1119,19 @@ def razorpay_webhook(request):
         # 1. Rental bookings
         booking_id = notes.get("booking_id")
         if booking_id:
-            b = _get("bookings", "id, status, payment_status", "id", booking_id)
-            if b and b.get("payment_status") not in ("paid", "refunded", "partially_refunded") and b.get("status") != "cancelled":
-                _update("bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", b["id"]]])
+            b = _get("bookings", "id, customer_id, status, payment_status, total_price, razorpay_payment_id", "id", booking_id)
+            if b:
+                if b.get("status") in ("cancelled", "rejected"):
+                    _refund_late_rental_payment(b, payment_id or "pay_webhook")
+                elif b.get("payment_status") not in ("paid", "refunded", "partially_refunded"):
+                    _update("bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", b["id"]]])
         elif order_id:
-            b = _get("bookings", "id, status, payment_status", "razorpay_order_id", order_id)
-            if b and b.get("payment_status") not in ("paid", "refunded", "partially_refunded") and b.get("status") != "cancelled":
-                _update("bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", b["id"]]])
+            b = _get("bookings", "id, customer_id, status, payment_status, total_price, razorpay_payment_id", "razorpay_order_id", order_id)
+            if b:
+                if b.get("status") in ("cancelled", "rejected"):
+                    _refund_late_rental_payment(b, payment_id or "pay_webhook")
+                elif b.get("payment_status") not in ("paid", "refunded", "partially_refunded"):
+                    _update("bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", b["id"]]])
 
         # 2. Driver hires
         driver_booking_id = notes.get("driver_booking_id")
