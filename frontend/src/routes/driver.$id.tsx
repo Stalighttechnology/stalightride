@@ -18,6 +18,7 @@ import { calculateDriverPrice, type DriverRateType } from "@/lib/driver-pricing"
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
+import { MapPicker } from "@/components/map-picker";
 import { toast } from "sonner";
 import {
   Star,
@@ -81,6 +82,10 @@ function DriverProfile() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupPin, setPickupPin] = useState<{ lat: number | null; lng: number | null }>({
+    lat: null,
+    lng: null,
+  });
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
@@ -203,7 +208,9 @@ function DriverProfile() {
       end_time: endTime,
       hours: price.hours,
       days: price.days,
-      pickup_address: pickupAddress || null,
+      pickup_address: pickupAddress.trim() || null,
+      pickup_lat: pickupPin.lat,
+      pickup_lng: pickupPin.lng,
       notes: notes.trim() || null,
       // Money columns are recalculated by the database (tg_price_driver_booking).
       total_price: price.subtotal,
@@ -495,10 +502,15 @@ function DriverProfile() {
                   </div>
                   <div>
                     <Label className="text-xs">Pickup address</Label>
-                    <Input
-                      value={pickupAddress}
-                      onChange={(e) => setPickupAddress(e.target.value)}
-                      placeholder="Where should the driver report?"
+                    <MapPicker
+                      value={pickupPin}
+                      address={pickupAddress}
+                      onChange={(v) => {
+                        setPickupPin({ lat: v.lat, lng: v.lng });
+                        if (v.address) setPickupAddress(v.address);
+                      }}
+                      onAddressChange={setPickupAddress}
+                      mapHeight="h-48"
                     />
                   </div>
                   <div>
