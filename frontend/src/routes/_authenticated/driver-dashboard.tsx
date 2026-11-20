@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -79,8 +80,17 @@ function DriverDashboard() {
   const { user } = useSession();
   const confirm = useConfirm();
   const [driver, setDriver] = useState<any>(null);
+  const [stats, setStats] = useState<{
+    total: number;
+    pending_count: number;
+    upcoming_count: number;
+    earnings: number;
+  } | null>(null);
   const [form, setForm] = useState<any>(emptyDriver);
   const [hires, setHires] = useState<any[] | null>(null);
+  const [pendingHires, setPendingHires] = useState<any[]>([]);
+  const [upcomingHires, setUpcomingHires] = useState<any[]>([]);
+  const [historyHires, setHistoryHires] = useState<any[]>([]);
   const [ratings, setRatings] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -117,6 +127,9 @@ function DriverDashboard() {
   }, []);
   const [replyText, setReplyText] = useState("");
   const [savingReply, setSavingReply] = useState(false);
+
+  const historyPager = usePage(10);
+  const ratingsPager = usePage(10);
 
   const submitDriverReply = async (reviewId: string) => {
     if (!replyText.trim()) {
@@ -156,18 +169,15 @@ function DriverDashboard() {
     }
   };
 
-  const load = async () => {
+  const loadStats = async () => {
     if (!user) return;
-    const [{ data: d }, { data: h }, { data: r }] = await Promise.all([
-      api.from("drivers").select("*").eq("id", user.id).maybeSingle(),
-      api
-        .from("driver_bookings")
-        .select("*")
-        .eq("driver_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      api.from("driver_reviews").select("*").eq("driver_id", user.id),
-    ]);
+    const { data } = await api.rpc("driver_dashboard_stats");
+    if (data) setStats(data as any);
+  };
+
+  const loadDriver = async () => {
+    if (!user) return;
+    const { data: d } = await api.from("drivers").select("*").eq("id", user.id).maybeSingle();
     setDriver(d ?? null);
     if (d)
       setForm({
@@ -178,13 +188,91 @@ function DriverDashboard() {
         service_area: d.service_area ?? "",
       });
     else setForm({ ...emptyDriver, full_name: user.user_metadata?.full_name ?? "" });
-    setHires(h ?? []);
-    setRatings(r ?? []);
+  };
+
+  const loadPendingHires = async () => {
+    if (!user) return;
+    const { data } = await api
+      .from("driver_bookings")
+      .select("*")
+      .eq("driver_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    setPendingHires(data ?? []);
+  };
+
+  const loadUpcomingHires = async () => {
+    if (!user) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await api
+      .from("driver_bookings")
+      .select("*")
+      .eq("driver_id", user.id)
+      .eq("status", "confirmed")
+      .gte("start_date", today)
+      .order("start_date", { ascending: true })
+      .limit(100);
+    setUpcomingHires(data ?? []);
+  };
+
+  const loadHistoryHires = async () => {
+    if (!user) return;
+    const { data, count } = await api
+      .from("driver_bookings")
+      .select("*", { count: "exact" })
+      .eq("driver_id", user.id)
+      .in("status", ["completed", "cancelled", "rejected"])
+      .order("start_date", { ascending: false })
+      .range(historyPager.from, historyPager.to);
+    setHistoryHires(data ?? []);
+    historyPager.setTotal(count ?? 0);
+  };
+
+  const loadRatings = async () => {
+    if (!user) return;
+    const { data, count } = await api
+      .from("driver_reviews")
+      .select("*", { count: "exact" })
+      .eq("driver_id", user.id)
+      .order("created_at", { ascending: false })
+      .range(ratingsPager.from, ratingsPager.to);
+    setRatings(data ?? []);
+    ratingsPager.setTotal(count ?? 0);
+  };
+
+  const load = async () => {
+    if (!user) return;
+    await Promise.all([
+      loadDriver(),
+      loadStats(),
+      loadPendingHires(),
+      loadUpcomingHires(),
+      loadHistoryHires(),
+      loadRatings(),
+    ]);
+    setHires([]);
     setLoaded(true);
   };
+
   useEffect(() => {
-    load();
+    if (user?.id) {
+      loadDriver();
+      loadStats();
+      loadPendingHires();
+      loadUpcomingHires();
+      setHires([]);
+      setLoaded(true);
+    }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) loadHistoryHires();
+  }, [user?.id, historyPager.page]);
+
+  useEffect(() => {
+    if (user?.id) loadRatings();
+  }, [user?.id, ratingsPager.page]);
 
   const docUrls = useSignedUrls("verification-docs", [
     form.dl_front_url,
@@ -319,33 +407,11 @@ function DriverDashboard() {
     );
 
   const vs = driver?.verification_status ?? "none";
-  // Net of commission; excludes customer service fee and GST.
-  const earnings = (hires ?? [])
-    .filter(
-      (h) =>
-        h.status !== "cancelled" &&
-        (h.payment_status === "paid" ||
-          h.payment_status === "partially_refunded" ||
-          h.status === "completed"),
-    )
-    .reduce((s, h) => {
-      const net = h.provider_earning != null
-        ? Number(h.provider_earning)
-        : h.base_price != null
-          ? Number(h.base_price) * 0.882
-          : Math.max(0, Number(h.total_price ?? 0) - Number(h.service_fee ?? 0));
-      return s + (isNaN(net) ? 0 : net);
-    }, 0);
+  // Net of commission; from driver_dashboard_stats()
+  const earnings = Number(stats?.earnings ?? 0);
+  const totalHires = Number(stats?.total ?? 0);
+  const pendingCount = Number(stats?.pending_count ?? pendingHires.length);
   const locked = vs === "pending";
-
-  const today = new Date().toISOString().slice(0, 10);
-  const pendingHires = (hires ?? []).filter((h) => h.status === "pending");
-  const upcomingHires = (hires ?? []).filter(
-    (h) => h.status === "confirmed" && h.start_date >= today,
-  );
-  const historyHires = (hires ?? []).filter(
-    (h) => h.status === "completed" || h.status === "cancelled",
-  );
 
   const toggleTripType = (type: string) => {
     const current: string[] = Array.isArray(form.trip_types) ? form.trip_types : [];
@@ -401,7 +467,7 @@ function DriverDashboard() {
 
         {driver && (
           <div className="grid gap-4 sm:grid-cols-3">
-            <Stat icon={CalendarCheck} label="Hires" value={hires?.length ?? 0} />
+            <Stat icon={CalendarCheck} label="Hires" value={totalHires} />
             <Stat icon={IndianRupee} label="Earnings" value={currency(earnings)} />
             <Stat
               icon={Star}
@@ -661,12 +727,14 @@ function DriverDashboard() {
 
         <section>
           <h2 className="font-display text-xl font-semibold">Hire requests</h2>
-          {!hires && <Skeleton className="mt-4 h-32 rounded-2xl" />}
-          {hires !== null && (
+          {!loaded && <Skeleton className="mt-4 h-32 rounded-2xl" />}
+          {loaded && (
             <Tabs
               value={activeTab}
               onValueChange={(val: any) => {
                 setActiveTab(val);
+                historyPager.setPage(0);
+                ratingsPager.setPage(0);
                 if (typeof window !== "undefined") {
                   const u = new URL(window.location.href);
                   u.searchParams.set("tab", val);
@@ -805,6 +873,7 @@ function DriverDashboard() {
                     </Card>
                   ))}
                 </ul>
+                <ListPager {...historyPager} />
               </TabsContent>
 
               <TabsContent value="ratings">
@@ -889,18 +958,17 @@ function DriverDashboard() {
                     </Card>
                   ))}
                 </ul>
+                <ListPager {...ratingsPager} />
               </TabsContent>
             </Tabs>
           )}
 
           {/* Pending hires (not yet confirmed) shown outside tabs for quick action */}
-          {hires !== null && (hires ?? []).filter((h) => h.status === "pending").length > 0 && (
+          {pendingHires.length > 0 && (
             <div className="mt-6">
               <h3 className="font-medium text-sm mb-3">Pending requests</h3>
               <ul className="grid gap-3">
-                {(hires ?? [])
-                  .filter((h) => h.status === "pending")
-                  .map((h) => (
+                {pendingHires.map((h) => (
                     <Card key={h.id}>
                       <CardContent className="p-4">
                         <div className="flex flex-wrap items-start justify-between gap-2">

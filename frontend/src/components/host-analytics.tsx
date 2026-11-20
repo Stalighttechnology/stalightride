@@ -3,53 +3,57 @@ import { Card, CardContent } from "@/components/ui/card";
 import { currency } from "@/lib/format";
 import { TrendingUp, Percent, Star, Wallet } from "lucide-react";
 
-type Booking = {
-  total_price: number | string;
-  provider_earning?: number | string | null;
-  payment_status: string;
-  status: string;
-  paid_at?: string | null;
-  created_at: string;
+export type HostDashboardStats = {
+  total_bookings: number;
+  pending_count: number;
+  completed_count: number;
+  cancelled_count: number;
+  earnings: number;
+  paid_count: number;
+  monthly: Array<{ month: string; total: number }>;
 };
 
 const MONTHS = 6;
 
-/** Earnings + performance analytics for a host, derived from their bookings. */
+/** Earnings + performance analytics for a host, derived from host_dashboard_stats. */
 export function HostAnalytics({
-  bookings,
+  stats,
   avgRating,
 }: {
-  bookings: Booking[];
+  stats?: HostDashboardStats | null;
   avgRating?: number;
 }) {
-  const stats = useMemo(() => {
-    const earningOf = (b: Booking) => Number(b.provider_earning ?? b.total_price ?? 0);
-    const paid = bookings.filter((b) => b.payment_status === "paid");
-    const gross = paid.reduce((s, b) => s + earningOf(b), 0);
-    const completed = bookings.filter((b) => b.status === "completed").length;
-    const cancelled = bookings.filter(
-      (b) => b.status === "cancelled" || b.status === "rejected",
-    ).length;
-    const acceptance = bookings.length
-      ? Math.round(((bookings.length - cancelled) / bookings.length) * 100)
+  const analytics = useMemo(() => {
+    const s = stats ?? {
+      total_bookings: 0,
+      pending_count: 0,
+      completed_count: 0,
+      cancelled_count: 0,
+      earnings: 0,
+      paid_count: 0,
+      monthly: [],
+    };
+    const gross = Number(s.earnings || 0);
+    const completed = Number(s.completed_count || 0);
+    const cancelled = Number(s.cancelled_count || 0);
+    const total = Number(s.total_bookings || 0);
+    const paidCount = Number(s.paid_count || 0);
+    const acceptance = total
+      ? Math.round(((total - cancelled) / total) * 100)
       : 0;
-    const avgTrip = paid.length ? gross / paid.length : 0;
+    const avgTrip = paidCount ? gross / paidCount : 0;
 
-    const now = new Date();
-    const series = Array.from({ length: MONTHS }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (MONTHS - 1 - i), 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      const total = paid
-        .filter((b) => {
-          const t = new Date(b.paid_at ?? b.created_at);
-          return `${t.getFullYear()}-${t.getMonth()}` === key;
-        })
-        .reduce((s, b) => s + earningOf(b), 0);
-      return { label: d.toLocaleDateString(undefined, { month: "short" }), total };
+    const series = (s.monthly ?? []).map((m) => {
+      const [year, month] = m.month.split("-").map(Number);
+      const d = new Date(year, (month || 1) - 1, 1);
+      return {
+        label: d.toLocaleDateString(undefined, { month: "short" }),
+        total: Number(m.total || 0),
+      };
     });
-    const peak = Math.max(1, ...series.map((s) => s.total));
-    return { gross, completed, acceptance, avgTrip, series, peak, trips: paid.length };
-  }, [bookings]);
+    const peak = Math.max(1, ...series.map((item) => item.total));
+    return { gross, completed, acceptance, avgTrip, series, peak, trips: paidCount };
+  }, [stats]);
 
   return (
     <Card className="rounded-2xl">
@@ -60,9 +64,9 @@ export function HostAnalytics({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric icon={Wallet} label="Gross earnings" value={currency(stats.gross)} />
-          <Metric icon={TrendingUp} label="Avg per trip" value={currency(stats.avgTrip)} />
-          <Metric icon={Percent} label="Acceptance rate" value={`${stats.acceptance}%`} />
+          <Metric icon={Wallet} label="Gross earnings" value={currency(analytics.gross)} />
+          <Metric icon={TrendingUp} label="Avg per trip" value={currency(analytics.avgTrip)} />
+          <Metric icon={Percent} label="Acceptance rate" value={`${analytics.acceptance}%`} />
           <Metric icon={Star} label="Rating" value={avgRating ? avgRating.toFixed(2) : "New"} />
         </div>
 
@@ -71,12 +75,12 @@ export function HostAnalytics({
             Last {MONTHS} months
           </p>
           <div className="flex h-36 items-end gap-2">
-            {stats.series.map((s) => (
+            {analytics.series.map((s) => (
               <div key={s.label} className="flex flex-1 flex-col items-center gap-2">
                 <div className="flex w-full flex-1 items-end">
                   <div
                     className="w-full rounded-t-lg bg-brand/80 transition-all"
-                    style={{ height: `${Math.max(4, (s.total / stats.peak) * 100)}%` }}
+                    style={{ height: `${Math.max(4, (s.total / analytics.peak) * 100)}%` }}
                     title={currency(s.total)}
                   />
                 </div>
@@ -87,7 +91,7 @@ export function HostAnalytics({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          {stats.trips} paid trip{stats.trips === 1 ? "" : "s"} · {stats.completed} completed.
+          {analytics.trips} paid trip{analytics.trips === 1 ? "" : "s"} · {analytics.completed} completed.
           Payouts settle to your Synchoo wallet as trips are paid.
         </p>
       </CardContent>

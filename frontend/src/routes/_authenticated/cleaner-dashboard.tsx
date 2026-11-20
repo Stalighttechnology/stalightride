@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   Sparkles,
   MapPin,
@@ -89,6 +90,10 @@ function CleanerDashboard() {
   // Bookings & stats state
   const [assignedJobs, setAssignedJobs] = useState<any[]>([]);
   const [availableRequests, setAvailableRequests] = useState<any[]>([]);
+  const [pastJobs, setPastJobs] = useState<any[]>([]);
+  const [totalCompletedCount, setTotalCompletedCount] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [grossVolume, setGrossVolume] = useState(0);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const routerLocation = useRouterState({ select: (s) => s.location });
@@ -121,6 +126,22 @@ function CleanerDashboard() {
     window.addEventListener("synchoo:tab-change", onTabChange);
     return () => window.removeEventListener("synchoo:tab-change", onTabChange);
   }, []);
+
+  const pastJobsPager = usePage(10);
+
+  const loadPastJobs = async () => {
+    if (!user) return;
+    const { data, count } = await api
+      .from("wash_bookings")
+      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)", { count: "exact" })
+      .eq("assigned_cleaner_id", user.id)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .range(pastJobsPager.from, pastJobsPager.to);
+
+    setPastJobs(data ?? []);
+    pastJobsPager.setTotal(count ?? 0);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -178,34 +199,53 @@ function CleanerDashboard() {
     loadData();
   }, [user?.id]);
 
+  useEffect(() => {
+    if (user?.id) loadPastJobs();
+  }, [user?.id, pastJobsPager.page]);
+
   const refreshBookings = async (cleanerCity?: string) => {
     const city = cleanerCity || profile?.city;
-    const { data: bData } = await api
+    // Active jobs assigned to this cleaner
+    const { data: assigned } = await api
       .from("wash_bookings")
       .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
+      .eq("assigned_cleaner_id", user?.id)
+      .neq("status", "completed")
+      .neq("status", "cancelled")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
-    const all = bData || [];
-    setAssignedJobs(
-      all.filter(
-        (b) =>
-          b.assigned_cleaner_id === user?.id &&
-          ["confirmed", "assigned", "on_the_way", "started", "completed"].includes(
-            b.progress || b.status,
-          ),
-      ),
-    );
+    setAssignedJobs(assigned || []);
+
     // Unassigned confirmed wash jobs in the cleaner's operating city (CJ-01, CJ-02)
+    const { data: avail } = await api
+      .from("wash_bookings")
+      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
+      .is("assigned_cleaner_id", null)
+      .is("assigned_vendor_id", null)
+      .eq("status", "confirmed")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
     setAvailableRequests(
-      all.filter(
-        (b) =>
-          !b.assigned_cleaner_id &&
-          !b.assigned_vendor_id &&
-          (b.status === "confirmed" || b.progress === "confirmed") &&
-          (!city || b.city?.trim().toLowerCase() === city.trim().toLowerCase()),
+      (avail || []).filter(
+        (b) => !city || b.city?.trim().toLowerCase() === city.trim().toLowerCase(),
       ),
     );
+
+    // Summary of all completed earnings
+    const { data: completedSummary } = await api
+      .from("wash_bookings")
+      .select("provider_earning, base_price")
+      .eq("assigned_cleaner_id", user?.id)
+      .eq("status", "completed");
+
+    const comp = completedSummary || [];
+    setTotalCompletedCount(comp.length);
+    setTotalEarnings(comp.reduce((acc: number, curr: any) => acc + Number(curr.provider_earning || 0), 0));
+    setGrossVolume(comp.reduce((acc: number, curr: any) => acc + Number(curr.base_price || 0), 0));
+
+    await loadPastJobs();
   };
 
   const claimJob = async (jobId: string) => {
@@ -604,9 +644,6 @@ function CleanerDashboard() {
   // Active Dashboard
   const completedJobs = assignedJobs.filter((j) => j.status === "completed");
   const inProgressJobs = assignedJobs.filter((j) => j.status === "confirmed");
-  // The database prices each wash: provider_earning is what the wallet is credited.
-  const totalEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.provider_earning || 0), 0);
-  const grossVolume = completedJobs.reduce((acc, curr) => acc + Number(curr.base_price || 0), 0);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayScheduleJobs = assignedJobs.filter(
@@ -686,7 +723,7 @@ function CleanerDashboard() {
               <span className="text-xs">Completed</span>
             </div>
             <p className="font-display text-2xl font-bold mt-1 text-foreground">
-              {completedJobs.length}
+              {totalCompletedCount}
             </p>
           </Card>
 
@@ -718,6 +755,7 @@ function CleanerDashboard() {
           value={activeTab}
           onValueChange={(val: any) => {
             setActiveTab(val);
+            pastJobsPager.setPage(0);
             if (typeof window !== "undefined") {
               const u = new URL(window.location.href);
               u.searchParams.set("tab", val);
@@ -935,13 +973,13 @@ function CleanerDashboard() {
                 </Button>
               </Card>
 
-              <Card className="p-4">
+              <Card className="p-4 space-y-4">
                 <h3 className="font-semibold text-sm mb-2">Past Completed Washes</h3>
-                {completedJobs.length === 0 ? (
+                {pastJobs.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No completed washes yet.</p>
                 ) : (
                   <div className="space-y-2">
-                    {completedJobs.slice(0, 5).map((c) => (
+                    {pastJobs.map((c) => (
                       <div
                         key={c.id}
                         className="flex justify-between items-center text-xs py-1 border-b border-border"
@@ -959,6 +997,7 @@ function CleanerDashboard() {
                     ))}
                   </div>
                 )}
+                <ListPager {...pastJobsPager} />
               </Card>
             </div>
           </TabsContent>
