@@ -51,23 +51,25 @@ function Bookings() {
 
   const routerLocation = useRouterState({ select: (s) => s.location });
   const [activeTab, setActiveTab] = useState<"customer" | "vendor">(() => {
+    if (activeRole === "host") return "vendor";
+    if (activeRole !== "admin") return "customer";
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
       const t = p.get("tab");
       if (t === "customer" || t === "vendor") return t;
     }
-    return activeRole === "host" ? "vendor" : "customer";
+    return "customer";
   });
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (activeRole === "host") {
+      setActiveTab("vendor");
+    } else if (activeRole !== "admin") {
+      setActiveTab("customer");
+    } else if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
       const t = p.get("tab");
-      if (t === "customer" || t === "vendor") {
-        setActiveTab(t);
-      } else if (activeRole === "host") {
-        setActiveTab("vendor");
-      }
+      if (t === "customer" || t === "vendor") setActiveTab(t);
     }
   }, [routerLocation.search, activeRole]);
 
@@ -237,10 +239,12 @@ function Bookings() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="rise">
             <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              Your trips
+              {activeRole === "host" ? "Host trips & handovers" : "Your trips"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Track requests, pay securely and manage handovers.
+              {activeRole === "host"
+                ? "Track reservations on your vehicles, verify check-ins, and manage handovers."
+                : "Track requests, pay securely and manage handovers."}
             </p>
           </div>
           <Link
@@ -263,14 +267,16 @@ function Bookings() {
           }}
           className="mt-7"
         >
-          <TabsList className="rounded-full">
-            <TabsTrigger value="customer" className="rounded-full">
-              As renter
-            </TabsTrigger>
-            <TabsTrigger value="vendor" className="rounded-full">
-              As host
-            </TabsTrigger>
-          </TabsList>
+          {activeRole === "admin" && (
+            <TabsList className="rounded-full">
+              <TabsTrigger value="customer" className="rounded-full">
+                As renter
+              </TabsTrigger>
+              <TabsTrigger value="vendor" className="rounded-full">
+                As host
+              </TabsTrigger>
+            </TabsList>
+          )}
           <TabsContent value="customer" className="mt-5">
             <List
               items={asCustomer}
