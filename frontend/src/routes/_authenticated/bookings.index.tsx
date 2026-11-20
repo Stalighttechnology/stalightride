@@ -13,6 +13,7 @@ import { refundFraction, round2 } from "@/lib/charges";
 import { getHandoverGate, formatWhen } from "@/lib/trip-window";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSession } from "@/hooks/use-session";
+import { useActiveRole } from "@/hooks/use-active-role";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import {
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/bookings/")({ component: B
 
 function Bookings() {
   const { user } = useSession();
+  const { activeRole } = useActiveRole();
   const confirm = useConfirm();
   const [asCustomer, setAsCustomer] = useState<any[] | null>(null);
   const [asVendor, setAsVendor] = useState<any[] | null>(null);
@@ -54,16 +56,20 @@ function Bookings() {
       const t = p.get("tab");
       if (t === "customer" || t === "vendor") return t;
     }
-    return "customer";
+    return activeRole === "host" ? "vendor" : "customer";
   });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search);
       const t = p.get("tab");
-      if (t === "customer" || t === "vendor") setActiveTab(t);
+      if (t === "customer" || t === "vendor") {
+        setActiveTab(t);
+      } else if (activeRole === "host") {
+        setActiveTab("vendor");
+      }
     }
-  }, [routerLocation.search]);
+  }, [routerLocation.search, activeRole]);
 
   useEffect(() => {
     const onTabChange = (e: Event) => {
