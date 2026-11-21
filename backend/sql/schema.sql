@@ -1222,6 +1222,13 @@ BEGIN
   NEW.return_checked_at := OLD.return_checked_at;
   NEW.created_at := OLD.created_at;
 
+  -- Booking window columns
+  NEW.respond_by := OLD.respond_by;
+  NEW.pay_by := OLD.pay_by;
+  NEW.confirmed_at := OLD.confirmed_at;
+  NEW.respond_reminded_at := OLD.respond_reminded_at;
+  NEW.pay_reminded_at := OLD.pay_reminded_at;
+
   RETURN NEW;
 END; $$;
 
@@ -1807,6 +1814,122 @@ END;
 $$;
 
 
+CREATE FUNCTION public.expire_booking_windows() RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_expired_pending integer := 0;
+  v_expired_unpaid integer := 0;
+  v_reminded_respond integer := 0;
+  v_reminded_pay integer := 0;
+  r RECORD;
+BEGIN
+  -- 1a. Cancel expired pending rental requests (host_no_response)
+  FOR r IN
+    SELECT b.id, b.customer_id, b.vendor_id, v.title AS vehicle_title
+    FROM public.bookings b
+    LEFT JOIN public.vehicles v ON v.id = b.vehicle_id
+    WHERE b.status = 'pending' AND b.respond_by < now()
+  LOOP
+    UPDATE public.bookings
+    SET status = 'cancelled',
+        cancellation_reason = 'host_no_response',
+        cancelled_at = now()
+    WHERE id = r.id;
+
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES
+      (r.customer_id, 'Request expired', format('Host did not respond in time for %s.', COALESCE(r.vehicle_title, 'the vehicle')), '/bookings'),
+      (r.vendor_id, 'Request expired', format('Booking request for %s expired without response.', COALESCE(r.vehicle_title, 'your vehicle')), '/vendor');
+
+    v_expired_pending := v_expired_pending + 1;
+  END LOOP;
+
+  -- 1b. Cancel expired confirmed unpaid rentals (payment_timeout)
+  FOR r IN
+    SELECT b.id, b.customer_id, b.vendor_id, v.title AS vehicle_title
+    FROM public.bookings b
+    LEFT JOIN public.vehicles v ON v.id = b.vehicle_id
+    WHERE b.status = 'confirmed' AND b.payment_status <> 'paid' AND b.pay_by < now()
+  LOOP
+    UPDATE public.bookings
+    SET status = 'cancelled',
+        cancellation_reason = 'payment_timeout',
+        cancelled_at = now()
+    WHERE id = r.id;
+
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES
+      (r.customer_id, 'Payment window expired', format('Payment was not completed in time for %s.', COALESCE(r.vehicle_title, 'the vehicle')), '/bookings'),
+      (r.vendor_id, 'Payment window expired', format('Customer did not pay in time for %s.', COALESCE(r.vehicle_title, 'your vehicle')), '/vendor');
+
+    v_expired_unpaid := v_expired_unpaid + 1;
+  END LOOP;
+
+  -- 1c. Halfway reminder for pending rental requests (to vendor)
+  FOR r IN
+    SELECT b.id, b.vendor_id, b.respond_by, v.title AS vehicle_title
+    FROM public.bookings b
+    LEFT JOIN public.vehicles v ON v.id = b.vehicle_id
+    WHERE b.status = 'pending'
+      AND b.respond_reminded_at IS NULL
+      AND b.respond_by IS NOT NULL
+      AND now() >= (b.created_at + ((b.respond_by - b.created_at) / 2))
+      AND now() < b.respond_by
+  LOOP
+    UPDATE public.bookings
+    SET respond_reminded_at = now()
+    WHERE id = r.id;
+
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      r.vendor_id,
+      'Pending booking request',
+      format('Please respond to the booking request for %s before %s.', COALESCE(r.vehicle_title, 'your vehicle'), to_char(r.respond_by AT TIME ZONE 'Asia/Kolkata', 'HH12:MI AM')),
+      '/vendor'
+    );
+
+    v_reminded_respond := v_reminded_respond + 1;
+  END LOOP;
+
+  -- 1d. Halfway reminder for confirmed unpaid rentals (to customer)
+  FOR r IN
+    SELECT b.id, b.customer_id, b.pay_by, v.title AS vehicle_title
+    FROM public.bookings b
+    LEFT JOIN public.vehicles v ON v.id = b.vehicle_id
+    WHERE b.status = 'confirmed'
+      AND b.payment_status <> 'paid'
+      AND b.pay_reminded_at IS NULL
+      AND b.pay_by IS NOT NULL
+      AND now() >= (COALESCE(b.confirmed_at, b.created_at) + ((b.pay_by - COALESCE(b.confirmed_at, b.created_at)) / 2))
+      AND now() < b.pay_by
+  LOOP
+    UPDATE public.bookings
+    SET pay_reminded_at = now()
+    WHERE id = r.id;
+
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      r.customer_id,
+      'Payment reminder',
+      format('Please complete payment for %s before %s.', COALESCE(r.vehicle_title, 'the vehicle'), to_char(r.pay_by AT TIME ZONE 'Asia/Kolkata', 'HH12:MI AM')),
+      '/bookings'
+    );
+
+    v_reminded_pay := v_reminded_pay + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'bookings_expired_pending', v_expired_pending,
+    'bookings_expired_unpaid', v_expired_unpaid,
+    'bookings_reminded_respond', v_reminded_respond,
+    'bookings_reminded_pay', v_reminded_pay
+  );
+END;
+$$;
+
+
 --
 -- Name: handle_incident_notifications(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -1981,14 +2104,75 @@ END; $$;
 -- Name: prevent_booking_conflict(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.prevent_booking_conflict() RETURNS trigger
+CREATE FUNCTION public.booking_deadline(_from timestamp with time zone, _start timestamp with time zone, _buffer interval, _cap interval DEFAULT '12:00:00'::interval) RETURNS timestamp with time zone
+    LANGUAGE sql IMMUTABLE
+    AS $$
+  SELECT LEAST(_from + _cap, _from + ((_start - _from) / 2), _start - _buffer);
+$$;
+
+
+CREATE FUNCTION public.tg_booking_windows() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'public'
     AS $$
+BEGIN
+  IF OLD.status = 'pending' AND NEW.status = 'confirmed' THEN
+    IF OLD.respond_by IS NOT NULL AND now() > OLD.respond_by THEN
+      RAISE EXCEPTION 'This request has expired';
+    END IF;
+    NEW.confirmed_at := now();
+    NEW.pay_by := public.booking_deadline(
+      NEW.confirmed_at,
+      (NEW.start_date + COALESCE(NEW.pickup_time, '10:00:00'::time)) AT TIME ZONE 'Asia/Kolkata',
+      interval '30 minutes'
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+CREATE FUNCTION public.prevent_booking_conflict() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
 DECLARE
+  v_status text;
+  v_deleted boolean;
   v_new_start timestamp without time zone;
   v_new_end timestamp without time zone;
+  v_start_tz timestamptz;
 BEGIN
+  -- Customer requests (not the owner or an admin) always start as a pending request.
+  IF TG_OP = 'INSERT' AND auth.uid() IS NOT NULL AND NOT public.has_role(auth.uid(), 'admin') THEN
+    NEW.status := 'pending';
+    SELECT status::text, COALESCE(is_deleted, false) INTO v_status, v_deleted FROM public.vehicles WHERE id = NEW.vehicle_id;
+    IF v_deleted OR v_status IS DISTINCT FROM 'active' THEN
+      RAISE EXCEPTION 'This vehicle is not available for booking';
+    END IF;
+    IF NEW.start_date < (now() AT TIME ZONE 'Asia/Kolkata')::date THEN
+      RAISE EXCEPTION 'Pickup date cannot be in the past';
+    END IF;
+
+    -- a. Refuse when the start is less than 2h from now(): 'Pickup must be at least 2 hours from now'.
+    v_start_tz := (NEW.start_date + COALESCE(NEW.pickup_time, '10:00:00'::time)) AT TIME ZONE 'Asia/Kolkata';
+    IF v_start_tz < now() + interval '2 hours' THEN
+      RAISE EXCEPTION 'Pickup must be at least 2 hours from now';
+    END IF;
+
+    -- b. Set NEW.respond_by.
+    NEW.respond_by := public.booking_deadline(COALESCE(NEW.created_at, now()), v_start_tz, interval '1 hour');
+  END IF;
+
+  IF NEW.status NOT IN ('pending', 'confirmed') THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status = 'pending' AND NEW.respond_by IS NULL THEN
+    v_start_tz := (NEW.start_date + COALESCE(NEW.pickup_time, '10:00:00'::time)) AT TIME ZONE 'Asia/Kolkata';
+    NEW.respond_by := public.booking_deadline(COALESCE(NEW.created_at, now()), v_start_tz, interval '1 hour');
+  END IF;
+
   v_new_start := (NEW.start_date + COALESCE(NEW.pickup_time, '10:00:00'::time));
   v_new_end := (NEW.end_date + COALESCE(NEW.dropoff_time, '10:00:00'::time));
 
@@ -1996,6 +2180,30 @@ BEGIN
     RAISE EXCEPTION 'Drop-off must be after pickup';
   END IF;
 
+  -- One writer per vehicle at a time, so the checks below see every committed booking.
+  PERFORM 1 FROM public.vehicles WHERE id = NEW.vehicle_id FOR NO KEY UPDATE;
+
+  -- c. On insert, mark expired bookings for the same vehicle as cancelled before overlap check
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.bookings
+    SET status = 'cancelled',
+        cancellation_reason = 'host_no_response',
+        cancelled_at = now()
+    WHERE vehicle_id = NEW.vehicle_id
+      AND status = 'pending'
+      AND respond_by < now();
+
+    UPDATE public.bookings
+    SET status = 'cancelled',
+        cancellation_reason = 'payment_timeout',
+        cancelled_at = now()
+    WHERE vehicle_id = NEW.vehicle_id
+      AND status = 'confirmed'
+      AND payment_status <> 'paid'
+      AND pay_by < now();
+  END IF;
+
+  -- Check conflict with existing active bookings using exact timestamps
   IF EXISTS (
     SELECT 1 FROM public.bookings b
     WHERE b.vehicle_id = NEW.vehicle_id
@@ -2006,6 +2214,8 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Vehicle not available for selected dates';
   END IF;
+
+  -- Check conflict with availability blocks (full-day coverage)
   IF EXISTS (
     SELECT 1 FROM public.availability_blocks a
     WHERE a.vehicle_id = NEW.vehicle_id
@@ -2014,6 +2224,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Vehicle is blocked on selected dates';
   END IF;
+
   RETURN NEW;
 END; $$;
 
@@ -2697,8 +2908,10 @@ BEGIN
       PERFORM public.notify_user(NEW.customer_id, 'Booking declined',
         'The host could not accept your request for ' || COALESCE(v_title,'this vehicle') || '.', '/bookings');
     ELSIF NEW.status = 'cancelled' THEN
-      PERFORM public.notify_user(NEW.customer_id, 'Booking cancelled', 'Your trip was cancelled.', '/bookings');
-      PERFORM public.notify_user(NEW.vendor_id, 'Booking cancelled', 'A trip on ' || COALESCE(v_title,'your vehicle') || ' was cancelled.', '/vendor?tab=bookings');
+      IF COALESCE(NEW.cancellation_reason, '') NOT IN ('host_no_response', 'payment_timeout') THEN
+        PERFORM public.notify_user(NEW.customer_id, 'Booking cancelled', 'Your trip was cancelled.', '/bookings');
+        PERFORM public.notify_user(NEW.vendor_id, 'Booking cancelled', 'A trip on ' || COALESCE(v_title,'your vehicle') || ' was cancelled.', '/vendor?tab=bookings');
+      END IF;
     ELSIF NEW.status = 'completed' THEN
       PERFORM public.notify_user(NEW.customer_id, 'Trip completed', 'Rate your ride and view your invoice.', '/bookings');
       PERFORM public.notify_user(NEW.vendor_id, 'Trip completed', COALESCE(v_title,'Your vehicle') || ' is back. Earnings updated.', '/vendor?tab=bookings');
@@ -3415,6 +3628,7 @@ BEGIN
   IF b.customer_id <> auth.uid() THEN RAISE EXCEPTION 'Not your booking'; END IF;
   IF b.status <> 'confirmed' THEN RAISE EXCEPTION 'Host has not accepted this booking yet'; END IF;
   IF b.payment_status = 'paid' THEN RAISE EXCEPTION 'Already paid'; END IF;
+  IF b.pay_by IS NOT NULL AND now() > b.pay_by THEN RAISE EXCEPTION 'Payment window has closed'; END IF;
 
   INSERT INTO public.wallets (user_id) VALUES (b.customer_id) ON CONFLICT (user_id) DO NOTHING;
   SELECT balance INTO bal FROM public.wallets WHERE user_id = b.customer_id FOR UPDATE;
@@ -3704,6 +3918,11 @@ CREATE TABLE public.bookings (
     cancelled_at timestamp with time zone,
     cancelled_by uuid,
     cancellation_reason text,
+    respond_by timestamp with time zone,
+    pay_by timestamp with time zone,
+    confirmed_at timestamp with time zone,
+    respond_reminded_at timestamp with time zone,
+    pay_reminded_at timestamp with time zone,
     CONSTRAINT bookings_check CHECK ((end_date >= start_date)),
     CONSTRAINT bookings_pickup_fuel_pct_check CHECK (((pickup_fuel_pct >= 0) AND (pickup_fuel_pct <= 100))),
     CONSTRAINT bookings_pickup_odometer_check CHECK ((pickup_odometer >= 0)),
@@ -5674,6 +5893,9 @@ CREATE TRIGGER trg_prevent_driver_booking_conflict BEFORE INSERT ON public.drive
 --
 
 CREATE TRIGGER trg_price_booking BEFORE INSERT ON public.bookings FOR EACH ROW EXECUTE FUNCTION public.tg_price_booking();
+
+
+CREATE TRIGGER trg_zz_booking_windows BEFORE UPDATE ON public.bookings FOR EACH ROW EXECUTE FUNCTION public.tg_booking_windows();
 
 
 --
@@ -8460,6 +8682,12 @@ GRANT ALL ON FUNCTION public.wallet_apply(_user_id uuid, _amount numeric, _kind 
 REVOKE ALL ON FUNCTION public.wallet_pay_booking(_booking_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.wallet_pay_booking(_booking_id uuid) TO service_role;
 GRANT ALL ON FUNCTION public.wallet_pay_booking(_booking_id uuid) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.booking_deadline(timestamp with time zone, timestamp with time zone, interval, interval) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.booking_deadline(timestamp with time zone, timestamp with time zone, interval, interval) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.expire_booking_windows() FROM PUBLIC;
+GRANT ALL ON FUNCTION public.expire_booking_windows() TO service_role;
 
 
 --

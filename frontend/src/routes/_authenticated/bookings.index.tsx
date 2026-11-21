@@ -48,6 +48,7 @@ function Bookings() {
   const [paying, setPaying] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
+  const [now, setNow] = useState(() => Date.now());
 
   const routerLocation = useRouterState({ select: (s) => s.location });
   const [activeTab, setActiveTab] = useState<"customer" | "vendor">(() => {
@@ -83,6 +84,11 @@ function Bookings() {
   }, []);
   const createOrder = createRazorpayOrder;
   const verifyPayment = verifyRazorpayPayment;
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   const load = async () => {
     if (!user) return;
@@ -286,6 +292,7 @@ function Bookings() {
               onWalletPay={payWithWallet}
               walletBalance={walletBalance}
               paying={paying}
+              now={now}
             />
             <ListPager {...customerPager} />
           </TabsContent>
@@ -298,6 +305,7 @@ function Bookings() {
               onWalletPay={payWithWallet}
               walletBalance={walletBalance}
               paying={paying}
+              now={now}
             />
             <ListPager {...vendorPager} />
           </TabsContent>
@@ -317,15 +325,54 @@ function stepIndex(b: any) {
   return 0;
 }
 
+function formatCountdown(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
 function Progress({ b }: { b: any }) {
   const closed = b.status === "cancelled" || b.status === "rejected";
   if (closed) {
+    const isTimeout =
+      b.cancellation_reason === "host_no_response" ||
+      b.cancellation_reason === "payment_timeout";
+    const friendlyReason =
+      b.status === "rejected"
+        ? "The host declined this request."
+        : b.cancellation_reason === "host_no_response"
+          ? "The host did not respond in time, so the request expired."
+          : b.cancellation_reason === "payment_timeout"
+            ? "The payment window closed before payment was completed."
+            : "This booking was cancelled.";
+
     return (
-      <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        <CircleSlash className="h-3.5 w-3.5" />
-        {b.status === "rejected"
-          ? "The host declined this request."
-          : "This booking was cancelled."}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <CircleSlash className="h-3.5 w-3.5 shrink-0" />
+          <span>{friendlyReason}</span>
+        </div>
+        {isTimeout && (
+          <Button asChild size="sm" variant="outline" className="h-7 rounded-full text-xs">
+            <Link
+              to="/browse"
+              search={{
+                city: b.vehicles?.city,
+                from: b.start_date,
+                to: b.end_date,
+                pickupTime: b.pickup_time,
+                dropoffTime: b.dropoff_time,
+              }}
+            >
+              Find similar cars
+            </Link>
+          </Button>
+        )}
       </div>
     );
   }
@@ -362,6 +409,7 @@ function List({
   onWalletPay,
   walletBalance,
   paying,
+  now,
 }: {
   items: any[] | null;
   role: "customer" | "vendor";
@@ -370,6 +418,7 @@ function List({
   onWalletPay: (b: any) => void;
   walletBalance: number | null;
   paying: string | null;
+  now: number;
 }) {
   const navigate = useNavigate();
   const paths = (items ?? []).map(
@@ -512,6 +561,29 @@ function List({
 
                   <Progress b={b} />
 
+                  {b.status === "pending" && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {b.respond_by
+                          ? `Waiting for host, responds by ${formatWhen(new Date(b.respond_by))} (${formatCountdown(b.respond_by, now)})`
+                          : "Waiting for host, responds shortly"}
+                      </span>
+                    </div>
+                  )}
+
+                  {role === "vendor" &&
+                    b.status === "confirmed" &&
+                    b.payment_status !== "paid" &&
+                    b.pay_by && (
+                      <div className="mt-3 flex items-center gap-2 rounded-xl bg-brand/10 px-3 py-2 text-xs text-brand">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          Pay by {formatWhen(new Date(b.pay_by))} ({formatCountdown(b.pay_by, now)})
+                        </span>
+                      </div>
+                    )}
+
                   {role === "customer" && isPaid && !b.pickup_checked_at && (
                     <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-4">
                       <div className="flex items-center gap-2 font-display text-sm font-semibold text-emerald-600 dark:text-emerald-400">
@@ -565,47 +637,69 @@ function List({
                     </div>
                   )}
 
-                  {canPay && (
-                    <div className="mt-4 rounded-2xl border border-brand/30 bg-brand/5 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-xs">
-                          <div className="font-semibold">Host accepted — confirm with payment</div>
-                          <div className="text-muted-foreground">
-                            {shortBalance
-                              ? "Wallet balance is short for this trip."
-                              : `Wallet covers this trip · ${currency(walletBalance ?? 0)} available`}
+                  {canPay && (() => {
+                    const payExpired = b.pay_by ? now > new Date(b.pay_by).getTime() : false;
+                    return (
+                      <div className="mt-4 rounded-2xl border border-brand/30 bg-brand/5 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="text-xs">
+                            <div className="font-semibold">Host accepted — confirm with payment</div>
+                            {b.pay_by && (
+                              <div
+                                className={`mt-0.5 flex items-center gap-1.5 font-medium ${
+                                  payExpired ? "text-destructive" : "text-brand"
+                                }`}
+                              >
+                                <Clock className="h-3.5 w-3.5" />
+                                {payExpired
+                                  ? `Payment window closed (Pay by ${formatWhen(new Date(b.pay_by))})`
+                                  : `Pay by ${formatWhen(new Date(b.pay_by))} (${formatCountdown(b.pay_by, now)})`}
+                              </div>
+                            )}
+                            <div className="mt-0.5 text-muted-foreground">
+                              {shortBalance
+                                ? "Wallet balance is short for this trip."
+                                : `Wallet covers this trip · ${currency(walletBalance ?? 0)} available`}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full"
+                              onClick={() => onWalletPay(b)}
+                              disabled={paying === b.id || shortBalance || payExpired}
+                              title={
+                                payExpired
+                                  ? "Payment window has closed"
+                                  : shortBalance
+                                    ? "Not enough wallet balance"
+                                    : undefined
+                              }
+                            >
+                              <WalletIcon className="mr-1.5 h-4 w-4" />
+                              {paying === b.id ? "Paying…" : "Pay with wallet"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="btn-gradient rounded-full"
+                              onClick={() => onPay(b)}
+                              disabled={paying === b.id || payExpired}
+                              title={payExpired ? "Payment window has closed" : undefined}
+                            >
+                              <CreditCard className="mr-1.5 h-4 w-4" />
+                              {paying === b.id ? "Opening…" : "Pay now"}
+                            </Button>
+                            {shortBalance && (
+                              <Link to="/wallet" className="text-xs font-medium underline">
+                                Add money
+                              </Link>
+                            )}
                           </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-full"
-                            onClick={() => onWalletPay(b)}
-                            disabled={paying === b.id || shortBalance}
-                            title={shortBalance ? "Not enough wallet balance" : undefined}
-                          >
-                            <WalletIcon className="mr-1.5 h-4 w-4" />
-                            {paying === b.id ? "Paying…" : "Pay with wallet"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="btn-gradient rounded-full"
-                            onClick={() => onPay(b)}
-                            disabled={paying === b.id}
-                          >
-                            <CreditCard className="mr-1.5 h-4 w-4" />
-                            {paying === b.id ? "Opening…" : "Pay now"}
-                          </Button>
-                          {shortBalance && (
-                            <Link to="/wallet" className="text-xs font-medium underline">
-                              Add money
-                            </Link>
-                          )}
-                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {role === "vendor" &&
                     b.payment_status === "paid" &&

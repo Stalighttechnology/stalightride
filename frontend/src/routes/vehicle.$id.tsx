@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
+import { formatWhen } from "@/lib/trip-window";
 import {
   type BookedRange,
   toIsoDate,
@@ -359,6 +360,10 @@ function VehiclePage() {
 
   const scheduleConflict = useMemo(() => {
     if (!start || !end) return null;
+    const pickupDate = new Date(`${start}T${(pickupTime || "10:00").slice(0, 5)}:00+05:30`);
+    if (pickupDate.getTime() - Date.now() < 2 * 60 * 60 * 1000) {
+      return "Pickup must be at least 2 hours from now";
+    }
     return validateBookingAgainstRanges(start, pickupTime, end, dropoffTime, bookedRanges);
   }, [start, pickupTime, end, dropoffTime, bookedRanges]);
 
@@ -383,6 +388,11 @@ function VehiclePage() {
       toast.error("Drop-off must be after pickup");
       return;
     }
+    const pickupDate = new Date(`${start}T${(pickupTime || "10:00").slice(0, 5)}:00+05:30`);
+    if (pickupDate.getTime() - Date.now() < 2 * 60 * 60 * 1000) {
+      toast.error("Pickup must be at least 2 hours from now");
+      return;
+    }
     const conflictErr = validateBookingAgainstRanges(
       start,
       pickupTime,
@@ -403,23 +413,27 @@ function VehiclePage() {
         const meetTag = `[VIP Airport Meet & Greet${flightInfo.trim() ? `: Flight ${flightInfo.trim()}` : ""}]`;
         finalNotes = finalNotes ? `${meetTag} ${finalNotes}` : meetTag;
       }
-      const { error } = await api.from("bookings").insert({
-        vehicle_id: v.id,
-        vendor_id: v.vendor_id,
-        customer_id: user.id,
-        start_date: start,
-        end_date: end,
-        pickup_time: pickupTime,
-        dropoff_time: dropoffTime,
-        base_price: subtotal,
-        security_deposit: v.security_deposit,
-        // Money columns are recalculated by the database (tg_price_booking).
-        total_price: subtotal + Number(v.security_deposit),
-        coupon_code: coupon?.code ?? null,
-        status: "pending",
-        qr_code: qrPayload,
-        notes: finalNotes || null,
-      } as any);
+      const { data: created, error } = await api
+        .from("bookings")
+        .insert({
+          vehicle_id: v.id,
+          vendor_id: v.vendor_id,
+          customer_id: user.id,
+          start_date: start,
+          end_date: end,
+          pickup_time: pickupTime,
+          dropoff_time: dropoffTime,
+          base_price: subtotal,
+          security_deposit: v.security_deposit,
+          // Money columns are recalculated by the database (tg_price_booking).
+          total_price: subtotal + Number(v.security_deposit),
+          coupon_code: coupon?.code ?? null,
+          status: "pending",
+          qr_code: qrPayload,
+          notes: finalNotes || null,
+        } as any)
+        .select("id, respond_by")
+        .single();
       if (error) throw error;
       if (coupon?.code) {
         try {
@@ -445,7 +459,10 @@ function VehiclePage() {
           }
         } catch {}
       }
-      toast.success("Booking requested! The host will confirm shortly.");
+      const respondMsg = created?.respond_by
+        ? `Host will respond by ${formatWhen(new Date(created.respond_by))}`
+        : "The host will confirm shortly";
+      toast.success(`Booking requested! ${respondMsg}.`);
       navigate({ to: "/bookings" });
     } catch (e: any) {
       toast.error(e.message ?? "Could not book");

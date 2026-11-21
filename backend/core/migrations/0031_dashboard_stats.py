@@ -109,5 +109,5 @@ DROP FUNCTION IF EXISTS public.host_dashboard_stats();
 
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0029_route_service_fee_to_admin")]
+    dependencies = [("core", "0030_rental_booking_windows")]
     operations = [migrations.RunSQL(SQL, REVERSE_SQL)]
