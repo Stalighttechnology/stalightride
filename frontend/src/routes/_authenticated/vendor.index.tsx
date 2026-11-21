@@ -955,7 +955,7 @@ function VendorDashboard() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <Stat icon={Car} label="Fleet Size" value={vehiclesPager.total} />
                   <Stat icon={Calendar} label="Total Bookings" value={totalBookings} />
-                  <Stat icon={DollarSign} label="Gross Earnings" value={currency(earnings)} />
+                  <Stat icon={DollarSign} label="Your Earnings" value={currency(earnings)} />
                   <Stat
                     icon={Clock}
                     label="Response Rate"
@@ -1168,7 +1168,8 @@ function VendorDashboard() {
                                 <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
                                   <div className="text-left sm:text-right">
                                     <p className="text-sm font-bold text-foreground">
-                                      {currency(b.total_price)}
+                                      {currency(b.provider_earning)}
+                                      <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
                                     </p>
                                     <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                                       <Badge
@@ -1233,14 +1234,9 @@ function VendorDashboard() {
                                 <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
                                   <div className="text-left sm:text-right">
                                     <p className="text-sm font-bold text-foreground">
-                                      {currency(b.provider_earning ?? (b.base_price ? Number(b.base_price) * 0.882 : b.total_price))}
+                                      {currency(b.provider_earning)}
                                       <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
                                     </p>
-                                    {Number(b.service_fee) > 0 && (
-                                      <p className="text-[10px] text-muted-foreground">
-                                        Fee {currency(b.service_fee)} to Admin
-                                      </p>
-                                    )}
                                     <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                                       <Badge
                                         variant={

@@ -157,14 +157,24 @@ function QrPage() {
               </section>
 
               <section className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
+                {/* The server sends the customer's amounts to the customer, only the earning to the host, nothing to others. */}
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Amount paid
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold">{currency(data.totalPrice)}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Fare {currency(data.basePrice)} + deposit {currency(data.securityDeposit)}
-                  </p>
+                  {data.totalPrice != null ? (
+                    <>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Amount paid</p>
+                      <p className="mt-1 text-2xl font-semibold">{currency(data.totalPrice)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Fare {currency(data.basePrice)} + deposit {currency(data.securityDeposit)}
+                      </p>
+                    </>
+                  ) : data.providerEarning != null ? (
+                    <>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Your earning</p>
+                      <p className="mt-1 text-2xl font-semibold">{currency(data.providerEarning)}</p>
+                    </>
+                  ) : (
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Booking verified</p>
+                  )}
                 </div>
                 {data.paidAt && (
                   <div className="text-right text-xs text-muted-foreground">

@@ -101,7 +101,6 @@ function CleanerDashboard() {
   const [pastJobs, setPastJobs] = useState<any[]>([]);
   const [totalCompletedCount, setTotalCompletedCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
-  const [grossVolume, setGrossVolume] = useState(0);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const routerLocation = useRouterState({ select: (s) => s.location });
@@ -257,14 +256,13 @@ function CleanerDashboard() {
     // Summary of all completed earnings
     const { data: completedSummary } = await api
       .from("wash_bookings")
-      .select("provider_earning, base_price")
+      .select("provider_earning")
       .eq("assigned_cleaner_id", user?.id)
       .eq("status", "completed");
 
     const comp = completedSummary || [];
     setTotalCompletedCount(comp.length);
     setTotalEarnings(comp.reduce((acc: number, curr: any) => acc + Number(curr.provider_earning || 0), 0));
-    setGrossVolume(comp.reduce((acc: number, curr: any) => acc + Number(curr.base_price || 0), 0));
 
     await loadPastJobs();
   };
@@ -1055,18 +1053,8 @@ function CleanerDashboard() {
               <Card className="p-4">
                 <h3 className="font-semibold text-sm mb-2">Earnings Summary</h3>
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Gross Wash Volume</span>
-                    <span className="font-semibold">{currency(grossVolume)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Platform commission + GST</span>
-                    <span className="text-muted-foreground">
-                      −{currency(grossVolume - totalEarnings)}
-                    </span>
-                  </div>
                   <div className="flex justify-between py-1 font-semibold text-sm text-foreground">
-                    <span>Withdrawable Cleaner Payout</span>
+                    <span>Your earnings</span>
                     <span className="text-brand">{currency(totalEarnings)}</span>
                   </div>
                 </div>
