@@ -447,7 +447,7 @@ ALTER TABLE public.vehicles DROP COLUMN IF EXISTS instant_book;
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0030_rental_booking_windows'),
+        ('core', '0031_dashboard_stats'),
     ]
 
     operations = [

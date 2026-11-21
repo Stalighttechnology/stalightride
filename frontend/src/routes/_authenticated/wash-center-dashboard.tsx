@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   Building2,
   MapPin,
@@ -119,6 +120,29 @@ function WashCenterDashboard() {
 
   // Center wash bookings
   const [centerBookings, setCenterBookings] = useState<any[]>([]);
+  const [stats, setStats] = useState<{ active: number; completed: number } | null>(null);
+  const pager = usePage(10);
+
+  const loadStats = async () => {
+    if (!user) return;
+    const { data } = await api.rpc("wash_center_dashboard_stats");
+    if (data) setStats(data as any);
+  };
+
+  const loadBookings = async () => {
+    if (!user) return;
+    const { data: bData, count } = await api
+      .from("wash_bookings")
+      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(pager.from, pager.to);
+    setCenterBookings(bData || []);
+    pager.setTotal(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (user?.id) loadBookings();
+  }, [user?.id, pager.page]);
 
   useEffect(() => {
     if (!user) return;
@@ -208,13 +232,8 @@ function WashCenterDashboard() {
         setEmail(user.email || "");
       }
 
-      // Load wash bookings
-      const { data: bData } = await api
-        .from("wash_bookings")
-        .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      setCenterBookings(bData || []);
+      await loadStats();
+      await loadBookings();
       setLoading(false);
     };
 
@@ -366,13 +385,8 @@ function WashCenterDashboard() {
       .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success(`Booking ${status === "confirmed" ? "approved" : status}`);
-    setCenterBookings((prev) =>
-      prev.map((b) =>
-        b.id === id
-          ? { ...b, status, completed_at: status === "completed" ? new Date().toISOString() : null }
-          : b,
-      ),
-    );
+    await loadStats();
+    await loadBookings();
   };
 
   if (loading) {
@@ -642,7 +656,8 @@ function WashCenterDashboard() {
   }
 
   // Active Dashboard
-  const activeJobs = centerBookings.filter((b) => b.status === "confirmed");
+  const activeJobsCount = Number(stats?.active ?? centerBookings.filter((b) => b.status === "confirmed").length);
+  const completedJobsCount = Number(stats?.completed ?? centerBookings.filter((b) => b.status === "completed").length);
   const completedJobs = centerBookings.filter((b) => b.status === "completed");
   // The database prices each wash: provider_earning is what the wallet is credited.
   const grossEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.base_price || 0), 0);
@@ -687,7 +702,7 @@ function WashCenterDashboard() {
               <span className="text-xs">Active Washes</span>
             </div>
             <p className="font-display text-2xl font-bold mt-1 text-foreground">
-              {activeJobs.length}
+              {activeJobsCount}
             </p>
           </Card>
 
@@ -697,7 +712,7 @@ function WashCenterDashboard() {
               <span className="text-xs">Completed Washes</span>
             </div>
             <p className="font-display text-2xl font-bold mt-1 text-foreground">
-              {completedJobs.length}
+              {completedJobsCount}
             </p>
           </Card>
 
@@ -725,9 +740,13 @@ function WashCenterDashboard() {
         </div>
 
         {/* Dashboard Tabs */}
-        <Tabs defaultValue="bookings" className="space-y-4">
+        <Tabs
+          defaultValue="bookings"
+          className="space-y-4"
+          onValueChange={() => pager.setPage(0)}
+        >
           <TabsList className="bg-muted p-1">
-            <TabsTrigger value="bookings">Bookings Queue ({activeJobs.length})</TabsTrigger>
+            <TabsTrigger value="bookings">Bookings Queue ({activeJobsCount})</TabsTrigger>
             <TabsTrigger value="services">Services & Pricing ({packages.length})</TabsTrigger>
             <TabsTrigger value="staff">Staff Management ({staff.length})</TabsTrigger>
             <TabsTrigger value="earnings">Earnings & Payouts</TabsTrigger>
@@ -736,12 +755,12 @@ function WashCenterDashboard() {
 
           {/* Bookings Queue */}
           <TabsContent value="bookings" className="space-y-3">
-            {activeJobs.length === 0 ? (
+            {centerBookings.length === 0 ? (
               <Card className="p-8 text-center text-sm text-muted-foreground">
                 No active wash appointments in queue.
               </Card>
             ) : (
-              activeJobs.map((b) => (
+              centerBookings.map((b) => (
                 <Card key={b.id} className="p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -789,6 +808,7 @@ function WashCenterDashboard() {
                 </Card>
               ))
             )}
+            <ListPager {...pager} />
           </TabsContent>
 
           {/* Services & Pricing */}

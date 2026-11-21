@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { usePage, ListPager } from "@/components/list-pager";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ interface CategoryConfig {
 }
 
 export function CitiesCategoriesTab() {
+  const pager = usePage(25);
   const [cities, setCities] = useState<CityConfig[] | null>(null);
   const [categoryRules, setCategoryRules] = useState<CategoryConfig[] | null>(null);
 
@@ -36,12 +38,12 @@ export function CitiesCategoriesTab() {
   const [newCityState, setNewCityState] = useState("");
   const [addingCity, setAddingCity] = useState(false);
 
-  const loadData = async () => {
-    // 1. Load cities
-    const { data: cityRows, error: cityErr } = await api
+  const loadCities = async () => {
+    const { data: cityRows, error: cityErr, count } = await api
       .from("cities")
-      .select("*")
-      .order("name", { ascending: true });
+      .select("*", { count: "exact" })
+      .order("name", { ascending: true })
+      .range(pager.from, pager.to);
 
     if (!cityErr && cityRows) {
       setCities(
@@ -53,11 +55,14 @@ export function CitiesCategoriesTab() {
           surgeMultiplier: Number(c.surge_multiplier || 1.0),
         })),
       );
+      pager.setTotal(count ?? 0);
     } else {
       setCities([]);
+      pager.setTotal(0);
     }
+  };
 
-    // 2. Load category rules
+  const loadCategoryRules = async () => {
     const { data: catRows, error: catErr } = await api
       .from("category_rules")
       .select("*")
@@ -79,8 +84,12 @@ export function CitiesCategoriesTab() {
   };
 
   useEffect(() => {
-    loadData();
+    loadCategoryRules();
   }, []);
+
+  useEffect(() => {
+    loadCities();
+  }, [pager.page]);
 
   const toggleCityActive = async (id: string, currentActive: boolean) => {
     const next = !currentActive;
@@ -137,20 +146,10 @@ export function CitiesCategoriesTab() {
       return;
     }
 
-    if (data) {
-      setCities((prev) => [
-        ...(prev || []),
-        {
-          id: data.id,
-          name: data.name,
-          state: data.state || "India",
-          active: data.active,
-          surgeMultiplier: Number(data.surge_multiplier || 1.0),
-        },
-      ]);
-    }
     setNewCityName("");
     setNewCityState("");
+    pager.setPage(0);
+    loadCities();
     toast.success(`${newCityName} added to operating cities!`);
   };
 
@@ -264,6 +263,7 @@ export function CitiesCategoriesTab() {
             </Card>
           ))}
         </div>
+        <ListPager {...pager} />
       </div>
 
       {/* Category Rules Configuration */}
