@@ -16,6 +16,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import {
   Users,
   CalendarClock,
+  Clock,
   MapPin,
   PlusCircle,
   Check,
@@ -72,6 +73,17 @@ function whenLabel(iso: string) {
   });
 }
 
+function formatCountdown(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
 function PoolDriver() {
   const { user } = useSession();
   const confirm = useConfirm();
@@ -80,6 +92,12 @@ function PoolDriver() {
   const [profiles, setProfiles] = useState<Record<string, any>>({});
   const [ratedRiders, setRatedRiders] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const load = async () => {
     if (!user) return;
@@ -120,6 +138,9 @@ function PoolDriver() {
   }, [user?.id]);
 
   const decide = async (req: any, status: "confirmed" | "rejected") => {
+    if (status === "confirmed" && req.respond_by && Date.now() > new Date(req.respond_by).getTime()) {
+      return toast.error("This request has expired");
+    }
     setBusy(req.id);
     const { error } = await api
       .from("pool_requests")
@@ -350,87 +371,111 @@ function PoolDriver() {
                     {list.length === 0 && (
                       <p className="text-sm text-muted-foreground">No requests yet.</p>
                     )}
-                    {list.map((r) => {
-                      const p = profiles[r.passenger_id];
-                      return (
-                        <div
-                          key={r.id}
-                          className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3"
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={p?.avatar_url ?? undefined} />
-                            <AvatarFallback>
-                              {(p?.full_name ?? "R").charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">
-                              {p?.full_name ?? "Rider"}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {r.pickup_label} → {r.drop_label}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {r.seats} seat{r.seats > 1 ? "s" : ""} ·{" "}
-                              {currency(Number(r.fare_total))} · {Number(r.match_score)}% match
-                            </p>
-                            {r.emergency_contact && (
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground">SOS contact:</span>{" "}
-                                {r.emergency_contact}
+                    {(() => {
+                      const sortedList = [...list].sort((a, b) => {
+                        if (a.status === "pending" && b.status === "pending") {
+                          const aTime = a.respond_by ? new Date(a.respond_by).getTime() : Infinity;
+                          const bTime = b.respond_by ? new Date(b.respond_by).getTime() : Infinity;
+                          return aTime - bTime;
+                        }
+                        return 0;
+                      });
+                      return sortedList.map((r) => {
+                        const p = profiles[r.passenger_id];
+                        const isExpired = r.respond_by ? now > new Date(r.respond_by).getTime() : false;
+                        return (
+                          <div
+                            key={r.id}
+                            className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3"
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={p?.avatar_url ?? undefined} />
+                              <AvatarFallback>
+                                {(p?.full_name ?? "R").charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">
+                                {p?.full_name ?? "Rider"}
                               </p>
-                            )}
-                            {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
-                          </div>
-                          <Badge variant={STATUS_TONE[r.status] as any} className="rounded-full">
-                            {LABEL[r.status]}
-                          </Badge>
-                          {r.status === "pending" && trip.status === "scheduled" && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                className="rounded-full"
-                                disabled={busy === r.id}
-                                onClick={() => decide(r, "confirmed")}
-                              >
-                                <Check className="mr-1.5 h-4 w-4" /> Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-full"
-                                disabled={busy === r.id}
-                                onClick={() => decide(r, "rejected")}
-                              >
-                                <X className="mr-1.5 h-4 w-4" /> Reject
-                              </Button>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {r.pickup_label} → {r.drop_label}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {r.seats} seat{r.seats > 1 ? "s" : ""} ·{" "}
+                                {currency(Number(r.fare_total))} · {Number(r.match_score)}% match
+                              </p>
+                              {r.emergency_contact && (
+                                <p className="text-xs text-muted-foreground">
+                                  <span className="font-medium text-foreground">SOS contact:</span>{" "}
+                                  {r.emergency_contact}
+                                </p>
+                              )}
+                              {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
                             </div>
-                          )}
-                          {trip.status === "completed" && r.status === "completed" && (
-                            <div className="flex gap-1.5">
-                              {!ratedRiders.has(r.id) && (
+                            {r.status === "pending" && r.respond_by && (
+                              <Badge
+                                variant="outline"
+                                className={`rounded-full text-xs font-medium ${
+                                  isExpired
+                                    ? "border-destructive/30 bg-destructive/10 text-destructive"
+                                    : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                }`}
+                              >
+                                <Clock className="mr-1 h-3 w-3" />
+                                {isExpired ? "Request expired" : `${formatCountdown(r.respond_by, now)} left to respond`}
+                              </Badge>
+                            )}
+                            <Badge variant={STATUS_TONE[r.status] as any} className="rounded-full">
+                              {LABEL[r.status]}
+                            </Badge>
+                            {r.status === "pending" && trip.status === "scheduled" && (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  className="rounded-full"
+                                  disabled={busy === r.id || isExpired}
+                                  onClick={() => decide(r, "confirmed")}
+                                >
+                                  <Check className="mr-1.5 h-4 w-4" /> Accept
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="rounded-full h-8 text-xs"
-                                  onClick={() => ratePassenger(trip, r)}
+                                  className="rounded-full"
+                                  disabled={busy === r.id || isExpired}
+                                  onClick={() => decide(r, "rejected")}
                                 >
-                                  <Star className="mr-1 h-3.5 w-3.5 text-amber-500" /> Rate rider
+                                  <X className="mr-1.5 h-4 w-4" /> Reject
                                 </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="rounded-full h-8 text-xs text-muted-foreground hover:text-destructive"
-                                onClick={() => reportPassenger(trip, r)}
-                              >
-                                <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Report
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                              </div>
+                            )}
+                            {trip.status === "completed" && r.status === "completed" && (
+                              <div className="flex gap-1.5">
+                                {!ratedRiders.has(r.id) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-full h-8 text-xs"
+                                    onClick={() => ratePassenger(trip, r)}
+                                  >
+                                    <Star className="mr-1 h-3.5 w-3.5 text-amber-500" /> Rate rider
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="rounded-full h-8 text-xs text-muted-foreground hover:text-destructive"
+                                  onClick={() => reportPassenger(trip, r)}
+                                >
+                                  <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Report
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </CardContent>
               </Card>

@@ -74,6 +74,7 @@ function PoolingPage() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<{ trip: any; match: MatchResult }[] | null>(null);
   const [drivers, setDrivers] = useState<Record<string, any>>({});
+  const [driverStats, setDriverStats] = useState<Record<string, { response_rate: number | null; request_count: number } | null>>({});
   const [joining, setJoining] = useState<string | null>(null);
   const [joined, setJoined] = useState<string[]>([]);
 
@@ -112,8 +113,18 @@ function PoolingPage() {
       setResults(scored);
       const ids = [...new Set(scored.map((r) => r.trip.driver_id))];
       if (ids.length) {
-        const { data: profiles } = await api.from("public_profiles").select("*").in("id", ids);
+        const [{ data: profiles }, ...statsResults] = await Promise.all([
+          api.from("public_profiles").select("*").in("id", ids),
+          ...ids.map((driverId) =>
+            api.rpc("pool_driver_response_stats", { _driver_id: driverId }),
+          ),
+        ]);
         setDrivers(Object.fromEntries((profiles ?? []).map((p) => [p.id, p])));
+        const statsMap: Record<string, any> = {};
+        ids.forEach((id, idx) => {
+          statsMap[id] = statsResults[idx]?.data ?? null;
+        });
+        setDriverStats(statsMap);
       }
     } catch (e: any) {
       toast.error(e.message ?? "Could not search pooling trips");
@@ -348,6 +359,11 @@ function PoolingPage() {
                             <p className="truncate text-xs text-muted-foreground">
                               {trip.vehicle_label}
                             </p>
+                            {driverStats[trip.driver_id]?.response_rate != null && (
+                              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                Responds to {Math.round(Number(driverStats[trip.driver_id]!.response_rate) * 100)}% of requests
+                              </p>
+                            )}
                           </div>
                           <Badge className="ml-auto rounded-full">{match.score}% route match</Badge>
                         </div>

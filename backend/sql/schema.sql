@@ -1395,11 +1395,16 @@ BEGIN
     IF t.status <> 'scheduled' OR t.depart_at <= now() THEN
       RAISE EXCEPTION 'This pool trip has already started or is closed';
     END IF;
+    IF t.depart_at - now() < interval '1 hour' THEN
+      RAISE EXCEPTION 'Requests close 1 hour before departure';
+    END IF;
     IF NEW.seats > t.seats_available THEN
       RAISE EXCEPTION 'Only % seat(s) left on this trip', t.seats_available;
     END IF;
     NEW.status := 'pending';
     NEW.fare_total := t.fare_per_seat * NEW.seats;
+    NEW.respond_by := public.booking_deadline(COALESCE(NEW.created_at, now()), t.depart_at, interval '30 minutes');
+    NEW.respond_reminded_at := NULL;
     RETURN NEW;
   END IF;
 
@@ -1409,11 +1414,19 @@ BEGIN
   NEW.fare_total := OLD.fare_total;
   NEW.match_score := OLD.match_score;
 
+  IF public.is_end_user_request() THEN
+    NEW.respond_by := OLD.respond_by;
+    NEW.respond_reminded_at := OLD.respond_reminded_at;
+  END IF;
+
   IF NEW.status <> OLD.status THEN
     IF OLD.status IN ('rejected','cancelled','completed') THEN
       RAISE EXCEPTION 'This request is already closed';
     END IF;
     IF NEW.status = 'confirmed' THEN
+      IF OLD.respond_by IS NOT NULL AND now() > OLD.respond_by THEN
+        RAISE EXCEPTION 'This request has expired';
+      END IF;
       IF auth.uid() <> t.driver_id AND NOT public.has_role(auth.uid(), 'admin') THEN
         RAISE EXCEPTION 'Only the trip driver can accept passengers';
       END IF;
@@ -1424,11 +1437,13 @@ BEGIN
       UPDATE public.pool_trips SET seats_available = seats_available - OLD.seats WHERE id = t.id;
       PERFORM set_config('app.pool_seat_sync', '0', true);
     ELSIF NEW.status = 'rejected' THEN
-      IF auth.uid() <> t.driver_id AND NOT public.has_role(auth.uid(), 'admin') THEN
-        RAISE EXCEPTION 'Only the trip driver can reject passengers';
+      IF public.is_end_user_request() THEN
+        IF auth.uid() <> t.driver_id AND NOT public.has_role(auth.uid(), 'admin') THEN
+          RAISE EXCEPTION 'Only the trip driver can reject passengers';
+        END IF;
       END IF;
     ELSIF NEW.status = 'cancelled' THEN
-      IF OLD.status = 'confirmed' THEN
+      IF OLD.status = 'confirmed' AND t.status <> 'cancelled' THEN
         PERFORM set_config('app.pool_seat_sync', '1', true);
         UPDATE public.pool_trips SET seats_available = LEAST(t.seats_total, t.seats_available + OLD.seats) WHERE id = t.id;
         PERFORM set_config('app.pool_seat_sync', '0', true);
@@ -1829,6 +1844,8 @@ DECLARE
   v_wash_expired_unpaid integer := 0;
   v_wash_auto_cancelled integer := 0;
   v_wash_admin_alerted integer := 0;
+  v_pool_expired_pending integer := 0;
+  v_pool_reminded_respond integer := 0;
   r RECORD;
   _v RECORD;
   _slot_start timestamptz;
@@ -1839,6 +1856,7 @@ DECLARE
   _target_tier smallint;
   admin_rec RECORD;
   cleaner_rec RECORD;
+  pool_rec RECORD;
 BEGIN
   -- 1a. Cancel expired pending rental requests (host_no_response)
   FOR r IN
@@ -2257,6 +2275,72 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- 4a. Expire pending pool requests past respond_by or whose trip has departed or cancelled
+  FOR pool_rec IN
+    SELECT
+      pr.id,
+      pr.passenger_id,
+      t.driver_id,
+      t.depart_at,
+      t.status AS trip_status,
+      pr.respond_by,
+      CASE
+        WHEN t.status = 'cancelled' OR t.depart_at <= now() THEN 'Trip departed'
+        ELSE 'Driver didn''t respond'
+      END AS cancel_reason
+    FROM public.pool_requests pr
+    JOIN public.pool_trips t ON t.id = pr.trip_id
+    WHERE pr.status = 'pending'
+      AND (
+        (pr.respond_by IS NOT NULL AND pr.respond_by < now())
+        OR t.status = 'cancelled'
+        OR t.depart_at <= now()
+      )
+  LOOP
+    UPDATE public.pool_requests
+    SET status = 'rejected',
+        cancellation_reason = pool_rec.cancel_reason,
+        updated_at = now()
+    WHERE id = pool_rec.id;
+
+    v_pool_expired_pending := v_pool_expired_pending + 1;
+  END LOOP;
+
+  -- 4b. Halfway reminder to pool trip driver
+  FOR pool_rec IN
+    SELECT
+      pr.id,
+      pr.trip_id,
+      t.driver_id,
+      pr.respond_by,
+      pr.pickup_label,
+      pr.drop_label
+    FROM public.pool_requests pr
+    JOIN public.pool_trips t ON t.id = pr.trip_id
+    WHERE pr.status = 'pending'
+      AND pr.respond_reminded_at IS NULL
+      AND pr.respond_by IS NOT NULL
+      AND now() >= (pr.created_at + ((pr.respond_by - pr.created_at) / 2))
+      AND now() < pr.respond_by
+  LOOP
+    UPDATE public.pool_requests
+    SET respond_reminded_at = now()
+    WHERE id = pool_rec.id;
+
+    INSERT INTO public.notifications (user_id, title, body, link)
+    VALUES (
+      pool_rec.driver_id,
+      'Pending pool request',
+      format('A passenger is waiting for your response for trip %s to %s before %s.',
+             COALESCE(pool_rec.pickup_label, ''),
+             COALESCE(pool_rec.drop_label, ''),
+             to_char(pool_rec.respond_by AT TIME ZONE 'Asia/Kolkata', 'HH12:MI AM')),
+      '/pooling/driver'
+    );
+
+    v_pool_reminded_respond := v_pool_reminded_respond + 1;
+  END LOOP;
+
   RETURN jsonb_build_object(
     'bookings_expired_pending', v_expired_pending,
     'bookings_expired_unpaid', v_expired_unpaid,
@@ -2269,7 +2353,9 @@ BEGIN
     'driver_reminded_pay', v_driver_reminded_pay,
     'wash_expired_unpaid', v_wash_expired_unpaid,
     'wash_auto_cancelled', v_wash_auto_cancelled,
-    'wash_admin_alerted', v_wash_admin_alerted
+    'wash_admin_alerted', v_wash_admin_alerted,
+    'pool_expired_pending', v_pool_expired_pending,
+    'pool_reminded_respond', v_pool_reminded_respond
   );
 END;
 $$;
@@ -2330,6 +2416,50 @@ BEGIN
   RETURN jsonb_build_object(
     'response_rate', v_response_rate,
     'median_response_minutes', v_median_minutes,
+    'request_count', v_request_count
+  );
+END;
+$$;
+
+
+CREATE FUNCTION public.pool_driver_response_stats(_driver_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_request_count integer := 0;
+  v_response_rate numeric := NULL;
+BEGIN
+  WITH eligible AS (
+    SELECT
+      pr.id,
+      pr.status,
+      pr.created_at,
+      pr.respond_by,
+      pr.updated_at,
+      CASE
+        WHEN pr.status = 'confirmed' AND (pr.respond_by IS NULL OR pr.updated_at <= pr.respond_by) THEN true
+        WHEN pr.status = 'rejected' AND (pr.respond_by IS NULL OR pr.updated_at <= pr.respond_by) AND COALESCE(pr.cancellation_reason, '') NOT IN ('Driver didn''t respond', 'Trip departed') THEN true
+        ELSE false
+      END AS answered_in_time
+    FROM public.pool_requests pr
+    JOIN public.pool_trips pt ON pt.id = pr.trip_id
+    WHERE pt.driver_id = _driver_id
+      AND pr.respond_by IS NOT NULL
+      AND pr.created_at >= now() - interval '90 days'
+  )
+  SELECT
+    count(*),
+    CASE WHEN count(*) > 0 THEN
+      round(count(*) FILTER (WHERE answered_in_time)::numeric / count(*)::numeric, 4)
+    ELSE NULL END
+  INTO
+    v_request_count,
+    v_response_rate
+  FROM eligible;
+
+  RETURN jsonb_build_object(
+    'response_rate', v_response_rate,
     'request_count', v_request_count
   );
 END;
@@ -3553,7 +3683,20 @@ BEGIN
     IF NEW.status = 'confirmed' THEN
       PERFORM public.notify_user(NEW.passenger_id, 'Pooling request accepted', 'Your seat is confirmed.', '/pooling/mine');
     ELSIF NEW.status = 'rejected' THEN
-      PERFORM public.notify_user(NEW.passenger_id, 'Pooling request declined', 'The driver could not take you along.', '/pooling/mine');
+      PERFORM public.notify_user(
+        NEW.passenger_id,
+        CASE
+          WHEN NEW.cancellation_reason = 'Trip departed' THEN 'Trip departed'
+          WHEN NEW.cancellation_reason = 'Driver didn''t respond' THEN 'Request expired'
+          ELSE 'Pooling request declined'
+        END,
+        CASE
+          WHEN NEW.cancellation_reason = 'Trip departed' THEN 'The trip has already departed.'
+          WHEN NEW.cancellation_reason = 'Driver didn''t respond' THEN 'The driver did not respond in time.'
+          ELSE 'The driver could not take you along.'
+        END,
+        '/pooling/mine'
+      );
     ELSIF NEW.status = 'cancelled' THEN
       PERFORM public.notify_user(
         CASE WHEN auth.uid() = NEW.passenger_id THEN t.driver_id ELSE NEW.passenger_id END,
@@ -4762,6 +4905,8 @@ CREATE TABLE public.pool_requests (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     emergency_contact text,
+    respond_by timestamp with time zone,
+    respond_reminded_at timestamp with time zone,
     CONSTRAINT pool_requests_fare_total_check CHECK ((fare_total >= (0)::numeric)),
     CONSTRAINT pool_requests_seats_check CHECK (((seats >= 1) AND (seats <= 8)))
 );
@@ -9654,6 +9799,9 @@ GRANT ALL ON FUNCTION public.expire_booking_windows() TO service_role;
 
 REVOKE ALL ON FUNCTION public.host_response_stats(uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.host_response_stats(uuid) TO anon, authenticated, service_role;
+
+REVOKE ALL ON FUNCTION public.pool_driver_response_stats(uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.pool_driver_response_stats(uuid) TO anon, authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.reactivate_vendor_listings(uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.reactivate_vendor_listings(uuid) TO authenticated, service_role;
