@@ -80,7 +80,9 @@ export function VehicleMap({ query, lat, lng, className }: Props) {
           referrerPolicy="no-referrer-when-downgrade"
           src={googleMapsEmbedUrl}
           onLoad={() => setLoaded(true)}
-          className="h-full w-full transition-opacity duration-300"
+          tabIndex={-1}
+          // View only: the pin can't be dragged away; navigation goes through the buttons below.
+          className="pointer-events-none h-full w-full transition-opacity duration-300"
         />
 
         {/* Top-left location badge */}
