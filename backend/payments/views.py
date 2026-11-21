@@ -198,9 +198,39 @@ def verify_razorpay_payment(data, user_id):
 
 # -- driver hire ---------------------------------------------------------------
 
+def _refund_late_driver_payment(b, payment_id):
+    if b.get("payment_status") == "refunded" and b.get("razorpay_payment_id") == payment_id:
+        return
+    with db_role("service_role"):
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT public.wallet_apply(%s, %s, 'driver_refund', NULL, %s, 'Refund: payment arrived after driver hire closed')",
+                [b["customer_id"], b["total_price"], str(b["id"])],
+            )
+            cur.execute(
+                """UPDATE public.driver_bookings
+                   SET payment_status = 'refunded',
+                       payment_method = 'razorpay',
+                       razorpay_payment_id = %s,
+                       refund_amount = %s
+                   WHERE id = %s""",
+                [payment_id, b["total_price"], b["id"]],
+            )
+            cur.execute(
+                """INSERT INTO public.notifications (user_id, title, body, link)
+                   VALUES (%s, %s, %s, %s)""",
+                [
+                    b["customer_id"],
+                    "Payment refunded",
+                    f"Your payment of Rs {b['total_price']} was refunded to your wallet because the driver hire was closed.",
+                    "/hires",
+                ],
+            )
+
+
 def create_driver_razorpay_order(data, user_id):
     hire_id = _uuid(data, "driverBookingId")
-    b = _get("driver_bookings", "id, customer_id, status, payment_status, total_price", "id", hire_id)
+    b = _get("driver_bookings", "id, customer_id, status, payment_status, total_price, pay_by", "id", hire_id)
     if not b:
         raise FnError("Hire not found")
     if b["customer_id"] != user_id:
@@ -209,6 +239,9 @@ def create_driver_razorpay_order(data, user_id):
         raise FnError("Driver has not accepted this request yet")
     if b["payment_status"] == "paid":
         raise FnError("Already paid")
+    pay_by = _parse_dt(b.get("pay_by"))
+    if pay_by and pay_by <= datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise FnError("Payment window has closed or expires in less than 5 minutes")
     order = _create_order({"amount": _paise(b["total_price"]), "currency": "INR", "receipt": b["id"],
                            "notes": {"driver_booking_id": b["id"], "customer_id": user_id}}, "Razorpay order failed")
     with db_role("service_role"):
@@ -219,14 +252,17 @@ def create_driver_razorpay_order(data, user_id):
 def verify_driver_razorpay_payment(data, user_id):
     hire_id = _uuid(data, "driverBookingId")
     order_id, payment_id = _check_signature(data)
-    b = _get("driver_bookings", "id, customer_id, driver_id, total_price, status, payment_status, razorpay_order_id", "id", hire_id)
+    b = _get("driver_bookings", "id, customer_id, driver_id, total_price, status, payment_status, razorpay_order_id, razorpay_payment_id", "id", hire_id)
     if not b:
         raise FnError("Hire not found")
     if b["customer_id"] != user_id:
         raise FnError("Not your booking")
     if b["razorpay_order_id"] != order_id:
         raise FnError("Order mismatch")
-    if b.get("payment_status") in ("paid", "refunded", "partially_refunded") or b.get("status") == "cancelled":
+    if b.get("status") in ("cancelled", "rejected"):
+        _refund_late_driver_payment(b, payment_id)
+        return {"ok": True}
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded"):
         return {"ok": True}
     with db_role("service_role"):
         # The driver's earning is credited when the hire completes (tg_money_settle_driver_booking).
@@ -1136,13 +1172,19 @@ def razorpay_webhook(request):
         # 2. Driver hires
         driver_booking_id = notes.get("driver_booking_id")
         if driver_booking_id:
-            db = _get("driver_bookings", "id, status, payment_status", "id", driver_booking_id)
-            if db and db.get("payment_status") not in ("paid", "refunded", "partially_refunded") and db.get("status") != "cancelled":
-                _update("driver_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", db["id"]]])
+            db = _get("driver_bookings", "id, customer_id, total_price, status, payment_status, razorpay_payment_id", "id", driver_booking_id)
+            if db:
+                if db.get("status") in ("cancelled", "rejected"):
+                    _refund_late_driver_payment(db, payment_id or "pay_webhook")
+                elif db.get("payment_status") not in ("paid", "refunded", "partially_refunded"):
+                    _update("driver_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", db["id"]]])
         elif order_id:
-            db = _get("driver_bookings", "id, status, payment_status", "razorpay_order_id", order_id)
-            if db and db.get("payment_status") not in ("paid", "refunded", "partially_refunded") and db.get("status") != "cancelled":
-                _update("driver_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", db["id"]]])
+            db = _get("driver_bookings", "id, customer_id, total_price, status, payment_status, razorpay_payment_id", "razorpay_order_id", order_id)
+            if db:
+                if db.get("status") in ("cancelled", "rejected"):
+                    _refund_late_driver_payment(db, payment_id or "pay_webhook")
+                elif db.get("payment_status") not in ("paid", "refunded", "partially_refunded"):
+                    _update("driver_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", db["id"]]])
 
         # 3. Vehicle washes
         wash_booking_id = notes.get("wash_booking_id")

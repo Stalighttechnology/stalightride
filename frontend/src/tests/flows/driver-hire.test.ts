@@ -420,4 +420,123 @@ describe("driver trip types and service area (Task 2.2)", () => {
     expect(updated.trip_types).toEqual(["airport", "outstation"]);
     expect(updated.service_area).toBe("Bengaluru + 100 km");
   });
+
+  test("DH-WINDOW-01: driver hire windows, 2h notice, approval deadline, and wallet pay deadline", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const admin = be.registerAdmin();
+    const customer = be.registerCustomer();
+    const driver = be.enrollDriver(200, 1500);
+    be.verifyDriver(admin, driver.id, "approved");
+
+    // 1. Pickup within 2h is rejected
+    expect(() =>
+      be.hireDriver({
+        customer_id: customer,
+        driver_id: driver.id,
+        start_date: "2026-08-15",
+        end_date: "2026-08-15",
+        start_time: "11:00",
+      }),
+    ).toThrow(/at least 2 hours/);
+
+    // 2. Hire > 2h away sets respond_by with 1h buffer
+    const hire = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      start_date: "2026-08-16",
+      end_date: "2026-08-16",
+      start_time: "10:00",
+    });
+    expect(hire.status).toBe("pending");
+    expect(hire.respond_by).toBeDefined();
+
+    // 3. Advancing clock past respond_by: approval fails
+    be.setNow(new Date("2026-08-16T12:00:00Z"));
+    expect(() => be.driverDecide(driver.id, hire.id, "confirmed")).toThrow(/expired/);
+  });
+
+  test("DH-WINDOW-02: similarDrivers returns available drivers excluding busy and original driver", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const admin = be.registerAdmin();
+    const cust1 = be.registerCustomer();
+    const cust2 = be.registerCustomer();
+
+    const d1 = be.enrollDriver(200, 1500);
+    const d2 = be.enrollDriver(250, 1800);
+    const d3 = be.enrollDriver(220, 1600);
+
+    be.saveDriverProfile(d1.id, { full_name: "D1", city: "Bengaluru" });
+    be.saveDriverProfile(d2.id, { full_name: "D2", city: "Bengaluru" });
+    be.saveDriverProfile(d3.id, { full_name: "D3", city: "Bengaluru" });
+
+    be.verifyDriver(admin, d1.id, "approved");
+    be.verifyDriver(admin, d2.id, "approved");
+    be.verifyDriver(admin, d3.id, "approved");
+
+    // Hire d1
+    const h1 = be.hireDriver({
+      customer_id: cust1,
+      driver_id: d1.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+    });
+
+    // Make d2 busy on 2026-08-20
+    const h2 = be.hireDriver({
+      customer_id: cust2,
+      driver_id: d2.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-20",
+    });
+    be.driverDecide(d2.id, h2.id, "confirmed");
+
+    // similarDrivers for h1: d1 excluded (original), d2 excluded (busy), d3 included
+    const similar = be.similarDrivers(h1.id, cust1);
+    expect(similar.map((d) => d.id)).toEqual([d3.id]);
+  });
+
+  test("DH-WINDOW-03: rental cancellation cascades to cancel linked driver hire and refunds wallet", () => {
+    const be = createBackend(new Date("2026-08-15T10:00:00Z"));
+    const admin = be.registerAdmin();
+    const host = be.registerCustomer();
+    const customer = be.registerCustomer("approved");
+    const v = be.listVehicle(host, 2000);
+    be.verifyVehicle(admin, v.id, "approved");
+
+    const driver = be.enrollDriver(200, 1500);
+    be.verifyDriver(admin, driver.id, "approved");
+
+    // Book rental
+    const rental = be.createBooking({
+      customer_id: customer,
+      vehicle_id: v.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-21",
+    });
+    be.hostDecide(host, rental.id, "confirmed");
+    be.wallet.topup(customer, 10000);
+    be.payBookingWithWallet(customer, rental.id);
+
+    // Book linked driver hire
+    const hire = be.hireDriver({
+      customer_id: customer,
+      driver_id: driver.id,
+      booking_id: rental.id,
+      start_date: "2026-08-20",
+      end_date: "2026-08-21",
+    });
+    be.driverDecide(driver.id, hire.id, "confirmed");
+    be.payDriverBookingWithWallet(customer, hire.id);
+
+    const balBefore = be.wallet.balance(customer);
+
+    // Cancel rental booking
+    be.cancelBooking(customer, rental.id);
+
+    // Linked driver hire should be cancelled and refunded
+    expect(hire.status).toBe("cancelled");
+    expect(hire.cancellation_reason).toBe("linked_rental_cancelled");
+    expect(hire.payment_status).toBe("refunded");
+    expect(be.wallet.balance(customer)).toBeGreaterThan(balBefore);
+  });
 });

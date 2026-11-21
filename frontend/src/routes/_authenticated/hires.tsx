@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { usePage, ListPager } from "@/components/list-pager";
-import { CreditCard, Wallet as WalletIcon, Star, UserRound, ReceiptText } from "lucide-react";
+import { CreditCard, Wallet as WalletIcon, Star, UserRound, ReceiptText, Clock } from "lucide-react";
 import { createDriverRazorpayOrder, verifyDriverRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { useConfirm } from "@/components/confirm-dialog";
@@ -49,6 +49,100 @@ export function refundPercent(b: any, now: number = Date.now()) {
   return 0;
 }
 
+function formatCountdown(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
+function formatTime(target: string | Date | null | undefined) {
+  if (!target) return "";
+  return new Date(target).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+function SimilarDrivers({ b }: { b: any }) {
+  const [drivers, setDrivers] = useState<any[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.rpc("similar_drivers", { _driver_booking_id: b.id });
+        if (!cancelled) setDrivers(data ?? []);
+      } catch {
+        if (!cancelled) setDrivers([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [b.id]);
+
+  if (loading) return null;
+  if (!drivers || drivers.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-border/80 bg-muted/30 p-3 sm:p-4">
+      <h4 className="text-sm font-semibold text-foreground">Book a similar driver</h4>
+      <p className="text-xs text-muted-foreground">
+        Available verified drivers in {b.drivers?.city ?? "your city"} for the same dates:
+      </p>
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        {drivers.map((d: any) => (
+          <div
+            key={d.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card p-2.5 text-xs"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={d.photo_url ?? undefined} />
+                <AvatarFallback>{(d.full_name ?? "D").charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground truncate">{d.full_name}</p>
+                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                  <span>⭐ {Number(d.avg_rating ?? 0).toFixed(1)}</span>
+                  <span>•</span>
+                  <span>{currency(d.daily_rate)}/day</span>
+                </div>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs shrink-0 rounded-full">
+              <Link
+                to="/driver/$id"
+                params={{ id: d.id }}
+                search={{
+                  startDate: b.start_date,
+                  endDate: b.end_date,
+                  startTime: b.start_time ? String(b.start_time).slice(0, 5) : undefined,
+                  endTime: b.end_time ? String(b.end_time).slice(0, 5) : undefined,
+                  rateType: b.rate_type,
+                  tripType: b.trip_type ?? undefined,
+                }}
+              >
+                Book
+              </Link>
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HiresPage() {
   const navigate = useNavigate();
   const { user } = useSession();
@@ -57,6 +151,12 @@ function HiresPage() {
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
   const createOrder = createDriverRazorpayOrder;
   const verifyPayment = verifyDriverRazorpayPayment;
 
@@ -302,6 +402,25 @@ function HiresPage() {
                     )}
                     {b.pickup_address && <div>📍 {b.pickup_address}</div>}
                   </div>
+
+                  {b.status === "pending" && b.respond_by && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Driver responds by {formatTime(b.respond_by)} ({formatCountdown(b.respond_by, now)})
+                      </span>
+                    </div>
+                  )}
+
+                  {canPay && b.pay_by && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Pay by {formatTime(b.pay_by)} ({formatCountdown(b.pay_by, now)})
+                      </span>
+                    </div>
+                  )}
+
                   <p className="mt-1 text-sm">
                     Total: <span className="font-semibold">{currency(b.total_price)}</span>
                   </p>
@@ -314,6 +433,13 @@ function HiresPage() {
                     <p className="text-sm text-muted-foreground">
                       Cancelled within 2 hours of start — no refund
                     </p>
+                  )}
+
+                  {(b.status === "rejected" ||
+                    (b.status === "cancelled" &&
+                      (b.cancellation_reason === "driver_no_response" ||
+                        b.cancellation_reason === "payment_timeout"))) && (
+                    <SimilarDrivers b={b} />
                   )}
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">

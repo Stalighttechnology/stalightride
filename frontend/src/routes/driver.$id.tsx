@@ -33,8 +33,19 @@ import {
   Heart,
 } from "lucide-react";
 import { useSavedDrivers } from "@/hooks/use-saved-items";
+import { z } from "zod";
+
+const driverSearch = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  rateType: z.enum(["hourly", "daily"]).optional(),
+  tripType: z.string().optional(),
+});
 
 export const Route = createFileRoute("/driver/$id")({
+  validateSearch: driverSearch,
   component: DriverProfile,
   head: () => ({
     meta: [
@@ -73,16 +84,17 @@ function DriverProfile() {
   const { isDriverSaved, toggleSaveDriver } = useSavedDrivers();
   const isSaved = isDriverSaved(id);
 
+  const search = Route.useSearch();
   const [driver, setDriver] = useState<Tables<"public_drivers"> | null | undefined>(undefined);
   const [reviews, setReviews] = useState<any[] | null>(null);
   const [reviewsTotal, setReviewsTotal] = useState(0);
   const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
-  const [rateType, setRateType] = useState<DriverRateType>("daily");
-  const [tripType, setTripType] = useState("city");
-  const [startDate, setStartDate] = useState(today());
-  const [endDate, setEndDate] = useState(today());
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("18:00");
+  const [rateType, setRateType] = useState<DriverRateType>(search.rateType ?? "daily");
+  const [tripType, setTripType] = useState(search.tripType ?? "city");
+  const [startDate, setStartDate] = useState(search.startDate ?? today());
+  const [endDate, setEndDate] = useState(search.endDate ?? search.startDate ?? today());
+  const [startTime, setStartTime] = useState(search.startTime ?? "09:00");
+  const [endTime, setEndTime] = useState(search.endTime ?? "18:00");
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupPin, setPickupPin] = useState<{ lat: number | null; lng: number | null }>({
     lat: null,
@@ -233,6 +245,13 @@ function DriverProfile() {
     if (!user) return navigate({ to: "/auth" });
     if (price.error || price.subtotal <= 0)
       return toast.error(price.error ?? "Choose a valid duration");
+
+    // 2h minimum notice check
+    const startDateTime = new Date(`${startDate}T${startTime}:00+05:30`).getTime();
+    if (startDateTime < Date.now() + 2 * 60 * 60 * 1000) {
+      return toast.error("Pickup must be at least 2 hours from now");
+    }
+
     setSubmitting(true);
     const { error } = await api.from("driver_bookings").insert({
       driver_id: id,
@@ -281,7 +300,15 @@ function DriverProfile() {
       } catch {}
     }
 
-    toast.success("Request sent — you'll pay once the driver accepts");
+    // respond_by = deadline(created_at, start, 1 hour)
+    const deadlineMs = Math.min(Date.now() + 60 * 60 * 1000, startDateTime - 60 * 60 * 1000);
+    const respondByTime = new Date(deadlineMs).toLocaleTimeString("en-IN", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Kolkata",
+    });
+    toast.success(`Request sent — driver responds by ${respondByTime}`);
     navigate({ to: "/hires" });
   };
 

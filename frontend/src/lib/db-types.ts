@@ -2532,6 +2532,12 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      similar_drivers: {
+        Args: {
+          _driver_booking_id: string;
+        };
+        Returns: Database["public"]["Tables"]["public_drivers"]["Row"][];
+      };
       host_response_stats: {
         Args: {
           _vendor_id: string;
