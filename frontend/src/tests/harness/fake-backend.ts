@@ -371,6 +371,11 @@ export type PoolRequest = {
   match_score: number;
   status: BookingStatus;
   emergency_contact?: string | null;
+  respond_by?: string | null;
+  respond_reminded_at?: string | null;
+  cancellation_reason?: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type PoolRating = {
@@ -1514,6 +1519,9 @@ export function createBackend(
       if (!t) throw new RuleError("Trip not found");
       if (t.status !== "scheduled") throw new RuleError("This trip is no longer open");
       if (new Date(t.depart_at) <= clock.now) throw new RuleError("This trip has already departed");
+      if (new Date(t.depart_at).getTime() - clock.now.getTime() < 60 * 60 * 1000) {
+        throw new RuleError("Requests close 1 hour before departure");
+      }
       if (t.driver_id === args.passenger_id) throw new RuleError("You cannot join your own trip");
       if (args.match_score < 80)
         throw new RuleError("This trip does not match your route closely enough");
@@ -1526,6 +1534,7 @@ export function createBackend(
           ["pending", "confirmed"].includes(r.status),
       );
       if (dupe) throw new RuleError("You already have an active request for this trip");
+      const respond_by = bookingDeadline(clock.now, new Date(t.depart_at), 30 * 60 * 1000).toISOString();
       const r: PoolRequest = {
         id: id("preq"),
         trip_id: t.id,
@@ -1534,6 +1543,9 @@ export function createBackend(
         match_score: args.match_score,
         status: "pending",
         emergency_contact: args.emergency_contact || null,
+        respond_by,
+        created_at: clock.now.toISOString(),
+        updated_at: clock.now.toISOString(),
       };
       poolRequests.set(r.id, r);
       notify(t.driver_id, "New pooling request");
@@ -1545,11 +1557,15 @@ export function createBackend(
       if (t.driver_id !== driver_id) throw new RuleError("Not your trip");
       if (r.status !== "pending") throw new RuleError("This request is no longer pending");
       if (decision === "confirmed") {
+        if (r.respond_by && clock.now.getTime() > new Date(r.respond_by).getTime()) {
+          throw new RuleError("This request has expired");
+        }
         if (r.seats > t.seats_available)
           throw new RuleError("Not enough seats left to accept this rider");
         t.seats_available -= r.seats;
       }
       r.status = decision;
+      r.updated_at = clock.now.toISOString();
       notify(
         r.passenger_id,
         `Pooling request ${decision === "confirmed" ? "accepted" : "declined"}`,
@@ -2660,7 +2676,94 @@ export function createBackend(
         }
       }
 
-      return { rentals_cancelled: cancelledCount, reminders_sent: remindedCount, washes_cancelled: washesCancelled };
+      // Pool requests expiry and driver reminder
+      let poolCancelledCount = 0;
+      let poolRemindedCount = 0;
+      for (const pr of poolRequests.values()) {
+        const trip = trips.get(pr.trip_id);
+        if (!trip) continue;
+        const tripDeparted = trip.status === "cancelled" || new Date(trip.depart_at).getTime() <= nowMs;
+        const respondExpired = pr.respond_by && nowMs > new Date(pr.respond_by).getTime();
+
+        if (pr.status === "pending" && (respondExpired || tripDeparted)) {
+          pr.status = "rejected";
+          pr.cancellation_reason = tripDeparted ? "Trip departed" : "Driver didn't respond";
+          pr.updated_at = clock.now.toISOString();
+          cancelledCount++;
+          poolCancelledCount++;
+          notify(
+            pr.passenger_id,
+            tripDeparted ? "Trip departed" : "Request expired",
+            tripDeparted ? "The trip has already departed." : "The driver did not respond in time.",
+            "/pooling/mine",
+          );
+        } else if (
+          pr.status === "pending" &&
+          pr.respond_by &&
+          !pr.respond_reminded_at
+        ) {
+          const fromMs = new Date(pr.created_at ?? clock.now).getTime();
+          const targetMs = new Date(pr.respond_by).getTime();
+          const halfwayMs = fromMs + (targetMs - fromMs) / 2;
+          if (nowMs >= halfwayMs && nowMs < targetMs) {
+            pr.respond_reminded_at = clock.now.toISOString();
+            remindedCount++;
+            poolRemindedCount++;
+            notify(
+              trip.driver_id,
+              "Pending pool request",
+              "A passenger is waiting for your response.",
+              "/pooling/driver",
+            );
+          }
+        }
+      }
+
+      return {
+        rentals_cancelled: cancelledCount,
+        reminders_sent: remindedCount,
+        washes_cancelled: washesCancelled,
+        pool_expired_pending: poolCancelledCount,
+        pool_reminded_respond: poolRemindedCount,
+      };
+    },
+
+    poolDriverResponseStats(driver_id: string) {
+      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+      const nowMs = clock.now.getTime();
+      const eligible = [...poolRequests.values()].filter((r) => {
+        const trip = trips.get(r.trip_id);
+        if (!trip || trip.driver_id !== driver_id) return false;
+        if (!r.respond_by) return false;
+        const createdMs = new Date(r.created_at ?? clock.now).getTime();
+        return nowMs - createdMs <= ninetyDaysMs;
+      });
+
+      const request_count = eligible.length;
+      if (request_count === 0) {
+        return { response_rate: null, request_count: 0 };
+      }
+
+      let answeredInTimeCount = 0;
+      for (const r of eligible) {
+        const respondByMs = new Date(r.respond_by!).getTime();
+        const updatedMs = new Date(r.updated_at ?? r.created_at ?? clock.now).getTime();
+        if (r.status === "confirmed" && updatedMs <= respondByMs) {
+          answeredInTimeCount++;
+        } else if (
+          r.status === "rejected" &&
+          updatedMs <= respondByMs &&
+          r.cancellation_reason !== "Driver didn't respond" &&
+          r.cancellation_reason !== "Trip departed"
+        ) {
+          answeredInTimeCount++;
+        }
+      }
+
+      return {
+        response_rate: round4(answeredInTimeCount / request_count),
+        request_count,
+      };
     },
 
     reactivateVendorListings(actor: string, vendor_id: string) {

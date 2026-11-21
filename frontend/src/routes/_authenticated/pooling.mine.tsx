@@ -16,6 +16,7 @@ import { usePage, ListPager } from "@/components/list-pager";
 import {
   Users,
   CalendarClock,
+  Clock,
   MapPin,
   Search,
   CircleSlash,
@@ -60,6 +61,27 @@ function whenLabel(iso: string) {
   });
 }
 
+function formatCountdown(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
+function formatTime(target: string | Date | null | undefined) {
+  if (!target) return "";
+  return new Date(target).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+}
+
 function MyPooling() {
   const { user } = useSession();
   const confirm = useConfirm();
@@ -67,6 +89,12 @@ function MyPooling() {
   const [rows, setRows] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [ratedTrips, setRatedTrips] = useState<Set<string>>(new Set());
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const load = async () => {
     if (!user) return;
@@ -259,6 +287,26 @@ function MyPooling() {
                       <p className="text-xs text-muted-foreground">
                         Driver route: {trip.origin_label} → {trip.dest_label}
                       </p>
+                    )}
+                    {r.status === "pending" && r.respond_by && (
+                      <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          Driver responds by {formatTime(r.respond_by)} ({formatCountdown(r.respond_by, now)})
+                        </span>
+                      </div>
+                    )}
+                    {r.status === "rejected" && r.cancellation_reason && (
+                      <div className="flex items-center gap-2 rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {r.cancellation_reason === "Driver didn't respond"
+                            ? "Request expired — Driver didn't respond in time"
+                            : r.cancellation_reason === "Trip departed"
+                              ? "Request closed — Trip already departed"
+                              : `Declined: ${r.cancellation_reason}`}
+                        </span>
+                      </div>
                     )}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {open && (

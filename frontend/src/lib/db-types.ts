@@ -939,6 +939,8 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"];
           trip_id: string;
           updated_at: string;
+          respond_by: string | null;
+          respond_reminded_at: string | null;
         };
         Insert: {
           cancellation_reason?: string | null;
@@ -960,6 +962,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"];
           trip_id: string;
           updated_at?: string;
+          respond_by?: string | null;
+          respond_reminded_at?: string | null;
         };
         Update: {
           cancellation_reason?: string | null;
@@ -981,6 +985,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"];
           trip_id?: string;
           updated_at?: string;
+          respond_by?: string | null;
+          respond_reminded_at?: string | null;
         };
         Relationships: [
           {
@@ -2599,6 +2605,15 @@ export type Database = {
         Returns: {
           response_rate: number | null;
           median_response_minutes: number | null;
+          request_count: number;
+        };
+      };
+      pool_driver_response_stats: {
+        Args: {
+          _driver_id: string;
+        };
+        Returns: {
+          response_rate: number | null;
           request_count: number;
         };
       };

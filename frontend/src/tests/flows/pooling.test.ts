@@ -301,3 +301,149 @@ describe("pooling ratings and reports (PR-01, PR-02, Task 2.8)", () => {
     expect(() => be.adminDecideUserReport(p1, report.id, "dismissed")).toThrow(/admins/);
   });
 });
+
+describe("pooling booking windows and driver response stats", () => {
+  test("requests less than 1 hour before departure are refused", () => {
+    const be = createBackend(new Date("2026-08-20T07:15:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z", // 45 mins away (< 1h)
+      seats_total: 3,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+
+    expect(() =>
+      be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 }),
+    ).toThrow(/Requests close 1 hour before departure/);
+  });
+
+  test("respond_by is set to booking deadline on insert", () => {
+    const be = createBackend(new Date("2026-08-20T04:00:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z", // 4h away
+      seats_total: 3,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+    expect(r.respond_by).toBeDefined();
+    // 4h away with 30m buffer -> halfway is 2h -> 06:00:00Z
+    expect(new Date(r.respond_by!).getTime()).toBe(new Date("2026-08-20T06:00:00Z").getTime());
+  });
+
+  test("accepting after respond_by deadline fails", () => {
+    const be = createBackend(new Date("2026-08-20T04:00:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z",
+      seats_total: 3,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+
+    // Advance clock past respond_by (06:00Z)
+    be.setNow(new Date("2026-08-20T07:00:00Z"));
+
+    expect(() => be.poolDecide(driver, r.id, "confirmed")).toThrow(/This request has expired/);
+  });
+
+  test("expireBookingWindows cancels expired requests with Driver didn't respond", () => {
+    const be = createBackend(new Date("2026-08-20T04:00:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z",
+      seats_total: 3,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+
+    be.setNow(new Date("2026-08-20T07:00:00Z")); // past 06:00Z respond_by
+    const res = be.expireBookingWindows();
+    expect(res.pool_expired_pending).toBe(1);
+
+    const updated = be.tables.poolRequests.get(r.id)!;
+    expect(updated.status).toBe("rejected");
+    expect(updated.cancellation_reason).toBe("Driver didn't respond");
+    expect(
+      be.notifications.some(
+        (n) => n.user_id === p1 && n.title === "Request expired" && n.body?.includes("did not respond"),
+      ),
+    ).toBe(true);
+  });
+
+  test("departure closes pending requests with Trip departed", () => {
+    const be = createBackend(new Date("2026-08-20T04:00:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z",
+      seats_total: 3,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+
+    // Advance clock past departure
+    be.setNow(new Date("2026-08-20T09:00:00Z"));
+    const res = be.expireBookingWindows();
+    expect(res.pool_expired_pending).toBe(1);
+
+    const updated = be.tables.poolRequests.get(r.id)!;
+    expect(updated.status).toBe("rejected");
+    expect(updated.cancellation_reason).toBe("Trip departed");
+  });
+
+  test("halfway reminder sent to driver once", () => {
+    const be = createBackend(new Date("2026-08-20T04:00:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z",
+      seats_total: 3,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+    const r = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+    // respond_by is 06:00Z, halfway is 05:00Z
+
+    be.setNow(new Date("2026-08-20T05:30:00Z")); // past halfway, before respond_by
+    const res1 = be.expireBookingWindows();
+    expect(res1.pool_reminded_respond).toBe(1);
+
+    const updated = be.tables.poolRequests.get(r.id)!;
+    expect(updated.respond_reminded_at).toBeDefined();
+
+    // Second call does not send duplicate reminder
+    const res2 = be.expireBookingWindows();
+    expect(res2.pool_reminded_respond).toBe(0);
+  });
+
+  test("pool driver response stats calculates rate correctly", () => {
+    const be = createBackend(new Date("2026-08-20T04:00:00Z"));
+    const driver = be.registerCustomer();
+    const trip = be.createTrip(driver, {
+      depart_at: "2026-08-20T08:00:00Z",
+      seats_total: 4,
+      fare_per_seat: 200,
+    });
+    const p1 = be.registerCustomer();
+    const p2 = be.registerCustomer();
+
+    const r1 = be.requestSeat({ passenger_id: p1, trip_id: trip.id, seats: 1, match_score: 90 });
+    const r2 = be.requestSeat({ passenger_id: p2, trip_id: trip.id, seats: 1, match_score: 90 });
+
+    // Driver accepts r1 in time
+    be.poolDecide(driver, r1.id, "confirmed");
+
+    // r2 expires without response
+    be.setNow(new Date("2026-08-20T07:00:00Z"));
+    be.expireBookingWindows();
+
+    const stats = be.poolDriverResponseStats(driver);
+    expect(stats.request_count).toBe(2);
+    expect(stats.response_rate).toBe(0.5);
+  });
+});
