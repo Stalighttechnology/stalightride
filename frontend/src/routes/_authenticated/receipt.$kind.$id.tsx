@@ -305,6 +305,12 @@ function feeLines(b: any): Line[] {
   return out;
 }
 
+// The invoice shows the customer's total, fees and deposit, so providers can't open it.
+async function onlyForCustomer(customerId: string) {
+  const { data } = await api.auth.getUser();
+  if (data.user?.id !== customerId) throw new Error("This invoice is only available to the customer who paid.");
+}
+
 async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
   if (kind === "vehicle") {
     const { data, error } = await api
@@ -315,6 +321,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
     if (error) throw error;
     if (!data) throw new Error("Booking not found.");
     const b: any = data;
+    await onlyForCustomer(b.customer_id);
     const lines: Line[] = [
       { label: "Rental fare", value: Number(b.base_price ?? 0) },
       ...feeLines(b),
@@ -359,6 +366,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
     if (error) throw error;
     if (!data) throw new Error("Driver hire not found.");
     const b: any = data;
+    await onlyForCustomer(b.customer_id);
     const lines: Line[] =
       b.rate_type === "hourly"
         ? [
@@ -405,6 +413,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
   if (error) throw error;
   if (!data) throw new Error("Wash booking not found.");
   const b: any = data;
+  await onlyForCustomer(b.customer_id);
   return {
     title: b.wash_services?.name ?? "Vehicle wash",
     subtitle: [

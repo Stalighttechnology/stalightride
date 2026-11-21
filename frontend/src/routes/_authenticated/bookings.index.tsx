@@ -139,7 +139,7 @@ function Bookings() {
       const deposit = Number(b.security_deposit ?? 0);
       const refund = round2(deposit + (Number(b.total_price) - deposit) * pct);
       description = byHost
-        ? `The rider gets a full refund of ${currency(Number(b.total_price))}.`
+        ? "The rider gets a full refund and you won't receive an earning for this trip."
         : `You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
     }
     const ok = await confirm({
@@ -577,7 +577,7 @@ function List({
                       {String(b.dropoff_time ?? "").slice(0, 5)}
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-2.5 py-1 font-semibold">
-                      {currency(b.total_price)}
+                      {role === "vendor" ? `${currency(b.provider_earning)} your earning` : currency(b.total_price)}
                     </span>
                   </div>
 
@@ -850,7 +850,7 @@ function List({
                           </Link>
                         </Button>
                       )}
-                    {(b.payment_status === "paid" || b.paid_at) && (
+                    {role === "customer" && (b.payment_status === "paid" || b.paid_at) && (
                       <Button asChild size="sm" variant="ghost" className="rounded-full">
                         <Link to="/receipt/$kind/$id" params={{ kind: "vehicle", id: b.id }}>
                           <ReceiptText className="mr-1.5 h-4 w-4" />
