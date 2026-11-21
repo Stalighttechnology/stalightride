@@ -14,7 +14,6 @@ import {
   LogOut,
   LogIn,
   Droplets,
-  ScanLine,
   BadgeIndianRupee,
   Users,
   LifeBuoy,
@@ -100,7 +99,6 @@ const hostFleetItems: Item[] = [
   { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
   { to: "/bookings", label: "Host trips", icon: CalendarDays, search: { tab: "vendor" } },
   { to: "/vendor/vehicles/new", label: "Add vehicle", icon: Plus },
-  { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];
 
 const hostFinanceItems: Item[] = [
@@ -159,7 +157,7 @@ const adminItems: Item[] = [
 
 export function AppSidebar() {
   const { user } = useSession();
-  const { activeRole } = useActiveRole();
+  const { activeRole, isDriver, switchRole } = useActiveRole();
   const navigate = useNavigate();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
@@ -265,6 +263,43 @@ export function AppSidebar() {
         {activeRole === "customer" && (
           <>
             {renderGroup("Book", customerBookItems)}
+
+            {isDriver && (
+              <SidebarGroup>
+                {!collapsed && (
+                  <div className="flex items-center justify-between px-2 pb-1">
+                    <SidebarGroupLabel className="p-0 text-emerald-700 dark:text-emerald-400 font-semibold">
+                      Driver console
+                    </SidebarGroupLabel>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        switchRole("driver");
+                        navigate({ to: "/driver-dashboard" });
+                        close();
+                      }}
+                      className="text-[10px] text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer underline"
+                    >
+                      Open view
+                    </button>
+                  </div>
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {driverOpsItems.map((item) => (
+                      <SidebarMenuItem key={item.to}>
+                        <SidebarMenuButton asChild isActive={isActive(item.to)} tooltip={item.label}>
+                          <Link to={item.to as any} onClick={close} className="flex items-center gap-2">
+                            <item.icon className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            {!collapsed && <span>{item.label}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
 
             {user && (
               <SidebarGroup>
@@ -372,6 +407,30 @@ export function AppSidebar() {
         {/* ======================================================== */}
         {activeRole === "driver" && (
           <>
+            {!collapsed && (
+              <div className="mx-2 mb-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5">
+                <div className="flex items-center justify-between gap-1">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Driver Mode
+                    </span>
+                    <p className="text-[10px] text-muted-foreground">Hire & pool ops active</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                    onClick={() => {
+                      switchRole("customer");
+                      navigate({ to: "/browse" });
+                      close();
+                    }}
+                  >
+                    Rider view &rarr;
+                  </Button>
+                </div>
+              </div>
+            )}
             {renderGroup("Driver console", driverOpsItems)}
             {renderGroup("Finances", driverFinanceItems)}
             {renderGroup("Account & help", [...driverAccountItems, helpItems[0], helpItems[1]])}

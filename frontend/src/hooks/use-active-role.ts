@@ -50,7 +50,7 @@ export const ROLE_DEFINITIONS: Record<AppRole, RoleInfo> = {
   driver: {
     role: "driver",
     label: "Driver",
-    badge: "Professional Driver",
+    badge: "Hireable Driver",
     homePath: "/driver-dashboard",
     icon: CarFront,
     description: "Job requests, carpooling & ride tracking",
@@ -87,36 +87,45 @@ export function useActiveRole() {
   const { isHost, driverStatus, cleanerStatus, washCenterStatus } = useProviderStatus();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
+  const isDriver = driverStatus === "approved";
+  const isCleaner = cleanerStatus === "approved";
+  const isWashCenter = washCenterStatus === "approved";
+
   const activeRole = useMemo<AppRole>(() => {
     if (!user) return "customer";
 
     // 1. Explicit management/provider route matching (instant check, no async delay)
     if (pathname.startsWith("/admin")) return "admin";
-    if (pathname.startsWith("/vendor") || pathname === "/scan") return "host";
-    if (pathname.startsWith("/driver-dashboard") || pathname === "/pooling/driver") return "driver";
+    if (pathname.startsWith("/vendor")) return "host";
+    if (
+      pathname.startsWith("/driver-dashboard") ||
+      pathname === "/pooling/driver" ||
+      pathname === "/pooling/new"
+    ) {
+      return "driver";
+    }
     if (pathname.startsWith("/cleaner-dashboard")) return "cleaner";
     if (pathname.startsWith("/wash-center-dashboard")) return "wash_center";
 
-    // 2. Remembered active provider role for shared routes (e.g. /wallet, /profile)
+    // 2. Remembered active role selection (when user manually toggled role)
     const storedRole =
       typeof sessionStorage !== "undefined"
         ? (sessionStorage.getItem("synchoo_active_role") as AppRole | null)
         : null;
-    if (pathname === "/wallet" || pathname === "/scan") {
-      if (storedRole === "host" || isHost) return "host";
-      if (storedRole === "driver" && driverStatus === "approved") return "driver";
-      if (storedRole === "cleaner" && cleanerStatus === "approved") return "cleaner";
-      if (storedRole === "wash_center" && washCenterStatus === "approved") return "wash_center";
+    if (storedRole) {
+      if (storedRole === "driver" && isDriver) return "driver";
+      if (storedRole === "host" && isHost) return "host";
+      if (storedRole === "cleaner" && isCleaner) return "cleaner";
+      if (storedRole === "wash_center" && isWashCenter) return "wash_center";
       if (storedRole === "admin" && isAdmin) return "admin";
+      if (storedRole === "customer") return "customer";
     }
 
-    // 3. Explicit customer-focused routes
+    // 3. Explicit customer-focused catalog routes
     if (
-      pathname === "/" ||
       pathname.startsWith("/browse") ||
       pathname.startsWith("/vehicle") ||
       pathname.startsWith("/drivers") ||
-      pathname.startsWith("/pooling") ||
       pathname.startsWith("/wash") ||
       pathname.startsWith("/corporate") ||
       pathname.startsWith("/membership") ||
@@ -128,28 +137,26 @@ export function useActiveRole() {
 
     // 4. Default according to the account's approved role capability
     if (isAdmin) return "admin";
-    if (cleanerStatus === "approved") return "cleaner";
-    if (driverStatus === "approved") return "driver";
-    if (washCenterStatus === "approved") return "wash_center";
+    if (isDriver) return "driver";
     if (isHost) return "host";
+    if (isCleaner) return "cleaner";
+    if (isWashCenter) return "wash_center";
 
     return "customer";
-  }, [user, isAdmin, isHost, driverStatus, cleanerStatus, washCenterStatus, pathname]);
+  }, [user, isAdmin, isHost, isDriver, isCleaner, isWashCenter, pathname]);
 
-  useEffect(() => {
-    if (activeRole && typeof sessionStorage !== "undefined") {
-      sessionStorage.setItem("synchoo_active_role", activeRole);
+  const switchRole = (newRole: AppRole) => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("synchoo_active_role", newRole);
     }
-  }, [activeRole]);
-  const isDriver = driverStatus === "approved";
-  const isCleaner = cleanerStatus === "approved";
-  const isWashCenter = washCenterStatus === "approved";
+  };
 
   const currentRoleInfo = ROLE_DEFINITIONS[activeRole] || ROLE_DEFINITIONS.customer;
 
   return {
     activeRole,
     currentRoleInfo,
+    switchRole,
     isHost,
     isDriver,
     isCleaner,

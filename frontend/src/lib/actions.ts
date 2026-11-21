@@ -51,28 +51,31 @@ export const verifyWalletTopup = action<
   PaymentProof,
   { ok: true; alreadyCredited: boolean; newBalance: number }
 >("verifyWalletTopup");
-export const getBookingByQr = action<{ code: string }>("getBookingByQr");
-export const resolveHandoverCode = action<{ code: string }>("resolveHandoverCode");
-export const confirmHandover = action<
-  { code: string; phase: HandoverPhase },
-  { ok: true; phase: HandoverPhase; bookingId: string }
->("confirmHandover");
+/** The renter's check-in/check-out: car photos, odometer and the code the host gives them.
+ *  A wrong code comes back as `ok: false` (not thrown) so the attempt counter is kept. */
 export const submitInspection = action<
   {
     bookingId: string;
     phase: HandoverPhase;
-    fuel: number;
     odo: number;
-    photoPaths: string[];
+    code: string;
+    photos: Record<
+      | "front"
+      | "front_left"
+      | "driver_side"
+      | "rear_left"
+      | "rear"
+      | "rear_right"
+      | "passenger_side"
+      | "front_right"
+      | "dashboard",
+      string
+    >;
+    extraPhotos?: string[];
     notes?: string | null;
-    damage: { area: string; condition: "ok" | "minor" | "major"; note?: string }[];
   },
-  { ok: true; phase: HandoverPhase }
+  { ok: boolean; phase?: HandoverPhase; message?: string }
 >("submitInspection");
-export const completeBooking = action<
-  { bookingId: string; odo?: number; fuel?: number; notes?: string },
-  { ok: true; bookingId: string; status: "completed"; alreadyCompleted?: boolean }
->("completeBooking");
 
 export const createMembershipOrder = action<
   { plan: string; cycle: "monthly" | "annual" },

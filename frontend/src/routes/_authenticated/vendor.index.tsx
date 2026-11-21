@@ -19,11 +19,11 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Plus,
+  ClipboardCheck,
   Car,
   DollarSign,
   Calendar,
   ShieldCheck,
-  ScanLine,
   Star,
   LayoutDashboard,
   BarChart3,
@@ -447,8 +447,8 @@ function VendorDashboard() {
 
   const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
     const target = [...pendingBookings, ...(bookings ?? [])].find((x: any) => x.id === id);
-    if (target?.respond_by && Date.now() > new Date(target.respond_by).getTime()) {
-      toast.error("This request has expired");
+    if (status === "confirmed" && target?.respond_by && Date.now() > new Date(target.respond_by).getTime()) {
+      toast.error("This request has expired and cannot be approved.");
       return;
     }
     setProcessingBookingId(id);
@@ -458,21 +458,23 @@ function VendorDashboard() {
           const base = prev ?? SAMPLE_BOOKINGS;
           return base.map((b) => (b.id === id ? { ...b, status } : b));
         });
+        setPendingBookings((prev) => prev.filter((b) => b.id !== id));
         toast.success(
           status === "confirmed"
             ? "Booking approved! Guest can now proceed to payment."
-            : "Booking declined",
+            : "Booking declined and removed from pending queue",
         );
         return;
       }
       // Optimistically update UI
+      setPendingBookings((prev) => prev.filter((b) => b.id !== id));
       setBookings((prev) => (prev ? prev.map((b) => (b.id === id ? { ...b, status } : b)) : prev));
       const { error } = await api.from("bookings").update({ status }).eq("id", id);
       if (error) throw error;
       toast.success(
         status === "confirmed"
           ? "Booking approved! Guest can now proceed to payment."
-          : "Booking declined",
+          : "Booking closed and removed from pending requests",
       );
       await load();
     } catch (err: any) {
@@ -639,7 +641,10 @@ function VendorDashboard() {
   // Net of commission; from host_dashboard_stats()
   const earnings = Number(stats?.earnings ?? 0);
   const totalBookings = Number(stats?.total_bookings ?? 0);
-  const pendingCount = Number(stats?.pending_count ?? pendingBookings.length);
+  const activePendingBookings = pendingBookings.filter(
+    (b: any) => !b.respond_by || now <= new Date(b.respond_by).getTime(),
+  );
+  const pendingCount = activePendingBookings.length;
 
   const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
@@ -803,15 +808,15 @@ function VendorDashboard() {
               {displayVendor.business_name}
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Manage your fleet, view real-time trip handovers, track earnings, and maintain vehicle
+              Manage your fleet, share trip handover codes, track earnings, and maintain vehicle
               health.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm" className="rounded-xl">
-              <Link to="/scan">
-                <ScanLine className="mr-1.5 h-4 w-4" /> Scan QR Handover
+              <Link to="/bookings" search={{ tab: "vendor" } as any}>
+                <ClipboardCheck className="mr-1.5 h-4 w-4" /> Trips &amp; handover codes
               </Link>
             </Button>
             <Button
@@ -922,8 +927,8 @@ function VendorDashboard() {
                   size="sm"
                   className="w-full justify-start text-xs"
                 >
-                  <Link to="/scan">
-                    <ScanLine className="mr-2 h-3.5 w-3.5 text-brand" /> Scan QR Handover
+                  <Link to="/bookings" search={{ tab: "vendor" } as any}>
+                    <ClipboardCheck className="mr-2 h-3.5 w-3.5 text-brand" /> Trips &amp; handover codes
                   </Link>
                 </Button>
               </div>
@@ -965,7 +970,7 @@ function VendorDashboard() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <Stat icon={Car} label="Fleet Size" value={vehiclesPager.total} />
                   <Stat icon={Calendar} label="Total Bookings" value={totalBookings} />
-                  <Stat icon={DollarSign} label="Gross Earnings" value={currency(earnings)} />
+                  <Stat icon={DollarSign} label="Your Earnings" value={currency(earnings)} />
                   <Stat
                     icon={Clock}
                     label="Response Rate"
@@ -1178,40 +1183,59 @@ function VendorDashboard() {
                                 <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
                                   <div className="text-left sm:text-right">
                                     <p className="text-sm font-bold text-foreground">
-                                      {currency(b.total_price)}
+                                      {currency(b.provider_earning)}
+                                      <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
                                     </p>
                                     <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                                       <Badge
                                         variant="outline"
-                                        className="text-[10px] capitalize bg-amber-50 text-amber-700 border-amber-300"
+                                        className={`text-[10px] capitalize ${
+                                          isExpired
+                                            ? "bg-destructive/10 text-destructive border-destructive/30 font-medium"
+                                            : "bg-amber-50 text-amber-700 border-amber-300"
+                                        }`}
                                       >
-                                        pending
+                                        {isExpired ? "expired" : "pending"}
                                       </Badge>
                                     </div>
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    <Button
-                                      size="sm"
-                                      className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
-                                      disabled={isProcessing || isExpired}
-                                      onClick={() => decideBooking(b.id, "confirmed")}
-                                      title={isExpired ? "This request has expired" : undefined}
-                                    >
-                                      <Check className="mr-1 h-3.5 w-3.5" />
-                                      {isProcessing ? "Approving…" : "Approve"}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                                      disabled={isProcessing || isExpired}
-                                      onClick={() => decideBooking(b.id, "rejected")}
-                                      title={isExpired ? "This request has expired" : undefined}
-                                    >
-                                      <X className="mr-1 h-3.5 w-3.5" />
-                                      Decline
-                                    </Button>
+                                    {isExpired ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 px-3 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 font-medium"
+                                        disabled={isProcessing}
+                                        onClick={() => decideBooking(b.id, "rejected")}
+                                        title="Dismiss this expired request"
+                                      >
+                                        <X className="mr-1 h-3.5 w-3.5" />
+                                        {isProcessing ? "Dismissing…" : "Dismiss"}
+                                      </Button>
+                                    ) : (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+                                          disabled={isProcessing}
+                                          onClick={() => decideBooking(b.id, "confirmed")}
+                                        >
+                                          <Check className="mr-1 h-3.5 w-3.5" />
+                                          {isProcessing ? "Approving…" : "Approve"}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                                          disabled={isProcessing}
+                                          onClick={() => decideBooking(b.id, "rejected")}
+                                        >
+                                          <X className="mr-1 h-3.5 w-3.5" />
+                                          Decline
+                                        </Button>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               </li>
@@ -1243,14 +1267,9 @@ function VendorDashboard() {
                                 <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
                                   <div className="text-left sm:text-right">
                                     <p className="text-sm font-bold text-foreground">
-                                      {currency(b.provider_earning ?? (b.base_price ? Number(b.base_price) * 0.882 : b.total_price))}
+                                      {currency(b.provider_earning)}
                                       <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
                                     </p>
-                                    {Number(b.service_fee) > 0 && (
-                                      <p className="text-[10px] text-muted-foreground">
-                                        Fee {currency(b.service_fee)} to Admin
-                                      </p>
-                                    )}
                                     <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
                                       <Badge
                                         variant={

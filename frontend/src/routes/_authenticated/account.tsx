@@ -19,7 +19,6 @@ import {
   Droplets,
   LayoutDashboard,
   CarFront as Steering,
-  ScanLine,
   Settings,
   ChevronRight,
   Gift,
@@ -123,7 +122,6 @@ function Account() {
     { to: "/wishlist", icon: Heart, label: "Saved", tint: "text-violet" },
     { to: "/hires", icon: UserRound, label: "My drivers", tint: "text-cyan" },
     { to: "/washes", icon: Droplets, label: "My washes", tint: "text-cyan" },
-    ...(isHost ? [{ to: "/scan", icon: ScanLine, label: "Scan QR", tint: "text-ember" }] : []),
   ];
 
   const shortcuts = [
@@ -217,6 +215,33 @@ function Account() {
                 <h1 className="truncate font-display text-xl sm:text-2xl font-bold">{name}</h1>
                 <p className="truncate text-xs sm:text-sm text-muted-foreground">{user?.email}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {isDriver && (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 rounded-full border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold"
+                    >
+                      <Steering className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Hireable Driver
+                    </Badge>
+                  )}
+                  {isHost && (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 rounded-full border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 text-xs font-semibold"
+                    >
+                      <LayoutDashboard className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                      Vehicle Host
+                    </Badge>
+                  )}
+                  {isAdmin && (
+                    <Badge
+                      variant="outline"
+                      className="gap-1 rounded-full border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs font-semibold"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                      Super Admin
+                    </Badge>
+                  )}
                   <Badge
                     variant="outline"
                     className="gap-1 rounded-full border-border/70 bg-card/50 text-xs"

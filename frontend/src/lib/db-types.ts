@@ -387,6 +387,271 @@ export type Database = {
         };
         Relationships: [];
       };
+      companies: {
+        Row: {
+          id: string;
+          name: string;
+          gstin: string;
+          billing_email: string;
+          city: string;
+          verification_status: "pending" | "approved" | "rejected";
+          credit_limit: number;
+          wallet_balance: number;
+          status: "active" | "paused" | "suspended";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          gstin: string;
+          billing_email: string;
+          city?: string;
+          verification_status?: "pending" | "approved" | "rejected";
+          credit_limit?: number;
+          wallet_balance?: number;
+          status?: "active" | "paused" | "suspended";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          gstin?: string;
+          billing_email?: string;
+          city?: string;
+          verification_status?: "pending" | "approved" | "rejected";
+          credit_limit?: number;
+          wallet_balance?: number;
+          status?: "active" | "paused" | "suspended";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      company_members: {
+        Row: {
+          id: string;
+          company_id: string;
+          user_id: string;
+          role: "admin" | "manager" | "employee";
+          department: string | null;
+          monthly_limit: number;
+          status: "active" | "invited" | "suspended" | "removed";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          user_id: string;
+          role?: "admin" | "manager" | "employee";
+          department?: string | null;
+          monthly_limit?: number;
+          status?: "active" | "invited" | "suspended" | "removed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          user_id?: string;
+          role?: "admin" | "manager" | "employee";
+          department?: string | null;
+          monthly_limit?: number;
+          status?: "active" | "invited" | "suspended" | "removed";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "company_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      company_policies: {
+        Row: {
+          id: string;
+          company_id: string;
+          allowed_services: string[];
+          max_price_per_day: number;
+          approval_threshold: number;
+          require_manager_approval: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          allowed_services?: string[];
+          max_price_per_day?: number;
+          approval_threshold?: number;
+          require_manager_approval?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          allowed_services?: string[];
+          max_price_per_day?: number;
+          approval_threshold?: number;
+          require_manager_approval?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "company_policies_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: true;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      company_trips: {
+        Row: {
+          id: string;
+          company_id: string;
+          member_id: string;
+          booking_id: string | null;
+          driver_booking_id: string | null;
+          wash_booking_id: string | null;
+          service_type: "rental" | "driver" | "wash";
+          amount: number;
+          approval_status: "auto" | "pending" | "approved" | "rejected" | "expired";
+          manager_id: string | null;
+          manager_decided_at: string | null;
+          respond_by: string | null;
+          is_flagged: boolean;
+          flagged_reason: string | null;
+          flagged_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          member_id: string;
+          booking_id?: string | null;
+          driver_booking_id?: string | null;
+          wash_booking_id?: string | null;
+          service_type: "rental" | "driver" | "wash";
+          amount: number;
+          approval_status?: "auto" | "pending" | "approved" | "rejected" | "expired";
+          manager_id?: string | null;
+          manager_decided_at?: string | null;
+          respond_by?: string | null;
+          is_flagged?: boolean;
+          flagged_reason?: string | null;
+          flagged_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          member_id?: string;
+          booking_id?: string | null;
+          driver_booking_id?: string | null;
+          wash_booking_id?: string | null;
+          service_type?: "rental" | "driver" | "wash";
+          amount?: number;
+          approval_status?: "auto" | "pending" | "approved" | "rejected" | "expired";
+          manager_id?: string | null;
+          manager_decided_at?: string | null;
+          respond_by?: string | null;
+          is_flagged?: boolean;
+          flagged_reason?: string | null;
+          flagged_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "company_trips_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "company_trips_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "company_members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      company_invoices: {
+        Row: {
+          id: string;
+          company_id: string;
+          invoice_number: string;
+          month: string;
+          base_amount: number;
+          cgst: number;
+          sgst: number;
+          igst: number;
+          total: number;
+          status: "draft" | "issued" | "paid" | "overdue" | "cancelled";
+          due_date: string | null;
+          paid_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          invoice_number: string;
+          month: string;
+          base_amount?: number;
+          cgst?: number;
+          sgst?: number;
+          igst?: number;
+          total?: number;
+          status?: "draft" | "issued" | "paid" | "overdue" | "cancelled";
+          due_date?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          invoice_number?: string;
+          month?: string;
+          base_amount?: number;
+          cgst?: number;
+          sgst?: number;
+          igst?: number;
+          total?: number;
+          status?: "draft" | "issued" | "paid" | "overdue" | "cancelled";
+          due_date?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "company_invoices_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       coupons: {
         Row: {
           active: boolean;
@@ -2592,6 +2857,68 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      check_corporate_policy: {
+        Args: {
+          _company_id: string;
+          _user_id: string;
+          _service: string;
+          _amount: number;
+        };
+        Returns: {
+          allowed: boolean;
+          in_policy: boolean;
+          reason: string;
+          member_id?: string;
+          manager_id?: string;
+        };
+      };
+      create_corporate_trip: {
+        Args: {
+          _company_id: string;
+          _booking_id?: string | null;
+          _driver_booking_id?: string | null;
+          _wash_booking_id?: string | null;
+          _service_type?: string;
+          _amount?: number;
+          _force_personal?: boolean;
+        };
+        Returns: {
+          success: boolean;
+          trip_id?: string;
+          approval_status?: string;
+          in_policy?: boolean;
+          respond_by?: string | null;
+          mode?: string;
+        };
+      };
+      corporate_decide_trip: {
+        Args: {
+          _trip_id: string;
+          _decision: string;
+        };
+        Returns: {
+          success: boolean;
+          status: string;
+        };
+      };
+      flag_corporate_trip: {
+        Args: {
+          _trip_id: string;
+          _reason: string;
+        };
+        Returns: {
+          success: boolean;
+          trip_id: string;
+          flagged: boolean;
+        };
+      };
+      generate_corporate_invoice: {
+        Args: {
+          _company_id: string;
+          _month: string;
+        };
+        Returns: string;
+      };
       similar_drivers: {
         Args: {
           _driver_booking_id: string;

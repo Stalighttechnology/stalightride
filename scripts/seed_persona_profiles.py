@@ -161,16 +161,20 @@ for p in PERSONAS:
             )
             print(f"  -> Vendor profile approved for {email}")
 
-            # Reassign or ensure "Test Swift" belongs to Hari Host
+            # Only Hari's own "Test Swift": taking another host's car orphans its bookings
+            # (their vendor_id keeps the old host), see create_test_personas.py for creating one.
             cur.execute(
                 """
                 UPDATE public.vehicles
-                SET vendor_id = %s, status = 'active', verification_status = 'approved', is_deleted = false
-                WHERE title = 'Test Swift';
+                SET status = 'active', verification_status = 'approved', is_deleted = false
+                WHERE title = 'Test Swift' AND vendor_id = %s;
                 """,
                 [user.id]
             )
-            print(f"  -> Linked standard vehicle 'Test Swift' to Hari ({user.id})")
+            if cur.rowcount:
+                print(f"  -> 'Test Swift' for Hari ({user.id}) is active and approved")
+            else:
+                print(f"  -> Hari ({user.id}) has no 'Test Swift'; run create_test_personas.py to add one")
 
         # Cleaner setup
         if p.get("is_cleaner"):

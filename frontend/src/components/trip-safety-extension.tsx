@@ -162,7 +162,8 @@ export function TripSafetyExtension({
 
   return (
     <div className="space-y-4">
-      {/* Quick Action Bar for Customer during active trip */}
+      {/* Renter only: SOS and trip extension. The host only answers extension requests below. */}
+      {role === "customer" && (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-950 dark:bg-red-950/20">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white shadow-sm">
@@ -201,6 +202,7 @@ export function TripSafetyExtension({
           </Button>
         </div>
       </div>
+      )}
 
       {openExt && (role === "customer" || role === "vendor") && (
         <Card className="border-brand/30">
@@ -294,8 +296,8 @@ export function TripSafetyExtension({
         </Card>
       )}
 
-      {/* Pre-pickup Document Checklist (if pickup has not taken place yet) */}
-      {!booking.pickup_odometer && (
+      {/* Pre-pickup document checklist, for the renter before the trip starts */}
+      {role === "customer" && !booking.pickup_checked_at && (
         <Card className="border-sky-200 bg-sky-50/40 dark:border-sky-950 dark:bg-sky-950/20">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">

@@ -1,9 +1,10 @@
 import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
+import { useActiveRole } from "@/hooks/use-active-role";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,12 +21,24 @@ import {
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { FormSkeleton, SectionHeaderSkeleton } from "@/components/skeletons";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldAlert, Clock, Upload, Check, Camera, Eye, Plus } from "lucide-react";
+import {
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  Upload,
+  Check,
+  Camera,
+  Eye,
+  Plus,
+  CarFront,
+  LayoutDashboard,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/profile")({ component: Profile });
 
 function Profile() {
   const { user } = useSession();
+  const { isDriver, isHost, isAdmin } = useActiveRole();
   const [profile, setProfile] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -160,6 +173,34 @@ function Profile() {
             Manage your details and driving licence verification.
           </p>
         </div>
+
+        {isDriver && (
+          <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <CardContent className="p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center shrink-0">
+                    <CarFront className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-display text-base font-semibold">Hireable Driver Profile</h2>
+                      <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] uppercase">
+                        Approved &amp; Bookable
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      You are an accredited chauffeur on Synchoo. Users can hire you on hourly and daily packages.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs">
+                  <Link to="/driver-dashboard">Open Driver Console</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="p-6">

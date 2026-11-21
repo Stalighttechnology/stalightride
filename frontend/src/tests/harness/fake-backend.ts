@@ -29,6 +29,7 @@ import {
 import { calculateRentalPrice } from "@/lib/format";
 import { calculateDriverPrice } from "@/lib/driver-pricing";
 import { bookingIntervalsOverlap } from "@/lib/vehicle-availability";
+import type { Database } from "@/lib/db-types";
 
 export type BookingStatus = "pending" | "confirmed" | "rejected" | "cancelled" | "completed";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
@@ -75,6 +76,7 @@ export type Review = {
   comment?: string;
   reported: boolean;
   report_reason?: string;
+  vendor_response?: string;
 };
 
 export type SupportTicket = {
@@ -151,10 +153,11 @@ export type Booking = Money & {
   refund_amount: number;
   pickup_checked_at: string | null;
   return_checked_at: string | null;
-  pickup_fuel_pct?: number;
-  return_fuel_pct?: number;
+  pickup_odometer?: number;
+  return_odometer?: number;
   respond_by?: string | null;
   pay_by?: string | null;
+  paid_at?: string | null;
   confirmed_at?: string | null;
   respond_reminded_at?: string | null;
   pay_reminded_at?: string | null;
@@ -327,8 +330,10 @@ export type DriverBooking = Money & {
   notes?: string;
   respond_by?: string | null;
   pay_by?: string | null;
+  paid_at?: string | null;
   confirmed_at?: string | null;
   cancellation_reason?: string | null;
+  cancelled_at?: string | null;
   respond_reminded_at?: string | null;
   pay_reminded_at?: string | null;
   created_at?: string;
@@ -502,6 +507,16 @@ export function createBackend(
   const extensions = new Map<string, BookingExtension>();
   const vehicles = new Map<string, Vehicle>();
   const bookings = new Map<string, Booking>();
+  /** public.booking_handover_codes: created once a rental is paid, readable by the host and admins only. */
+  const handoverCodes = new Map<string, { checkin: string; checkout: string }>();
+  const codesOf = (b: Booking) => {
+    if (b.payment_status !== "paid") return undefined;
+    if (!handoverCodes.has(b.id)) {
+      const six = () => String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+      handoverCodes.set(b.id, { checkin: six(), checkout: six() });
+    }
+    return handoverCodes.get(b.id);
+  };
   const drivers = new Map<string, Driver>();
   const driverBookings = new Map<string, DriverBooking>();
   const driverReviews = new Map<string, DriverReview>();
@@ -534,6 +549,11 @@ export function createBackend(
   const userReports = new Map<string, UserReport>();
   const userRoles = new Map<string, Set<string>>();
   const vendorStates = new Map<string, VendorAccountability>();
+  const companies = new Map<string, Database["public"]["Tables"]["companies"]["Row"]>();
+  const companyMembers = new Map<string, Database["public"]["Tables"]["company_members"]["Row"]>();
+  const companyPolicies = new Map<string, Database["public"]["Tables"]["company_policies"]["Row"]>();
+  const companyTrips = new Map<string, Database["public"]["Tables"]["company_trips"]["Row"]>();
+  const companyInvoices = new Map<string, Database["public"]["Tables"]["company_invoices"]["Row"]>();
 
   const getVendorState = (vendor_id: string): VendorAccountability => {
     let s = vendorStates.get(vendor_id);
@@ -696,6 +716,11 @@ export function createBackend(
       platformSettings,
       poolRatings,
       vendorStates,
+      companies,
+      companyMembers,
+      companyPolicies,
+      companyTrips,
+      companyInvoices,
     },
 
     /* ---------- accounts ---------- */
@@ -971,8 +996,17 @@ export function createBackend(
         b.status = "confirmed";
         b.confirmed_at = clock.now.toISOString();
         b.updated_at = clock.now.toISOString();
-        const start = new Date(`${b.start_date}T${b.pickup_time.slice(0, 5)}:00+05:30`);
-        b.pay_by = bookingDeadline(clock.now, start, 30 * 60 * 1000).toISOString();
+        const ct = Array.from(companyTrips.values()).find((t) => t.booking_id === b.id);
+        if (ct && (ct.approval_status === "auto" || ct.approval_status === "approved")) {
+          const comp = companies.get(ct.company_id);
+          if (comp) comp.wallet_balance -= ct.amount;
+          b.payment_status = "paid";
+          b.paid_at = clock.now.toISOString();
+          b.pay_by = null;
+        } else {
+          const start = new Date(`${b.start_date}T${b.pickup_time.slice(0, 5)}:00+05:30`);
+          b.pay_by = bookingDeadline(clock.now, start, 30 * 60 * 1000).toISOString();
+        }
       } else {
         b.status = decision;
         b.updated_at = clock.now.toISOString();
@@ -1029,42 +1063,43 @@ export function createBackend(
       b.payment_status = "paid";
       return b;
     },
-    /** Host marks the trip completed (tg_money_guard_booking rules). */
-    completeBooking(actor: string, booking_id: string) {
-      const b = bookings.get(booking_id)!;
-      if (actor !== b.vendor_id && !admins.has(actor))
-        throw new RuleError("Only the host can complete a trip");
-      if (b.status !== "confirmed") throw new RuleError("Only confirmed bookings can be completed");
-      if (b.payment_status === "paid" && !b.return_checked_at && !admins.has(actor))
-        throw new RuleError("Record the return check-out before completing the trip");
-      b.status = "completed";
-      settleRental(b);
-      return b;
-    },
     /** A client trying to rewrite money columns on UPDATE is reset by the guard. */
     tamperBookingPrice(booking_id: string, total_price: number) {
       const b = bookings.get(booking_id)!;
       void total_price;
       return b;
     },
-    checkIn(actor: string, booking_id: string, fuel_pct: number) {
+    /** RLS on booking_handover_codes: only the host and admins see the codes. */
+    handoverCodes(actor: string, booking_id: string) {
       const b = bookings.get(booking_id)!;
-      if (b.customer_id !== actor && b.vendor_id !== actor) throw new RuleError("Not your booking");
+      if (actor !== b.vendor_id && !admins.has(actor))
+        throw new RuleError("Only the host can see the handover codes");
+      return codesOf(b) ?? null;
+    },
+    /** submitInspection, pickup: the renter's photos + odometer + the host's check-in code start the trip. */
+    checkIn(actor: string, booking_id: string, odometer: number, code: string) {
+      const b = bookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Only the renter records the check-in and check-out");
       if (b.status !== "confirmed" || b.payment_status !== "paid")
         throw new RuleError("Check-in unlocks after acceptance and payment");
       const opensAt = new Date(`${b.start_date}T${b.pickup_time}:00Z`).getTime() - 30 * 60_000;
       if (clock.now.getTime() < opensAt) throw new RuleError("Check-in is not open yet");
       if (b.pickup_checked_at) throw new RuleError("Already checked in");
+      if (code !== codesOf(b)!.checkin) throw new RuleError("That code is not right");
       b.pickup_checked_at = clock.now.toISOString();
-      b.pickup_fuel_pct = fuel_pct;
+      b.pickup_odometer = odometer;
       return b;
     },
-    checkOut(actor: string, booking_id: string, fuel_pct: number) {
+    /** submitInspection, return: the host's check-out code is the only way a trip completes. */
+    checkOut(actor: string, booking_id: string, odometer: number, code: string) {
       const b = bookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Only the renter records the check-in and check-out");
       if (!b.pickup_checked_at) throw new RuleError("Complete the pickup check-in first");
       if (b.return_checked_at) throw new RuleError("Already checked out");
+      if (odometer < (b.pickup_odometer ?? 0)) throw new RuleError("Return odometer can't be lower");
+      if (code !== codesOf(b)!.checkout) throw new RuleError("That code is not right");
       b.return_checked_at = clock.now.toISOString();
-      b.return_fuel_pct = fuel_pct;
+      b.return_odometer = odometer;
       b.status = "completed";
       settleRental(b);
       return b;
@@ -1087,7 +1122,17 @@ export function createBackend(
       if (b.payment_status === "paid") {
         refund = round2(b.security_deposit + ((b.total_price - b.security_deposit) * pct) / 100);
         share = round2((b.provider_earning * (100 - pct)) / 100);
-        if (refund > 0) wallet.apply(b.customer_id, refund, "refund");
+        const corpTrip = Array.from(companyTrips.values()).find(
+          (ct) => ct.booking_id === b.id && ["auto", "approved"].includes(ct.approval_status),
+        );
+        if (refund > 0) {
+          if (corpTrip) {
+            const comp = companies.get(corpTrip.company_id);
+            if (comp) comp.wallet_balance += refund;
+          } else {
+            wallet.apply(b.customer_id, refund, "refund");
+          }
+        }
         if (share > 0 && b.vendor_id !== b.customer_id && !b.earning_credited_at)
           wallet.apply(b.vendor_id, share, "booking_earning");
         b.payment_status = pct === 100 ? "refunded" : "partially_refunded";
@@ -1376,7 +1421,17 @@ export function createBackend(
       if (b.payment_status === "paid") {
         refund = round2((b.total_price * pct) / 100);
         share = round2(((b.provider_earning ?? b.total_price) * (100 - pct)) / 100);
-        if (refund > 0) wallet.apply(b.customer_id, refund, "driver_refund");
+        const corpTrip = Array.from(companyTrips.values()).find(
+          (ct) => ct.driver_booking_id === b.id && ["auto", "approved"].includes(ct.approval_status),
+        );
+        if (refund > 0) {
+          if (corpTrip) {
+            const comp = companies.get(corpTrip.company_id);
+            if (comp) comp.wallet_balance += refund;
+          } else {
+            wallet.apply(b.customer_id, refund, "driver_refund");
+          }
+        }
         if (settings.commission_pct === 0) {
           if (pct === 100) {
             wallet.apply(b.driver_id, -b.total_price, "payout_reversal");
@@ -2235,6 +2290,14 @@ export function createBackend(
       this._recomputeVehicleRating(args.vehicle_id);
       return r;
     },
+    replyToReview(actor: string, review_id: string, text: string) {
+      const r = reviews.get(review_id);
+      if (!r) throw new RuleError("Review not found");
+      if (vehicles.get(r.vehicle_id)?.vendor_id !== actor)
+        throw new RuleError("Only the host can reply to a review");
+      r.vendor_response = text;
+      return r;
+    },
     reportReview(actor: string, review_id: string, reason: string) {
       const r = reviews.get(review_id);
       if (!r) throw new RuleError("Review not found");
@@ -2719,12 +2782,56 @@ export function createBackend(
         }
       }
 
+      // Corporate trips expiry
+      let corporateExpiredCount = 0;
+      for (const ct of companyTrips.values()) {
+        if (ct.approval_status === "pending" && ct.respond_by && nowMs > new Date(ct.respond_by).getTime()) {
+          ct.approval_status = "expired";
+          ct.updated_at = clock.now.toISOString();
+          corporateExpiredCount++;
+
+          if (ct.booking_id) {
+            const b = bookings.get(ct.booking_id);
+            if (b && b.status === "pending") {
+              b.status = "cancelled";
+              b.cancellation_reason = "manager_no_response";
+              b.cancelled_at = clock.now.toISOString();
+              cancelledCount++;
+            }
+          }
+          if (ct.driver_booking_id) {
+            const db = driverBookings.get(ct.driver_booking_id);
+            if (db && db.status === "pending") {
+              db.status = "cancelled";
+              db.cancellation_reason = "manager_no_response";
+              db.cancelled_at = clock.now.toISOString();
+            }
+          }
+          if (ct.wash_booking_id) {
+            const wb = washes.get(ct.wash_booking_id);
+            if (wb && wb.status === "pending") {
+              wb.status = "cancelled";
+              wb.cancellation_reason = "manager_no_response";
+            }
+          }
+
+          const mem = companyMembers.get(ct.member_id);
+          if (mem) {
+            notify(mem.user_id, "Corporate approval expired", "Your manager did not respond to your trip request in time.", "/corporate");
+          }
+          if (ct.manager_id) {
+            notify(ct.manager_id, "Corporate request expired", "A trip approval request expired without response.", "/corporate");
+          }
+        }
+      }
+
       return {
         rentals_cancelled: cancelledCount,
         reminders_sent: remindedCount,
         washes_cancelled: washesCancelled,
         pool_expired_pending: poolCancelledCount,
         pool_reminded_respond: poolRemindedCount,
+        corporate_expired_pending: corporateExpiredCount,
       };
     },
 
@@ -3263,6 +3370,430 @@ export function createBackend(
       e.status = "paid";
       notify(e.vendor_id, "Trip extended");
       return b;
+    },
+
+    /* ---------- Corporate Accounts & Approvals (CO-01 to CO-21) ---------- */
+    registerCompany(
+      data: { name: string; gstin: string; billing_email: string; city?: string; initial_wallet?: number },
+      actorId?: string,
+    ) {
+      if (!data.name || !data.gstin || !data.billing_email) {
+        throw new RuleError("Company name, GSTIN, and billing email are required");
+      }
+      for (const c of companies.values()) {
+        if (c.gstin.toUpperCase() === data.gstin.toUpperCase()) {
+          throw new RuleError("Company with this GSTIN already registered");
+        }
+      }
+      const cId = id("comp");
+      const company: Database["public"]["Tables"]["companies"]["Row"] = {
+        id: cId,
+        name: data.name,
+        gstin: data.gstin.toUpperCase(),
+        billing_email: data.billing_email,
+        city: data.city ?? "Bengaluru",
+        verification_status: "pending",
+        credit_limit: 0,
+        wallet_balance: data.initial_wallet ?? 50000,
+        status: "active",
+        created_at: clock.now.toISOString(),
+        updated_at: clock.now.toISOString(),
+      };
+      companies.set(cId, company);
+
+      const pId = id("pol");
+      companyPolicies.set(pId, {
+        id: pId,
+        company_id: cId,
+        allowed_services: ["rental", "driver", "wash"],
+        max_price_per_day: 5000,
+        approval_threshold: 3000,
+        require_manager_approval: true,
+        created_at: clock.now.toISOString(),
+        updated_at: clock.now.toISOString(),
+      });
+
+      if (actorId) {
+        const mId = id("cmem");
+        companyMembers.set(mId, {
+          id: mId,
+          company_id: cId,
+          user_id: actorId,
+          role: "admin",
+          department: "Executive",
+          monthly_limit: 50000,
+          status: "active",
+          created_at: clock.now.toISOString(),
+          updated_at: clock.now.toISOString(),
+        });
+      }
+
+      return company;
+    },
+
+    verifyCompany(adminId: string, companyId: string, status: "approved" | "rejected") {
+      if (!admins.has(adminId)) throw new RuleError("Only admins can verify companies");
+      const c = companies.get(companyId);
+      if (!c) throw new RuleError("Company not found");
+      c.verification_status = status;
+      c.updated_at = clock.now.toISOString();
+      const compAdmin = Array.from(companyMembers.values()).find(
+        (m) => m.company_id === companyId && m.role === "admin",
+      );
+      if (compAdmin) {
+        notify(
+          compAdmin.user_id,
+          "Company verification updated",
+          `Your company verification status is now ${status}.`,
+          "/corporate",
+        );
+      }
+      return c;
+    },
+
+    inviteCompanyMember(
+      actorId: string,
+      companyId: string,
+      data: { user_id: string; role?: "admin" | "manager" | "employee"; department?: string; monthly_limit?: number },
+    ) {
+      const isCompAdmin = Array.from(companyMembers.values()).some(
+        (m) => m.company_id === companyId && m.user_id === actorId && m.role === "admin",
+      );
+      if (!isCompAdmin && !admins.has(actorId)) throw new RuleError("Only company admin can invite members");
+      const mId = id("cmem");
+      const mem: Database["public"]["Tables"]["company_members"]["Row"] = {
+        id: mId,
+        company_id: companyId,
+        user_id: data.user_id,
+        role: data.role ?? "employee",
+        department: data.department ?? null,
+        monthly_limit: data.monthly_limit ?? 10000,
+        status: "active",
+        created_at: clock.now.toISOString(),
+        updated_at: clock.now.toISOString(),
+      };
+      companyMembers.set(mId, mem);
+      return mem;
+    },
+
+    removeCompanyMember(actorId: string, companyId: string, memberId: string) {
+      const isCompAdmin = Array.from(companyMembers.values()).some(
+        (m) => m.company_id === companyId && m.user_id === actorId && m.role === "admin",
+      );
+      if (!isCompAdmin && !admins.has(actorId)) throw new RuleError("Only company admin can remove members");
+      const mem = companyMembers.get(memberId);
+      if (!mem) throw new RuleError("Member not found");
+      mem.status = "removed";
+      mem.updated_at = clock.now.toISOString();
+      return mem;
+    },
+
+    updateCompanyPolicy(
+      actorId: string,
+      companyId: string,
+      policy: Partial<Database["public"]["Tables"]["company_policies"]["Update"]>,
+    ) {
+      const isCompAdmin = Array.from(companyMembers.values()).some(
+        (m) => m.company_id === companyId && m.user_id === actorId && m.role === "admin",
+      );
+      if (!isCompAdmin && !admins.has(actorId)) throw new RuleError("Only company admin can update policy");
+      const pol = Array.from(companyPolicies.values()).find((p) => p.company_id === companyId);
+      if (!pol) throw new RuleError("Company policy not found");
+      Object.assign(pol, policy, { updated_at: clock.now.toISOString() });
+      return pol;
+    },
+
+    checkCorporatePolicy(companyId: string, userId: string, service: string, amount: number) {
+      const comp = companies.get(companyId);
+      if (!comp) return { allowed: false, in_policy: false, reason: "Company not found" };
+      if (comp.status === "paused") return { allowed: false, in_policy: false, reason: "Company booking is paused" };
+      if (comp.verification_status !== "approved")
+        return { allowed: false, in_policy: false, reason: "Company not approved yet" };
+
+      const mem = Array.from(companyMembers.values()).find(
+        (m) => m.company_id === companyId && m.user_id === userId,
+      );
+      if (!mem || mem.status !== "active")
+        return { allowed: false, in_policy: false, reason: "Employee is not an active company member" };
+
+      const pol = Array.from(companyPolicies.values()).find((p) => p.company_id === companyId);
+      const mgr = Array.from(companyMembers.values()).find(
+        (m) => m.company_id === companyId && (m.role === "manager" || m.role === "admin") && m.user_id !== userId,
+      );
+
+      if (pol && !pol.allowed_services.includes(service)) {
+        return {
+          allowed: true,
+          in_policy: false,
+          reason: `Service ${service} is not permitted under corporate policy`,
+          member_id: mem.id,
+          manager_id: mgr?.user_id,
+        };
+      }
+
+      if (pol && amount > pol.max_price_per_day) {
+        return {
+          allowed: true,
+          in_policy: false,
+          reason: `Amount exceeds policy limit of ₹${pol.max_price_per_day}`,
+          member_id: mem.id,
+          manager_id: mgr?.user_id,
+        };
+      }
+
+      const currentSpend = Array.from(companyTrips.values())
+        .filter((ct) => ct.member_id === mem.id && ["auto", "approved", "pending"].includes(ct.approval_status))
+        .reduce((sum, ct) => sum + ct.amount, 0);
+
+      if (currentSpend + amount > mem.monthly_limit) {
+        return {
+          allowed: true,
+          in_policy: false,
+          reason: `Monthly spend limit of ₹${mem.monthly_limit} exceeded`,
+          member_id: mem.id,
+          manager_id: mgr?.user_id,
+        };
+      }
+
+      return {
+        allowed: true,
+        in_policy: true,
+        reason: "Within corporate policy",
+        member_id: mem.id,
+        manager_id: mgr?.user_id,
+      };
+    },
+
+    createCorporateTrip(
+      data: {
+        company_id: string;
+        booking_id?: string;
+        driver_booking_id?: string;
+        wash_booking_id?: string;
+        service_type: "rental" | "driver" | "wash";
+        amount: number;
+        force_personal?: boolean;
+      },
+      actorId?: string,
+    ) {
+      if (data.force_personal) {
+        return { success: true, mode: "personal" };
+      }
+      const userId =
+        actorId ??
+        (data.booking_id ? bookings.get(data.booking_id)?.customer_id : undefined) ??
+        (data.driver_booking_id ? driverBookings.get(data.driver_booking_id)?.customer_id : undefined) ??
+        (data.wash_booking_id ? washes.get(data.wash_booking_id)?.customer_id : undefined);
+
+      if (!userId) throw new RuleError("User ID could not be identified");
+      const pol = this.checkCorporatePolicy(data.company_id, userId, data.service_type, data.amount);
+      if (!pol.allowed) throw new RuleError(pol.reason);
+
+      let startsAt: Date = new Date(clock.now.getTime() + 24 * 3600 * 1000);
+      if (data.booking_id) {
+        const b = bookings.get(data.booking_id);
+        if (b) startsAt = new Date(`${b.start_date}T${b.pickup_time}:00Z`);
+      } else if (data.driver_booking_id) {
+        const db = driverBookings.get(data.driver_booking_id);
+        if (db) startsAt = new Date(`${db.start_date}T${db.start_time}:00Z`);
+      } else if (data.wash_booking_id) {
+        const wb = washes.get(data.wash_booking_id);
+        if (wb) startsAt = new Date(`${wb.slot_date}T${wb.slot_time}:00Z`);
+      }
+
+      const respond_by = bookingDeadline(clock.now, startsAt, 3600 * 1000).toISOString();
+      const tId = id("ctrip");
+      const trip: Database["public"]["Tables"]["company_trips"]["Row"] = {
+        id: tId,
+        company_id: data.company_id,
+        member_id: pol.member_id!,
+        booking_id: data.booking_id ?? null,
+        driver_booking_id: data.driver_booking_id ?? null,
+        wash_booking_id: data.wash_booking_id ?? null,
+        service_type: data.service_type,
+        amount: data.amount,
+        approval_status: pol.in_policy ? "auto" : "pending",
+        manager_id: pol.manager_id ?? null,
+        manager_decided_at: null,
+        respond_by: pol.in_policy ? null : respond_by,
+        is_flagged: false,
+        flagged_reason: null,
+        flagged_at: null,
+        created_at: clock.now.toISOString(),
+        updated_at: clock.now.toISOString(),
+      };
+      companyTrips.set(tId, trip);
+
+      if (pol.in_policy) {
+        const comp = companies.get(data.company_id);
+        if (data.booking_id) {
+          const b = bookings.get(data.booking_id);
+          if (b && b.status === "confirmed") {
+            if (comp) comp.wallet_balance -= data.amount;
+            b.payment_status = "paid";
+            b.paid_at = clock.now.toISOString();
+            b.pay_by = null;
+          }
+        }
+      } else {
+        if (pol.manager_id) {
+          notify(
+            pol.manager_id,
+            "Corporate trip approval requested",
+            `An employee requested an out-of-policy ${data.service_type} (₹${data.amount}) awaiting your approval.`,
+            "/corporate",
+          );
+        }
+      }
+
+      return {
+        success: true,
+        trip_id: tId,
+        approval_status: trip.approval_status,
+        in_policy: pol.in_policy,
+        respond_by: trip.respond_by,
+      };
+    },
+
+    decideCorporateTrip(actorId: string, tripId: string, decision: "approve" | "reject") {
+      const ct = companyTrips.get(tripId);
+      if (!ct) throw new RuleError("Corporate trip not found");
+      const isMgr = Array.from(companyMembers.values()).some(
+        (m) =>
+          m.company_id === ct.company_id &&
+          m.user_id === actorId &&
+          (m.role === "manager" || m.role === "admin") &&
+          m.status === "active",
+      );
+      if (!isMgr && !admins.has(actorId)) throw new RuleError("Not authorized to decide corporate trips");
+      if (ct.approval_status !== "pending") throw new RuleError(`This trip is already ${ct.approval_status}`);
+      if (ct.respond_by && clock.now.getTime() > new Date(ct.respond_by).getTime()) {
+        throw new RuleError("Approval deadline has expired");
+      }
+
+      const mem = companyMembers.get(ct.member_id);
+      if (decision === "approve") {
+        ct.approval_status = "approved";
+        ct.manager_decided_at = clock.now.toISOString();
+        ct.updated_at = clock.now.toISOString();
+
+        const comp = companies.get(ct.company_id);
+        if (ct.booking_id) {
+          const b = bookings.get(ct.booking_id);
+          if (b && b.status === "confirmed") {
+            if (comp) comp.wallet_balance -= ct.amount;
+            b.payment_status = "paid";
+            b.paid_at = clock.now.toISOString();
+            b.pay_by = null;
+          }
+        } else if (ct.driver_booking_id) {
+          const db = driverBookings.get(ct.driver_booking_id);
+          if (db && db.status === "confirmed") {
+            if (comp) comp.wallet_balance -= ct.amount;
+            db.payment_status = "paid";
+            db.paid_at = clock.now.toISOString();
+            db.pay_by = null;
+          }
+        }
+
+        if (mem) {
+          notify(mem.user_id, "Corporate trip approved", "Your manager approved your trip request.", "/corporate");
+        }
+        return { success: true, status: "approved" };
+      } else {
+        ct.approval_status = "rejected";
+        ct.manager_decided_at = clock.now.toISOString();
+        ct.updated_at = clock.now.toISOString();
+
+        if (ct.booking_id) {
+          const b = bookings.get(ct.booking_id);
+          if (b && ["pending", "confirmed"].includes(b.status)) {
+            b.status = "cancelled";
+            b.cancellation_reason = "company_declined";
+            b.cancelled_at = clock.now.toISOString();
+          }
+        }
+        if (ct.driver_booking_id) {
+          const db = driverBookings.get(ct.driver_booking_id);
+          if (db && ["pending", "confirmed"].includes(db.status)) {
+            db.status = "cancelled";
+            db.cancellation_reason = "company_declined";
+            db.cancelled_at = clock.now.toISOString();
+          }
+        }
+
+        if (mem) {
+          notify(mem.user_id, "Corporate trip rejected", "Your manager declined your trip request.", "/corporate");
+        }
+        return { success: true, status: "rejected" };
+      }
+    },
+
+    flagCorporateTrip(actorId: string, tripId: string, reason: string) {
+      const ct = companyTrips.get(tripId);
+      if (!ct) throw new RuleError("Corporate trip not found");
+      const isMgr = Array.from(companyMembers.values()).some(
+        (m) =>
+          m.company_id === ct.company_id &&
+          m.user_id === actorId &&
+          (m.role === "manager" || m.role === "admin") &&
+          m.status === "active",
+      );
+      if (!isMgr && !admins.has(actorId)) throw new RuleError("Not authorized to flag corporate trips");
+      ct.is_flagged = true;
+      ct.flagged_reason = reason;
+      ct.flagged_at = clock.now.toISOString();
+      ct.updated_at = clock.now.toISOString();
+      return { success: true, trip_id: tripId, flagged: true };
+    },
+
+    generateCorporateInvoice(companyId: string, month: string) {
+      const trips = Array.from(companyTrips.values()).filter(
+        (ct) =>
+          ct.company_id === companyId &&
+          ["auto", "approved"].includes(ct.approval_status) &&
+          ct.created_at.slice(0, 7) === month,
+      );
+      const total = trips.reduce((sum, t) => sum + t.amount, 0);
+      const base = round2(total / 1.18);
+      const tax = round2(total - base);
+      const half = round2(tax / 2);
+
+      const invId = id("cinv");
+      const inv: Database["public"]["Tables"]["company_invoices"]["Row"] = {
+        id: invId,
+        company_id: companyId,
+        invoice_number: `INV-${clock.now.toISOString().slice(0, 10).replace(/-/g, "")}-${id("no").slice(0, 4)}`,
+        month,
+        base_amount: base,
+        cgst: half,
+        sgst: half,
+        igst: 0,
+        total,
+        status: "paid",
+        due_date: new Date(clock.now.getTime() + 30 * DAY_MS).toISOString().slice(0, 10),
+        paid_at: clock.now.toISOString(),
+        created_at: clock.now.toISOString(),
+      };
+      companyInvoices.set(invId, inv);
+      return inv;
+    },
+
+    pauseCompanyIfOverdue(companyId: string) {
+      const comp = companies.get(companyId);
+      if (!comp) return;
+      const overdue = Array.from(companyInvoices.values()).some(
+        (inv) =>
+          inv.company_id === companyId &&
+          inv.status !== "paid" &&
+          inv.due_date &&
+          new Date(inv.due_date).getTime() < clock.now.getTime(),
+      );
+      if (overdue) {
+        comp.status = "paused";
+        comp.updated_at = clock.now.toISOString();
+      }
+      return comp;
     },
   };
 }

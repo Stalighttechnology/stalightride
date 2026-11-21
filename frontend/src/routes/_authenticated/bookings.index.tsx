@@ -14,7 +14,6 @@ import { getHandoverGate, formatWhen } from "@/lib/trip-window";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSession } from "@/hooks/use-session";
 import { useActiveRole } from "@/hooks/use-active-role";
-import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import {
   MessageSquare,
@@ -29,7 +28,7 @@ import {
   CheckCircle2,
   CalendarDays,
   Clock,
-  ScanLine,
+  Navigation,
 } from "lucide-react";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
@@ -92,7 +91,8 @@ function Bookings() {
 
   const load = async () => {
     if (!user) return;
-    const sel = "*, vehicles(id,title,city,vehicle_images(url,sort_order))";
+    // vehicle_locations comes back only for confirmed or completed bookings (row-level security, migration 0036).
+    const sel = "*, vehicles(id,title,city,vehicle_images(url,sort_order),vehicle_locations(address,lat,lng))";
     const [c, v, w, p] = await Promise.all([
       api
         .from("bookings")
@@ -137,7 +137,7 @@ function Bookings() {
       const deposit = Number(b.security_deposit ?? 0);
       const refund = round2(deposit + (Number(b.total_price) - deposit) * pct);
       description = byHost
-        ? `The rider gets a full refund of ${currency(Number(b.total_price))}.`
+        ? "The rider gets a full refund and you won't receive an earning for this trip."
         : `You'll get ${currency(refund)} back to your wallet (${pct * 100}% of the fare plus your deposit).`;
     }
     const ok = await confirm({
@@ -531,7 +531,27 @@ function List({
                       >
                         {b.vehicles?.title}
                       </Link>
-                      <div className="text-xs text-muted-foreground">{b.vehicles?.city}</div>
+                      {b.status === "confirmed" && b.vehicles?.vehicle_locations?.[0] ? (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                          <span>
+                            {[b.vehicles.vehicle_locations[0].address, b.vehicles.city].filter(Boolean).join(", ")}
+                          </span>
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                              b.vehicles.vehicle_locations[0].lat && b.vehicles.vehicle_locations[0].lng
+                                ? `${b.vehicles.vehicle_locations[0].lat},${b.vehicles.vehicle_locations[0].lng}`
+                                : [b.vehicles.vehicle_locations[0].address, b.vehicles.city].filter(Boolean).join(", "),
+                            )}&travelmode=driving`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+                          >
+                            <Navigation className="h-3 w-3" /> Get directions
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">{b.vehicles?.city}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge s={b.status} />
@@ -555,7 +575,7 @@ function List({
                       {String(b.dropoff_time ?? "").slice(0, 5)}
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-2.5 py-1 font-semibold">
-                      {currency(b.total_price)}
+                      {role === "vendor" ? `${currency(b.provider_earning)} your earning` : currency(b.total_price)}
                     </span>
                   </div>
 
@@ -746,78 +766,35 @@ function List({
                           {role === "vendor" ? "Cancel & refund" : "Cancel"}
                         </Button>
                       )}
-                    {b.status === "confirmed" &&
-                      b.payment_status === "paid" &&
-                      role === "vendor" &&
-                      b.return_checked_at &&
-                      b.return_odometer != null && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-full"
-                          onClick={() => onAction(b.id, "completed")}
-                        >
-                          Mark completed
-                        </Button>
-                      )}
                     {(() => {
                       const gate = getHandoverGate(b);
                       if (!gate.ctaLabel) return null;
                       const onTrip = b.pickup_checked_at && !b.return_checked_at;
-                      const label =
-                        b.pickup_checked_at && b.pickup_odometer == null
-                          ? "Pickup checklist"
-                          : b.return_checked_at && b.return_odometer == null
-                            ? "Return checklist"
-                            : onTrip
-                              ? role === "customer"
-                                ? "Live trip & GPS"
-                                : "Track trip · End trip"
-                              : gate.ctaLabel;
-                      const locked = !gate.canCheckin && !gate.canCheckout && !b.return_checked_at;
-                      if (locked)
+                      if (role === "vendor")
                         return (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            {gate.opensAt
-                              ? `Check-in opens ${formatWhen(gate.opensAt)}`
-                              : gate.ctaLabel}
-                          </span>
-                        );
-                      return (
-                        <div className="flex flex-wrap items-center gap-2">
                           <Button asChild size="sm" variant="outline" className="rounded-full">
                             <Link to="/bookings/$id/trip" params={{ id: b.id }}>
                               <ClipboardCheck className="mr-1.5 h-4 w-4" />
-                              {label}
+                              {b.return_checked_at ? "Trip summary" : onTrip ? "Track trip · check-out code" : "Check-in code"}
                             </Link>
                           </Button>
-                          {onTrip && (
-                            <Button asChild size="sm" className="btn-gradient rounded-full">
-                              <Link
-                                to="/bookings/$id/trip"
-                                params={{ id: b.id }}
-                                search={{ action: "return" } as any}
-                              >
-                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                {role === "customer" ? "End ride early" : "Complete trip"}
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })()}
-                    {role === "vendor" &&
-                      b.status === "confirmed" &&
-                      b.payment_status === "paid" &&
-                      !b.return_checked_at && (
-                        <Button asChild size="sm" className="btn-gradient rounded-full">
-                          <Link to="/scan">
-                            <ScanLine className="mr-1.5 h-4 w-4" />
-                            Scan rider QR
+                        );
+                      if (!gate.canCheckin && !gate.canCheckout && !b.return_checked_at)
+                        return (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            {gate.opensAt ? `Check-in opens ${formatWhen(gate.opensAt)}` : gate.ctaLabel}
+                          </span>
+                        );
+                      return (
+                        <Button asChild size="sm" variant="outline" className="rounded-full">
+                          <Link to="/bookings/$id/trip" params={{ id: b.id }}>
+                            <ClipboardCheck className="mr-1.5 h-4 w-4" />
+                            {onTrip ? "Live trip · check out" : gate.ctaLabel}
                           </Link>
                         </Button>
-                      )}
+                      );
+                    })()}
                     {b.status !== "completed" &&
                       b.status !== "cancelled" &&
                       b.status !== "rejected" && (
@@ -828,7 +805,7 @@ function List({
                           </Link>
                         </Button>
                       )}
-                    {(b.payment_status === "paid" || b.paid_at) && (
+                    {role === "customer" && (b.payment_status === "paid" || b.paid_at) && (
                       <Button asChild size="sm" variant="ghost" className="rounded-full">
                         <Link to="/receipt/$kind/$id" params={{ kind: "vehicle", id: b.id }}>
                           <ReceiptText className="mr-1.5 h-4 w-4" />
@@ -854,23 +831,6 @@ function List({
                   </div>
                 </div>
 
-                {role === "customer" && (b.payment_status === "paid" || b.paid_at) && (
-                  <a
-                    href={`/booking/qr/${b.qr_code || b.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex shrink-0 flex-col items-center justify-center gap-1.5 self-center rounded-2xl bg-white p-3 ring-1 ring-border shadow-xs transition-transform hover:scale-[1.03]"
-                    title="Scan or open to view booking details"
-                  >
-                    <QRCodeSVG
-                      value={`${typeof window !== "undefined" ? window.location.origin : ""}/booking/qr/${b.qr_code || b.id}`}
-                      size={92}
-                    />
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Handover QR
-                    </span>
-                  </a>
-                )}
               </CardContent>
             </Card>
           </li>

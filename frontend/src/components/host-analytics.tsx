@@ -64,7 +64,7 @@ export function HostAnalytics({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric icon={Wallet} label="Gross earnings" value={currency(analytics.gross)} />
+          <Metric icon={Wallet} label="Your earnings" value={currency(analytics.gross)} />
           <Metric icon={TrendingUp} label="Avg per trip" value={currency(analytics.avgTrip)} />
           <Metric icon={Percent} label="Acceptance rate" value={`${analytics.acceptance}%`} />
           <Metric icon={Star} label="Rating" value={avgRating ? avgRating.toFixed(2) : "New"} />
