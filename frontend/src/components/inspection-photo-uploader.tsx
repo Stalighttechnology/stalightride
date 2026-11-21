@@ -19,9 +19,11 @@ export interface InspectionPhotoUploaderProps {
   description?: string;
   disabled?: boolean;
   className?: string;
+  recommendedTags?: string[];
+  tagLabel?: string;
 }
 
-const RECOMMENDED_ANGLES = [
+const DEFAULT_RECOMMENDED_ANGLES = [
   "Front bumper & hood",
   "Rear & number plate",
   "Left side & doors",
@@ -38,11 +40,16 @@ export function InspectionPhotoUploader({
   description = "Take or upload clear photos of all sides, dashboard, and odometer to record vehicle condition.",
   disabled = false,
   className,
+  recommendedTags,
+  tagLabel = "Recommended:",
 }: InspectionPhotoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [previewModalIndex, setPreviewModalIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  const tagsToShow =
+    recommendedTags === undefined ? DEFAULT_RECOMMENDED_ANGLES : recommendedTags;
 
   // Sync previews with files and clean up object URLs
   useEffect(() => {
@@ -149,6 +156,9 @@ export function InspectionPhotoUploader({
 
   const openPicker = () => {
     if (disabled || files.length >= maxPhotos) return;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     fileInputRef.current?.click();
   };
 
@@ -206,19 +216,21 @@ export function InspectionPhotoUploader({
       <p className="text-xs text-muted-foreground">{description}</p>
 
       {/* Recommended angles reference chips (Swiggy/Zepto style) */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span className="text-[11px] font-medium text-muted-foreground mr-1">
-          Recommended:
-        </span>
-        {RECOMMENDED_ANGLES.map((angle) => (
-          <span
-            key={angle}
-            className="inline-flex items-center rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors dark:bg-muted/20"
-          >
-            {angle}
+      {tagsToShow && tagsToShow.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className="text-[11px] font-medium text-muted-foreground mr-1">
+            {tagLabel}
           </span>
-        ))}
-      </div>
+          {tagsToShow.map((angle) => (
+            <span
+              key={angle}
+              className="inline-flex items-center rounded-md border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors dark:bg-muted/20"
+            >
+              {angle}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Main Upload / Grid Area */}
       {files.length === 0 ? (

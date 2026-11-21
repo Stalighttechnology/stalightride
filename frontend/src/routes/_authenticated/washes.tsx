@@ -235,6 +235,29 @@ function WashesPage() {
     load();
   }, [user?.id, pager.page]);
 
+  useEffect(() => {
+    if (!user) return;
+    const channel = api
+      .channel("customer_washes_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wash_bookings" },
+        () => {
+          load();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      load();
+    }, 4000);
+
+    return () => {
+      api.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [user?.id]);
+
   const cancel = async (b: any) => {
     const paid = b.payment_status === "paid";
     const pct = refundPercent(b);

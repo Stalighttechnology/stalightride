@@ -25,8 +25,18 @@ function MessagesPage() {
   const [messages, setMessages] = useState<any[] | null>(null);
   const [text, setText] = useState("");
   const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (pendingImage) {
+      const url = URL.createObjectURL(pendingImage);
+      setPendingImagePreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPendingImagePreview(null);
+  }, [pendingImage]);
 
   useEffect(() => {
     if (!user) return;
@@ -206,18 +216,30 @@ function MessagesPage() {
             })}
           </div>
           {pendingImage && (
-            <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2 text-xs">
-              <span className="truncate">Attaching: {pendingImage.name}</span>
+            <div className="flex items-center gap-2.5 border-t border-border/60 bg-muted/20 px-3 py-2 text-xs">
+              {pendingImagePreview && (
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border bg-card">
+                  <img src={pendingImagePreview} alt="Preview" className="h-full w-full object-cover" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <span className="truncate font-medium text-foreground block">{pendingImage.name}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {(pendingImage.size / (1024 * 1024)).toFixed(2)} MB • Photo attachment
+                </span>
+              </div>
               <button
+                type="button"
                 onClick={() => setPendingImage(null)}
-                className="ml-auto rounded p-1 hover:bg-muted"
+                className="ml-auto rounded-full p-1 hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                title="Remove attachment"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
           <form onSubmit={send} className="flex items-center gap-2 border-t border-border/60 p-3">
-            <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2 py-2 hover:bg-accent">
+            <label className="inline-flex cursor-pointer items-center rounded-md border border-input bg-card px-2 py-2 text-foreground hover:bg-accent transition-colors">
               <ImagePlus className="h-4 w-4" />
               <input
                 type="file"
@@ -225,6 +247,7 @@ function MessagesPage() {
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
+                  if (e.target) e.target.value = "";
                   if (f) setPendingImage(f);
                 }}
               />

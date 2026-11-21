@@ -1,7 +1,7 @@
 import { recommendPrice } from "@/lib/price-guide";
 import { CityPicker } from "@/components/city-picker";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -20,7 +20,8 @@ import {
 import { MapPicker } from "@/components/map-picker";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Upload, X } from "lucide-react";
+import { Upload, X, FileText, CheckCircle2, Trash2, Eye, FileCheck } from "lucide-react";
+import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
 
 export const Route = createFileRoute("/_authenticated/vendor/vehicles/new")({
   component: NewVehicle,
@@ -31,7 +32,6 @@ function NewVehicle() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
   const [docs, setDocs] = useState<{
     rc?: File;
     insurance?: File;
@@ -64,16 +64,6 @@ function NewVehicle() {
   });
 
   const set = (k: string, v: any) => setForm((s) => ({ ...s, [k]: v }));
-
-  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(e.target.files ?? []).slice(0, 8);
-    setFiles(list);
-    setPreviews(list.map((f) => URL.createObjectURL(f)));
-  };
-  const remove = (i: number) => {
-    setFiles(files.filter((_, x) => x !== i));
-    setPreviews(previews.filter((_, x) => x !== i));
-  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -412,36 +402,23 @@ function NewVehicle() {
               </Section>
 
               <Section title="Photos">
-                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary/50 hover:bg-muted/40">
-                  <Upload className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-sm">Click to upload up to 8 photos</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={onPick}
-                  />
-                </label>
-                {previews.length > 0 && (
-                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {previews.map((src, i) => (
-                      <div
-                        key={i}
-                        className="relative aspect-square overflow-hidden rounded-lg animate-scale-in"
-                      >
-                        <img src={src} alt="" className="h-full w-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => remove(i)}
-                          className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <InspectionPhotoUploader
+                  files={files}
+                  onChange={setFiles}
+                  maxPhotos={12}
+                  label="Vehicle photos"
+                  description="Upload clear photos of all sides, interior, and dashboard. You can select multiple at once and add more photos anytime."
+                  recommendedTags={[
+                    "Front view & bumper",
+                    "Rear & number plate",
+                    "Driver & passenger sides",
+                    "Dashboard & odometer",
+                    "Interior seats",
+                    "Boot space",
+                  ]}
+                  tagLabel="Suggested angles:"
+                  disabled={saving}
+                />
               </Section>
 
               <Section title="Verification documents">
@@ -513,24 +490,119 @@ function DocPick({
 }: {
   label: string;
   file?: File;
-  onChange: (f: File) => void;
+  onChange: (f?: File) => void;
 }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (file && file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreview(null);
+  }, [file]);
+
+  const openPicker = () => {
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+    inputRef.current?.click();
+  };
+
+  const isImage = file && file.type.startsWith("image/");
+  const isPdf = file && (file.type === "application/pdf" || file.name.endsWith(".pdf"));
+
   return (
-    <div>
-      <Label>{label}</Label>
-      <label className="mt-1 flex cursor-pointer items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent">
-        <span className="truncate">{file?.name ?? "Choose PDF or image"}</span>
-        <Upload className="h-4 w-4 text-muted-foreground" />
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onChange(f);
-          }}
-        />
-      </label>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium text-foreground">{label}</Label>
+        {file && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" /> Selected
+          </span>
+        )}
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            if (f.size > 15 * 1024 * 1024) {
+              toast.error(`"${f.name}" exceeds the 15MB limit.`);
+              return;
+            }
+            onChange(f);
+          }
+        }}
+      />
+
+      {file ? (
+        <div className="group relative flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 shadow-xs transition-all hover:border-primary/50 dark:bg-card">
+          <div className="flex items-center gap-3 overflow-hidden">
+            {isImage && preview ? (
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/30">
+                <img src={preview} alt={file.name} className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-primary/10 text-primary dark:bg-primary/20">
+                <FileText className="h-6 w-6" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-foreground">{file.name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {(file.size / (1024 * 1024)).toFixed(2)} MB • {isPdf ? "PDF Document" : "Image"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={openPicker}
+              className="h-7 px-2 text-xs"
+            >
+              Change
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onChange(undefined)}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              title="Remove document"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={openPicker}
+          className="group flex cursor-pointer items-center justify-between gap-2 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 px-3.5 py-3 transition-all duration-200 hover:border-primary/60 hover:bg-muted/40 dark:bg-muted/10 dark:hover:bg-muted/25"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground dark:bg-primary/20">
+              <Upload className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-foreground">Click to upload document</p>
+              <p className="text-[10px] text-muted-foreground">Image (JPG, PNG) or PDF up to 15MB</p>
+            </div>
+          </div>
+          <span className="rounded-md border border-border bg-background/80 px-2 py-1 text-[11px] font-medium text-muted-foreground group-hover:text-foreground">
+            Browse
+          </span>
+        </div>
+      )}
     </div>
   );
 }

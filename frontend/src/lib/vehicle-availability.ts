@@ -281,3 +281,126 @@ export function validateBookingAgainstRanges(
 
   return null;
 }
+
+export type SlotBlockedReason =
+  | "past"
+  | "min_notice_2h"
+  | "cleaning_buffer"
+  | "reserved"
+  | "before_pickup"
+  | "exceeds_next_booking";
+
+export interface SlotStatus {
+  blocked: boolean;
+  reason?: SlotBlockedReason;
+  label?: string;
+}
+
+/**
+ * Returns detailed availability and block reason for a specific time slot.
+ */
+export function getSlotStatus(
+  slotTime: string,
+  isPickup: boolean,
+  dateStr: string,
+  ranges: BookedRange[],
+  startDateStr?: string,
+  pickupTime?: string,
+  now = new Date(),
+): SlotStatus {
+  if (!dateStr) return { blocked: false };
+  const slotMs = parseDateTime(dateStr, slotTime);
+  const nowMs = now.getTime();
+  const todayStr = toIsoDate(now);
+
+  // 1. Pickup: check 2 hours advance notice requirement
+  if (isPickup) {
+    if (slotMs < nowMs) {
+      return { blocked: true, reason: "past", label: "Time passed" };
+    }
+    // 2-hour platform notice buffer
+    if (slotMs < nowMs + 2 * 60 * 60 * 1000) {
+      return { blocked: true, reason: "min_notice_2h", label: "<2h advance notice" };
+    }
+
+    // Check existing booking overlap
+    for (const r of ranges) {
+      const rStartMs = parseDateTime(r.start_date, r.pickup_time || "10:00");
+      const rEndMs = parseDateTime(r.end_date, r.dropoff_time || "10:00");
+
+      if (slotMs >= rStartMs && slotMs <= rEndMs) {
+        return { blocked: true, reason: "reserved", label: "Reserved" };
+      }
+      if (r.end_date === dateStr && slotMs <= rEndMs) {
+        return { blocked: true, reason: "cleaning_buffer", label: "Prep & buffer" };
+      }
+      if (r.start_date === dateStr && slotMs >= rStartMs) {
+        return { blocked: true, reason: "reserved", label: "Reserved" };
+      }
+    }
+    return { blocked: false };
+  }
+
+  // 2. Dropoff
+  const pickupMs = parseDateTime(startDateStr || dateStr, pickupTime || "10:00");
+  if (slotMs <= pickupMs) {
+    return { blocked: true, reason: "before_pickup", label: "Before pickup" };
+  }
+
+  const nextBooking = startDateStr ? getNextBookingAfterPickup(startDateStr, pickupTime || "10:00", ranges) : null;
+  if (nextBooking) {
+    const nextStartMs = parseDateTime(nextBooking.start_date, nextBooking.pickup_time || "10:00");
+    if (slotMs > nextStartMs) {
+      return { blocked: true, reason: "exceeds_next_booking", label: "Next booking overlap" };
+    }
+  }
+
+  for (const r of ranges) {
+    const rStartMs = parseDateTime(r.start_date, r.pickup_time || "10:00");
+    const rEndMs = parseDateTime(r.end_date, r.dropoff_time || "10:00");
+    if (slotMs > rStartMs && slotMs <= rEndMs) {
+      return { blocked: true, reason: "reserved", label: "Reserved" };
+    }
+  }
+
+  return { blocked: false };
+}
+
+export type DateAvailabilityState = "available" | "partially_booked" | "sold_out" | "past";
+
+/**
+ * Returns whether a date is available, partially booked, sold out, or past.
+ */
+export function getDateAvailabilityState(
+  dateStr: string,
+  ranges: BookedRange[],
+  todayStr?: string,
+  now = new Date(),
+): DateAvailabilityState {
+  const today = todayStr || toIsoDate(now);
+  if (dateStr < today) return "past";
+
+  if (isPickupDateFullyBlocked(dateStr, ranges)) {
+    return "sold_out";
+  }
+
+  // If today: check if any slot has >= 2h notice
+  if (dateStr === today) {
+    const availableSlots = DEFAULT_TIME_SLOTS.filter(
+      (slot) => !getSlotStatus(slot, true, dateStr, ranges, undefined, undefined, now).blocked,
+    );
+    if (availableSlots.length === 0) return "sold_out";
+    if (availableSlots.length < DEFAULT_TIME_SLOTS.length) return "partially_booked";
+  }
+
+  // If vehicle is dropped off or starts on this date
+  const touchesBooking = ranges.some(
+    (r) => r.start_date === dateStr || r.end_date === dateStr,
+  );
+  if (touchesBooking) {
+    return "partially_booked";
+  }
+
+  return "available";
+}
+

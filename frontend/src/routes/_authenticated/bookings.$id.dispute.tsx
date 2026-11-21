@@ -19,7 +19,13 @@ import {
 } from "@/components/ui/select";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, Eye, Camera } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
 
 export const Route = createFileRoute("/_authenticated/bookings/$id/dispute")({
@@ -178,6 +184,14 @@ function DisputePage() {
               maxPhotos={8}
               label="Photos & evidence"
               description="Upload photos supporting your report (damage, scratches, fuel gauge, odometer, or cleanliness)."
+              recommendedTags={[
+                "Damage & scratches",
+                "Fuel gauge indicator",
+                "Odometer cluster",
+                "Cabin cleanliness",
+                "Exterior overview",
+              ]}
+              tagLabel="Suggested evidence:"
               disabled={saving}
             />
             <div className="flex justify-end gap-2">
@@ -216,41 +230,81 @@ function DisputePage() {
 
 function DisputeItem({ d }: { d: any }) {
   const urls = useSignedUrls("trip-photos", d.photos ?? []);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+
   return (
-    <li className="rounded-xl border border-border bg-card p-4">
+    <li className="rounded-xl border border-border bg-card p-4 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="font-medium">{d.subject}</p>
+          <p className="font-semibold text-foreground">{d.subject}</p>
           <p className="text-xs text-muted-foreground">
             {d.category} · {new Date(d.created_at).toLocaleString()}
           </p>
         </div>
         <Badge variant={d.status === "resolved" ? "secondary" : "outline"}>{d.status}</Badge>
       </div>
-      <p className="mt-2 whitespace-pre-line text-sm">{d.detail}</p>
+      <p className="mt-2 whitespace-pre-line text-sm text-foreground/90">{d.detail}</p>
       {d.photos && d.photos.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {d.photos.map((p: string) => (
-            <a
-              key={p}
-              href={urls[p] ?? "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="block aspect-square overflow-hidden rounded-lg border"
-            >
-              {urls[p] && <img src={urls[p]!} alt="" className="h-full w-full object-cover" />}
-            </a>
-          ))}
+        <div className="mt-3">
+          <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+            <Camera className="h-3.5 w-3.5" /> Attached evidence photos ({d.photos.length})
+          </p>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {d.photos.map((p: string, idx: number) => (
+              <div
+                key={p}
+                onClick={() => urls[p] && setLightboxPhoto(urls[p]!)}
+                className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-border bg-muted/20 shadow-xs transition-all hover:border-primary/50 hover:shadow-md"
+              >
+                {urls[p] ? (
+                  <>
+                    <img src={urls[p]!} alt={`Evidence ${idx + 1}`} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 backdrop-blur-[2px] transition-opacity duration-150 group-hover:opacity-100">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground shadow-md backdrop-blur-md">
+                        <Eye className="h-3 w-3" /> View
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                    Loading…
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
       {d.resolution && (
-        <div className="mt-3 rounded-md bg-muted p-3 text-sm">
+        <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3 text-sm">
           <span className="text-xs font-semibold uppercase text-muted-foreground">
             Admin resolution
           </span>
-          <p className="mt-1 whitespace-pre-line">{d.resolution}</p>
+          <p className="mt-1 whitespace-pre-line text-foreground/90">{d.resolution}</p>
         </div>
       )}
+
+      {/* Lightbox Modal */}
+      <Dialog open={!!lightboxPhoto} onOpenChange={(open) => !open && setLightboxPhoto(null)}>
+        <DialogContent className="max-w-2xl p-4 sm:p-6 bg-card border-border text-card-foreground">
+          <DialogHeader className="pb-2 border-b border-border">
+            <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />
+              Evidence Photo Preview
+            </DialogTitle>
+          </DialogHeader>
+          {lightboxPhoto && (
+            <div className="relative aspect-video max-h-[60vh] w-full overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
+              <img src={lightboxPhoto} alt="Dispute evidence" className="h-full w-full object-contain" />
+            </div>
+          )}
+          <div className="flex justify-end pt-1">
+            <Button size="sm" onClick={() => setLightboxPhoto(null)} className="text-xs">
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </li>
   );
 }

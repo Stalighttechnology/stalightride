@@ -32,8 +32,18 @@ import {
   Play,
   AlertCircle,
   Edit,
+  Loader2,
 } from "lucide-react";
 import { MapPicker } from "@/components/map-picker";
+import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
   component: CleanerDashboard,
@@ -102,6 +112,10 @@ function CleanerDashboard() {
   const [totalCompletedCount, setTotalCompletedCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [completingJob, setCompletingJob] = useState<any | null>(null);
+  const [washPhotos, setWashPhotos] = useState<File[]>([]);
+  const [washNotes, setWashNotes] = useState("");
+  const [submittingCompletion, setSubmittingCompletion] = useState(false);
 
   const routerLocation = useRouterState({ select: (s) => s.location });
 
@@ -225,8 +239,13 @@ function CleanerDashboard() {
       )
       .subscribe();
 
+    const interval = setInterval(() => {
+      refreshBookings();
+    }, 4000);
+
     return () => {
       api.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [user?.id]);
 
@@ -409,6 +428,30 @@ function CleanerDashboard() {
     };
     toast.success(msgs[nextStatus] || "Job status updated!");
     await refreshBookings();
+  };
+
+  const handleCompleteWithPhotos = async () => {
+    if (!completingJob) return;
+    setSubmittingCompletion(true);
+    try {
+      const paths: string[] = [];
+      for (let i = 0; i < washPhotos.length; i++) {
+        const f = washPhotos[i];
+        const ext = f.name.split(".").pop() ?? "jpg";
+        const path = `wash/${completingJob.id}/${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await api.storage.from("trip-photos").upload(path, f, { upsert: false });
+        if (upErr) throw upErr;
+        paths.push(path);
+      }
+      await advanceJobStatus(completingJob.id, "completed", paths, washNotes);
+      setCompletingJob(null);
+      setWashPhotos([]);
+      setWashNotes("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to upload completion photos");
+    } finally {
+      setSubmittingCompletion(false);
+    }
   };
 
   const updateJobStatus = async (
@@ -943,11 +986,11 @@ function CleanerDashboard() {
                         <Button
                           size="sm"
                           disabled={activeJobId === job.id}
-                          onClick={() =>
-                            advanceJobStatus(job.id, "completed", [
-                              "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60",
-                            ])
-                          }
+                          onClick={() => {
+                            setCompletingJob(job);
+                            setWashPhotos([]);
+                            setWashNotes("");
+                          }}
                         >
                           <Camera className="mr-1 h-3.5 w-3.5" /> Mark Completed
                         </Button>
@@ -1162,6 +1205,81 @@ function CleanerDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Wash Completion Proof Photos Dialog (Swiggy / Zomato style inspection) */}
+        <Dialog open={!!completingJob} onOpenChange={(open) => !open && setCompletingJob(null)}>
+          <DialogContent className="max-w-2xl p-4 sm:p-6 bg-card border-border text-card-foreground">
+            <DialogHeader className="pb-2 border-b border-border">
+              <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Camera className="h-4 w-4 text-primary" />
+                Complete Wash &amp; Submit Proof Photos
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Take or upload photos of the cleaned vehicle to record spotless completion for the customer and queue your payout.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <InspectionPhotoUploader
+                files={washPhotos}
+                onChange={setWashPhotos}
+                maxPhotos={6}
+                label="Completion photos"
+                description="Upload clean photos of the vehicle (exterior finish, sparkling wheels, and vacuumed cabin)."
+                recommendedTags={[
+                  "Exterior front & hood",
+                  "Side & gleaming wheels",
+                  "Rear & glass",
+                  "Interior cabin",
+                ]}
+                tagLabel="Suggested angles:"
+                disabled={submittingCompletion}
+              />
+
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Completion notes (optional)</Label>
+                <Textarea
+                  placeholder="e.g. Completed thorough exterior foam wash, tire dressing, and interior wipe down."
+                  value={washNotes}
+                  onChange={(e) => setWashNotes(e.target.value)}
+                  rows={2}
+                  className="text-xs bg-background"
+                  disabled={submittingCompletion}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCompletingJob(null)}
+                disabled={submittingCompletion}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCompleteWithPhotos}
+                disabled={submittingCompletion}
+                className="gap-1.5 text-xs"
+              >
+                {submittingCompletion ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading &amp; Completing…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Confirm &amp; Complete Job
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

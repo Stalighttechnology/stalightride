@@ -10,6 +10,7 @@ export default defineConfig({
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss()],
   resolve: { tsconfigPaths: true },
   server: {
+    host: "0.0.0.0",
     port: 8080,
     strictPort: true,
     // One origin for the browser: API calls and the live feed go to Django.

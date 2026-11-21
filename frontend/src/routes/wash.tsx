@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles, Wallet as WalletIcon, CreditCard } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
+import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
 import { z } from "zod";
 import { MapPicker } from "@/components/map-picker";
 import {
@@ -452,34 +453,27 @@ function WashPage() {
                   placeholder="Hyundai i20 · KA01AB1234"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="grid gap-1.5 min-w-0">
-                  <Label htmlFor="wash-date">Date</Label>
-                  <DatePicker
-                    id="wash-date"
-                    value={form.slot_date}
-                    onChange={(d) => setForm({ ...form, slot_date: d })}
-                    minDate={new Date()}
-                    placeholder="dd-mm-yyyy"
-                  />
-                </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="wash-time">Slot</Label>
-                  <select
-                    id="wash-time"
-                    value={form.slot_time}
-                    onChange={(e) => setForm({ ...form, slot_time: e.target.value })}
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    {SLOTS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="pt-1">
+                <ZoomBookingCalendar
+                  startDate={form.slot_date}
+                  endDate={form.slot_date}
+                  startTime={form.slot_time}
+                  endTime={form.slot_time}
+                  onStartDateChange={(d) => setForm((prev) => ({ ...prev, slot_date: d }))}
+                  onStartTimeChange={(t) => setForm((prev) => ({ ...prev, slot_time: t }))}
+                  singleDateMode={true}
+                  startTimeLabel="Wash Slot Time"
+                  endTimeLabel="Slot Window"
+                  timeSlots={SLOTS}
+                  itemTitle={service?.title ? `${service.title} (${service.category.toUpperCase()})` : "Vehicle Doorstep Wash"}
+                  itemSubtitle={`₹${service?.price ?? 0} · Doorstep service in ${form.city || "your city"}`}
+                  continueButtonLabel="CONFIRM WASH SLOT"
+                  onContinue={() => {
+                    document.getElementById("wash-notes")?.focus();
+                  }}
+                />
               </div>
-              <div className="grid gap-1.5">
+              <div className="grid gap-1.5 pt-2">
                 <Label htmlFor="wash-notes">Notes (optional)</Label>
                 <Textarea
                   id="wash-notes"
@@ -528,15 +522,15 @@ function WashPage() {
                   </div>
                 )}
                 {coupon && coupon.code !== "MEMBERSHIP_FREE_WASH" && (
-                  <div className="mb-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs flex items-center justify-between gap-2">
+                  <div className="mb-3 rounded-xl border border-brand/40 bg-brand/10 p-3 text-xs flex items-center justify-between gap-2">
                     <div className="flex items-start gap-2">
-                      <Sparkles className="mt-0.5 h-4 w-4 text-emerald-500 shrink-0" />
+                      <Sparkles className="mt-0.5 h-4 w-4 text-brand shrink-0" />
                       <div>
-                        <p className="font-semibold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                        <p className="font-semibold text-brand flex items-center gap-1.5">
                           <span>Reward Voucher Applied:</span>
-                          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-emerald-500/20">{coupon.code}</span>
+                          <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-brand/20">{coupon.code}</span>
                         </p>
-                        <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
                           {coupon.code.startsWith("SYN-WASH")
                             ? "Free Doorstep Pressure Foam Wash (100% off)"
                             : coupon.percent_off != null

@@ -9,6 +9,8 @@ import {
   isDropoffSlotBlocked,
   validateBookingAgainstRanges,
   bookingIntervalsOverlap,
+  getSlotStatus,
+  getDateAvailabilityState,
   type BookedRange,
 } from "../../lib/vehicle-availability";
 
@@ -141,5 +143,34 @@ describe("vehicle-availability helper", () => {
       [ashaBooking],
     );
     expect(errClash).toContain("Car is returned on 2026-11-29 at 10:00");
+  });
+
+  test("getSlotStatus identifies 2-hour platform advance notice and cleaning buffer", () => {
+    // Current time: 2026-11-29 08:30:00
+    const mockNow = new Date("2026-11-29T08:30:00");
+
+    // 09:00 is within 2 hours of 08:30 -> blocked with min_notice_2h or cleaning_buffer (since car returns at 10:00)
+    const slot09 = getSlotStatus("09:00", true, "2026-11-29", [ashaBooking], undefined, undefined, mockNow);
+    expect(slot09.blocked).toBe(true);
+
+    // 10:00 is also <= 10:00 return time
+    const slot10 = getSlotStatus("10:00", true, "2026-11-29", [ashaBooking], undefined, undefined, mockNow);
+    expect(slot10.blocked).toBe(true);
+
+    // 11:00 is > 10:00 and > 08:30 + 2h (which is 10:30) -> available!
+    const slot11 = getSlotStatus("11:00", true, "2026-11-29", [ashaBooking], undefined, undefined, mockNow);
+    expect(slot11.blocked).toBe(false);
+  });
+
+  test("getDateAvailabilityState classifies available, partially booked, and sold out dates", () => {
+    const mockNow = new Date("2026-11-25T10:00:00");
+    // 2026-11-26 is completely free
+    expect(getDateAvailabilityState("2026-11-26", [ashaBooking], "2026-11-25", mockNow)).toBe("available");
+
+    // 2026-11-28 is in the middle of Asha's booking (27th-29th) -> sold_out
+    expect(getDateAvailabilityState("2026-11-28", [ashaBooking], "2026-11-25", mockNow)).toBe("sold_out");
+
+    // 2026-11-29 is the return day -> partially_booked
+    expect(getDateAvailabilityState("2026-11-29", [ashaBooking], "2026-11-25", mockNow)).toBe("partially_booked");
   });
 });

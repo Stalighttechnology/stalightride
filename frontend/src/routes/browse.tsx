@@ -22,6 +22,8 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSavedVehicles } from "@/hooks/use-saved-items";
@@ -126,6 +128,7 @@ function Browse() {
   const [maxPrice, setMaxPrice] = useState<number>(params.max ?? 20000);
   const [cities, setCities] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState(params.q ?? "");
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const page = Math.max(1, params.page ?? 1);
 
   const update = (patch: Partial<Search>) => {
@@ -326,31 +329,38 @@ function Browse() {
         />
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <Label className="text-xs font-medium">Pickup date</Label>
-          <DatePicker
-            value={params.from ?? ""}
-            minDate={today}
-            placeholder="Select pickup date"
-            className="mt-1.5 rounded-xl h-10 w-full"
-            onChange={(date) =>
-              update({ from: date || undefined, to: params.to ?? (date || undefined) })
-            }
-          />
+      <div className="rounded-2xl border border-border/80 bg-card p-3 shadow-xs space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold">Rental Dates & Times</Label>
+          {(params.from || params.to) && (
+            <button
+              type="button"
+              onClick={() => update({ from: undefined, to: undefined, pickupTime: undefined, dropoffTime: undefined })}
+              className="text-[11px] font-bold text-brand hover:underline uppercase"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        <div>
-          <Label className="text-xs font-medium">Return date</Label>
-          <DatePicker
-            value={params.to ?? ""}
-            minDate={params.from ?? today}
-            placeholder="Select return date"
-            className="mt-1.5 rounded-xl h-10 w-full"
-            onChange={(date) =>
-              update({ to: date || undefined, from: params.from ?? (date || undefined) })
-            }
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setCalendarOpen(true)}
+          className="w-full text-left rounded-xl border border-border/70 bg-muted/40 p-2.5 hover:border-brand/60 transition-all group"
+        >
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+            <CalendarDays className="h-4 w-4 text-brand shrink-0" />
+            <div className="truncate">
+              {params.from ? (
+                <span>
+                  {params.from} {params.pickupTime ? `(${params.pickupTime})` : ""} →{" "}
+                  {params.to ? `${params.to} ${params.dropoffTime ? `(${params.dropoffTime})` : ""}` : "Select return"}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Select pickup & return dates</span>
+              )}
+            </div>
+          </div>
+        </button>
       </div>
 
       <div>
@@ -597,6 +607,25 @@ function Browse() {
           </div>
         </div>
       </div>
+
+      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <DialogContent className="max-w-xl p-0 overflow-hidden bg-card border-border/80">
+          <div className="p-3 sm:p-5 max-h-[85vh] overflow-y-auto">
+            <ZoomBookingCalendar
+              startDate={params.from ?? ""}
+              endDate={params.to ?? ""}
+              startTime={params.pickupTime ?? "08:00"}
+              endTime={params.dropoffTime ?? "09:00"}
+              onStartDateChange={(d) => update({ from: d || undefined })}
+              onEndDateChange={(d) => update({ to: d || undefined })}
+              onStartTimeChange={(t) => update({ pickupTime: t || undefined })}
+              onEndTimeChange={(t) => update({ dropoffTime: t || undefined })}
+              continueButtonLabel="APPLY DATES & SLOTS"
+              onContinue={() => setCalendarOpen(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

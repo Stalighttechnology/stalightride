@@ -1,7 +1,7 @@
 import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -14,6 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
@@ -29,6 +35,9 @@ import {
   CheckCircle2,
   CircleSlash,
   Loader2,
+  Camera,
+  Eye,
+  Check,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useConfirm } from "@/components/confirm-dialog";
@@ -653,22 +662,27 @@ function DriverDashboard() {
             </p>
             <form onSubmit={save} className="space-y-4">
               <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
+                <Avatar className="h-16 w-16 ring-2 ring-border/80 shadow-xs">
                   <AvatarImage src={form.photo_url || undefined} />
                   <AvatarFallback>{(form.full_name || "D").charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">
-                  Upload photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) uploadPhoto(f);
-                    }}
-                  />
-                </label>
+                <div>
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-medium text-foreground shadow-xs transition-colors hover:bg-accent hover:border-primary/50">
+                    <Camera className="h-3.5 w-3.5 text-primary" />
+                    Upload photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (e.target) e.target.value = "";
+                        if (f) uploadPhoto(f);
+                      }}
+                    />
+                  </label>
+                  <p className="mt-1 text-[11px] text-muted-foreground">JPG, PNG or WebP</p>
+                </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1146,33 +1160,145 @@ function DocUpload({
   onFile: (f: File) => void | Promise<void>;
   disabled?: boolean;
 }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openPicker = () => {
+    if (disabled) return;
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+    inputRef.current?.click();
+  };
+
   return (
-    <div>
-      <Label>{label}</Label>
-      <label
-        className={`mt-1 flex aspect-[16/10] cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-border ${disabled ? "cursor-not-allowed opacity-60" : "hover:border-primary/50"}`}
-      >
-        {path && signed ? (
-          <img src={signed} alt={label} className="h-full w-full object-cover" />
-        ) : path ? (
-          <span className="text-xs text-muted-foreground">Uploaded</span>
-        ) : (
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Upload className="h-4 w-4" />
-            Choose file
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium text-foreground">{label}</Label>
+        {path && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            <Check className="h-3 w-3" /> Attached
           </span>
         )}
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          disabled={disabled}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onFile(f);
-          }}
-        />
-      </label>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        disabled={disabled}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            if (f.size > 15 * 1024 * 1024) {
+              toast.error(`"${f.name}" exceeds the 15MB limit.`);
+              return;
+            }
+            onFile(f);
+          }
+        }}
+      />
+
+      {path && signed ? (
+        <div className="group relative aspect-[16/10] overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md">
+          <img
+            src={signed}
+            alt={label}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+          />
+
+          {/* Quick Action Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 backdrop-blur-[2px] transition-opacity duration-150 group-hover:opacity-100">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setModalOpen(true)}
+              className="h-8 gap-1.5 text-xs bg-background/90 text-foreground hover:bg-background shadow-md backdrop-blur-md"
+            >
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </Button>
+            {!disabled && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={openPicker}
+                className="h-8 gap-1.5 text-xs bg-background/90 text-foreground hover:bg-background shadow-md backdrop-blur-md"
+              >
+                <Camera className="h-3.5 w-3.5" /> Retake
+              </Button>
+            )}
+          </div>
+
+          <div className="absolute top-2 left-2 z-10 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
+            {label}
+          </div>
+        </div>
+      ) : path ? (
+        <div className="flex aspect-[16/10] flex-col items-center justify-center rounded-xl border border-border bg-muted/20 text-center">
+          <p className="text-xs font-medium text-foreground">File uploaded</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Generating secure preview...</p>
+        </div>
+      ) : (
+        <div
+          onClick={openPicker}
+          className={`group flex aspect-[16/10] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 p-4 text-center transition-all duration-200 ${
+            disabled
+              ? "cursor-not-allowed opacity-60"
+              : "hover:border-primary/60 hover:bg-muted/40 hover:scale-[1.01] active:scale-[0.99] dark:bg-muted/10 dark:hover:bg-muted/25"
+          }`}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary transition-all duration-200 group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground dark:bg-primary/20">
+            <Camera className="h-5 w-5" />
+          </div>
+          <span className="text-xs font-semibold text-foreground">Upload {label}</span>
+          <span className="text-[10px] text-muted-foreground">Clear photo showing text & photo</span>
+        </div>
+      )}
+
+      {/* Lightbox Dialog */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl p-4 sm:p-6 bg-card border-border text-card-foreground">
+          <DialogHeader className="pb-2 border-b border-border">
+            <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />
+              {label} Preview
+            </DialogTitle>
+          </DialogHeader>
+          {signed && (
+            <div className="relative aspect-video max-h-[60vh] w-full overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
+              <img src={signed} alt={label} className="h-full w-full object-contain" />
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            {!disabled && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setModalOpen(false);
+                  openPicker();
+                }}
+                className="gap-1.5 text-xs"
+              >
+                <Camera className="h-3.5 w-3.5" /> Replace Photo
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => setModalOpen(false)}
+              className="text-xs"
+            >
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { VehicleMap } from "@/components/vehicle-map";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
+import { computeCharges } from "@/lib/charges";
 import { SAVED_VEHICLES_EVENT } from "@/hooks/use-saved-items";
 import { toast } from "sonner";
 import {
@@ -63,6 +64,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  RentalCalendarSelector,
+  formatZoomDate,
+  formatZoomSummaryTime,
+} from "@/components/rental-calendar-selector";
 import { useSession } from "@/hooks/use-session";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -135,6 +147,9 @@ function VehiclePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [airportMeet, setAirportMeet] = useState(false);
   const [flightInfo, setFlightInfo] = useState("");
+  const [fulfillmentType, setFulfillmentType] = useState<"pickup" | "delivery">("pickup");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
   const [bookedRanges, setBookedRanges] = useState<BookedRange[]>([]);
   const [hostStats, setHostStats] = useState<{
     response_rate: number | null;
@@ -376,6 +391,16 @@ function VehiclePage() {
     [dropoffTime, end, pickupTime, start, v],
   );
   const subtotal = priceBreakdown.subtotal;
+  const charges = useMemo(
+    () =>
+      computeCharges(
+        subtotal,
+        undefined,
+        coupon ? { percent_off: coupon.percent_off, amount_off: coupon.amount_off } : undefined,
+        myProfile?.membership_plan,
+      ),
+    [subtotal, coupon, myProfile?.membership_plan],
+  );
 
   const handleStartChange = (d: string) => {
     setStart(d);
@@ -448,6 +473,10 @@ function VehiclePage() {
       if (airportMeet) {
         const meetTag = `[VIP Airport Meet & Greet${flightInfo.trim() ? `: Flight ${flightInfo.trim()}` : ""}]`;
         finalNotes = finalNotes ? `${meetTag} ${finalNotes}` : meetTag;
+      }
+      if (fulfillmentType === "delivery") {
+        const delTag = `[Home Delivery: ${deliveryAddress.trim() || v.city}]`;
+        finalNotes = finalNotes ? `${delTag} ${finalNotes}` : delTag;
       }
       const { data: created, error } = await api
         .from("bookings")
@@ -610,13 +639,13 @@ function VehiclePage() {
     return (
       <div className="min-h-screen bg-background">
         <SiteHeader />
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 py-8 pb-24 lg:pb-8 sm:px-6">
           <div className="mb-4 space-y-2">
             <Skeleton className="h-3 w-40" />
             <Skeleton className="h-8 w-2/3 max-w-md" />
             <Skeleton className="h-3 w-32" />
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="grid gap-6 lg:grid-cols-[1fr_390px] items-start">
             <div className="space-y-6">
               <Skeleton className="aspect-[16/10] rounded-2xl" />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -640,7 +669,7 @@ function VehiclePage() {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-24 lg:pb-8 sm:px-6">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -653,8 +682,8 @@ function VehiclePage() {
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
               {v.instant_book && (
-                <Badge variant="secondary" className="mt-1 gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <Zap className="h-3.5 w-3.5 fill-current text-emerald-500" />
+                <Badge variant="secondary" className="mt-1 gap-1 border-brand/30 bg-brand/10 text-brand">
+                  <Zap className="h-3.5 w-3.5 fill-current text-brand" />
                   Instant Book
                 </Badge>
               )}
@@ -706,8 +735,38 @@ function VehiclePage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_390px] items-start">
           <div>
+            {/* Mobile Zoomcar Trip Schedule Banner */}
+            <div
+              onClick={() => setCalendarDialogOpen(true)}
+              className="lg:hidden mb-4 cursor-pointer rounded-2xl border border-border/80 bg-card p-3 shadow-xs hover:border-brand transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
+                    <CalendarDays className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-xs text-foreground truncate">
+                      {start && end
+                        ? `${formatZoomDate(start)}, ${formatZoomSummaryTime(pickupTime)} → ${formatZoomDate(end)}, ${formatZoomSummaryTime(dropoffTime)}`
+                        : "Select trip dates & time slots"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {fulfillmentType === "delivery" ? "🚚 Home delivery" : `🏪 ${v.city} Hub`} · {rentalHours > 0 ? `${Math.round(rentalHours)} hrs` : "Choose dates"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs font-bold text-brand hover:underline shrink-0 px-2.5 py-1 rounded-lg bg-brand/10"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+
             <div className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-card">
               <div className="relative aspect-[16/10] bg-muted">
                 {imgUrl ? (
@@ -732,7 +791,7 @@ function VehiclePage() {
                     {v.category === "bike" ? "Motorcycle" : v.category}
                   </Badge>
                   {v.instant_book && (
-                    <Badge className="rounded-full bg-emerald-600 text-white shadow-sm flex items-center gap-1 border-0">
+                    <Badge className="rounded-full bg-brand text-brand-foreground shadow-sm flex items-center gap-1 border-0">
                       <Zap className="h-3 w-3 fill-current" />
                       Instant Book
                     </Badge>
@@ -744,26 +803,46 @@ function VehiclePage() {
                   </span>
                 )}
               </div>
-              {images.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto no-scrollbar inapp-scroll p-3">
-                  {images.map((im: any, i: number) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveImg(i)}
-                      aria-label={`View photo ${i + 1}`}
-                      className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-300 ${
-                        i === activeImg
-                          ? "border-brand opacity-100 shadow-glow"
-                          : "border-transparent opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      {urls[im.url] && (
-                        <img src={urls[im.url]} alt="" className="h-full w-full object-cover" />
-                      )}
-                    </button>
-                  ))}
+
+              {/* Multiple Images strip below main car image */}
+              <div className="border-t border-border/60 bg-muted/20 p-3">
+                <div className="flex gap-2.5 overflow-x-auto no-scrollbar inapp-scroll">
+                  {images.length > 0 ? (
+                    images.map((im: any, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveImg(i)}
+                        aria-label={`View photo ${i + 1}`}
+                        className={`group relative h-20 w-28 shrink-0 overflow-hidden rounded-2xl border-2 transition-all duration-200 ${
+                          i === activeImg
+                            ? "border-brand shadow-glow ring-2 ring-brand/30"
+                            : "border-border/60 opacity-70 hover:opacity-100 hover:border-brand/50"
+                        }`}
+                      >
+                        {urls[im.url] ? (
+                          <img
+                            src={urls[im.url]}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center bg-muted text-[10px] text-muted-foreground">
+                            Photo {i + 1}
+                          </div>
+                        )}
+                        <span className="absolute bottom-1 right-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur">
+                          {i === 0 ? "Front" : i === 1 ? "Side" : i === 2 ? "Interior" : `View ${i + 1}`}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2">
+                      <ShieldCheck className="h-4 w-4 text-brand shrink-0" />
+                      <span>Verified vehicle listing photographs</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -912,9 +991,9 @@ function VehiclePage() {
             </section>
           </div>
 
-          <aside className="lg:sticky lg:top-20 lg:self-start">
-            <Card className="glass-strong overflow-hidden rounded-3xl border-border/70 p-0 shadow-float">
-              <div className="relative overflow-hidden border-b border-border/60 px-6 py-5">
+          <aside className="lg:sticky lg:top-20 lg:self-start lg:h-fit">
+            <Card className="glass-strong overflow-hidden rounded-3xl border-border/70 p-0 shadow-float max-h-[calc(100vh-5.5rem)] flex flex-col">
+              <div className="relative overflow-hidden border-b border-border/60 px-6 py-5 shrink-0">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -right-10 -top-14 h-36 w-36 rounded-full bg-brand/20 blur-3xl"
@@ -939,80 +1018,105 @@ function VehiclePage() {
                 </div>
               </div>
 
-              <CardContent className="space-y-5 p-6">
+              <CardContent className="space-y-4 p-5 sm:p-6 overflow-y-auto inapp-scroll no-scrollbar">
                 <div>
-                  <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[9px] font-bold text-brand-foreground">
-                      1
+                  <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[9px] font-bold text-brand-foreground">
+                        1
+                      </span>
+                      Trip schedule
                     </span>
-                    Trip schedule
+                    <button
+                      type="button"
+                      onClick={() => setCalendarDialogOpen(true)}
+                      className="text-brand hover:underline font-semibold text-[11px] flex items-center gap-1"
+                    >
+                      <CalendarDays className="h-3 w-3" />
+                      Expand calendar
+                    </button>
                   </div>
-                  <div className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card/60">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
-                      <SlotField icon={CalendarDays} label="Pickup date">
-                        <DatePicker
-                          value={start}
-                          onChange={handleStartChange}
-                          minDate={new Date()}
-                          isDateDisabled={(d) =>
-                            isPickupDateFullyBlocked(toIsoDate(d), bookedRanges)
-                          }
-                          placeholder="dd-mm-yyyy"
-                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
-                        />
-                      </SlotField>
-                      <SlotField icon={CalendarDays} label="Return date">
-                        <DatePicker
-                          value={end}
-                          onChange={(d) => setEnd(d)}
-                          minDate={start || new Date()}
-                          maxDate={
-                            start
-                              ? getNextBookingAfterPickup(start, pickupTime, bookedRanges)
-                                  ?.start_date || undefined
-                              : undefined
-                          }
-                          isDateDisabled={(d) =>
-                            isReturnDateBlocked(toIsoDate(d), start, pickupTime, bookedRanges)
-                          }
-                          placeholder="dd-mm-yyyy"
-                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
-                        />
-                      </SlotField>
+
+                  <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-xs space-y-3">
+                    {/* Pick-up Row */}
+                    <div
+                      onClick={() => setCalendarDialogOpen(true)}
+                      className="cursor-pointer group flex items-start justify-between gap-2 p-1.5 -m-1.5 rounded-xl hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground block">
+                          PICK-UP
+                        </span>
+                        <p className="font-semibold text-xs text-foreground mt-0.5">
+                          {start ? `${formatZoomDate(start)}, ${formatZoomSummaryTime(pickupTime)}` : "Select pickup date & time"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {fulfillmentType === "delivery" ? (deliveryAddress || "Home delivery") : (v.address || v.city || "Hub location")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCalendarDialogOpen(true);
+                        }}
+                        className="text-xs font-bold text-brand hover:underline pt-0.5 shrink-0"
+                      >
+                        Edit
+                      </button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
-                      <SlotField icon={Clock} label="Pickup time">
-                        <TimePicker
-                          value={pickupTime}
-                          onChange={(t) => setPickupTime(t)}
-                          isTimeDisabled={(t) =>
-                            start ? isPickupSlotBlocked(start, t, bookedRanges) : false
-                          }
-                          placeholder="Select time"
-                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
-                        />
-                      </SlotField>
-                      <SlotField icon={Clock} label="Drop-off time">
-                        <TimePicker
-                          value={dropoffTime}
-                          onChange={(t) => setDropoffTime(t)}
-                          isTimeDisabled={(t) =>
-                            end
-                              ? isDropoffSlotBlocked(
-                                  end,
-                                  t,
-                                  start,
-                                  pickupTime,
-                                  bookedRanges,
-                                )
-                              : false
-                          }
-                          placeholder="Select time"
-                          className="h-8 border-0 bg-transparent px-0 text-sm font-medium shadow-none focus-visible:ring-0 hover:bg-transparent"
-                        />
-                      </SlotField>
+
+                    <div className="border-t border-border/60" />
+
+                    {/* Drop-off Row */}
+                    <div
+                      onClick={() => setCalendarDialogOpen(true)}
+                      className="cursor-pointer group flex items-start justify-between gap-2 p-1.5 -m-1.5 rounded-xl hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground block">
+                          DROP-OFF
+                        </span>
+                        <p className="font-semibold text-xs text-foreground mt-0.5">
+                          {end ? `${formatZoomDate(end)}, ${formatZoomSummaryTime(dropoffTime)}` : "Select drop-off date & time"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {fulfillmentType === "delivery" ? (deliveryAddress || "Home delivery") : (v.address || v.city || "Hub location")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCalendarDialogOpen(true);
+                        }}
+                        className="text-xs font-bold text-brand hover:underline pt-0.5 shrink-0"
+                      >
+                        Edit
+                      </button>
+                    </div>
+
+                    {/* Fulfillment & Duration Summary */}
+                    <div className="flex items-center justify-between border-t border-border/60 pt-2 text-[11px]">
+                      <span className="text-muted-foreground font-medium flex items-center gap-1">
+                        {fulfillmentType === "delivery" ? "🚚 Home delivery" : "🏪 Hub pickup"}
+                      </span>
+                      {start && end && rentalHours > 0 ? (
+                        <span className="font-semibold text-brand">
+                          {rentalHours >= 24 ? `${Math.floor(rentalHours / 24)}d ${Math.round(rentalHours % 24)}h` : `${Math.round(rentalHours)} hrs`}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCalendarDialogOpen(true)}
+                          className="font-semibold text-brand hover:underline flex items-center gap-0.5"
+                        >
+                          Select dates <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                   </div>
+
                   {returnInfo && (
                     <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-brand/30 bg-brand/5 px-3 py-1.5 text-xs text-brand animate-fade-in font-medium">
                       <Clock className="h-3.5 w-3.5 shrink-0" />
@@ -1094,11 +1198,11 @@ function VehiclePage() {
                         </div>
                         <div className="space-y-1 text-[11px] text-muted-foreground">
                           <p className="flex items-center gap-1 text-foreground">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <CheckCircle2 className="h-3 w-3 text-brand shrink-0" />
                             <span>15% Flat VIP Discount & ₹0 Security Deposit applied</span>
                           </p>
                           <p className="flex items-center gap-1 text-foreground">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <CheckCircle2 className="h-3 w-3 text-brand shrink-0" />
                             <span>Guaranteed Model Availability (Free auto-upgrade if model unavailable)</span>
                           </p>
                         </div>
@@ -1232,6 +1336,83 @@ function VehiclePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Expanded Modal Calendar Dialog */}
+      <Dialog open={calendarDialogOpen} onOpenChange={setCalendarDialogOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border-border/80">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-brand" />
+              Choose Rental Dates & Time Slots
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-2 sm:p-4 max-h-[85vh] overflow-y-auto">
+            <RentalCalendarSelector
+              vehicle={v}
+              bookedRanges={bookedRanges}
+              startDate={start}
+              endDate={end}
+              pickupTime={pickupTime}
+              dropoffTime={dropoffTime}
+              fulfillmentType={fulfillmentType}
+              deliveryAddress={deliveryAddress}
+              onStartDateChange={handleStartChange}
+              onEndDateChange={(d) => setEnd(d)}
+              onPickupTimeChange={(t) => setPickupTime(t)}
+              onDropoffTimeChange={(t) => setDropoffTime(t)}
+              onFulfillmentTypeChange={setFulfillmentType}
+              onDeliveryAddressChange={setDeliveryAddress}
+              onBookClick={() => {
+                setCalendarDialogOpen(false);
+              }}
+              bookingLoading={booking}
+              isOwner={isOwner}
+              isDlApproved={dlOk}
+              user={user}
+              membershipPlan={myProfile?.membership_plan}
+              coupon={coupon}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Sticky Booking Bar */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3 shadow-2xl flex items-center justify-between gap-3 animate-fade-in">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-1">
+            <span className="font-display text-lg font-bold text-foreground">
+              {start && end && charges.customer_total ? currency(charges.customer_total) : currency(v.price_daily)}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {start && end && charges.customer_total ? "total" : "/ day"}
+            </span>
+          </div>
+          <p className="text-[10px] text-muted-foreground truncate">
+            {start && end
+              ? `${formatZoomDate(start).split(",")[1]?.trim() || start} · ${formatZoomSummaryTime(pickupTime)}`
+              : "Taxes & deposit extra"}
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            if (!start || !end) {
+              setCalendarDialogOpen(true);
+            } else {
+              book();
+            }
+          }}
+          disabled={booking || (!!user && !dlOk) || !!scheduleConflict}
+          className="btn-gradient text-brand-foreground font-bold text-xs uppercase px-5 py-2.5 h-10 shadow-md shrink-0 rounded-xl"
+        >
+          {booking ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : !start || !end ? (
+            "Select Dates"
+          ) : (
+            "Continue"
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
