@@ -799,7 +799,7 @@ function WashQueue() {
       api
         .from("wash_bookings")
         .select(
-          "*, wash_services:service_id(name,duration_minutes,vehicle_category), cleaners:cleaner_id(full_name,phone,city)",
+          "*, wash_services:service_id(name,duration_minutes,vehicle_category), cleaners:assigned_cleaner_id(full_name,phone,city)",
           { count: "exact" },
         )
         .order("created_at", { ascending: false })
@@ -818,6 +818,28 @@ function WashQueue() {
   useEffect(() => {
     load();
   }, [pager.page]);
+
+  useEffect(() => {
+    const channel = api
+      .channel("admin_wash_queue_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wash_bookings" },
+        () => {
+          load();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      load();
+    }, 4000);
+
+    return () => {
+      api.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleAdminAssign = async (washId: string) => {
     const cleanerId = assign[washId];
@@ -868,7 +890,7 @@ function WashQueue() {
         <p className="mt-6 text-sm text-muted-foreground">No wash bookings yet.</p>
       )}
       {items.map((b) => {
-        const isAtRisk = Boolean(b.admin_alerted_at && !b.cleaner_id && b.status === "confirmed");
+        const isAtRisk = Boolean(b.admin_alerted_at && !b.assigned_cleaner_id && b.status === "confirmed");
         return (
           <Card key={b.id} className={isAtRisk ? "border-amber-500/50 bg-amber-500/5" : ""}>
             <CardContent className="p-4">
@@ -926,7 +948,7 @@ function WashQueue() {
                       Awaiting payment{b.pay_by ? ` (pay by ${new Date(b.pay_by).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ""}
                     </span>
                   )}
-                  {b.status === "confirmed" && !b.cleaner_id && (
+                  {b.status === "confirmed" && !b.assigned_cleaner_id && (
                     <div className="flex items-center gap-1.5">
                       <select
                         aria-label="Assign washer partner"

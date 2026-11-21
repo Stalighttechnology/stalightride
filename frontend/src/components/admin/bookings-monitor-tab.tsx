@@ -104,6 +104,30 @@ export function BookingsMonitorTab() {
     loadAtRiskWashes();
   }, [pager.page, kindFilter, search]);
 
+  useEffect(() => {
+    const channel = api
+      .channel("admin_bookings_monitor_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wash_bookings" },
+        () => {
+          loadAllBookings();
+          loadAtRiskWashes();
+        },
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      loadAllBookings();
+      loadAtRiskWashes();
+    }, 4000);
+
+    return () => {
+      api.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, []);
+
   if (!items) return <Skeleton className="h-44 w-full mt-4" />;
 
   const filtered = items;

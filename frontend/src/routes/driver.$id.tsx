@@ -18,6 +18,7 @@ import { calculateDriverPrice, type DriverRateType } from "@/lib/driver-pricing"
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
+import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
 import { MapPicker } from "@/components/map-picker";
 import { toast } from "sonner";
 import {
@@ -543,40 +544,30 @@ function DriverProfile() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label className="text-xs">Start date</Label>
-                      <DatePicker
-                        value={startDate}
-                        onChange={setStartDate}
-                        minDate={new Date()}
-                        placeholder="dd-mm-yyyy"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">End date</Label>
-                      <DatePicker
-                        value={rateType === "hourly" ? startDate : endDate}
-                        onChange={setEndDate}
-                        minDate={startDate || new Date()}
-                        disabled={rateType === "hourly"}
-                        placeholder="dd-mm-yyyy"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Start time</Label>
-                      <TimePicker
-                        value={startTime}
-                        onChange={setStartTime}
-                        placeholder="Select time"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">End time</Label>
-                      <TimePicker value={endTime} onChange={setEndTime} placeholder="Select time" />
-                    </div>
+                  <div className="pt-1">
+                    <ZoomBookingCalendar
+                      startDate={startDate}
+                      endDate={rateType === "hourly" ? startDate : endDate}
+                      startTime={startTime}
+                      endTime={endTime}
+                      onStartDateChange={setStartDate}
+                      onEndDateChange={(d) => {
+                        if (rateType !== "hourly") setEndDate(d);
+                      }}
+                      onStartTimeChange={setStartTime}
+                      onEndTimeChange={setEndTime}
+                      singleDateMode={rateType === "hourly"}
+                      startTimeLabel="Start Time"
+                      endTimeLabel="End Time"
+                      itemTitle={`Hire ${driver.full_name}`}
+                      itemSubtitle={`${driver.city} · ${rateType === "hourly" ? "Hourly Service" : "Daily Service"}`}
+                      continueButtonLabel="CONFIRM SCHEDULE"
+                      onContinue={() => {
+                        document.getElementById("driver-pickup-address")?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    />
                   </div>
-                  <div>
+                  <div id="driver-pickup-address">
                     <Label className="text-xs">Pickup address</Label>
                     <MapPicker
                       value={pickupPin}

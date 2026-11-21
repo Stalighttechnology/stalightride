@@ -28,7 +28,7 @@ from core.db import set_db_role
 from core.query import columns
 
 log = logging.getLogger(__name__)
-TABLES = {"messages", "booking_locations", "notifications", "public_drivers", "wallets", "wallet_transactions"}
+TABLES = {"messages", "booking_locations", "notifications", "public_drivers", "wallets", "wallet_transactions", "wash_bookings"}
 # Rows only their owner reads live: skip other sockets before touching the database.
 OWNED = {"notifications", "wallets", "wallet_transactions"}
 EVENTS = {"*", "INSERT", "UPDATE", "DELETE"}

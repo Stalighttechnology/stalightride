@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -44,7 +44,17 @@ import {
   Play,
   Pause,
   Clock,
+  Upload,
+  FileText,
+  Camera,
+  CheckCircle2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1646,14 +1656,48 @@ function VehiclesGrid({
 
 function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDone: () => void }) {
   const [uploading, setUploading] = useState(false);
-  const status = vendor.kyc_status as string;
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const upload = async (file: File) => {
+  const status = vendor.kyc_status as string;
+  const docPath = vendor.id_document_url as string | undefined;
+  const signed = useSignedUrls("kyc-docs", docPath ? [docPath] : []);
+  const docUrl = docPath ? signed[docPath] : null;
+
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith("image/")) {
+      const url = URL.createObjectURL(selectedFile);
+      setFilePreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setFilePreview(null);
+  }, [selectedFile]);
+
+  const openPicker = () => {
+    if (uploading) return;
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+    inputRef.current?.click();
+  };
+
+  const handleFileChosen = (f: File) => {
+    if (f.size > 15 * 1024 * 1024) {
+      toast.error(`"${f.name}" exceeds the 15MB limit.`);
+      return;
+    }
+    setSelectedFile(f);
+  };
+
+  const confirmUpload = async () => {
+    if (!selectedFile) return;
     setUploading(true);
-    const path = `${userId}/id-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+    const path = `${userId}/id-${Date.now()}-${selectedFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
     const { error: upErr } = await api.storage
       .from("kyc-docs")
-      .upload(path, file, { upsert: true });
+      .upload(path, selectedFile, { upsert: true });
     if (upErr) {
       setUploading(false);
       return toast.error(upErr.message);
@@ -1663,63 +1707,233 @@ function KycCard({ vendor, userId, onDone }: { vendor: any; userId: string; onDo
       .update({ id_document_url: path, kyc_status: "pending" } as any)
       .eq("id", userId);
     setUploading(false);
+    setSelectedFile(null);
     if (error) return toast.error(error.message);
-    toast.success("Document submitted for verification");
+    toast.success("Identity document submitted for verification");
     onDone();
   };
 
   if (status === "approved") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-        <ShieldCheck className="h-5 w-5 text-emerald-500" />
-        <div>
-          <p className="text-sm font-medium">Verified host</p>
-          <p className="text-xs text-muted-foreground">
-            Your identity has been approved by our team.
-          </p>
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="h-5 w-5 text-emerald-500" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Verified Host</p>
+            <p className="text-xs text-muted-foreground">
+              Your government identity has been verified and approved.
+            </p>
+          </div>
         </div>
+        {docUrl && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModalOpen(true)}
+            className="h-8 gap-1.5 text-xs bg-card"
+          >
+            <Eye className="h-3.5 w-3.5" /> View ID
+          </Button>
+        )}
+
+        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+          <DialogContent className="max-w-2xl p-4 sm:p-6 bg-card border-border text-card-foreground">
+            <DialogHeader className="pb-2 border-b border-border">
+              <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                Verified Host ID Document
+              </DialogTitle>
+            </DialogHeader>
+            {docUrl && (
+              <div className="relative aspect-video max-h-[60vh] w-full overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
+                <img src={docUrl} alt="Verified ID" className="h-full w-full object-contain" />
+              </div>
+            )}
+            <div className="flex justify-end pt-1">
+              <Button size="sm" onClick={() => setModalOpen(false)} className="text-xs">
+                Done
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-xs transition-colors">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (e.target) e.target.value = "";
+          if (f) handleFileChosen(f);
+        }}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/70">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="h-5 w-5 text-yellow-500" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
           <div>
-            <p className="text-sm font-medium">
-              Identity verification: {status === "pending" ? "under review" : status}
-            </p>
-            <p className="text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">Host Identity Verification</p>
+              <Badge
+                variant={status === "pending" ? "secondary" : status === "rejected" ? "destructive" : "outline"}
+                className="text-[10px] font-semibold"
+              >
+                {status === "pending" ? "Under Review" : status === "rejected" ? "Rejected" : "Required"}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {status === "pending"
-                ? "Our team is reviewing your document. Listings stay in draft until approval."
-                : "Upload a government ID (Aadhaar / passport / driving licence) to get verified."}
+                ? "Our administration team is reviewing your document. Vehicles remain in draft until approval."
+                : status === "rejected"
+                  ? "Rejected — please upload a clearer photo or document."
+                  : "Upload a government ID (Aadhaar / passport / driving licence) to get verified."}
             </p>
-            {status === "rejected" && (
-              <p className="text-xs text-destructive">
-                Rejected — please upload a clearer document.
-              </p>
-            )}
           </div>
         </div>
-        {status !== "pending" && (
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) upload(f);
-              }}
-            />
-            <span className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
-              {uploading ? "Uploading…" : "Upload ID"}
-            </span>
-          </label>
+
+        {status === "pending" && docUrl && !selectedFile && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setModalOpen(true)}
+            className="h-8 gap-1.5 text-xs bg-card"
+          >
+            <Eye className="h-3.5 w-3.5" /> View Submitted ID
+          </Button>
         )}
       </div>
+
+      {/* Selected file staging card */}
+      {selectedFile ? (
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3.5">
+          <div className="flex items-center gap-3 min-w-0">
+            {filePreview ? (
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-card">
+                <img src={filePreview} alt="Preview" className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-primary/10 text-primary">
+                <FileText className="h-6 w-6" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-foreground">{selectedFile.name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready to submit
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={uploading}
+              onClick={openPicker}
+              className="h-8 text-xs"
+            >
+              Change
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={uploading}
+              onClick={() => setSelectedFile(null)}
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={uploading}
+              onClick={confirmUpload}
+              className="h-8 gap-1.5 text-xs"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Submit Document
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        /* Dropzone / Upload action area */
+        <div className="mt-3">
+          <div
+            onClick={openPicker}
+            className="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 border-dashed border-border/80 bg-muted/20 px-4 py-3.5 transition-all duration-200 hover:border-primary/60 hover:bg-muted/35 dark:bg-muted/10 dark:hover:bg-muted/20"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-200 group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground dark:bg-primary/20">
+                <Upload className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  {status === "pending" ? "Upload replacement ID document" : "Upload government ID document"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Aadhaar, Passport or Driving Licence • JPG, PNG or PDF up to 15MB
+                </p>
+              </div>
+            </div>
+            <span className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-xs group-hover:border-primary/50">
+              Browse Document
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox dialog for viewing submitted ID */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl p-4 sm:p-6 bg-card border-border text-card-foreground">
+          <DialogHeader className="pb-2 border-b border-border">
+            <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />
+              Submitted Host Identity Document
+            </DialogTitle>
+          </DialogHeader>
+          {docUrl && (
+            <div className="relative aspect-video max-h-[60vh] w-full overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
+              <img src={docUrl} alt="Submitted ID" className="h-full w-full object-contain" />
+            </div>
+          )}
+          <div className="flex justify-between items-center pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setModalOpen(false);
+                openPicker();
+              }}
+              className="gap-1.5 text-xs"
+            >
+              <Upload className="h-3.5 w-3.5" /> Replace Document
+            </Button>
+            <Button size="sm" onClick={() => setModalOpen(false)} className="text-xs">
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
