@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Banknote, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { usePage, ListPager } from "@/components/list-pager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "destructive"> = 
  */
 export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: () => void }) {
   const settings = usePlatformSettings();
+  const pager = usePage(10);
   const [isProvider, setIsProvider] = useState<boolean | null>(null);
   const [withdrawable, setWithdrawable] = useState(0);
   const [pending, setPending] = useState(0);
@@ -73,10 +75,10 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
       api.rpc("withdrawable_balance", {}),
       api
         .from("withdrawals")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(20),
+        .range(pager.from, pager.to),
       api
         .from("bookings")
         .select("provider_earning")
@@ -99,10 +101,11 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
     ]);
     setWithdrawable(Number(w.data ?? 0));
     setHistory((hist.data as Withdrawal[]) ?? []);
+    pager.setTotal(hist.count ?? 0);
     const sum = (rows: { provider_earning: number }[] | null) =>
       (rows ?? []).reduce((s, r) => s + Number(r.provider_earning ?? 0), 0);
     setPending(sum(rentals.data as any) + sum(hires.data as any) + sum(washes.data as any));
-  }, [userId]);
+  }, [userId, pager.from, pager.to]);
 
   useEffect(() => {
     load();
@@ -128,6 +131,7 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
     toast.success("Withdrawal requested — we'll notify you when it's paid");
     setOpen(false);
     setForm({ ...form, amount: "" });
+    pager.setPage(0);
     load();
     onChanged();
   };
@@ -171,24 +175,27 @@ export function PayoutsCard({ userId, onChanged }: { userId: string; onChanged: 
         </div>
 
         {history.length > 0 && (
-          <ul className="mt-5 divide-y divide-border">
-            {history.map((w) => (
-              <li key={w.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-                <div>
-                  <p className="font-medium">
-                    {currency(Number(w.amount))} ·{" "}
-                    {w.method === "upi" ? w.upi_id : `A/c •••${(w.account_number ?? "").slice(-4)}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(w.created_at).toLocaleString()}
-                    {w.reference ? ` · Ref ${w.reference}` : ""}
-                    {w.status === "rejected" && w.admin_note ? ` · ${w.admin_note}` : ""}
-                  </p>
-                </div>
-                <Badge variant={STATUS_VARIANT[w.status] ?? "outline"}>{w.status}</Badge>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="mt-5 divide-y divide-border">
+              {history.map((w) => (
+                <li key={w.id} className="flex items-center justify-between gap-3 py-3 text-sm">
+                  <div>
+                    <p className="font-medium">
+                      {currency(Number(w.amount))} ·{" "}
+                      {w.method === "upi" ? w.upi_id : `A/c •••${(w.account_number ?? "").slice(-4)}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(w.created_at).toLocaleString()}
+                      {w.reference ? ` · Ref ${w.reference}` : ""}
+                      {w.status === "rejected" && w.admin_note ? ` · ${w.admin_note}` : ""}
+                    </p>
+                  </div>
+                  <Badge variant={STATUS_VARIANT[w.status] ?? "outline"}>{w.status}</Badge>
+                </li>
+              ))}
+            </ul>
+            <ListPager {...pager} />
+          </>
         )}
       </CardContent>
 

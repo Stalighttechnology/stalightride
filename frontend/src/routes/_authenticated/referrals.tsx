@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { usePage, ListPager } from "@/components/list-pager";
 import { Gift, Copy, Share2, Users, Sparkles, Award, HelpCircle, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/referrals")({
@@ -36,6 +37,7 @@ interface ReferralEvent {
 
 function ReferralsPage() {
   const { user } = useSession();
+  const pager = usePage(12);
   const [activeTab, setActiveTab] = useState<"overview" | "activity" | "rules">("overview");
   const [referralCode, setReferralCode] = useState(
     user?.id ? `SYN-${user.id.slice(0, 6).toUpperCase()}` : "SYN-RIDE500",
@@ -82,8 +84,10 @@ function ReferralsPage() {
             date: new Date(f.created_at).toLocaleDateString(),
           })),
         );
+        pager.setTotal(friends.length);
       } else {
         setHistory([]);
+        pager.setTotal(0);
       }
       setLoading(false);
     })();
@@ -203,7 +207,10 @@ function ReferralsPage() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        pager.setPage(0);
+                      }}
                       className={`flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors w-full text-left ${
                         isActive
                           ? "bg-brand text-brand-foreground shadow-xs"
@@ -414,47 +421,50 @@ function ReferralsPage() {
                         earning!
                       </p>
                     ) : (
-                      <div className="divide-y divide-border">
-                        {history.map((item) => (
-                          <div
-                            key={item.id}
-                            className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                          >
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-semibold text-sm">{item.friendName}</p>
-                                <Badge
-                                  variant={
-                                    item.status === "First Trip Completed" ? "secondary" : "outline"
-                                  }
-                                  className={
-                                    item.status === "First Trip Completed"
-                                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]"
-                                      : "text-[10px]"
-                                  }
-                                >
-                                  {item.status}
-                                </Badge>
+                      <>
+                        <div className="divide-y divide-border">
+                          {history.slice(pager.from, pager.to + 1).map((item) => (
+                            <div
+                              key={item.id}
+                              className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-sm">{item.friendName}</p>
+                                  <Badge
+                                    variant={
+                                      item.status === "First Trip Completed" ? "secondary" : "outline"
+                                    }
+                                    className={
+                                      item.status === "First Trip Completed"
+                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]"
+                                        : "text-[10px]"
+                                    }
+                                  >
+                                    {item.status}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {item.email} · {item.date}
+                                </p>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {item.email} · {item.date}
-                              </p>
-                            </div>
 
-                            <div className="text-right">
-                              {item.earnedAmount > 0 ? (
-                                <p className="font-bold text-sm text-emerald-600">
-                                  +{currency(item.earnedAmount)} Credited
-                                </p>
-                              ) : (
-                                <p className="text-xs text-muted-foreground">
-                                  Pending trip completion
-                                </p>
-                              )}
+                              <div className="text-right">
+                                {item.earnedAmount > 0 ? (
+                                  <p className="font-bold text-sm text-emerald-600">
+                                    +{currency(item.earnedAmount)} Credited
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">
+                                    Pending trip completion
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                        <ListPager {...pager} />
+                      </>
                     )}
                   </CardContent>
                 </Card>

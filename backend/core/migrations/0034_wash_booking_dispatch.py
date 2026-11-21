@@ -1113,7 +1113,7 @@ $$;
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0032_driver_booking_windows"),
+        ("core", "0033_driver_booking_windows"),
     ]
 
     operations = [

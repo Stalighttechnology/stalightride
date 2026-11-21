@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -12,8 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
-import { HostAnalytics } from "@/components/host-analytics";
+import { HostAnalytics, type HostDashboardStats } from "@/components/host-analytics";
 import { AvailabilityCalendar } from "@/components/availability-calendar";
+import { usePage, ListPager } from "@/components/list-pager";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
@@ -36,13 +37,13 @@ import {
   X,
   AlertCircle,
   AlertTriangle,
-  Clock,
   Zap,
+  Loader2,
   Trash2,
   Eye,
   Play,
   Pause,
-  Loader2,
+  Clock,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -175,11 +176,30 @@ const SAMPLE_REVIEWS = [
   },
 ];
 
+function formatTimeLeft(target: string | Date | null | undefined, now: number) {
+  if (!target) return "";
+  const diff = new Date(target).getTime() - now;
+  if (diff <= 0) return "Expired";
+  const totalMins = Math.floor(diff / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
 function VendorDashboard() {
   const { user } = useSession();
   const [vendor, setVendor] = useState<any>(null);
+  const [stats, setStats] = useState<HostDashboardStats | null>(null);
   const [vehicles, setVehicles] = useState<any[] | null>(null);
   const [bookings, setBookings] = useState<any[] | null>(null);
+  const [pendingBookings, setPendingBookings] = useState<any[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
   const [payouts, setPayouts] = useState<any[] | null>(null);
   const [vendorReviews, setVendorReviews] = useState<any[] | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -218,6 +238,11 @@ function VendorDashboard() {
     return "fleet";
   };
 
+  const vehiclesPager = usePage(12);
+  const bookingsPager = usePage(10);
+  const payoutsPager = usePage(10);
+  const reviewsPager = usePage(10);
+
   // Dedicated Host Dashboard Sidebar Tab State
   const [activeTab, setActiveTab] = useState<HostTab>(getInitialTab);
 
@@ -246,6 +271,10 @@ function VendorDashboard() {
 
   const handleTabClick = (tabId: HostTab) => {
     setActiveTab(tabId);
+    vehiclesPager.setPage(0);
+    bookingsPager.setPage(0);
+    payoutsPager.setPage(0);
+    reviewsPager.setPage(0);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("tab", tabId);
@@ -253,69 +282,138 @@ function VendorDashboard() {
     }
   };
 
-  const load = async () => {
+  const handleTabChange = handleTabClick;
+
+  const loadStats = async () => {
     if (!user) return;
-    const [{ data: vend }, { data: vhs }, { data: bks }] = await Promise.all([
-      api.from("vendors").select("*").eq("id", user.id).maybeSingle(),
-      api
-        .from("vehicles")
-        .select("*, vehicle_images(url,sort_order)")
-        .eq("vendor_id", user.id)
-        .order("created_at", { ascending: false }),
-      api
-        .from("bookings")
-        .select("*, vehicles(title)")
-        .eq("vendor_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ]);
+    const { data } = await api.rpc("host_dashboard_stats");
+    if (data) setStats(data as HostDashboardStats);
+    const { data: rStats } = await api.rpc("host_response_stats", { _vendor_id: user.id });
+    if (rStats) setResponseStats(rStats);
+  };
+
+  const loadVendor = async () => {
+    if (!user) return;
+    const { data: vend } = await api.from("vendors").select("*").eq("id", user.id).maybeSingle();
     setVendor(vend);
-    const storeKey = user ? `synchoo_deleted_vehicles_${user.id}` : "";
-    let deletedIds: string[] = [];
-    if (storeKey) {
-      try {
-        deletedIds = JSON.parse(localStorage.getItem(storeKey) || "[]");
-      } catch { }
-    }
-    const filteredVehicles = (vhs ?? []).filter((item: any) => !item.is_deleted && !deletedIds.includes(item.id));
-    setVehicles(filteredVehicles);
-    setBookings(bks ?? []);
     if (vend) {
       setBusinessName(vend.business_name);
       setBio(vend.bio ?? "");
     }
+  };
 
-    // Withdrawals (money phase 1 — admin-approved payouts)
-    const { data: pts } = await api
+  const loadVehicles = async () => {
+    if (!user) return;
+    const { data, count } = await api
+      .from("vehicles")
+      .select("*, vehicle_images(url,sort_order)", { count: "exact" })
+      .eq("vendor_id", user.id)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: false })
+      .range(vehiclesPager.from, vehiclesPager.to);
+
+    const storeKey = `synchoo_deleted_vehicles_${user.id}`;
+    let deletedIds: string[] = [];
+    try {
+      deletedIds = JSON.parse(localStorage.getItem(storeKey) || "[]");
+    } catch {}
+    const filteredVehicles = (data ?? []).filter((item: any) => !deletedIds.includes(item.id));
+    setVehicles(filteredVehicles);
+    vehiclesPager.setTotal(count ?? 0);
+  };
+
+  const loadBookings = async () => {
+    if (!user) return;
+    // Pending requests: own query capped at 100
+    const { data: pend } = await api
+      .from("bookings")
+      .select("*, vehicles(title)")
+      .eq("vendor_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    setPendingBookings(pend ?? []);
+
+    // All other bookings: paged with usePage(10)
+    const { data: others, count } = await api
+      .from("bookings")
+      .select("*, vehicles(title)", { count: "exact" })
+      .eq("vendor_id", user.id)
+      .neq("status", "pending")
+      .order("created_at", { ascending: false })
+      .range(bookingsPager.from, bookingsPager.to);
+    setBookings(others ?? []);
+    bookingsPager.setTotal(count ?? 0);
+  };
+
+  const loadPayouts = async () => {
+    if (!user) return;
+    const { data, count } = await api
       .from("withdrawals")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(20);
-    setPayouts(pts ?? []);
+      .range(payoutsPager.from, payoutsPager.to);
+    setPayouts(data ?? []);
+    payoutsPager.setTotal(count ?? 0);
+  };
 
-    // Reviews for all vendor vehicles
+  const loadReviews = async () => {
+    if (!user) return;
+    const { data: vhs } = await api
+      .from("vehicles")
+      .select("id")
+      .eq("vendor_id", user.id)
+      .eq("is_deleted", false);
     const vehicleIds = (vhs ?? []).map((v: any) => v.id);
     if (vehicleIds.length > 0) {
-      const { data: rvs } = await api
+      const { data, count } = await api
         .from("reviews")
-        .select("*, vehicles(title)")
-        .in("vehicle_id", vehicleIds);
-      setVendorReviews(rvs ?? []);
+        .select("*, vehicles(title)", { count: "exact" })
+        .in("vehicle_id", vehicleIds)
+        .order("created_at", { ascending: false })
+        .range(reviewsPager.from, reviewsPager.to);
+      setVendorReviews(data ?? []);
+      reviewsPager.setTotal(count ?? 0);
     } else {
       setVendorReviews([]);
+      reviewsPager.setTotal(0);
     }
+  };
 
-    // Host response stats
-    try {
-      const { data: rStats } = await api.rpc("host_response_stats", { _vendor_id: user.id });
-      setResponseStats(rStats);
-    } catch {}
+  const load = async () => {
+    await Promise.all([
+      loadVendor(),
+      loadStats(),
+      loadVehicles(),
+      loadBookings(),
+      loadPayouts(),
+      loadReviews(),
+    ]);
   };
 
   useEffect(() => {
-    load();
+    if (user?.id) {
+      loadVendor();
+      loadStats();
+    }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) loadVehicles();
+  }, [user?.id, vehiclesPager.page]);
+
+  useEffect(() => {
+    if (user?.id) loadBookings();
+  }, [user?.id, bookingsPager.page]);
+
+  useEffect(() => {
+    if (user?.id) loadPayouts();
+  }, [user?.id, payoutsPager.page]);
+
+  useEffect(() => {
+    if (user?.id) loadReviews();
+  }, [user?.id, reviewsPager.page]);
 
   const saveVendor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,6 +436,11 @@ function VendorDashboard() {
   const isRegisteredHost = Boolean(vendor);
 
   const decideBooking = async (id: string, status: "confirmed" | "rejected") => {
+    const target = [...pendingBookings, ...(bookings ?? [])].find((x: any) => x.id === id);
+    if (target?.respond_by && Date.now() > new Date(target.respond_by).getTime()) {
+      toast.error("This request has expired");
+      return;
+    }
     setProcessingBookingId(id);
     try {
       if (!isRegisteredHost) {
@@ -438,7 +541,7 @@ function VendorDashboard() {
                 currentDeleted.push(vehicleId);
                 localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
               }
-            } catch { }
+            } catch {}
           }
           setVehicles((prev) => (prev ? prev.filter((v) => v.id !== vehicleId) : prev));
           setVehicleToDelete(null);
@@ -457,7 +560,7 @@ function VendorDashboard() {
             currentDeleted.push(vehicleId);
             localStorage.setItem(storeKey, JSON.stringify(currentDeleted));
           }
-        } catch { }
+        } catch {}
       }
 
       toast.success("Vehicle deleted successfully");
@@ -505,42 +608,47 @@ function VendorDashboard() {
   };
 
   const displayVehicles = vehicles ?? [];
-  const displayBookings = bookings ?? [];
+  const displayBookings = useMemo(() => {
+    const list = [...(bookings ?? [])];
+    return list.sort((a: any, b: any) => {
+      const aPending = a.status === "pending";
+      const bPending = b.status === "pending";
+      if (aPending && bPending) {
+        const aTime = a.respond_by ? new Date(a.respond_by).getTime() : Infinity;
+        const bTime = b.respond_by ? new Date(b.respond_by).getTime() : Infinity;
+        return aTime - bTime;
+      }
+      if (aPending) return -1;
+      if (bPending) return 1;
+      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+    });
+  }, [bookings]);
   const displayPayouts = payouts ?? [];
   const displayReviews = vendorReviews ?? [];
 
-  // Net host earnings: strictly provider_earning (excludes platform service fee, GST, and security deposits).
-  const earnings = displayBookings
-    .filter((b: any) => b.payment_status === "paid" || b.payment_status === "partially_refunded")
-    .reduce((s: number, b: any) => {
-      const net = b.provider_earning != null
-        ? Number(b.provider_earning)
-        : b.base_price != null
-          ? Number(b.base_price) * 0.882
-          : Math.max(0, Number(b.total_price ?? 0) - Number(b.service_fee ?? 0) - Number(b.security_deposit ?? 0));
-      return s + (isNaN(net) ? 0 : net);
-    }, 0);
+  // Net of commission; from host_dashboard_stats()
+  const earnings = Number(stats?.earnings ?? 0);
+  const totalBookings = Number(stats?.total_bookings ?? 0);
+  const pendingCount = Number(stats?.pending_count ?? pendingBookings.length);
 
   const rated = displayVehicles.filter((v: any) => Number(v.review_count) > 0);
   const avgRating = rated.length
     ? rated.reduce((s: number, v: any) => s + Number(v.avg_rating), 0) / rated.length
     : 0;
 
-  const pendingCount = displayBookings.filter((b: any) => b.status === "pending").length;
-
   const sidebarNavItems = [
-    { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(displayVehicles.length) },
+    { id: "fleet", label: "Fleet & Vehicles", icon: Car, badge: String(vehiclesPager.total) },
     { id: "calendar", label: "Availability Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics & Revenue", icon: BarChart3 },
     {
       id: "bookings",
       label: "Bookings & Activity",
       icon: ClipboardList,
-      badge: pendingCount > 0 ? String(pendingCount) : String(displayBookings.length),
+      badge: pendingCount > 0 ? String(pendingCount) : String(totalBookings),
     },
-    { id: "payouts", label: "Payouts & Income", icon: Wallet },
+    { id: "payouts", label: "Payouts & Income", icon: Wallet, badge: String(payoutsPager.total) },
     { id: "maintenance", label: "Fleet Health", icon: Wrench },
-    { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(displayReviews.length) },
+    { id: "reviews", label: "Guest Reviews", icon: Star, badge: String(reviewsPager.total) },
     {
       id: "kyc",
       label: "Host Verification",
@@ -755,10 +863,11 @@ function VendorDashboard() {
                     <button
                       key={item.id}
                       onClick={() => handleTabClick(item.id)}
-                      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${isActive
-                        ? "bg-brand text-brand-foreground shadow-xs"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        }`}
+                      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap text-left ${
+                        isActive
+                          ? "bg-brand text-brand-foreground shadow-xs"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
@@ -769,12 +878,13 @@ function VendorDashboard() {
                       {"badge" in item && (
                         <Badge
                           variant={isActive ? "secondary" : "outline"}
-                          className={`text-[10px] px-2 py-0 shrink-0 font-medium ${isActive
-                            ? "bg-white/20 text-brand-foreground border-transparent"
-                            : item.id === "bookings" && pendingCount > 0
-                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 font-semibold"
-                              : "text-muted-foreground"
-                            }`}
+                          className={`text-[10px] px-2 py-0 shrink-0 font-medium ${
+                            isActive
+                              ? "bg-white/20 text-brand-foreground border-transparent"
+                              : item.id === "bookings" && pendingCount > 0
+                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 font-semibold"
+                                : "text-muted-foreground"
+                          }`}
                         >
                           {item.badge}
                         </Badge>
@@ -843,8 +953,8 @@ function VendorDashboard() {
                 )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Stat icon={Car} label="Fleet Size" value={displayVehicles.length} />
-                  <Stat icon={Calendar} label="Total Bookings" value={displayBookings.length} />
+                  <Stat icon={Car} label="Fleet Size" value={vehiclesPager.total} />
+                  <Stat icon={Calendar} label="Total Bookings" value={totalBookings} />
                   <Stat icon={DollarSign} label="Gross Earnings" value={currency(earnings)} />
                   <Stat
                     icon={Clock}
@@ -873,7 +983,7 @@ function VendorDashboard() {
                       </Link>
                     </Button>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     <VehiclesGrid
                       vehicles={displayVehicles}
                       onTogglePause={handleTogglePause}
@@ -881,6 +991,7 @@ function VendorDashboard() {
                       onDelete={(v) => setVehicleToDelete(v)}
                       isDeletingId={isDeleting ? vehicleToDelete?.id : null}
                     />
+                    <ListPager {...vehiclesPager} />
                   </CardContent>
                 </Card>
 
@@ -963,7 +1074,7 @@ function VendorDashboard() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <HostAnalytics bookings={displayBookings} avgRating={avgRating} />
+                    <HostAnalytics stats={stats} avgRating={avgRating} />
                   </CardContent>
                 </Card>
               </div>
@@ -992,12 +1103,12 @@ function VendorDashboard() {
                           {pendingCount} Pending
                         </Badge>
                       )}
-                      <Badge variant="outline">{displayBookings.length} Total</Badge>
+                      <Badge variant="outline">{totalBookings} Total</Badge>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     {pendingCount > 0 && (
-                      <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300">
+                      <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
                           <span>
@@ -1009,93 +1120,73 @@ function VendorDashboard() {
                       </div>
                     )}
                     <ul className="divide-y divide-border">
-                      {displayBookings.length === 0 ? (
+                      {pendingBookings.length === 0 && displayBookings.length === 0 ? (
                         <li className="py-8 text-center text-sm text-muted-foreground">
                           No rental bookings yet.
                         </li>
                       ) : (
-                        displayBookings.map((b: any) => {
-                          const isPending = b.status === "pending";
-                          const isProcessing = processingBookingId === b.id;
-                          return (
-                            <li
-                              key={b.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-1 last:pb-1"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <p className="truncate text-sm font-semibold">
-                                    {b.vehicles?.title ?? "Vehicle"}
-                                  </p>
-                                  {isPending && (
+                        <>
+                          {pendingBookings.map((b: any) => {
+                            const isExpired = b.respond_by ? now > new Date(b.respond_by).getTime() : false;
+                            const isProcessing = processingBookingId === b.id;
+                            return (
+                              <li
+                                key={b.id}
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-1 last:pb-1"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="truncate text-sm font-semibold">
+                                      {b.vehicles?.title ?? "Vehicle"}
+                                    </p>
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-300 font-medium"
+                                      className={`text-[10px] font-medium ${
+                                        isExpired
+                                          ? "bg-destructive/10 text-destructive border-destructive/30"
+                                          : "bg-amber-500/10 text-amber-700 border-amber-300"
+                                      }`}
                                     >
-                                      Needs approval
+                                      {isExpired
+                                        ? "Request expired"
+                                        : b.respond_by
+                                          ? `Respond within ${formatTimeLeft(b.respond_by, now)}`
+                                          : "Needs approval"}
                                     </Badge>
-                                  )}
-                                </div>
-                                <p className="truncate text-xs text-muted-foreground mt-0.5">
-                                  {b.start_date} → {b.end_date}
-                                  {b.pickup_time && b.dropoff_time && (
-                                    <span className="ml-1.5 opacity-80">
-                                      ({String(b.pickup_time).slice(0, 5)} -{" "}
-                                      {String(b.dropoff_time).slice(0, 5)})
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-
-                              <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
-                                <div className="text-left sm:text-right">
-                                  <p className="text-sm font-bold text-foreground">
-                                    {currency(b.provider_earning ?? (b.base_price ? Number(b.base_price) * 0.882 : b.total_price))}
-                                    <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
-                                  </p>
-                                  {Number(b.service_fee) > 0 && (
-                                    <p className="text-[10px] text-muted-foreground">
-                                      Fee {currency(b.service_fee)} to Admin
-                                    </p>
-                                  )}
-                                  <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
-                                    <Badge
-                                      variant={
-                                        b.status === "confirmed"
-                                          ? "default"
-                                          : b.status === "completed"
-                                            ? "secondary"
-                                            : b.status === "rejected" || b.status === "cancelled"
-                                              ? "destructive"
-                                              : "outline"
-                                      }
-                                      className={`text-[10px] capitalize ${b.status === "confirmed"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                                        : b.status === "pending"
-                                          ? "bg-amber-50 text-amber-700 border-amber-300"
-                                          : ""
-                                        }`}
-                                    >
-                                      {b.status}
-                                    </Badge>
-                                    {b.payment_status === "paid" && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300"
-                                      >
-                                        Paid
-                                      </Badge>
-                                    )}
                                   </div>
+                                  <p className="truncate text-xs text-muted-foreground mt-0.5">
+                                    {b.start_date} → {b.end_date}
+                                    {b.pickup_time && b.dropoff_time && (
+                                      <span className="ml-1.5 opacity-80">
+                                        ({String(b.pickup_time).slice(0, 5)} -{" "}
+                                        {String(b.dropoff_time).slice(0, 5)})
+                                      </span>
+                                    )}
+                                  </p>
                                 </div>
 
-                                {isPending && (
+                                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
+                                  <div className="text-left sm:text-right">
+                                    <p className="text-sm font-bold text-foreground">
+                                      {currency(b.total_price)}
+                                    </p>
+                                    <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] capitalize bg-amber-50 text-amber-700 border-amber-300"
+                                      >
+                                        pending
+                                      </Badge>
+                                    </div>
+                                  </div>
+
                                   <div className="flex items-center gap-2">
                                     <Button
                                       size="sm"
                                       className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
-                                      disabled={isProcessing}
+                                      disabled={isProcessing || isExpired}
                                       onClick={() => decideBooking(b.id, "confirmed")}
+                                      title={isExpired ? "This request has expired" : undefined}
                                     >
                                       <Check className="mr-1 h-3.5 w-3.5" />
                                       {isProcessing ? "Approving…" : "Approve"}
@@ -1104,20 +1195,89 @@ function VendorDashboard() {
                                       size="sm"
                                       variant="outline"
                                       className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                                      disabled={isProcessing}
+                                      disabled={isProcessing || isExpired}
                                       onClick={() => decideBooking(b.id, "rejected")}
+                                      title={isExpired ? "This request has expired" : undefined}
                                     >
                                       <X className="mr-1 h-3.5 w-3.5" />
                                       Decline
                                     </Button>
                                   </div>
-                                )}
-                              </div>
-                            </li>
-                          );
-                        })
+                                </div>
+                              </li>
+                            );
+                          })}
+                          {displayBookings.map((b: any) => {
+                            return (
+                              <li
+                                key={b.id}
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4 first:pt-1 last:pb-1"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="truncate text-sm font-semibold">
+                                      {b.vehicles?.title ?? "Vehicle"}
+                                    </p>
+                                  </div>
+                                  <p className="truncate text-xs text-muted-foreground mt-0.5">
+                                    {b.start_date} → {b.end_date}
+                                    {b.pickup_time && b.dropoff_time && (
+                                      <span className="ml-1.5 opacity-80">
+                                        ({String(b.pickup_time).slice(0, 5)} -{" "}
+                                        {String(b.dropoff_time).slice(0, 5)})
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3 shrink-0">
+                                  <div className="text-left sm:text-right">
+                                    <p className="text-sm font-bold text-foreground">
+                                      {currency(b.provider_earning ?? (b.base_price ? Number(b.base_price) * 0.882 : b.total_price))}
+                                      <span className="text-[10px] font-normal text-muted-foreground ml-1">(Your payout)</span>
+                                    </p>
+                                    {Number(b.service_fee) > 0 && (
+                                      <p className="text-[10px] text-muted-foreground">
+                                        Fee {currency(b.service_fee)} to Admin
+                                      </p>
+                                    )}
+                                    <div className="flex items-center gap-1.5 sm:justify-end mt-0.5">
+                                      <Badge
+                                        variant={
+                                          b.status === "confirmed"
+                                            ? "default"
+                                            : b.status === "completed"
+                                              ? "secondary"
+                                              : b.status === "rejected" || b.status === "cancelled"
+                                                ? "destructive"
+                                                : "outline"
+                                        }
+                                        className={`text-[10px] capitalize ${
+                                          b.status === "confirmed"
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                            : ""
+                                        }`}
+                                      >
+                                        {b.status}
+                                      </Badge>
+                                      {b.payment_status === "paid" && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300"
+                                        >
+                                          Paid
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </>
                       )}
                     </ul>
+                    <ListPager {...bookingsPager} />
                   </CardContent>
                 </Card>
               </div>
@@ -1140,7 +1300,7 @@ function VendorDashboard() {
                       .
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     {displayPayouts.length === 0 && (
                       <p className="text-sm text-muted-foreground">No withdrawals yet.</p>
                     )}
@@ -1175,6 +1335,7 @@ function VendorDashboard() {
                         </li>
                       ))}
                     </ul>
+                    <ListPager {...payoutsPager} />
                   </CardContent>
                 </Card>
               </div>
@@ -1217,34 +1378,39 @@ function VendorDashboard() {
                       ⭐ {avgRating.toFixed(1)} Average
                     </Badge>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {displayReviews.map((r: any) => (
-                        <div
-                          key={r.id}
-                          className="p-3.5 rounded-xl border border-border bg-card space-y-1.5"
-                        >
-                          <p className="text-xs font-semibold text-foreground">
-                            {(r.vehicles as any)?.title}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-3.5 w-3.5 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
-                              />
-                            ))}
-                            <span className="ml-1 text-xs font-semibold">{r.rating}</span>
+                  <CardContent className="space-y-4">
+                    {displayReviews.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No reviews yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {displayReviews.map((r: any) => (
+                          <div
+                            key={r.id}
+                            className="p-3.5 rounded-xl border border-border bg-card space-y-1.5"
+                          >
+                            <p className="text-xs font-semibold text-foreground">
+                              {(r.vehicles as any)?.title}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-3.5 w-3.5 ${i < Number(r.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                                />
+                              ))}
+                              <span className="ml-1 text-xs font-semibold">{r.rating}</span>
+                            </div>
+                            {r.comment && (
+                              <p className="text-xs text-muted-foreground">{r.comment}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(r.created_at).toLocaleDateString()}
+                            </p>
                           </div>
-                          {r.comment && (
-                            <p className="text-xs text-muted-foreground">{r.comment}</p>
-                          )}
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(r.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
+                    <ListPager {...reviewsPager} />
                   </CardContent>
                 </Card>
               </div>
