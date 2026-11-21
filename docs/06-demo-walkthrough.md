@@ -97,19 +97,19 @@ Behind the scenes: `/admin` → **Vehicles**, **Licences** and **Hosts (KYC)** e
 
 ## 2. Rental booking end to end (the main demo)
 
-Book **Test Swift** for **today, with pickup 20 minutes from now, returning tomorrow at the same time**. That puts the check-in window, which opens 30 minutes before pickup, open during the demo.
+Book **Test Swift** for **today, with pickup 2 hours 10 minutes from now, returning tomorrow at the same time**. Bookings need at least 2 hours' notice (business rules §17), and check-in opens 30 minutes before pickup. So run 2.1 to 2.10, then continue from 2.11 when check-in opens, about 1 hour 40 minutes later. For a live demo, make the booking before the audience arrives.
 
 Expected money (business rules §1): base ₹2,000 + fee ₹100 + GST ₹18 + deposit ₹3,000 = **₹5,118**. Hari earns **₹1,764**, and Asha gets the **₹3,000** deposit back at the end.
 
 | #    | Who         | Go to                                                    | Click / do                                                                                                                                                  | ✅ Check                                                                                                                                                           | Result |
 | ---- | ----------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
 | 2.1  | Asha (A)    | `/browse`                                              | Set **City** to Bengaluru, open **Test Swift**                                                                                                  | The vehicle page loads with photos, price and reviews                                                                                                              |        |
-| 2.2  | Asha        | Booking panel, **1. Trip schedule**                | Set **Pickup date** to today, **Pickup time** to now + 20 min, and **Return date** / **Drop-off time** to tomorrow at the same time | **Fare breakdown**: base ₹2,000, fee ₹100, GST ₹18, deposit ₹3,000, total **₹5,118** (RB-01)                                                      |        |
+| 2.2  | Asha        | Booking panel, **1. Trip schedule**                | Set **Pickup date** to today, **Pickup time** to now + 2 h 10 min, and **Return date** / **Drop-off time** to tomorrow at the same time. Times under 2 hours away are not offered | **Fare breakdown**: base ₹2,000, fee ₹100, GST ₹18, deposit ₹3,000, total **₹5,118** (RB-01)                                                      |        |
 | 2.3  | Asha        | **Coupon code**                                    | Type `save10` → **Apply**                                                                                                                          | Toast `Coupon SAVE10 applied!`, total **₹4,906.20**. Clear the code again so the rest of this section uses ₹5,118                                        |        |
-| 2.4  | Asha        |                                                          | **Request to book** (double-click it on purpose)                                                                                                      | **One** toast `Booking requested! The host will confirm shortly.`, redirect to `/bookings`, and **one** card with progress at **Requested**  |        |
+| 2.4  | Asha        |                                                          | **Request to book** (double-click it on purpose)                                                                                                      | **One** toast `Booking requested! Host will respond by …` (about 1 hour from now), redirect to `/bookings`, and **one** card with progress at **Requested** and `Waiting for host, responds by …` with a countdown |        |
 | 2.5  | Hari (B)    | 🔔                                                       | Open the bell                                                                                                                                               | A "new booking request" notification has arrived without a refresh                                                                                                 |        |
 | 2.6  | Ada (C)     | `/admin` → **Bookings Monitor**                 | Look at the top row                                                                                                                                         | Test Swift, status **pending**, ₹5,118                                                                                                                      |        |
-| 2.7  | Hari        | `/vendor` → **Bookings & Activity**             | **Approve**                                                                                                                                           | The status becomes **Confirmed**, and Asha's bell says the host accepted and she can pay                                                                     |        |
+| 2.7  | Hari        | `/vendor` → **Bookings & Activity**             | Check the `Respond within …` badge, then **Approve**                                                                                                  | The status becomes **Confirmed**, Asha's bell says the host accepted, and her card shows **Pay by …** with a countdown                                       |        |
 | 2.8  | Asha        | `/bookings` → **As renter**                     | In **Host accepted — confirm with payment**, click **Pay with wallet** twice quickly                                                           | One toast `Paid from wallet`, and the wallet drops by **exactly ₹5,118**. The progress reaches **Paid**                                             |        |
 | 2.9  | Hari        | 🔔                                                       |                                                                                                                                                             | `Payment received: Payment of Rs 5118.00 received for Test Swift.`                                                                                               |        |
 | 2.10 | Asha        | Same card → **Receipt**                           | **Download** or **Print / Save PDF**                                                                                                            | Rental fare ₹2,000, fee ₹100, GST ₹18, deposit ₹3,000, total ₹5,118                                                                                           |        |
@@ -126,7 +126,20 @@ Expected money (business rules §1): base ₹2,000 + fee ₹100 + GST ₹18 + de
 | 2.21 | Hari        | Same review                                              | **Post reply**                                                                                                                                        | The reply shows under the review for everyone                                                                                                                      |        |
 | 2.22 | Ada         | **Bookings Monitor**                               | **Refresh live feed**                                                                                                                                 | The same booking now shows **completed**                                                                                                                     |        |
 
-> **Known gap GAP-11**: the customer alone can submit the return checklist. In the demo, let the **host** do 2.16–2.17.
+> **Known gap GAP-11 (reopened)**: since #39, a return checklist from the customer alone completes the trip. In the demo, let the **host** do 2.16–2.17.
+
+### 2b. Deadlines and Instant Book
+
+Uses the shortcuts in [doc 02 §6](02-local-setup-and-test-data.md#booking-windows-deadlines) to make a deadline pass, then `manage.py send_reminders`.
+
+| #     | Who      | Do | ✅ Check | Result |
+| ----- | -------- | -- | -------- | ------ |
+| 2b.1  | Asha     | Request Test Swift a week ahead. Don't approve. Expire the response window and run `send_reminders` | Card says `The host did not respond in time, so the request expired.` with **Find similar cars**. Hari's bell has the expiry too | |
+| 2b.2  | Asha     | **Find similar cars** | `/browse` opens with the same city and dates | |
+| 2b.3  | Hari, Asha | Hari approves a new request. Expire the payment window and run `send_reminders` | Card says `The payment window closed before payment was completed.`, and the dates are free again | |
+| 2b.4  | Hari     | `/vendor` → switch **Instant Book** on for Test Swift | Toast `Instant Book enabled`, and the **Instant** badge shows | |
+| 2b.5  | Asha     | Request Test Swift again | Toast `Booking confirmed instantly! Please complete payment by …`, no host approval needed | |
+| 2b.6  | Guest    | `/browse` for Bengaluru | Test Swift is listed first with the **Instant** badge | |
 
 ---
 
@@ -155,7 +168,7 @@ SELECT a.id, b.id FROM public.bookings a JOIN public.bookings b
  AND a.start_date <= b.end_date AND a.end_date >= b.start_date;
 ```
 
-The same guarantee covers driver hire (step 7.4) and one cleaner per wash slot (step 5.10).
+The same guarantee covers driver hire (step 7.4) and one cleaner per wash job (step 5.10). A cleaner also cannot hold two overlapping wash jobs (VW-41).
 
 ---
 
@@ -178,21 +191,23 @@ After each row, check that the confirmation dialog's preview matches the refund 
 
 ## 5. Car wash
 
-Asha books a **Car Express Wash at ₹449** in Bengaluru, at least 1 day ahead. Expected: Asha pays **₹475.49** and Cara earns **₹396.02** (business rules §4).
+Asha books a **Car Express Wash at ₹449** in Bengaluru, at least 1 day ahead. There is no admin approval: she pays straight away and the job goes on the cleaner job board (business rules §17). Expected: Asha pays **₹475.49** and Cara earns **₹396.02** (business rules §4). Cara needs a base pin within 5 km of the address (doc 02 §4, step 10).
 
-| #    | Who                            | Go to                                                                                                                         | Click / do                                                                                                                                  | ✅ Check                                                                                                           | Result |
-| ---- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------ |
-| 5.1  | Asha (A)                       | `/wash`                                                                                                                     | **Choose a package** → Car Express Wash. In **Book your slot** enter the date, time and address → **Request this slot** | Toast `Slot requested — our team will confirm a washer partner shortly`, redirect to `/washes`                |        |
-| 5.2  | Ada (C)                        | 🔔 and `/admin` → **Wash Orders**                                                                                    | Find the request                                                                                                                            | Shown as requested, with no partner yet                                                                            |        |
-| 5.3  | Ada                            | Same row                                                                                                                      | **Assign washer…** → `Doorstep Cleaners Pool (Open for Cleaners)` → **Approve**                                            | Toast `Approved — customer can pay now`, and Asha is notified                                                   |        |
-| 5.4  | Asha                           | `/washes`                                                                                                                   | **Pay with wallet**                                                                                                                   | `Paid from wallet`, and the wallet drops **₹475.49**                                                      |        |
-| 5.5  | Cara (B, signed in as cleaner) | `/cleaner-dashboard`                                                                                                        | Switch **ONLINE** → **Available Requests** tab → **Claim Job**                                                          | The job moves to **Assigned & Active Jobs**, and Asha's bell says a cleaner was assigned                     |        |
-| 5.6  | Cara                           | Job card                                                                                                                      | **On the Way**                                                                                                                        | Asha sees **Cleaner on the way**                                                                             |        |
-| 5.7  | Cara                           |                                                                                                                               | **Start Wash**                                                                                                                        | Asha sees **Wash started**                                                                                   |        |
-| 5.8  | Cara                           |                                                                                                                               | **Mark Completed**                                                                                                                    | Asha sees **Wash completed**, and Cara's wallet shows **+₹396.02** under **Earnings & History** |        |
-| 5.9  | Asha                           | `/washes`                                                                                                                   | **Post review**                                                                                                                       | Cara's rating updates                                                                                              |        |
-| 5.10 | Asha + Ada + Cara              | Book a **second** wash for the **same date and time**, approve it to the pool, and Cara tries **Claim Job** | Refused: **`You already have a wash job in this slot`**. A second cleaner can claim it                                              |                                                                                                                    |        |
-| 5.11 | Ada                            | **Wash Orders** on an unpaid confirmed wash                                                                             | **Mark completed**                                                                                                                    | Not offered until it is paid                                                                                       |        |
+| #    | Who                            | Go to                       | Click / do | ✅ Check | Result |
+| ---- | ------------------------------ | --------------------------- | ---------- | -------- | ------ |
+| 5.1  | Asha (A)                       | `/wash`                     | **Choose a package** → Car Express Wash. Enter the date, time and address, and drop the **map pin** → book | Toast `Wash slot reserved! Please complete payment to notify nearby washers.` The booking shows `Payment pending (pay by …)`, 15 minutes from now | |
+| 5.2  | Asha                           | `/washes`                   | **Pay with wallet** within 15 minutes | Toast `Paid successfully from wallet! Finding a nearby washer partner.` Wallet drops **₹475.49**, badge **Finding a washer** | |
+| 5.3  | Ada (C)                        | `/admin` → **Wash Orders**  | Find the wash | Listed as paid. There is no approve step | |
+| 5.4  | Cara (B, signed in as cleaner) | `/cleaner-dashboard`        | Switch **ONLINE** → **Available Requests** → **Claim Job** | The job moves to **Assigned & Active Jobs**, and Asha sees **Washer assigned** | |
+| 5.5  | Cara                           | Job card                    | **On the Way** | Asha sees **Cleaner on the way** | |
+| 5.6  | Cara                           |                             | **Start Wash** | Asha sees **Wash started** | |
+| 5.7  | Cara                           |                             | **Mark Completed** | Asha sees **Wash completed**, and Cara's wallet shows **+₹396.02** under **Earnings & History** | |
+| 5.8  | Asha                           | `/washes`                   | **Post review** | Cara's rating updates | |
+| 5.9  | Asha, Cara, Cleo               | Book and pay a second wash. Cara and Cleo open **Available Requests** in two windows | Before the tier widens, only Cara sees it (top 3 within 5 km). After the shortcut in doc 02 §6 pushes the payment back 5 h, Cleo sees it too | |
+| 5.10 | Cara + Cleo                    | Both click **Claim Job** at the same moment | One wins. The other sees `Another partner just claimed this job` | |
+| 5.11 | Cara                           | **Release job** on a job whose slot is less than 12 h away | A late-strike warning, then the job goes back on the board and Ada is alerted | |
+| 5.12 | Ada                            | Move an unclaimed paid wash's slot close (doc 02 §6), run `send_reminders` → **Bookings Monitor** | It is listed under **At risk: no washer assigned**. **Assign** Cara, and Asha sees **Washer assigned** | |
+| 5.13 | Asha                           | Leave another paid wash unclaimed past its auto-cancel time, run `send_reminders` | `No washer was available for your slot. A full refund has been credited to your wallet.` Wallet back up by ₹475.49 | |
 
 > **Known**: before and after photos on the cleaner dashboard are placeholder images, not real uploads. For a photo demo, use the rental trip inspection (2.13).
 
@@ -221,11 +236,12 @@ Asha books a **Car Express Wash at ₹449** in Bengaluru, at least 1 day ahead. 
 
 | #   | Who  | Do                                                                                                                     | ✅ Check                                                                                | Result |
 | --- | ---- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------ |
-| 7.1 | Asha | `/drivers` → **View & hire** on Dev → **By day** → dates and address → **Request this driver** | `Request sent — you'll pay once the driver accepts`                                  |        |
-| 7.2 | Dev  | `/driver-dashboard` → **Approve Hire**                                                                        | Asha is notified                                                                        |        |
+| 7.1 | Asha | `/drivers` → **View & hire** on Dev → **By day** → dates at least 2 h ahead and address → **Request this driver** | `Request sent — driver responds by …`, and `/hires` shows the countdown |        |
+| 7.2 | Dev  | `/driver-dashboard` → check the `Respond within …` badge → **Approve Hire**                                    | Asha is notified and sees the payment deadline                                        |        |
 | 7.3 | Asha | `/hires` → **Pay with wallet**                                                                                | Wallet drops by the hire total                                                          |        |
 | 7.4 | Ben  | Request Dev for an overlapping day                                                                                     | **`Driver is already booked for the selected dates`**                           |        |
 | 7.5 | Dev  | **Mark completed**                                                                                               | Dev's earning is credited. Asha → **Submit review** → `Thanks for the review` |        |
+| 7.6 | Asha | Request Dev again, expire the response window (doc 02 §6), run `send_reminders` | `/hires` shows **Book a similar driver**. One tap opens another driver with the same dates filled in |        |
 
 ## 8. Car pooling (short)
 

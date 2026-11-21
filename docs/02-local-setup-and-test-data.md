@@ -36,6 +36,7 @@ Sign up at `/auth` with each account below. Use the password `Test@1234`.
 | Hari Host | `host@test.synchoo.local` | Vehicle host |
 | Dev Driver | `driver@test.synchoo.local` | Hired driver and pool driver |
 | Cara Cleaner | `cleaner@test.synchoo.local` | Doorstep cleaner in Bengaluru |
+| Cleo Cleaner | `cleaner2@test.synchoo.local` | Second cleaner, for dispatch-tier and claim-race tests |
 | Wes WashCenter | `center@test.synchoo.local` | Washing center |
 | Ada Admin | `admin@test.synchoo.local` | Admin |
 
@@ -62,8 +63,8 @@ Do these in order through the app.
 | 7 | Dev | `/driver-dashboard`: submit the standard driver below |
 | 8 | Ada | `/admin`, Drivers tab: approve Dev |
 | 9 | Dev | `/driver-dashboard`: switch to live |
-| 10 | Cara | `/cleaner-dashboard`: submit a profile with city `Bengaluru` |
-| 11 | Ada | `/admin`, Cleaners tab: approve Cara |
+| 10 | Cara, Cleo | `/cleaner-dashboard`: submit a profile with city `Bengaluru`. Set Cara's base pin within 5 km of MG Road and Cleo's 6 to 8 km away, both with radius 8 km |
+| 11 | Ada | `/admin`, Cleaners tab: approve Cara and Cleo |
 | 12 | Wes | `/wash-center-dashboard`: submit a profile with city `Bengaluru` |
 | 13 | Ada | `/admin`, Wash Centers tab: approve Wes |
 | 14 | Ada | `/admin`, Coupons tab: create `SAVE10` for 10% off and `FLAT100` for ₹100 off |
@@ -117,6 +118,29 @@ Most time rules depend on the pickup time you choose, so you don't need to wait.
 
 All trip times are India time (`Asia/Kolkata`).
 
+### Booking windows (deadlines)
+
+Since #40 to #44, requests and payments have deadlines ([Business rules §17](03-business-rules.md#17-booking-windows)). Expiry, reminders and wash dispatch alerts only happen when the scheduled job runs, so run it by hand while testing:
+
+```bash
+cd backend && .venv/Scripts/python manage.py send_reminders
+```
+
+The first run on an old local database cancels every request that is already past its deadline. That is expected.
+
+To make a deadline pass without waiting, change it in `psql` (connected as `synchoo`, the owner), then run `send_reminders`. Replace `<id>` with the booking's id.
+
+| To test | SQL |
+| --- | --- |
+| Host or driver missed the response window | `UPDATE public.bookings SET respond_by = now() - interval '1 minute' WHERE id = '<id>';` (use `public.driver_bookings` for a hire) |
+| Halfway reminder is due | `UPDATE public.bookings SET respond_by = now() + interval '1 minute' WHERE id = '<id>';` |
+| Customer missed the payment window | `UPDATE public.bookings SET pay_by = now() - interval '1 minute' WHERE id = '<id>';` (works on `driver_bookings` and `wash_bookings` too) |
+| Wash moves to a later tier | `UPDATE public.wash_bookings SET paid_at = paid_at - interval '5 hours' WHERE id = '<id>';` then refresh the cleaner's board |
+| Wash reaches its admin alert or auto-cancel time | Move the slot close: `UPDATE public.wash_bookings SET slot_date = (now() AT TIME ZONE 'Asia/Kolkata')::date, slot_time = ((now() AT TIME ZONE 'Asia/Kolkata') + interval '45 minutes')::time WHERE id = '<id>';` Use 20 minutes instead of 45 for the auto-cancel |
+| Host pause after 3 expiries | Expire three of Hari's requests as above, then run `send_reminders` |
+
+Only do this on your local database.
+
 ## 7. Useful checks
 
 Run these with `psql -U synchoo -h localhost -d synchoo`.
@@ -146,3 +170,5 @@ cd backend && .venv/Scripts/python manage.py migrate
 ```
 
 This deletes all local data, so you will need to repeat sections 3 and 4.
+
+If `migrate` complains about `0031_instant_book_and_host_accountability`, `0032_driver_booking_windows` or `0033_wash_booking_dispatch`, your database ran those migrations before they were renumbered to 0032, 0033 and 0034. Start again with a clean database as above.

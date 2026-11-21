@@ -4,15 +4,17 @@ One prompt for each piece of work. Run them **in order**, one branch and one pul
 
 The design and reasoning are in [`suggested-approach.md`](suggested-approach.md). Every prompt tells the agent to read it.
 
-| # | Prompt | Depends on |
-|---|---|---|
-| 1 | Shared foundation and rentals | none |
-| 2 | Hosts: Instant Book and accountability | 1 |
-| 3 | Driver hire | 1 |
-| 4 | Doorstep washes: job board | 1 |
-| 5 | Pooling | 1 |
-| 6a | Corporate: record the design | none |
-| 6b | Corporate: build | 6a, plus the business decisions in the corporate doc |
+| # | Prompt | Depends on | Status |
+|---|---|---|---|
+| 1 | Shared foundation and rentals | none | Done (#40, migration 0030) |
+| 2 | Hosts: Instant Book and accountability | 1 | Done (#42, migration 0032) |
+| 3 | Driver hire | 1 | Done (#43, migration 0033) |
+| 4 | Doorstep washes: job board | 1 | Done (#44, migration 0034) |
+| 5 | Pooling | 1 | **Next.** Use migration `0035` |
+| 6a | Corporate: record the design | none | Not started |
+| 6b | Corporate: build | 6a, plus the business decisions in the corporate doc | Not started |
+
+The prompts below still say "the next free number" for migrations. The latest is `0034_wash_booking_dispatch`, so prompt 5 creates `0035` and depends on `0034`.
 
 Rules every prompt repeats, because the agent doesn't remember earlier runs:
 - Business rules live in PostgreSQL.
