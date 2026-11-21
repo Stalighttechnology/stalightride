@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
+import { areaOnly, calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
 import { formatWhen } from "@/lib/trip-window";
 import {
   type BookedRange,
@@ -201,6 +201,20 @@ function VehiclePage() {
     searchParams.pickupTime,
     searchParams.dropoffTime,
   ]);
+
+  // The exact pickup address is shown only once the host has confirmed one of this user's bookings.
+  const [hasConfirmedBooking, setHasConfirmedBooking] = useState(false);
+  useEffect(() => {
+    if (!id || !user?.id) return setHasConfirmedBooking(false);
+    api
+      .from("bookings")
+      .select("id")
+      .eq("vehicle_id", id)
+      .eq("customer_id", user.id)
+      .eq("status", "confirmed")
+      .limit(1)
+      .then(({ data }) => setHasConfirmedBooking(Boolean(data?.length)));
+  }, [id, user?.id]);
 
   // Auto-apply pending reward coupon from rewards page
   useEffect(() => {
@@ -624,6 +638,8 @@ function VehiclePage() {
     );
 
   const mapQuery = [v.address, v.city].filter(Boolean).join(", ") || v.city;
+  const showExactLocation = isOwner || hasConfirmedBooking;
+  const pickupArea = areaOnly(v.address, v.city);
 
   return (
     <div className="min-h-screen bg-background">
@@ -770,10 +786,10 @@ function VehiclePage() {
               <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
                 {v.description || "No description provided."}
               </p>
-              {v.address && (
+              {pickupArea && (
                 <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  {v.address}
+                  {showExactLocation ? mapQuery : pickupArea}
                 </div>
               )}
             </section>
@@ -783,21 +799,25 @@ function VehiclePage() {
               <div className="mt-2 flex items-start gap-2 text-sm">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-foreground pin-drop" />
                 <div>
-                  <p className="font-medium">{v.address || v.city}</p>
-                  {v.address && <p className="text-xs text-muted-foreground">{v.city}</p>}
-                  {v.lat && v.lng && (
-                    <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                      {Number(v.lat).toFixed(5)}, {Number(v.lng).toFixed(5)}
+                  <p className="font-medium">{showExactLocation ? v.address || v.city : pickupArea}</p>
+                  {showExactLocation && v.address && (
+                    <p className="text-xs text-muted-foreground">{v.city}</p>
+                  )}
+                  {!showExactLocation && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      The exact address, map and directions appear here once the host confirms your booking.
                     </p>
                   )}
                 </div>
               </div>
-              <VehicleMap
-                query={mapQuery}
-                lat={v.lat}
-                lng={v.lng}
-                className="mt-4 aspect-[16/9] animate-fade-in"
-              />
+              {showExactLocation && (
+                <VehicleMap
+                  query={mapQuery}
+                  lat={v.lat}
+                  lng={v.lng}
+                  className="mt-4 aspect-[16/9] animate-fade-in"
+                />
+              )}
             </section>
 
             <section className="mt-6 rounded-2xl border border-border bg-card p-6">

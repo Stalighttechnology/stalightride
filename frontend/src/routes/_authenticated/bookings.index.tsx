@@ -30,6 +30,7 @@ import {
   CalendarDays,
   Clock,
   ScanLine,
+  Navigation,
 } from "lucide-react";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
@@ -92,7 +93,7 @@ function Bookings() {
 
   const load = async () => {
     if (!user) return;
-    const sel = "*, vehicles(id,title,city,vehicle_images(url,sort_order))";
+    const sel = "*, vehicles(id,title,city,address,lat,lng,vehicle_images(url,sort_order))";
     const [c, v, w, p] = await Promise.all([
       api
         .from("bookings")
@@ -531,7 +532,25 @@ function List({
                       >
                         {b.vehicles?.title}
                       </Link>
-                      <div className="text-xs text-muted-foreground">{b.vehicles?.city}</div>
+                      {b.status === "confirmed" && (b.vehicles?.address || b.vehicles?.lat) ? (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                          <span>{[b.vehicles.address, b.vehicles.city].filter(Boolean).join(", ")}</span>
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                              b.vehicles.lat && b.vehicles.lng
+                                ? `${b.vehicles.lat},${b.vehicles.lng}`
+                                : [b.vehicles.address, b.vehicles.city].filter(Boolean).join(", "),
+                            )}&travelmode=driving`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+                          >
+                            <Navigation className="h-3 w-3" /> Get directions
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">{b.vehicles?.city}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge s={b.status} />

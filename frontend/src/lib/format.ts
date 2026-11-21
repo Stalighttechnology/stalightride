@@ -106,6 +106,19 @@ export const calculateRentalPrice = (input: RentalPriceInput): RentalPriceBreakd
   return { hours, weeks, days, remainingHours, subtotal, lines };
 };
 
+/** Area and city only ("Indiranagar, Bengaluru"): drops door numbers, streets with numbers, PIN codes and plus codes,
+ *  so a customer sees roughly where the car is before the host confirms. */
+export const areaOnly = (address: string | null | undefined, city: string | null | undefined) => {
+  const c = (city ?? "").trim();
+  const parts = (address ?? "").split(/[,\n]/).map((p) => p.trim()).filter(Boolean);
+  const cityAt = parts.findIndex((p) => p.toLowerCase() === c.toLowerCase());
+  // Locality names sit just before the city; state and country come after it.
+  const area = (cityAt >= 0 ? parts.slice(0, cityAt) : parts)
+    .filter((p) => !/\d/.test(p) && p.toLowerCase() !== "india")
+    .slice(-2);
+  return [...area, c].filter(Boolean).join(", ");
+};
+
 /** Legacy sync helper — returns a public URL. Only works for public buckets. */
 export const publicUrl = (bucket: string, path: string | null | undefined) => {
   if (!path) return null;
