@@ -75,9 +75,9 @@ psql -U synchoo -h localhost -d synchoo -c "INSERT INTO public.user_roles (user_
 | `frontend`: `npx tsc --noEmit`              | Type check                                                                                            |
 | `frontend`: `npm run build`                 | Production build into `frontend/dist`                                                               |
 
-## Trip reminders
+## Reminders and booking windows
 
-`python manage.py send_reminders` creates the "trip starts in 24 h / 2 h" notifications. Run it every 15 minutes: cron on a server, or Windows Task Scheduler locally.
+`python manage.py send_reminders` creates the "trip starts in 24 h / 2 h" notifications and runs `expire_booking_windows()`, which expires unanswered or unpaid requests and dispatches wash jobs. Run it every 5 minutes: cron on a server, or Windows Task Scheduler locally. See [docs/03-business-rules.md §17](docs/03-business-rules.md#17-booking-windows).
 
 ## Start the database over
 

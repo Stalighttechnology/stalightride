@@ -11,11 +11,11 @@ Covers driver onboarding, search, hiring, payment, completion, cancellation and 
 | Pages | `/drivers`, `/driver/$id`, `/hires`, `/driver-dashboard` |
 | Preview logic | `frontend/src/lib/driver-pricing.ts` |
 | Backend | `createDriverRazorpayOrder`, `verifyDriverRazorpayPayment` |
-| Database | `drivers`, `public_drivers`, `driver_bookings`, `driver_reviews`, `driver_base_price`, `cancel_driver_booking` |
+| Database | `drivers`, `public_drivers`, `driver_bookings`, `driver_reviews`, `driver_base_price`, `cancel_driver_booking`, `prevent_driver_booking_conflict`, `trg_zz_driver_booking_windows`, `wallet_pay_driver_booking`, `similar_drivers`, `trg_cancel_linked_driver_hire` |
 
 ## Rules
 
-See [Business rules](../03-business-rules.md), sections 1, 3, 6 and 8.
+See [Business rules](../03-business-rules.md), sections 1, 3, 6 and 8. Response and payment deadlines are in section 17.
 
 ## Test accounts
 
@@ -77,6 +77,24 @@ Use a paid hire with a total of ₹7,942.50 and provider earning ₹6,615.
 | DH-31 | Review the same hire twice | Second review is refused | **PASS** — UI hides review form once submitted; duplicate review rejected by database unique constraint |
 | DH-32 | Driver edits a customer's rating through the API | `Drivers can only add a response to a review` | **PASS** — Host/driver response trigger enforces response-only modification |
 | DH-33 | Driver sets a confirmed unpaid hire to completed through the API. The dashboard button only appears once paid | **GAP-09:** must be refused | **PASS (GAP-09 handled)** — Dashboard button disabled until paid |
+
+## Booking windows
+
+Added in #43 (migration 0033). Both windows use a 1-hour buffer. See [doc 02 §6](../02-local-setup-and-test-data.md#6-testing-time-based-rules) for how to make a deadline pass without waiting.
+
+| ID | Steps | Expected | Result |
+| --- | --- | --- | --- |
+| DH-34 | Request a hire starting 1 hour from now | `Pickup must be at least 2 hours from now` | |
+| DH-35 | Request a hire a week away | Toast `Request sent — driver responds by …`. `/hires` shows **Driver responds by …** with a countdown | |
+| DH-36 | As Dev, open `/driver-dashboard` with two requests | Each shows `Respond within …`, and the soonest deadline is first | |
+| DH-37 | Let `respond_by` pass, then Dev tries to approve | Buttons show **Request expired** and are disabled. Through the API: `This request has expired` | |
+| DH-38 | Let `respond_by` pass, then run `send_reminders` | Cancelled with reason `driver_no_response`. `/hires` shows **Book a similar driver**: approved drivers in the same city, free on those dates, highest rated first | |
+| DH-39 | Tap a similar driver | `/driver/$id` opens with the same dates, times and rate type filled in | |
+| DH-40 | Dev declines a request | Asha sees the same similar-driver list | |
+| DH-41 | Dev accepts, then let `pay_by` pass and run `send_reminders` | Cancelled with reason `payment_timeout` | |
+| DH-42 | Pay with wallet after `pay_by` | `Payment window has closed` | |
+| DH-43 | Complete a Razorpay payment for a hire that was cancelled meanwhile | Refunded to the wallet with a `Payment refunded` notification | |
+| DH-44 | No page links a hire to a rental yet. In `psql`, set the hire's `booking_id` to one of Asha's rentals, then Hari rejects or Asha cancels that rental | The linked hire is cancelled too, and refunded if it was paid | |
 
 ## Linked gaps
 
