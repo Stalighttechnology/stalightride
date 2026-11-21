@@ -75,6 +75,8 @@ function DriverProfile() {
 
   const [driver, setDriver] = useState<Tables<"public_drivers"> | null | undefined>(undefined);
   const [reviews, setReviews] = useState<any[] | null>(null);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
   const [rateType, setRateType] = useState<DriverRateType>("daily");
   const [tripType, setTripType] = useState("city");
   const [startDate, setStartDate] = useState(today());
@@ -108,14 +110,18 @@ function DriverProfile() {
       const { data } = await api.from("public_drivers").select("*").eq("id", id).maybeSingle();
       if (cancelled) return;
       setDriver(data ?? null);
-      const { data: rv } = await api
+      const { data: rv, count } = await api
         .from("driver_reviews")
-        .select("id,rating,comment,created_at,customer_id,driver_response,driver_response_at")
+        .select("id,rating,comment,created_at,customer_id,driver_response,driver_response_at", {
+          count: "exact",
+        })
         .eq("driver_id", id)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .range(0, 9);
       if (cancelled) return;
-      const ids = Array.from(new Set((rv ?? []).map((r) => r.customer_id)));
+      setReviewsTotal(count ?? 0);
+      const rows = rv ?? [];
+      const ids = Array.from(new Set(rows.map((r) => r.customer_id)));
       let names: Record<string, any> = {};
       if (ids.length) {
         const { data: profs } = await api
@@ -124,12 +130,43 @@ function DriverProfile() {
           .in("id", ids);
         names = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
       }
-      setReviews((rv ?? []).map((r) => ({ ...r, profile: names[r.customer_id] })));
+      setReviews(rows.map((r) => ({ ...r, profile: names[r.customer_id] })));
     })();
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  const loadMoreReviews = async () => {
+    if (!id || !reviews || loadingMoreReviews) return;
+    const n = reviews.length;
+    setLoadingMoreReviews(true);
+    try {
+      const { data: rv, count } = await api
+        .from("driver_reviews")
+        .select("id,rating,comment,created_at,customer_id,driver_response,driver_response_at", {
+          count: "exact",
+        })
+        .eq("driver_id", id)
+        .order("created_at", { ascending: false })
+        .range(n, n + 9);
+      if (count != null) setReviewsTotal(count);
+      const rows = rv ?? [];
+      const ids = Array.from(new Set(rows.map((r) => r.customer_id)));
+      let names: Record<string, any> = {};
+      if (ids.length) {
+        const { data: profs } = await api
+          .from("public_profiles")
+          .select("id,full_name,avatar_url")
+          .in("id", ids);
+        names = Object.fromEntries((profs ?? []).map((p) => [p.id, p]));
+      }
+      const newReviews = rows.map((r) => ({ ...r, profile: names[r.customer_id] }));
+      setReviews((prev) => [...(prev ?? []), ...newReviews]);
+    } finally {
+      setLoadingMoreReviews(false);
+    }
+  };
 
   // Keep the customer's view of driver availability in sync in real time.
   useEffect(() => {
@@ -415,6 +452,18 @@ function DriverProfile() {
                     </li>
                   ))}
                 </ul>
+                {reviews && reviews.length < reviewsTotal && (
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadMoreReviews}
+                      disabled={loadingMoreReviews}
+                    >
+                      {loadingMoreReviews ? "Loading reviews…" : "Show more reviews"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

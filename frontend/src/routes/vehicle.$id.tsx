@@ -107,6 +107,8 @@ function VehiclePage() {
   const [vendor, setVendor] = useState<any>(null);
   const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [reviews, setReviews] = useState<any[] | null>(null);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
   const [myProfile, setMyProfile] = useState<any>(null);
   const [activeImg, setActiveImg] = useState(0);
   const [start, setStart] = useState(() => searchParams.from || searchParams.start || "");
@@ -227,13 +229,14 @@ function VehiclePage() {
           .eq("id", data.vendor_id)
           .maybeSingle();
         setVendorProfile(prof);
-        const { data: r } = await api
+        const { data: r, count } = await api
           .from("reviews")
-          .select("*")
+          .select("*", { count: "exact" })
           .eq("vehicle_id", id)
           .order("created_at", { ascending: false })
-          .limit(20);
+          .range(0, 9);
         const rows = r ?? [];
+        setReviewsTotal(count ?? 0);
         const authorIds = Array.from(new Set(rows.map((x: any) => x.customer_id)));
         let authorsById: Record<string, any> = {};
         if (authorIds.length) {
@@ -247,6 +250,38 @@ function VehiclePage() {
       }
     })();
   }, [id]);
+
+  const loadMoreReviews = async () => {
+    if (!id || !reviews || loadingMoreReviews) return;
+    const n = reviews.length;
+    setLoadingMoreReviews(true);
+    try {
+      const { data: r, count } = await api
+        .from("reviews")
+        .select("*", { count: "exact" })
+        .eq("vehicle_id", id)
+        .order("created_at", { ascending: false })
+        .range(n, n + 9);
+      if (count != null) setReviewsTotal(count);
+      const rows = r ?? [];
+      const authorIds = Array.from(new Set(rows.map((x: any) => x.customer_id)));
+      let authorsById: Record<string, any> = {};
+      if (authorIds.length) {
+        const { data: authors } = await api
+          .from("public_profiles" as any)
+          .select("id,full_name,avatar_url")
+          .in("id", authorIds);
+        authorsById = Object.fromEntries((authors ?? []).map((a: any) => [a.id, a]));
+      }
+      const newReviews = rows.map((x: any) => ({
+        ...x,
+        profiles: authorsById[x.customer_id] ?? null,
+      }));
+      setReviews((prev) => [...(prev ?? []), ...newReviews]);
+    } finally {
+      setLoadingMoreReviews(false);
+    }
+  };
 
   useEffect(() => {
     if (!user || !id) return;
@@ -751,7 +786,10 @@ function VehiclePage() {
                   vehicleId={id}
                   userId={user.id}
                   reviews={reviews}
-                  onCreated={(row) => setReviews((prev) => [row, ...(prev ?? [])])}
+                  onCreated={(row) => {
+                    setReviews((prev) => [row, ...(prev ?? [])]);
+                    setReviewsTotal((t) => t + 1);
+                  }}
                 />
               )}
               {!reviews && <Skeleton className="mt-3 h-16" />}
@@ -765,22 +803,36 @@ function VehiclePage() {
                 </div>
               )}
               {reviews && reviews.length > 0 && (
-                <ul className="mt-4 space-y-4">
-                  {reviews.map((r: any) => (
-                    <ReviewItem
-                      key={r.id}
-                      r={r}
-                      isOwner={isOwner}
-                      userId={user?.id}
-                      onChange={(patch) =>
-                        setReviews(
-                          (prev) =>
-                            prev?.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) ?? null,
-                        )
-                      }
-                    />
-                  ))}
-                </ul>
+                <>
+                  <ul className="mt-4 space-y-4">
+                    {reviews.map((r: any) => (
+                      <ReviewItem
+                        key={r.id}
+                        r={r}
+                        isOwner={isOwner}
+                        userId={user?.id}
+                        onChange={(patch) =>
+                          setReviews(
+                            (prev) =>
+                              prev?.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) ?? null,
+                          )
+                        }
+                      />
+                    ))}
+                  </ul>
+                  {reviews.length < reviewsTotal && (
+                    <div className="mt-4 text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadMoreReviews}
+                        disabled={loadingMoreReviews}
+                      >
+                        {loadingMoreReviews ? "Loading reviews…" : "Show more reviews"}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </section>
           </div>

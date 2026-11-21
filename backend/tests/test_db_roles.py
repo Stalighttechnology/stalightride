@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0030_rental_booking_windows")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0031_dashboard_stats")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -40,7 +40,7 @@ def test_schema_matches_the_original_migrations():
     realtime trigger (one function, six triggers) and the admin location policy from
     drizzle/, plus 0020's block-over-booking guard and 0021's
     admin_broadcast function and admin_bookings_feed grant, 0025's vehicle_booked_ranges,
-    0028's complete_booking, and 0030's rental booking windows.
+    0028's complete_booking, 0030's rental booking windows, and 0031's dashboard stats.
     A change here means the schema changed."""
     tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = ANY(%s) AND NOT (schemaname = 'public' AND tablename ~ %s)",
                [APP_SCHEMAS, DJANGO_TABLE])[0][0]
