@@ -76,7 +76,7 @@ const ROLE_NAV_PILLS: Record<string, NavPill[]> = {
 
 export function SiteHeader() {
   const { user } = useSession();
-  const { activeRole, currentRoleInfo } = useActiveRole();
+  const { activeRole, currentRoleInfo, isDriver, switchRole } = useActiveRole();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { toggleSidebar, openMobile, isMobile } = useSidebar();
@@ -155,6 +155,27 @@ export function SiteHeader() {
           <ThemeToggle className="hidden sm:inline-flex" />
           <InstallPwaButton className="hidden lg:inline-flex" />
 
+          {/* Quick Driver Console Toggle for verified drivers */}
+          {user && isDriver && (
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className={cn(
+                "hidden sm:inline-flex h-8 px-2.5 gap-1.5 text-xs font-semibold rounded-full border shadow-2xs transition-colors cursor-pointer",
+                activeRole === "driver"
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25"
+                  : "text-muted-foreground hover:text-foreground border-border hover:border-emerald-500/30",
+              )}
+              onClick={() => switchRole(activeRole === "driver" ? "customer" : "driver")}
+            >
+              <Link to={activeRole === "driver" ? "/browse" : "/driver-dashboard"}>
+                <Steering className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>{activeRole === "driver" ? "Rider View" : "Driver Console"}</span>
+              </Link>
+            </Button>
+          )}
+
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -170,11 +191,18 @@ export function SiteHeader() {
               <DropdownMenuContent align="end" className="w-56">
                 <div className="px-2 py-1.5">
                   <div className="font-medium text-xs truncate">{user.email}</div>
-                  {currentRoleInfo.role !== "customer" && (
-                    <Badge variant="outline" className="text-[10px] uppercase font-semibold text-primary px-1.5 py-0 mt-1">
-                      {currentRoleInfo.badge}
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                    {isDriver && (
+                      <Badge variant="outline" className="text-[10px] uppercase font-semibold bg-emerald-500/10 text-emerald-600 border-emerald-300 px-1.5 py-0">
+                        Hireable Driver
+                      </Badge>
+                    )}
+                    {currentRoleInfo.role !== "customer" && currentRoleInfo.role !== "driver" && (
+                      <Badge variant="outline" className="text-[10px] uppercase font-semibold text-primary px-1.5 py-0">
+                        {currentRoleInfo.badge}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <DropdownMenuSeparator />
 
@@ -223,6 +251,33 @@ export function SiteHeader() {
                         Safety Center
                       </Link>
                     </DropdownMenuItem>
+
+                    {isDriver && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">
+                          Driver Tools
+                        </div>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to="/driver-dashboard"
+                            onClick={() => switchRole("driver")}
+                          >
+                            <Steering className="mr-2 h-4 w-4 text-emerald-600" />
+                            Driver Console
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to="/pooling/driver"
+                            onClick={() => switchRole("driver")}
+                          >
+                            <Users className="mr-2 h-4 w-4 text-emerald-600" />
+                            Carpool Trips
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -282,6 +337,16 @@ export function SiteHeader() {
                         <UserIcon className="mr-2 h-4 w-4" />
                         Driver Profile & DL
                       </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        switchRole("customer");
+                        navigate({ to: "/browse" });
+                      }}
+                    >
+                      <UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Switch to Rider View
                     </DropdownMenuItem>
                   </>
                 )}
