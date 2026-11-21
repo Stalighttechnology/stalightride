@@ -47,10 +47,23 @@ Until it is real, the page must not offer downloadable tax invoices or claim app
 | `companies` | Legal name, GSTIN, billing email, city, verification status, credit limit | Not implemented (Scope to build) |
 | `company_members` | User, company, role, department, monthly limit, status | Not implemented (Scope to build) |
 | `company_policies` | Allowed services, price caps, approval thresholds | Not implemented (Scope to build) |
-| `company_trips` | Links each rental, hire or wash to a company, with approval status | Not implemented (Scope to build) |
+| `company_trips` | Links each rental, hire or wash to a company, with `approval_status`, `manager_id`, `manager_decided_at`, and `respond_by` | Not implemented (Scope to build) |
 | `company_invoices` | Month, base, GST, total, status, invoice number | Not implemented (Scope to build) |
 
 Add every table through a migration, with row-level security so each company sees only its own data.
+
+### Approval and payment design
+
+1. **Policy is checked at booking time** (allowed services, price cap, monthly limit).
+   - **In policy:** `approval_status = 'auto'`. No manager approval is needed; the booking goes straight to the provider.
+   - **Out of policy:** Requires manager approval, or the employee pays personally (the employee chooses).
+2. **The manager and the provider approve in parallel**, with the same `respond_by` from `public.booking_deadline()`.
+   - Confirmed only when both approve.
+   - Either a decline or a missed deadline expires the booking.
+   - The provider sees "Awaiting company approval" and may approve early.
+3. **The company pays automatically on confirmation** (company wallet or credit line, decision 1 in the doc). Company trips have no `pay_by`.
+4. **In-policy trips are reviewed afterwards:** a weekly summary to managers with a "flag trip" action.
+5. **Approval tracking data:** `company_trips` gets `approval_status`, `manager_id`, `manager_decided_at` and `respond_by`.
 
 ### Workflows to specify and test
 
@@ -68,14 +81,25 @@ Add every table through a migration, with row-level security so each company see
 | CO-15 | Employee is removed | They can no longer book on the company account | Not implemented |
 | CO-16 | User from another company opens this company's data | Access is denied | Not implemented |
 | CO-17 | Invoice is unpaid past its due date | Company booking is paused | Not implemented |
+| CO-18 | Employee books a trip within policy | `approval_status` is set to `'auto'`, no manager approval needed, and provider can confirm directly | Not implemented |
+| CO-19 | Out-of-policy booking: manager and provider parallel approval | Both receive the request with the same `respond_by`; confirmed only when both approve; provider sees "Awaiting company approval" and can approve early | Not implemented |
+| CO-20 | Manager misses deadline or declines out-of-policy booking | Booking expires or is rejected; employee is notified; provider is released | Not implemented |
+| CO-21 | Out-of-policy booking: employee chooses personal payment fallback | Booking bypasses company approval and billing; employee pays personally | Not implemented |
 
 ### Decisions needed before building
 
-1. Does the company pay upfront, from a company wallet, or on monthly credit?
-2. Who approves credit, and what are the limits?
-3. What must a tax invoice contain? Have an accountant confirm the GST treatment and format.
-4. Does each employee still need an approved driving licence? For self-drive rentals, assume yes.
-5. Is pooling included, given that passengers pay drivers directly?
+Decisions answered for prompt 6b:
+
+1. **Does the company pay upfront, from a company wallet, or on monthly credit?**
+   - **Answer:** Company pays upfront (company wallet / prepaid balance charged on confirmation).
+2. **Who approves credit, and what are the limits?**
+   - **Answer:** Platform admin approves verification/credit; limits set by admin or company policy.
+3. **What must a tax invoice contain? Have an accountant confirm the GST treatment and format.**
+   - **Answer:** Current industry standard (legal name, GSTIN, billing address, invoice number, HSN/SAC code, base amount, CGST/SGST/IGST breakdown, total).
+4. **Does each employee still need an approved driving licence? For self-drive rentals, assume yes.**
+   - **Answer:** Yes, employees must have an approved driving licence for self-drive rentals.
+5. **Is pooling included, given that passengers pay drivers directly?**
+   - **Answer:** No need (pooling is excluded from corporate billing).
 
 ## Linked gaps
 
