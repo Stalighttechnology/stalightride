@@ -152,36 +152,40 @@ Other cancellation rules:
 ```mermaid
 stateDiagram-v2
     [*] --> pending: Customer requests
-    pending --> confirmed: Host approves
+    [*] --> confirmed: Instant Book vehicle
+    pending --> confirmed: Host approves before respond_by
     pending --> rejected: Host declines
     pending --> cancelled: Customer cancels
+    pending --> cancelled: respond_by passes (host_no_response)
+    confirmed --> cancelled: pay_by passes unpaid (payment_timeout)
     confirmed --> cancelled: Cancel action with refund
     confirmed --> completed: Return recorded
 ```
 
-Payment status moves from `unpaid` to `paid`, then to `refunded` or `partially_refunded` if cancelled.
+Payment status moves from `unpaid` to `paid`, then to `refunded` or `partially_refunded` if cancelled. Deadlines are in [section 17](#17-booking-windows).
 
 ### Driver hire
 
-Same flow as rentals. The driver approves, declines and marks the hire complete.
+Same flow as rentals, without Instant Book. The driver approves, declines and marks the hire complete. An expired request is cancelled with reason `driver_no_response`. When a rental is cancelled or rejected, a driver hire linked to it is cancelled too, and refunded if it was paid.
 
 ### Wash
 
 ```mermaid
 stateDiagram-v2
-    [*] --> requested
-    requested --> confirmed: Admin approves
-    requested --> rejected: Admin rejects
+    [*] --> requested: Customer books with a map pin
+    requested --> confirmed: Customer pays within 15 min, job goes on the board
+    requested --> cancelled: Not paid in 15 min (payment_timeout)
     confirmed --> assigned: Cleaner claims
+    assigned --> confirmed: Cleaner releases the job
     assigned --> on_the_way
     on_the_way --> started
     started --> completed: After photos required
-    requested --> cancelled
-    confirmed --> cancelled
-    assigned --> cancelled
+    confirmed --> cancelled: No washer by the auto-cancel time (no_washer), full refund
+    confirmed --> cancelled: Customer cancels or admin rejects
+    assigned --> cancelled: Customer cancels or admin rejects
 ```
 
-Wash status can only move forward.
+There is no admin approval step. Wash status can only move forward, except a release, which moves `assigned` back to `confirmed`.
 
 ### Pool request
 
@@ -198,11 +202,12 @@ New listings start as `draft` and `pending`. Only an admin can approve or reject
 | Licence | Customer's licence must be `approved`, and must not expire before the booking ends |
 | Availability | Dates cannot overlap a `pending` or `confirmed` booking or a host's blocked dates |
 | Same-day handover | Dates are compared by day, so a booking cannot start on the day another one ends |
-| Payment | Customer can pay only after the host confirms |
+| Minimum notice | Rentals, driver hire and washes must start at least 2 hours from now |
+| Payment | Customer can pay only after the host confirms, and only before `pay_by`. Razorpay checkout is refused when less than 5 minutes are left |
 | Driver hire | Driver must be approved and active, with no overlapping hire |
-| Wash | Package must be active, and slot date cannot be in the past |
+| Wash | Package must be active, the address must have a map pin, and the slot must be at least 2 hours ahead |
 | Pooling | Trip must be scheduled and in the future. Drivers cannot join their own trip. Seats requested cannot exceed seats available |
-| Cleaner claim | Cleaner must be approved, in the same city as the job, and the job must be confirmed and unassigned |
+| Cleaner claim | Cleaner must be approved and available, in the same city, inside the job's current tier (section 17), with no other job within the slot plus wash time plus 30 minutes. The job must be paid, confirmed and unassigned |
 
 ## 9. Trip handover
 
@@ -213,7 +218,7 @@ New listings start as `draft` and `pending`. Only an admin can approve or reject
 | Pickup checklist | Fuel 0 to 100, odometer 0 to 3,000,000, up to 20 photos, notes up to 2,000 characters |
 | Damage items | Each is `ok`, `minor` or `major` |
 | Return checklist | Return odometer cannot be lower than pickup odometer |
-| Trip completion | Submitting the return checklist completes the trip |
+| Trip completion | Submitting the return checklist completes the trip. **GAP-11 regression:** since #39 this happens even when only the customer submits it (see [Launch gaps](04-launch-gaps.md)) |
 | Settlement | Host receives provider earning, customer receives the deposit back |
 
 ## 10. Trip extension
@@ -302,5 +307,89 @@ Payment is by wallet or Razorpay. Cancelling turns off auto-renew, and benefits 
 | Wallet | `wallet_apply`, `withdrawable_balance`, `request_withdrawal` |
 | Handover | `backend/payments/trip_window.py`, `frontend/src/lib/trip-window.ts` |
 | Pool matching | `frontend/src/lib/pool-match.ts` |
+| Booking windows | `booking_deadline`, `prevent_booking_conflict`, `trg_zz_booking_windows`, `trg_zz_driver_booking_windows`, `expire_booking_windows` (migrations 0030 to 0034) |
+| Host accountability | `host_response_stats`, `reactivate_vendor_listings` (0032) |
+| Similar drivers | `similar_drivers` (0033) |
+| Wash dispatch | `can_cleaner_see_wash_job`, `wash_job_board`, `claim_wash_job`, `release_wash_job`, `admin_assign_wash_cleaner`, `haversine_km` (0034) |
+| Late payment refunds | `_refund_late_*_payment` in `backend/payments/views.py` |
+| Dashboard totals | `host_dashboard_stats`, `driver_dashboard_stats`, `wash_center_dashboard_stats` (0031) |
 
 Later migrations in `backend/core/migrations/` replace some of these functions, so check them for the latest version.
+
+## 17. Booking windows
+
+Every request now has deadlines, so a stalled request no longer blocks dates indefinitely. The deadlines are stored on the row (`respond_by`, `pay_by`) and the app only displays them. Pooling and corporate are not covered yet.
+
+### The deadline formula
+
+```
+deadline(from, start, buffer) = earliest of:
+    from + 12h                  cap
+    from + (start - from) / 2   the customer keeps half the remaining time to rebook
+    start - buffer              must close before the start
+```
+
+`start` is the booking's date and time read as India time.
+
+| Service | Who approves | Response window (`respond_by`) | Payment window (`pay_by`) | Minimum notice |
+| --- | --- | --- | --- | --- |
+| Rental | Host, or nobody with Instant Book | `deadline(requested, pickup, 1h)` | `deadline(confirmed, pickup, 30m)` | 2h |
+| Driver hire | Driver | `deadline(requested, start, 1h)` | `deadline(confirmed, start, 1h)` | 2h |
+| Doorstep wash | Nobody | None | 15 minutes after booking | 2h |
+| Pooling | Trip driver | Not built | None (cash) | None |
+
+### Worked examples: rentals
+
+| Request made | Pickup | Host responds by | If approved at | Customer pays by |
+| --- | --- | --- | --- | --- |
+| Today 3 pm | Today 6 pm | 4:30 pm | 4:00 pm | 5:00 pm |
+| Today 3 pm | Tomorrow 3 pm | 3:00 am | 10:00 pm | 6:30 am |
+| Today 3 pm | Next week | 3:00 am tomorrow (12h cap) | Tomorrow 10 am | Tomorrow 10 pm (12h cap) |
+| Today 3 pm, Instant Book car | Today 6 pm | Confirmed at once | 3:00 pm | 4:30 pm |
+| Today 3 pm | Today 4:30 pm | Refused: less than 2h notice | | |
+
+### What happens when a deadline passes
+
+| Event | Result | `cancellation_reason` |
+| --- | --- | --- |
+| Host misses `respond_by` | Request cancelled, both people notified, the customer is offered **Find similar cars** | `host_no_response` |
+| Driver misses `respond_by` | Hire cancelled, the customer is offered **Book a similar driver** | `driver_no_response` |
+| Customer misses `pay_by` (rental, hire or wash) | Booking cancelled | `payment_timeout` |
+| No cleaner claims a paid wash in time | Wash cancelled and fully refunded to the wallet | `no_washer` |
+| Approve or pay after the deadline | Refused by the database | |
+| Razorpay payment lands after the booking closed | Refunded to the wallet with a "Payment refunded" notification. The Razorpay fee is lost | |
+
+Expiry runs in two places:
+
+1. **Lazily:** a new request first cancels expired requests that overlap it, so a dead request never blocks a new customer.
+2. **On a schedule:** `expire_booking_windows()` runs from `manage.py send_reminders`, which must run **every 5 minutes**. It cancels, notifies, and sends one reminder to whoever must act at the halfway point of each window.
+
+### Host accountability
+
+| Rule | Detail |
+| --- | --- |
+| Instant Book | Per-vehicle switch. Requests are confirmed at once and the host can't decline. Instant Book cars are listed first in `/browse` and carry an **Instant** badge |
+| Response rate | Share of requests from the last 90 days answered before `respond_by`, with the median response time. Shown on the vehicle page and the host dashboard |
+| Pausing | 3 `host_no_response` expiries in 30 days pause all the host's vehicles and notify the host |
+| Reactivating | **Re-activate listings** on `/vendor` turns them back on and resets the count |
+
+### Wash job board
+
+Once paid, a wash appears on the board. Who sees it depends on the time from payment to slot and on how long it has been on the board. Nothing runs on a timer: the tier is worked out whenever a cleaner opens the board.
+
+| Time from payment to slot | Tier 1: top 3 within 5 km | Tier 2: within the cleaner's radius | Tier 3: whole city | Admin alerted | Auto-cancel and refund |
+| --- | --- | --- | --- | --- | --- |
+| More than 24h | First 4h | Next 4h | After 8h | 12h before the slot | 2h before |
+| 6 to 24h | First 1h | Next 1h | After 2h | 3h before | 1h before |
+| 2 to 6h | First 15m | Next 15m | After 30m | 1h before | 30m before |
+
+| Rule | Detail |
+| --- | --- |
+| Tier 1 ranking | Highest rating first, then fewest jobs that day |
+| Strikes | Releasing a job less than 12h before the slot is a late strike. 2 strikes in 30 days remove the cleaner from Tier 1 |
+| Base location | Cleaners set a base pin and radius (default 8 km) on their profile. Without a pin they see Tier 3 only |
+| Clash | A cleaner can't hold two jobs within the slot plus wash time plus 30 minutes of travel |
+| Release | Puts the job back on the board at Tier 3 and alerts the admins |
+| Race | The second cleaner to claim sees `Another partner just claimed this job` |
+| Manual assignment | Admins can assign a cleaner from **Bookings Monitor**, which lists jobs at risk of having no washer |
+| Notifications | One summary per cleaner when jobs enter their tier, not one per job |

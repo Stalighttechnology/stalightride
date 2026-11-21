@@ -1,6 +1,27 @@
 # Booking windows and dispatch: suggested approach
 
-Decided on 2026-11-20. Nothing here is built yet. The step-by-step prompts are in [`antigravity-prompts.md`](antigravity-prompts.md).
+Decided on 2026-11-20. The step-by-step prompts are in [`antigravity-prompts.md`](antigravity-prompts.md).
+
+## Build status (2026-11-21)
+
+| Step | Status | Merged in | Migration | Test it with |
+| --- | --- | --- | --- | --- |
+| 1. Shared foundation and rentals, including late-payment refunds | **Built** | #40 | `0030_rental_booking_windows` | [03 Rental booking](../components/03-rental-booking.md#booking-windows) |
+| 2. Hosts: Instant Book, response stats, pausing listings | **Built** | #42 | `0032_instant_book_and_host_accountability` | [02 Hosts and vehicles](../components/02-hosts-and-vehicles.md#instant-book-and-response-rate) |
+| 3. Driver hire | **Built** | #43 | `0033_driver_booking_windows` | [05 Driver hire](../components/05-driver-hire.md#booking-windows) |
+| 4. Doorstep washes: job board with tiers | **Built** | #44 | `0034_wash_booking_dispatch` | [07 Vehicle wash](../components/07-vehicle-wash.md) |
+| 5. Pooling | Not started | | | Pool requests still never expire |
+| 6. Corporate | Not started | | | |
+
+Migration `0031_dashboard_stats` (#41) is unrelated and sits between steps 1 and 2. The rules as built are in [Business rules §17](../03-business-rules.md#17-booking-windows).
+
+**Where the build differs from the plan below:**
+
+- Tier 2 of the wash board uses each cleaner's own `radius_km`, not a fixed 8 km. The default radius is 8 km, so the result is the same until a cleaner changes it.
+- A cleaner with no base location set only ever sees Tier 3 (whole-city) jobs.
+- The admin can still **reject** or **complete** a wash from **Wash Orders**. The approve step is gone.
+- `expire_booking_windows()` must run every 5 minutes through `manage.py send_reminders`. Without it, expired requests are still cancelled lazily when a new request overlaps them, but nobody is notified and washes are never auto-cancelled.
+- Expiry reasons stored in `cancellation_reason`: `host_no_response`, `driver_no_response`, `payment_timeout`, `no_washer`.
 
 ## The problem
 
@@ -135,7 +156,7 @@ deadline(from, start, buffer) = earliest of:
 
 ## 4. Doorstep washes: job board with tiers
 
-**Today:** `wash.tsx` creates a pending booking → an admin approves it → the customer pays → any cleaner in the same city claims it (`claim_wash_job`, `schema.sql:925`) → `advance_wash_status`. Customers can't book drop-off at a wash center yet; every `wash_bookings` row is a doorstep job.
+**Before #44:** `wash.tsx` created a pending booking → an admin approves it → the customer pays → any cleaner in the same city claims it (`claim_wash_job`, `schema.sql:925`) → `advance_wash_status`. Customers can't book drop-off at a wash center yet; every `wash_bookings` row is a doorstep job.
 
 **New flow:**
 
