@@ -175,7 +175,11 @@ function ScanPage() {
 
               <dl className="grid gap-3 rounded-xl bg-muted/50 p-4 text-sm sm:grid-cols-2">
                 <Row label="Rider" value={result.rider?.full_name ?? "Synchoo rider"} />
-                <Row label="Amount" value={currency(b.total_price)} />
+                {b.total_price != null ? (
+                  <Row label="Amount" value={currency(b.total_price)} />
+                ) : (
+                  <Row label="Your earning" value={currency(b.provider_earning)} />
+                )}
                 <Row label="Dates" value={`${b.start_date} → ${b.end_date}`} />
                 <Row
                   label="Times"

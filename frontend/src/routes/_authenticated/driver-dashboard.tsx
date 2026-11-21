@@ -400,7 +400,7 @@ function DriverDashboard() {
     const ok = await confirm({
       title: "Cancel this hire?",
       description: paid
-        ? `The customer gets a full refund of ${currency(h.total_price)} and you won't receive an earning for it.`
+        ? "The customer gets a full refund and you won't receive an earning for it."
         : "Are you sure you want to cancel this hire assignment?",
       confirmText: "Cancel hire",
       cancelText: "Keep hire",
@@ -783,7 +783,7 @@ function DriverDashboard() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">
-                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
+                                {currency(h.provider_earning)} ·{" "}
                                 {h.rate_type === "hourly"
                                   ? `${h.hours} hour(s)`
                                   : `${h.days} day(s)`}
@@ -851,7 +851,7 @@ function DriverDashboard() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">
-                                {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))}
+                                {currency(h.provider_earning)}
                                 <span className="text-xs font-normal text-muted-foreground ml-1.5">(Driver payout)</span>
                               </p>
                               {h.trip_type && (
@@ -1005,7 +1005,7 @@ function DriverDashboard() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <p className="font-medium">
-                                  {currency(h.provider_earning ?? (h.base_price ? Number(h.base_price) * 0.882 : h.total_price))} ·{" "}
+                                  {currency(h.provider_earning)} ·{" "}
                                   {h.rate_type === "hourly"
                                     ? `${h.hours} hour(s)`
                                     : `${h.days} day(s)`}

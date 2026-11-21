@@ -660,7 +660,6 @@ function WashCenterDashboard() {
   const completedJobsCount = Number(stats?.completed ?? centerBookings.filter((b) => b.status === "completed").length);
   const completedJobs = centerBookings.filter((b) => b.status === "completed");
   // The database prices each wash: provider_earning is what the wallet is credited.
-  const grossEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.base_price || 0), 0);
   const netEarnings = completedJobs.reduce((acc, curr) => acc + Number(curr.provider_earning || 0), 0);
 
   return (
@@ -930,18 +929,10 @@ function WashCenterDashboard() {
           <TabsContent value="earnings">
             <div className="grid gap-4 sm:grid-cols-2">
               <Card className="p-4">
-                <h3 className="font-semibold text-sm mb-3">Revenue Breakdown</h3>
+                <h3 className="font-semibold text-sm mb-3">Your earnings</h3>
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Gross Wash Turnaround</span>
-                    <span className="font-semibold">{currency(grossEarnings)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Synchoo commission + GST</span>
-                    <span className="text-muted-foreground">−{currency(grossEarnings - netEarnings)}</span>
-                  </div>
                   <div className="flex justify-between py-1 font-semibold text-sm">
-                    <span>Net Center Revenue</span>
+                    <span>Earned from completed washes</span>
                     <span className="text-brand">{currency(netEarnings)}</span>
                   </div>
                 </div>

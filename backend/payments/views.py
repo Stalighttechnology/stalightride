@@ -400,7 +400,7 @@ def verify_wallet_topup(data, user_id):
 # -- QR lookup, handover, inspection ---------------------------------------------
 
 _QR_FIELDS = ("id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, base_price, "
-              "security_deposit, total_price, paid_at, vehicle_id, customer_id, vendor_id, pickup_fuel_pct, "
+              "security_deposit, total_price, provider_earning, paid_at, vehicle_id, customer_id, vendor_id, pickup_fuel_pct, "
               "return_fuel_pct, pickup_odometer, return_odometer, pickup_checked_at, return_checked_at")
 
 
@@ -432,12 +432,19 @@ def get_booking_by_qr(data, user_id):
     def num(v):
         return float(v) if v is not None else None
 
+    # Money by viewer: the customer sees what they paid, the host only what they earn, anyone else nothing.
+    if user_id == str(b["customer_id"]):
+        money = {"basePrice": num(b["base_price"]), "securityDeposit": num(b["security_deposit"]),
+                 "totalPrice": num(b["total_price"])}
+    elif user_id == str(b["vendor_id"]):
+        money = {"providerEarning": num(b["provider_earning"])}
+    else:
+        money = {}
     return {
         "id": b["id"], "status": b["status"], "paymentStatus": b["payment_status"],
         "startDate": b["start_date"], "endDate": b["end_date"],
         "pickupTime": b["pickup_time"], "dropoffTime": b["dropoff_time"],
-        "basePrice": num(b["base_price"]), "securityDeposit": num(b["security_deposit"]),
-        "totalPrice": num(b["total_price"]), "paidAt": b["paid_at"],
+        **money, "paidAt": b["paid_at"],
         "pickupFuelPct": b["pickup_fuel_pct"], "returnFuelPct": b["return_fuel_pct"],
         "pickupOdometer": b["pickup_odometer"], "returnOdometer": b["return_odometer"],
         "pickupCheckedAt": b["pickup_checked_at"], "returnCheckedAt": b["return_checked_at"],
@@ -448,9 +455,14 @@ def get_booking_by_qr(data, user_id):
 def resolve_handover_code(data, user_id):
     code = _text(data, "code", 8, 200)
     b = _by_code("id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, total_price, "
-                 "pickup_checked_at, return_checked_at, customer_id, vendor_id, vehicle_id", code)
+                 "provider_earning, pickup_checked_at, return_checked_at, customer_id, vendor_id, vehicle_id", code)
     if b is None:
         return {"found": False}
+    # The customer sees what they paid; the host (or admin) only the host's earning.
+    if b["customer_id"] == user_id:
+        b.pop("provider_earning")
+    else:
+        b.pop("total_price")
     vehicle = _get("vehicles", "title, brand, model, city", "id", b["vehicle_id"])
     rider = _get("public_profiles", "full_name, avatar_url", "id", b["customer_id"])
     gate = handover_gate(b)
