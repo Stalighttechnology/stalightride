@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MapPicker } from "@/components/map-picker";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Upload, X } from "lucide-react";
 
@@ -55,6 +56,7 @@ function NewVehicle() {
     price_daily: "",
     price_weekly: "",
     security_deposit: "0",
+    instant_book: false,
   });
   const [pin, setPin] = useState<{ lat: number | null; lng: number | null }>({
     lat: null,
@@ -125,6 +127,7 @@ function NewVehicle() {
         price_daily: Number(form.price_daily),
         price_weekly: form.price_weekly ? Number(form.price_weekly) : null,
         security_deposit: Number(form.security_deposit || 0),
+        instant_book: Boolean(form.instant_book),
         status: "draft" as const,
         rc_url,
         insurance_url,
@@ -390,6 +393,22 @@ function NewVehicle() {
                   onChange={(e) => set("description", e.target.value)}
                   placeholder="Highlights, quirks, rules, included extras…"
                 />
+              </Section>
+
+              <Section title="Booking options">
+                <div className="flex items-center justify-between rounded-xl border border-border p-4 bg-muted/20">
+                  <div className="space-y-0.5 pr-4">
+                    <Label htmlFor="instant-book" className="text-sm font-medium cursor-pointer">Instant Book</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Guests are confirmed immediately; you can't decline.
+                    </p>
+                  </div>
+                  <Switch
+                    id="instant-book"
+                    checked={form.instant_book}
+                    onCheckedChange={(checked) => set("instant_book", checked)}
+                  />
+                </div>
               </Section>
 
               <Section title="Photos">
