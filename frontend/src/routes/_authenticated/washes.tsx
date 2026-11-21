@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   CreditCard,
   Wallet as WalletIcon,
@@ -190,6 +191,7 @@ function WashReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () =
 function WashesPage() {
   const { user } = useSession();
   const confirm = useConfirm();
+  const pager = usePage(10);
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -199,25 +201,39 @@ function WashesPage() {
 
   const load = async () => {
     if (!user) return;
-    const [{ data, error }, { data: w }, { data: revData }] = await Promise.all([
+    const [{ data, error, count }, { data: w }] = await Promise.all([
       api
         .from("wash_bookings")
-        .select("*, wash_services:service_id(name,duration_minutes,vehicle_category)")
+        .select("*, wash_services:service_id(name,duration_minutes,vehicle_category)", {
+          count: "exact",
+        })
         .eq("customer_id", user.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(pager.from, pager.to),
       api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-      api.from("wash_reviews").select("wash_booking_id").eq("customer_id", user.id),
     ]);
     if (error) toast.error(error.message);
-    setItems(data ?? []);
+    const rows = data ?? [];
+    setItems(rows);
+    pager.setTotal(count ?? 0);
     setWallet(Number(w?.balance ?? 0));
-    if (revData) {
-      setReviewedIds(new Set(revData.map((r) => r.wash_booking_id)));
+
+    const pageBookingIds = rows.map((b: any) => b.id);
+    if (pageBookingIds.length > 0) {
+      const { data: revData } = await api
+        .from("wash_reviews")
+        .select("wash_booking_id")
+        .in("wash_booking_id", pageBookingIds);
+      if (revData) {
+        setReviewedIds(new Set(revData.map((r) => r.wash_booking_id)));
+      }
+    } else {
+      setReviewedIds(new Set());
     }
   };
   useEffect(() => {
     load();
-  }, [user?.id]);
+  }, [user?.id, pager.page]);
 
   const cancel = async (b: any) => {
     const paid = b.payment_status === "paid";
@@ -491,6 +507,7 @@ function WashesPage() {
             );
           })}
         </ul>
+        <ListPager {...pager} />
       </div>
     </div>
   );

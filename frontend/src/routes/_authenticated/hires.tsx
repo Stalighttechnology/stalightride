@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
+import { usePage, ListPager } from "@/components/list-pager";
 import { CreditCard, Wallet as WalletIcon, Star, UserRound, ReceiptText, Clock } from "lucide-react";
 import { createDriverRazorpayOrder, verifyDriverRazorpayPayment } from "@/lib/actions";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
@@ -146,6 +147,7 @@ function HiresPage() {
   const navigate = useNavigate();
   const { user } = useSession();
   const confirm = useConfirm();
+  const pager = usePage(10);
   const [items, setItems] = useState<any[] | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -160,23 +162,32 @@ function HiresPage() {
 
   const load = async () => {
     if (!user) return;
-    const [{ data }, { data: w }, { data: rv }] = await Promise.all([
+    const [{ data, count }, { data: w }] = await Promise.all([
       api
         .from("driver_bookings")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("customer_id", user.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .range(pager.from, pager.to),
       api.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-      api.from("driver_reviews").select("driver_booking_id").eq("customer_id", user.id),
     ]);
     const rows = data ?? [];
-    // Driver details come from the public directory view (the drivers table is
-    // host-private), so hydrate names/photos separately instead of embedding.
-    const ids = Array.from(new Set(rows.map((b: any) => b.driver_id)));
-    const { data: drv } = ids.length
-      ? await api.from("public_drivers").select("id,full_name,photo_url,city").in("id", ids)
-      : { data: [] as any[] };
-    const byId = new Map((drv ?? []).map((d: any) => [d.id, d]));
+    pager.setTotal(count ?? 0);
+
+    const bookingIds = rows.map((b: any) => b.id);
+    const [{ data: rv }, drvRes] = await Promise.all([
+      bookingIds.length
+        ? api.from("driver_reviews").select("driver_booking_id").in("driver_booking_id", bookingIds)
+        : Promise.resolve({ data: [] as any[] }),
+      (() => {
+        const ids = Array.from(new Set(rows.map((b: any) => b.driver_id)));
+        return ids.length
+          ? api.from("public_drivers").select("id,full_name,photo_url,city").in("id", ids)
+          : Promise.resolve({ data: [] as any[] });
+      })(),
+    ]);
+    const drv = drvRes.data ?? [];
+    const byId = new Map(drv.map((d: any) => [d.id, d]));
     const reviewed = new Set((rv ?? []).map((r) => r.driver_booking_id));
     setItems(
       rows.map((b: any) => ({
@@ -190,7 +201,7 @@ function HiresPage() {
 
   useEffect(() => {
     load();
-  }, [user?.id]);
+  }, [user?.id, pager.page]);
 
   const cancel = async (b: any) => {
     const paid = b.payment_status === "paid";
@@ -494,6 +505,7 @@ function HiresPage() {
             );
           })}
         </ul>
+        <ListPager {...pager} />
       </div>
     </div>
   );

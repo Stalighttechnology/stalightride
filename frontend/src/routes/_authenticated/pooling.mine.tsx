@@ -12,6 +12,7 @@ import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/confirm-dialog";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   Users,
   CalendarClock,
@@ -84,6 +85,7 @@ function formatTime(target: string | Date | null | undefined) {
 function MyPooling() {
   const { user } = useSession();
   const confirm = useConfirm();
+  const pager = usePage(10);
   const [rows, setRows] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [ratedTrips, setRatedTrips] = useState<Set<string>>(new Set());
@@ -96,24 +98,33 @@ function MyPooling() {
 
   const load = async () => {
     if (!user) return;
-    const { data } = await api
+    const { data, count } = await api
       .from("pool_requests")
-      .select("*, pool_trips(*)")
+      .select("*, pool_trips(*)", { count: "exact" })
       .eq("passenger_id", user.id)
-      .order("created_at", { ascending: false });
-    setRows(data ?? []);
+      .order("created_at", { ascending: false })
+      .range(pager.from, pager.to);
+    const resultRows = data ?? [];
+    setRows(resultRows);
+    pager.setTotal(count ?? 0);
 
-    const { data: userRatings } = await api
-      .from("pool_ratings")
-      .select("request_id")
-      .eq("rater_id", user.id);
-    if (userRatings) {
-      setRatedTrips(new Set(userRatings.map((x) => x.request_id).filter(Boolean) as string[]));
+    const pageRequestIds = resultRows.map((r: any) => r.id);
+    if (pageRequestIds.length > 0) {
+      const { data: userRatings } = await api
+        .from("pool_ratings")
+        .select("request_id")
+        .eq("rater_id", user.id)
+        .in("request_id", pageRequestIds);
+      if (userRatings) {
+        setRatedTrips(new Set(userRatings.map((x) => x.request_id).filter(Boolean) as string[]));
+      }
+    } else {
+      setRatedTrips(new Set());
     }
   };
   useEffect(() => {
     load();
-  }, [user?.id]);
+  }, [user?.id, pager.page]);
 
   const cancel = async (r: any) => {
     const ok = await confirm({
@@ -342,6 +353,7 @@ function MyPooling() {
             );
           })}
         </div>
+        <ListPager {...pager} />
       </div>
     </div>
   );

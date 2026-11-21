@@ -13,12 +13,15 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { Button } from "@/components/ui/button";
+import { usePage, ListPager } from "@/components/list-pager";
 import { Heart, Star, MapPin, BadgeCheck, Clock, Car, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/wishlist")({ component: Wishlist });
 
 function Wishlist() {
   const { user } = useSession();
+  const vehiclePager = usePage(12);
+  const driverPager = usePage(12);
   const { savedDriverIds, toggleSaveDriver } = useSavedDrivers();
   const [items, setItems] = useState<any[] | null>(null);
   const [drivers, setDrivers] = useState<any[] | null>(null);
@@ -26,31 +29,41 @@ function Wishlist() {
 
   const loadVehicles = async () => {
     if (!user) return;
-    const { data } = await api
+    const { data, count } = await api
       .from("wishlists")
       .select(
         "id, vehicles(id,title,brand,model,year,city,price_daily,category,vehicle_images(url,sort_order))",
+        { count: "exact" },
       )
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(vehiclePager.from, vehiclePager.to);
     setItems(data ?? []);
+    vehiclePager.setTotal(count ?? 0);
   };
 
   const loadDrivers = async () => {
     if (!savedDriverIds || savedDriverIds.length === 0) {
+      setDrivers([]);
+      driverPager.setTotal(0);
+      return;
+    }
+    driverPager.setTotal(savedDriverIds.length);
+    const pagedIds = savedDriverIds.slice(driverPager.from, driverPager.to + 1);
+    if (pagedIds.length === 0) {
       setDrivers([]);
       return;
     }
     const { data } = await api
       .from("public_drivers")
       .select("*")
-      .in("id", savedDriverIds);
+      .in("id", pagedIds);
     setDrivers(data ?? []);
   };
 
   useEffect(() => {
     loadVehicles();
-  }, [user?.id]);
+  }, [user?.id, vehiclePager.page]);
 
   useEffect(() => {
     const handleVehiclesUpdate = () => {
@@ -60,11 +73,11 @@ function Wishlist() {
     return () => {
       window.removeEventListener(SAVED_VEHICLES_EVENT, handleVehiclesUpdate);
     };
-  }, [user?.id]);
+  }, [user?.id, vehiclePager.page]);
 
   useEffect(() => {
     loadDrivers();
-  }, [savedDriverIds]);
+  }, [savedDriverIds, driverPager.page]);
 
   const removeVehicle = async (id: string, title?: string) => {
     await api.from("wishlists").delete().eq("id", id);
@@ -80,8 +93,8 @@ function Wishlist() {
   );
   const urls = useSignedUrls("vehicle-images", paths);
 
-  const vehicleCount = items?.length ?? 0;
-  const driverCount = drivers?.length ?? 0;
+  const vehicleCount = vehiclePager.total;
+  const driverCount = savedDriverIds?.length ?? 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,6 +198,7 @@ function Wishlist() {
                 })}
               </div>
             )}
+            <ListPager {...vehiclePager} />
           </div>
         )}
 
@@ -286,6 +300,7 @@ function Wishlist() {
                 ))}
               </div>
             )}
+            <ListPager {...driverPager} />
           </div>
         )}
       </div>

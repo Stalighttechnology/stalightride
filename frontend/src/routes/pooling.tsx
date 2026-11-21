@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { usePage, ListPager } from "@/components/list-pager";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
 import { MapPicker } from "@/components/map-picker";
@@ -63,6 +64,7 @@ function whenLabel(iso: string) {
 
 function PoolingPage() {
   const { user } = useSession();
+  const pager = usePage(12);
   const [pickup, setPickup] = useState<Point>({ lat: null, lng: null });
   const [pickupLabel, setPickupLabel] = useState("");
   const [drop, setDrop] = useState<Point>({ lat: null, lng: null });
@@ -87,18 +89,19 @@ function PoolingPage() {
     try {
       let q = api
         .from("pool_trips")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("status", "scheduled")
         .gt("seats_available", 0)
         .gte("seats_available", seats)
         .gt("depart_at", new Date().toISOString())
         .order("depart_at", { ascending: true })
-        .limit(60);
+        .range(pager.from, pager.to);
       if (date) {
         q = q.gte("depart_at", `${date}T00:00:00`).lte("depart_at", `${date}T23:59:59`);
       }
-      const { data, error } = await q;
+      const { data, count, error } = await q;
       if (error) throw error;
+      pager.setTotal(count ?? 0);
       const scored = (data ?? [])
         .map((trip) => ({
           trip,
@@ -132,6 +135,12 @@ function PoolingPage() {
       setSearching(false);
     }
   };
+
+  useEffect(() => {
+    if (ready && results !== null) {
+      search();
+    }
+  }, [pager.page]);
 
   const join = async (trip: any) => {
     if (!user) return;
@@ -289,7 +298,10 @@ function PoolingPage() {
             </div>
             <div className="lg:col-span-2">
               <Button
-                onClick={search}
+                onClick={() => {
+                  if (pager.page !== 0) pager.setPage(0);
+                  else search();
+                }}
                 disabled={!ready || searching}
                 className="w-full rounded-full sm:w-auto"
               >
@@ -439,6 +451,7 @@ function PoolingPage() {
                 );
               })}
             </div>
+            <ListPager {...pager} />
           </div>
         )}
       </div>

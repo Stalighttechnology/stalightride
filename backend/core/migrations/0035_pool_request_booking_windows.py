@@ -742,7 +742,7 @@ ALTER TABLE public.pool_requests
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0033_wash_booking_dispatch'),
+        ('core', '0034_wash_booking_dispatch'),
     ]
 
     operations = [

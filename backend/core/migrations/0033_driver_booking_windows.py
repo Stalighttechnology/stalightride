@@ -599,7 +599,7 @@ ALTER TABLE public.driver_bookings
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("core", "0031_instant_book_and_host_accountability"),
+        ("core", "0032_instant_book_and_host_accountability"),
     ]
 
     operations = [
