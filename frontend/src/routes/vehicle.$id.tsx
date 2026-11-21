@@ -393,13 +393,13 @@ function VehiclePage() {
   const subtotal = priceBreakdown.subtotal;
   const charges = useMemo(
     () =>
-      computeCharges({
-        base: subtotal,
-        deposit: Number(v?.security_deposit || 0),
-        coupon,
-        membershipPlan: myProfile?.membership_plan,
-      }),
-    [subtotal, v?.security_deposit, coupon, myProfile?.membership_plan],
+      computeCharges(
+        subtotal,
+        undefined,
+        coupon ? { percent_off: coupon.percent_off, amount_off: coupon.amount_off } : undefined,
+        myProfile?.membership_plan,
+      ),
+    [subtotal, coupon, myProfile?.membership_plan],
   );
 
   const handleStartChange = (d: string) => {
@@ -1381,10 +1381,10 @@ function VehiclePage() {
         <div className="min-w-0">
           <div className="flex items-baseline gap-1">
             <span className="font-display text-lg font-bold text-foreground">
-              {start && end && charges.total ? currency(charges.total) : currency(v.price_daily)}
+              {start && end && charges.customer_total ? currency(charges.customer_total) : currency(v.price_daily)}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {start && end && charges.total ? "total" : "/ day"}
+              {start && end && charges.customer_total ? "total" : "/ day"}
             </span>
           </div>
           <p className="text-[10px] text-muted-foreground truncate">
