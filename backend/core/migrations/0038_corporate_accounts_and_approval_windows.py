@@ -1388,7 +1388,7 @@ DROP TABLE IF EXISTS public.companies CASCADE;
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0035_pool_request_booking_windows'),
+        ('core', '0037_provider_earning_notifications'),
     ]
 
     operations = [

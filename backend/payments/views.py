@@ -421,6 +421,11 @@ def get_booking_by_qr(data, user_id):
             return None
         vehicle = _get("vehicles", "title, brand, model, year, city, address, lat, lng, category, fuel, transmission",
                        "id", b["vehicle_id"])
+        # The exact pickup point (migration 0036) only once the host has confirmed this booking.
+        exact = b["status"] in ("confirmed", "completed") and _get(
+            "vehicle_locations", "address, lat, lng", "vehicle_id", b["vehicle_id"])
+        if vehicle and exact:
+            vehicle.update({k: v for k, v in exact.items() if v is not None})
         customer = _get("profiles", "full_name, avatar_url", "id", b["customer_id"])
         vendor = _get("profiles", "full_name, avatar_url", "id", b["vendor_id"])
 

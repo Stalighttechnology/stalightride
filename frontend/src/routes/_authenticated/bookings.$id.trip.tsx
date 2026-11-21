@@ -67,7 +67,7 @@ function TripInspection() {
   const load = async () => {
     const { data } = await api
       .from("bookings")
-      .select("*, vehicles(title,brand,model,year,lat,lng)")
+      .select("*, vehicles(title,brand,model,year,vehicle_locations(lat,lng))")
       .eq("id", id)
       .maybeSingle();
     setB(data);
@@ -199,8 +199,8 @@ function TripInspection() {
                   bookingId={b.id}
                   userId={user!.id}
                   role={role}
-                  hostLat={b.vehicles?.lat ?? null}
-                  hostLng={b.vehicles?.lng ?? null}
+                  hostLat={b.vehicles?.vehicle_locations?.[0]?.lat ?? null}
+                  hostLng={b.vehicles?.vehicle_locations?.[0]?.lng ?? null}
                 />
               </CardContent>
             </Card>

@@ -309,7 +309,7 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
   if (kind === "vehicle") {
     const { data, error } = await api
       .from("bookings")
-      .select("*, vehicles(title,brand,model,year,city,address)")
+      .select("*, vehicles(title,brand,model,year,city,address,vehicle_locations(address))")
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
@@ -334,7 +334,13 @@ async function buildReceipt(kind: Kind, id: string): Promise<Receipt> {
       schedule: [
         { label: "Pickup", value: `${fmtDate(b.start_date)} · ${hhmm(b.pickup_time)}` },
         { label: "Return", value: `${fmtDate(b.end_date)} · ${hhmm(b.dropoff_time)}` },
-        { label: "Pickup location", value: b.vehicles?.address || b.vehicles?.city || "—" },
+        {
+          label: "Pickup location",
+          value:
+            [b.vehicles?.vehicle_locations?.[0]?.address ?? b.vehicles?.address, b.vehicles?.city]
+              .filter(Boolean)
+              .join(", ") || "—",
+        },
         { label: "Booking ID", value: String(b.id).slice(0, 8).toUpperCase() },
       ],
       lines,
