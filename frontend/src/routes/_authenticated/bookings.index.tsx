@@ -93,7 +93,8 @@ function Bookings() {
 
   const load = async () => {
     if (!user) return;
-    const sel = "*, vehicles(id,title,city,address,lat,lng,vehicle_images(url,sort_order))";
+    // vehicle_locations comes back only for confirmed or completed bookings (row-level security, migration 0036).
+    const sel = "*, vehicles(id,title,city,vehicle_images(url,sort_order),vehicle_locations(address,lat,lng))";
     const [c, v, w, p] = await Promise.all([
       api
         .from("bookings")
@@ -532,14 +533,16 @@ function List({
                       >
                         {b.vehicles?.title}
                       </Link>
-                      {b.status === "confirmed" && (b.vehicles?.address || b.vehicles?.lat) ? (
+                      {b.status === "confirmed" && b.vehicles?.vehicle_locations?.[0] ? (
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                          <span>{[b.vehicles.address, b.vehicles.city].filter(Boolean).join(", ")}</span>
+                          <span>
+                            {[b.vehicles.vehicle_locations[0].address, b.vehicles.city].filter(Boolean).join(", ")}
+                          </span>
                           <a
                             href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                              b.vehicles.lat && b.vehicles.lng
-                                ? `${b.vehicles.lat},${b.vehicles.lng}`
-                                : [b.vehicles.address, b.vehicles.city].filter(Boolean).join(", "),
+                              b.vehicles.vehicle_locations[0].lat && b.vehicles.vehicle_locations[0].lng
+                                ? `${b.vehicles.vehicle_locations[0].lat},${b.vehicles.vehicle_locations[0].lng}`
+                                : [b.vehicles.vehicle_locations[0].address, b.vehicles.city].filter(Boolean).join(", "),
                             )}&travelmode=driving`}
                             target="_blank"
                             rel="noopener noreferrer"

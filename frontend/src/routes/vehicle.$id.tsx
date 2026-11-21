@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { areaOnly, calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
+import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
 import { formatWhen } from "@/lib/trip-window";
 import {
   type BookedRange,
@@ -202,18 +202,16 @@ function VehiclePage() {
     searchParams.dropoffTime,
   ]);
 
-  // The exact pickup address is shown only once the host has confirmed one of this user's bookings.
-  const [hasConfirmedBooking, setHasConfirmedBooking] = useState(false);
+  // The database returns the exact pickup point only to the host, admins and customers with a confirmed booking.
+  const [exactLocation, setExactLocation] = useState<{ address: string | null; lat: number | null; lng: number | null } | null>(null);
   useEffect(() => {
-    if (!id || !user?.id) return setHasConfirmedBooking(false);
+    if (!id || !user?.id) return setExactLocation(null);
     api
-      .from("bookings")
-      .select("id")
+      .from("vehicle_locations")
+      .select("address, lat, lng")
       .eq("vehicle_id", id)
-      .eq("customer_id", user.id)
-      .eq("status", "confirmed")
-      .limit(1)
-      .then(({ data }) => setHasConfirmedBooking(Boolean(data?.length)));
+      .maybeSingle()
+      .then(({ data }) => setExactLocation(data ?? null));
   }, [id, user?.id]);
 
   // Auto-apply pending reward coupon from rewards page
@@ -637,9 +635,9 @@ function VehiclePage() {
       </div>
     );
 
-  const mapQuery = [v.address, v.city].filter(Boolean).join(", ") || v.city;
-  const showExactLocation = isOwner || hasConfirmedBooking;
-  const pickupArea = areaOnly(v.address, v.city);
+  // v.address is only the area (e.g. "Indiranagar") since migration 0036.
+  const pickupArea = [v.address, v.city].filter(Boolean).join(", ");
+  const exactAddress = [exactLocation?.address, v.city].filter(Boolean).join(", ");
 
   return (
     <div className="min-h-screen bg-background">
@@ -789,7 +787,7 @@ function VehiclePage() {
               {pickupArea && (
                 <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4" />
-                  {showExactLocation ? mapQuery : pickupArea}
+                  {exactLocation ? exactAddress : pickupArea}
                 </div>
               )}
             </section>
@@ -799,22 +797,20 @@ function VehiclePage() {
               <div className="mt-2 flex items-start gap-2 text-sm">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-foreground pin-drop" />
                 <div>
-                  <p className="font-medium">{showExactLocation ? v.address || v.city : pickupArea}</p>
-                  {showExactLocation && v.address && (
-                    <p className="text-xs text-muted-foreground">{v.city}</p>
-                  )}
-                  {!showExactLocation && (
+                  <p className="font-medium">{exactLocation ? exactLocation.address || v.city : pickupArea}</p>
+                  {exactLocation?.address && <p className="text-xs text-muted-foreground">{v.city}</p>}
+                  {!exactLocation && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       The exact address, map and directions appear here once the host confirms your booking.
                     </p>
                   )}
                 </div>
               </div>
-              {showExactLocation && (
+              {exactLocation && (
                 <VehicleMap
-                  query={mapQuery}
-                  lat={v.lat}
-                  lng={v.lng}
+                  query={exactAddress}
+                  lat={exactLocation.lat}
+                  lng={exactLocation.lng}
                   className="mt-4 aspect-[16/9] animate-fade-in"
                 />
               )}
