@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { DatePicker } from "@/components/ui/date-picker";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   Wrench,
   AlertTriangle,
@@ -47,6 +48,7 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const pager = usePage(10);
 
   // Form states
   const [selectedVehicleId, setSelectedVehicleId] = useState(vehicles?.[0]?.id || "");
@@ -60,11 +62,12 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
 
   const loadLogs = async () => {
     if (!user) return;
-    const { data, error } = await api
+    const { data, count, error } = await api
       .from("vehicle_maintenance")
-      .select("*, vehicles:vehicle_id(title)")
+      .select("*, vehicles:vehicle_id(title)", { count: "exact" })
       .eq("vendor_id", user.id)
-      .order("date", { ascending: false });
+      .order("date", { ascending: false })
+      .range(pager.from, pager.to);
 
     if (!error && data) {
       setLogs(
@@ -80,13 +83,14 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
           notes: row.notes || "",
         })),
       );
+      pager.setTotal(count ?? 0);
     }
     setLoading(false);
   };
 
   useEffect(() => {
     loadLogs();
-  }, [user?.id]);
+  }, [user?.id, pager.page]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !selectedVehicleId) {
@@ -147,6 +151,8 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
     setWorkshop("");
     setNotes("");
     toast.success("Maintenance log added successfully!");
+    pager.setPage(0);
+    loadLogs();
   };
 
   const handleDeleteLog = async (id: string) => {
@@ -155,8 +161,8 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
       toast.error(error.message);
       return;
     }
-    setLogs(logs.filter((l) => l.id !== id));
     toast.success("Maintenance entry removed");
+    loadLogs();
   };
 
   const totalMaintenanceSpent = logs.reduce((sum, item) => sum + item.cost, 0);
@@ -377,6 +383,7 @@ export function VendorMaintenanceTab({ vehicles = [] }: { vehicles: any[] }) {
             </Card>
           ))
         )}
+        <ListPager {...pager} />
       </div>
     </div>
   );

@@ -1083,29 +1083,38 @@ function WashCentersQueue() {
   const [city, setCity] = useState("");
   const [phone, setPhone] = useState("");
   const [capacity, setCapacity] = useState("10");
+  const pager = usePage();
 
   const load = async () => {
-    // 1. Check wash_centers first
-    const { data: wcData } = await api
+    // 1. Check wash_centers first using head count
+    const { count: wcCount } = await api
       .from("wash_centers")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("id", { count: "exact", head: true });
 
-    if (wcData && wcData.length > 0) {
-      setCenters(wcData);
+    if ((wcCount ?? 0) > 0) {
+      const { data: wcData, error, count } = await api
+        .from("wash_centers")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(pager.from, pager.to);
+      if (error) toast.error(error.message);
+      setCenters(wcData ?? []);
+      pager.setTotal(count ?? 0);
       return;
     }
 
-    const { data, error } = await api
+    const { data, error, count } = await api
       .from("wash_vendors")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(pager.from, pager.to);
     if (error) toast.error(error.message);
     setCenters(data ?? []);
+    pager.setTotal(count ?? 0);
   };
   useEffect(() => {
     load();
-  }, []);
+  }, [pager.page]);
 
   const decideCenter = async (id: string, decision: "approved" | "rejected") => {
     let reason: string | null = null;
@@ -1154,6 +1163,7 @@ function WashCentersQueue() {
     setCity("");
     setPhone("");
     setShowAdd(false);
+    pager.setPage(0);
     load();
   };
 
@@ -1163,7 +1173,7 @@ function WashCentersQueue() {
     <div className="mt-4 space-y-4">
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">
-          {centers.length} registered washing center{centers.length === 1 ? "" : "s"}
+          {pager.total} registered washing center{pager.total === 1 ? "" : "s"}
         </p>
         <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
           <Plus className="mr-1.5 h-4 w-4" /> Add washing center
@@ -1302,6 +1312,7 @@ function WashCentersQueue() {
           ))}
         </div>
       )}
+      <ListPager {...pager} />
     </div>
   );
 }

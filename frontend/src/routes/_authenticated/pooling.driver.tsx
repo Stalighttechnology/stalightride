@@ -13,6 +13,7 @@ import { currency } from "@/lib/format";
 import { normalizeRoute } from "@/lib/pool-match";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/confirm-dialog";
+import { usePage, ListPager } from "@/components/list-pager";
 import {
   Users,
   CalendarClock,
@@ -75,6 +76,7 @@ function whenLabel(iso: string) {
 function PoolDriver() {
   const { user } = useSession();
   const confirm = useConfirm();
+  const pager = usePage(10);
   const [trips, setTrips] = useState<any[] | null>(null);
   const [requests, setRequests] = useState<Record<string, any[]>>({});
   const [profiles, setProfiles] = useState<Record<string, any>>({});
@@ -83,14 +85,21 @@ function PoolDriver() {
 
   const load = async () => {
     if (!user) return;
-    const { data: t } = await api
+    const { data: t, count } = await api
       .from("pool_trips")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("driver_id", user.id)
-      .order("depart_at", { ascending: false });
+      .order("depart_at", { ascending: false })
+      .range(pager.from, pager.to);
     setTrips(t ?? []);
+    pager.setTotal(count ?? 0);
     const ids = (t ?? []).map((x) => x.id);
-    if (!ids.length) return setRequests({});
+    if (!ids.length) {
+      setRequests({});
+      setProfiles({});
+      setRatedRiders(new Set());
+      return;
+    }
     const { data: r } = await api
       .from("pool_requests")
       .select("*")
@@ -105,19 +114,27 @@ function PoolDriver() {
     if (pids.length) {
       const { data: p } = await api.from("public_profiles").select("*").in("id", pids);
       setProfiles(Object.fromEntries((p ?? []).map((x) => [x.id, x])));
+    } else {
+      setProfiles({});
     }
 
-    const { data: driverRatings } = await api
-      .from("pool_ratings")
-      .select("request_id")
-      .eq("rater_id", user.id);
-    if (driverRatings) {
-      setRatedRiders(new Set(driverRatings.map((x) => x.request_id).filter(Boolean) as string[]));
+    const requestIds = (r ?? []).map((x) => x.id);
+    if (requestIds.length) {
+      const { data: driverRatings } = await api
+        .from("pool_ratings")
+        .select("request_id")
+        .eq("rater_id", user.id)
+        .in("request_id", requestIds);
+      if (driverRatings) {
+        setRatedRiders(new Set(driverRatings.map((x) => x.request_id).filter(Boolean) as string[]));
+      }
+    } else {
+      setRatedRiders(new Set());
     }
   };
   useEffect(() => {
     load();
-  }, [user?.id]);
+  }, [user?.id, pager.page]);
 
   const decide = async (req: any, status: "confirmed" | "rejected") => {
     setBusy(req.id);
@@ -437,6 +454,7 @@ function PoolDriver() {
             );
           })}
         </div>
+        <ListPager {...pager} />
       </div>
     </div>
   );
