@@ -76,6 +76,7 @@ export type Review = {
   comment?: string;
   reported: boolean;
   report_reason?: string;
+  vendor_response?: string;
 };
 
 export type SupportTicket = {
@@ -2287,6 +2288,14 @@ export function createBackend(
       };
       reviews.set(r.id, r);
       this._recomputeVehicleRating(args.vehicle_id);
+      return r;
+    },
+    replyToReview(actor: string, review_id: string, text: string) {
+      const r = reviews.get(review_id);
+      if (!r) throw new RuleError("Review not found");
+      if (vehicles.get(r.vehicle_id)?.vendor_id !== actor)
+        throw new RuleError("Only the host can reply to a review");
+      r.vendor_response = text;
       return r;
     },
     reportReview(actor: string, review_id: string, reason: string) {

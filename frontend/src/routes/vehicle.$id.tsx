@@ -1306,15 +1306,18 @@ function ReviewItem({
   const submitReply = async () => {
     if (!reply.trim()) return;
     setSaving(true);
-    const { error } = await api
+    const { data, error } = await api
       .from("reviews")
       .update({
         vendor_response: reply.trim(),
         vendor_response_at: new Date().toISOString(),
       } as any)
-      .eq("id", r.id);
+      .eq("id", r.id)
+      .select("id");
     setSaving(false);
     if (error) return toast.error(error.message);
+    // Row-level security filters a non-owner's update to zero rows instead of raising.
+    if (!data?.length) return toast.error("Only this vehicle's host can reply to its reviews.");
     onChange({ vendor_response: reply.trim(), vendor_response_at: new Date().toISOString() });
     setEditing(false);
     toast.success("Response posted");

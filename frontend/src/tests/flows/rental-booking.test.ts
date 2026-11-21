@@ -279,6 +279,13 @@ describe("handover, completion and reviews", () => {
     expect(() => be.cancelBooking(customer, b.id)).toThrow(/cannot be cancelled/);
   });
 
+  test("only the vehicle's host can reply to a review", () => {
+    const { be, host, customer, vehicle } = setup();
+    const r = be.addReview({ booking_id: "b1", vehicle_id: vehicle.id, customer_id: customer, rating: 5 });
+    expect(() => be.replyToReview(customer, r.id, "Great renter!")).toThrow(/Only the host/);
+    expect(be.replyToReview(host, r.id, "Thanks!").vendor_response).toBe("Thanks!");
+  });
+
   test("a started trip can no longer be cancelled", () => {
     const { be, host, customer, vehicle } = setup();
     const b = be.createBooking({

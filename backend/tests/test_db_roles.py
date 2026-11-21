@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0039_trip_handover_codes")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0040_review_reply_and_booking_host_integrity")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -44,7 +44,7 @@ def test_schema_matches_the_original_migrations():
     0032's instant book & host response stats, 0033's driver booking windows,
     0034's wash booking dispatch, 0035's pool booking windows, 0036's private vehicle location,
     0037's provider-only payment notifications, 0038's corporate accounts & approval windows,
-    and 0039's trip handover codes (which drops 0028's complete_booking).
+    0039's trip handover codes (which drops 0028's complete_booking), and 0040's booking host guard.
     A change here means the schema changed."""
     tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = ANY(%s) AND NOT (schemaname = 'public' AND tablename ~ %s)",
                [APP_SCHEMAS, DJANGO_TABLE])[0][0]
@@ -56,7 +56,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (59, 132, 98, 158, 1128)
+    assert (tables, functions, triggers, policies, grants) == (59, 133, 99, 158, 1128)
 
 
 def test_signup_trigger_creates_profile_and_role():
