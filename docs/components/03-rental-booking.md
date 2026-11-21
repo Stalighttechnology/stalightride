@@ -10,11 +10,11 @@ Covers searching, pricing, requesting, host approval, payment and cancellation.
 | --- | --- |
 | Pages | `/browse`, `/vehicle/$id`, `/bookings`, `/receipt/$kind/$id` |
 | Preview logic | `frontend/src/lib/format.ts`, `charges.ts` |
-| Database | `bookings`, `rental_base_price`, `compute_charges`, `tg_price_booking`, `cancel_booking`, `prevent_booking_conflict` |
+| Database | `bookings`, `rental_base_price`, `compute_charges`, `tg_price_booking`, `cancel_booking`, `prevent_booking_conflict`, `trg_zz_booking_windows`, `wallet_pay_booking`, `expire_booking_windows` |
 
 ## Rules
 
-Pricing and refunds are in [Business rules](../03-business-rules.md), sections 1, 2, 6 and 8.
+Pricing and refunds are in [Business rules](../03-business-rules.md), sections 1, 2, 6 and 8. Response and payment deadlines are in section 17.
 
 ## Test accounts
 
@@ -82,6 +82,28 @@ Use a paid ₹5,118 booking each time. Refunds go to the wallet.
 | RB-37 | Send a booking for a paused vehicle through the API | **GAP-18:** must be refused | **PASS** — GAP-18 fixed: `prevent_booking_conflict` rejects bookings for paused or deleted vehicles |
 | RB-38 | Host sets an unpaid confirmed booking to completed through the API | **GAP-09:** must be refused | **PASS** — GAP-09 fixed: `trg_guard_booking_lifecycle_integrity` rejects setting unpaid booking to `completed` |
 | RB-39 | Rent for 23 hours | **GAP-28:** agree whether ₹4,600 is acceptable against a ₹2,000 daily price | **PASS** — GAP-28 fixed: `rental_base_price` and `calculateRentalPrice` cap sub-day rentals at the daily price |
+
+## Booking windows
+
+Added in #40 (migration 0030). See [doc 02 §6](../02-local-setup-and-test-data.md#6-testing-time-based-rules) for how to make a deadline pass without waiting.
+
+| ID | Steps | Expected | Result |
+| --- | --- | --- | --- |
+| RB-40 | Request a pickup 1 hour from now | `Pickup must be at least 2 hours from now`. The vehicle page doesn't offer those times | |
+| RB-41 | Request a pickup a week away | Toast `Booking requested! Host will respond by …`. `/bookings` shows `Waiting for host, responds by …` 12 hours from now, with a countdown | |
+| RB-42 | Request a pickup 3 hours away | Host responds by 1h 30m from now (half the remaining time) | |
+| RB-43 | As Hari, open `/vendor` with two requests | Each shows `Respond within …`, and the soonest deadline is first | |
+| RB-44 | Hari approves | Asha sees **Pay by …** with a countdown | |
+| RB-45 | Pass the halfway point of the response window, then run `send_reminders` twice | Hari gets exactly one reminder | |
+| RB-46 | Let `respond_by` pass, then run `send_reminders` | Cancelled with reason `host_no_response`. Both people are notified. Asha sees **Find similar cars**, which opens `/browse` with the same city and dates | |
+| RB-47 | Let `respond_by` pass, then Hari approves before the job has run | Buttons show **Request expired** and are disabled. Through the API: `This request has expired` | |
+| RB-48 | Let `respond_by` pass without running the job. Ben requests the same dates | Ben's request is accepted, and Asha's request is cancelled at that moment | |
+| RB-49 | Let `pay_by` pass, then run `send_reminders` | Cancelled with reason `payment_timeout`, and the dates free up | |
+| RB-50 | Pay with wallet after `pay_by` | `Payment window has closed`, and nothing is charged | |
+| RB-51 | Start Razorpay checkout with under 5 minutes left | `Payment window has closed or expires in less than 5 minutes` | |
+| RB-52 | Complete a Razorpay payment for a booking that was cancelled meanwhile | Money goes to Asha's wallet with a `Payment refunded` notification. The booking stays cancelled | |
+
+Instant Book cases are in [02 Hosts and vehicles](02-hosts-and-vehicles.md#instant-book-and-response-rate).
 
 ## Linked gaps
 

@@ -10,7 +10,7 @@ Covers verification queues, monitoring, payouts, revenue, coupons, credits, mode
 | --- | --- |
 | Page | `/admin` |
 | Components | `frontend/src/components/admin/` |
-| Database | `has_role`, `admin_decide_withdrawal`, `admin_decide_wash_booking`, `admin_grant_credit`, `admin_refund`, `admin_revenue_aggregates`, `admin_remove_review`, `admin_dismiss_review_report`, `verify_cleaner`, `verify_wash_center` |
+| Database | `has_role`, `admin_decide_withdrawal`, `admin_decide_wash_booking`, `admin_assign_wash_cleaner`, `admin_grant_credit`, `admin_refund`, `admin_revenue_aggregates`, `admin_remove_review`, `admin_dismiss_review_report`, `verify_cleaner`, `verify_wash_center` |
 
 ## Rules
 
@@ -41,7 +41,7 @@ Ada as admin and Asha as a non-admin.
 | AD-08 | Licences | Approve and reject a licence | Customer status and notification update | Pass (Licence queue verifies front/back uploads, expiry and approval) |
 | AD-09 | Cleaners | Approve and reject a cleaner | Cleaner role is granted on approval | Pass (Cleaners queue approves cleaner and assigns role) |
 | AD-10 | Wash Centers | Approve and reject a center | Center role is granted on approval | Pass (Wash Centers queue provides approval queue & activate/deactivate toggle) |
-| AD-11 | Wash Orders | Approve, reject and complete a wash | Status and refund are correct | Pass (Wash Orders monitors active/pending washes with status progression) |
+| AD-11 | Wash Orders | Reject and complete a wash. Washes no longer need approval (#44) | Status and refund are correct | |
 
 ## Operations
 
@@ -49,6 +49,8 @@ Ada as admin and Asha as a non-admin.
 | --- | --- | --- | --- | --- |
 | AD-12 | Customers | Search for a customer | Correct details are shown | Pass (Search matches customer records with contact and wallet details) |
 | AD-13 | Bookings Monitor | Filter bookings and open one | Status and amounts match the database | Pass (Filters rentals, hires, carpools with accurate database amounts) |
+| AD-38 | Bookings Monitor | Leave a paid wash unclaimed past its admin alert time and run `send_reminders` | Admins get a notification, and the wash is listed under **At risk: no washer assigned** | |
+| AD-39 | Bookings Monitor | Assign a cleaner to an at-risk wash | Cleaner gets the job and the customer sees **Washer assigned** | |
 | AD-14 | Disputes | Resolve a dispute with notes | Raiser is notified with the resolution | Pass (Disputes queue records notes and resolution notification) |
 | AD-15 | Disputes | Resolve a dispute that needs compensation | **GAP-13:** money outcome must be recorded | Pass (GAP-13 resolved: monetary damage compensation credited directly to recipient wallet via `resolve_dispute_compensation`) |
 | AD-16 | Payouts | Mark a withdrawal paid with a reference | Provider is notified | Pass (Requires UTR payment reference and sends `Payout sent` notification) |

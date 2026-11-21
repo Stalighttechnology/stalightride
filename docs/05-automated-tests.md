@@ -6,61 +6,28 @@ These checks run without clicking through the app. Manual workflows are in the [
 
 | Check | Run from | Command | Latest result |
 | --- | --- | --- | --- |
-| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 44 passed |
-| Frontend rules and pricing | `frontend/` | `npm run test` | 209 passed in 14 files |
+| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 74 passed (2026-11-21) |
+| Frontend rules and pricing | `frontend/` | `npm run test` | 251 passed in 17 files (2026-11-21) |
 | Type check | `frontend/` | `npx tsc --noEmit` | No errors |
 | Production build | `frontend/` | `npm run build` | Builds successfully |
 | Migration check | `backend/` | `.venv/Scripts/python manage.py makemigrations --check --dry-run` | No changes detected |
-| **Launch gates** | `backend/` | See below | **9 failed, 7 passed** |
+GitHub Actions runs the backend and frontend checks on each pull request. See `.github/workflows/ci.yml`.
 
-GitHub Actions runs everything except the launch gates on each pull request. See `.github/workflows/ci.yml`.
+## Protecting fixed gaps
 
-## Launch gates
-
-[`automated/test_launch_gates.py`](automated/test_launch_gates.py) describes the correct behaviour for the gaps that can be tested at database and API level. **A failing gate means the gap is still open.** The gates are kept out of CI so they don't block every pull request until the fixes are made.
-
-Git Bash:
-
-```bash
-cd backend
-PYTHONPATH=. .venv/Scripts/python -m pytest -c pytest.ini --rootdir=. ../docs/automated/test_launch_gates.py -q
-```
-
-PowerShell:
-
-```powershell
-cd backend
-$env:PYTHONPATH = "."
-.venv\Scripts\python -m pytest -c pytest.ini --rootdir=. ..\docs\automated\test_launch_gates.py -q
-```
-
-The gates use the throwaway `test_synchoo` database and don't touch your local data.
-
-| Gate | Gap |
-| --- | --- |
-| `test_gap01_membership_needs_verified_payment` | GAP-01 |
-| `test_gap04_replayed_payment_cannot_undo_a_refund` | GAP-04 |
-| `test_gap08_uploaded_html_is_never_served_as_a_web_page` | GAP-08 |
-| `test_gap09_host_cannot_complete_an_unpaid_booking` | GAP-09 |
-| `test_gap09_cleaner_cannot_complete_an_unpaid_wash` | GAP-09 |
-| `test_gap11_customer_alone_cannot_close_the_trip` | GAP-11 |
-| `test_gap12_recorded_inspection_cannot_be_rewritten` | GAP-12 |
-| `test_gap16_admin_can_save_platform_settings` | GAP-16 |
-| `test_gap19_pickup_checklist_waits_for_the_check_in_window` | GAP-19 |
-| `test_gap20_cancelled_pool_trip_closes_and_notifies_passengers` | GAP-20 |
-
-The 7 `test_ok_*` tests protect rules that work today: price breakdown, the refund table, settlement, same-day conflicts and referral bonuses. They must always pass.
-
-GAP-02, 03, 10, 18 and 21 are fixed; their gates now live in `backend/tests/test_booking_integrity.py` and `backend/tests/test_api.py`, including a real two-connection race for GAP-02.
-
-When you fix a gap, run its gate, confirm it passes, then move the test into `backend/tests/` so CI protects the fix.
+The old launch-gate file (`docs/automated/`) has been removed. Each fixed gap needs a test in `backend/tests/` so CI catches a regression. GAP-11 shows why: it was fixed, then reopened by #39, and nothing in CI noticed. When you fix or reopen a gap, add or update its test in the file that covers that area (table below).
 
 ## What the existing tests cover
 
 | File | Covers |
 | --- | --- |
 | `backend/tests/test_api.py` | Sign-up, sign-in, tokens, password reset, queries, functions, files, payment actions |
-| `backend/tests/test_db_roles.py` | Database roles, row-level security, schema counts, guards |
+| `backend/tests/test_db_roles.py` | Database roles, row-level security, schema counts (update them in every migration), single latest migration, guards |
+| `backend/tests/test_booking_integrity.py` | Double booking (including a real two-connection race), forced pending status, blocked dates, past dates, account deletion |
+| `backend/tests/test_booking_windows.py` | Rental deadlines, 2-hour notice, lazy expiry, Instant Book, host response stats, listing pauses |
+| `backend/tests/test_driver_windows.py` | Driver hire deadlines, similar drivers, linked rental cancellation |
+| `backend/tests/test_wash_dispatch.py` | Wash payment window, dispatch tiers, radius and clash checks, claim races, releases and strikes, auto-cancel refunds, tier notifications |
+| `backend/tests/test_dashboard_stats.py` | Host, driver and wash center dashboard totals |
 | `backend/tests/test_realtime.py` | WebSocket live updates |
 | `frontend/src/tests/flows/rental-booking.test.ts` | Rental rules |
 | `frontend/src/tests/flows/driver-hire.test.ts` | Driver hire rules |
@@ -68,10 +35,10 @@ When you fix a gap, run its gate, confirm it passes, then move the test into `ba
 | `frontend/src/tests/flows/wash-and-wallet.test.ts` | Wash and wallet rules |
 | `frontend/src/tests/flows/money.test.ts` | Charges, refunds and settlement |
 | `frontend/src/tests/flows/admin-platform-safety.test.ts` | Admin and safety rules |
-| `frontend/src/tests/unit/` | Charges and rental pricing |
+| `frontend/src/tests/unit/` | Charges, rental pricing, vehicle availability, notification routing, confirm dialog |
 | `frontend/src/lib/trip-window.test.ts` | Check-in window |
 
-**Flow tests use an in-memory copy of the rules** in `frontend/src/tests/harness/fake-backend.ts`, not the real database. They can pass while the real database behaves differently, which is why the launch gates run against PostgreSQL.
+**Flow tests use an in-memory copy of the rules** in `frontend/src/tests/harness/fake-backend.ts`, not the real database. They can pass while the real database behaves differently, which is why every rule also needs a backend test against PostgreSQL.
 
 The `*-localhost-e2e.test.ts` files call `http://localhost:8080` and pass automatically when the app isn't running. Treat them as real checks only when the app is up.
 
@@ -108,15 +75,27 @@ SELECT id FROM public.pool_trips WHERE seats_available < 0 OR seats_available > 
 
 -- Paid withdrawals with no bank reference
 SELECT id FROM public.withdrawals WHERE status = 'paid' AND COALESCE(reference, '') = '';
+
+-- Requests past their response deadline that are still pending (send_reminders isn't running)
+SELECT 'rental' AS kind, id FROM public.bookings WHERE status = 'pending' AND respond_by < now() - interval '10 minutes'
+UNION ALL SELECT 'hire', id FROM public.driver_bookings WHERE status = 'pending' AND respond_by < now() - interval '10 minutes';
+
+-- Paid washes past their slot with no washer and no refund
+SELECT id FROM public.wash_bookings
+WHERE status = 'confirmed' AND payment_status = 'paid' AND assigned_cleaner_id IS NULL
+  AND (slot_date + slot_time) AT TIME ZONE 'Asia/Kolkata' < now();
 ```
 
 ## Tests still to add
 
 | Area | Test needed |
 | --- | --- |
-| Payments | Razorpay webhook handling once GAP-05 is built |
 | Payments | Two simultaneous top-up confirmations credit the wallet once (GAP-07) |
 | Payments | Failed verification never shows success (GAP-06) |
 | Browser | Playwright journey for each main workflow |
 | Time | Reminders on a UTC database (GAP-25) |
+| Handover | Customer alone cannot complete the trip (GAP-11, reopened) |
+| Payments | Razorpay webhook: signature check, late-payment refund (GAP-05) |
+| Wash | Admin manual assignment (`admin_assign_wash_cleaner`) |
+| Pooling | Request deadlines, once booking windows step 5 is built (GAP-32) |
 | Permissions | Each table tested for each role |
