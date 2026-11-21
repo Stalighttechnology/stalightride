@@ -33,7 +33,7 @@ Booking windows steps 1 to 4 are on `main` (#40, #42, #43, #44). Pooling (step 5
 | Admin wash rescue | AD-11, AD-38, AD-39 | [09 Admin console](components/09-admin-console.md) |
 | Click-through demo | Sections 2, 2b, 5 and 7 | [06 Demo walkthrough](06-demo-walkthrough.md) |
 
-Known issue while testing: **GAP-11 is reopened**. A return checklist from the customer alone completes the trip ([Launch gaps](04-launch-gaps.md)).
+Trip handover now uses codes instead of the QR: the host gives a check-in and a check-out code, the renter enters them with a 360° set of photos. Retest [04 Trip handover](components/04-trip-handover.md).
 
 ## Who owns what
 

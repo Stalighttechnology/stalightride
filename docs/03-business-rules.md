@@ -214,11 +214,12 @@ New listings start as `draft` and `pending`. Only an admin can approve or reject
 | Step | Rule |
 | --- | --- |
 | Check-in opens | 30 minutes before pickup, and only when confirmed and paid |
-| QR confirmation | Only the host or an admin can confirm from `/scan` |
-| Pickup checklist | Fuel 0 to 100, odometer 0 to 3,000,000, up to 20 photos, notes up to 2,000 characters |
-| Damage items | Each is `ok`, `minor` or `major` |
-| Return checklist | Return odometer cannot be lower than pickup odometer |
-| Trip completion | Submitting the return checklist completes the trip. **GAP-11 regression:** since #39 this happens even when only the customer submits it (see [Launch gaps](04-launch-gaps.md)) |
+| Handover codes | Once a rental is paid, it gets a 6-digit **check-in code** and **check-out code**. Only the host and admins can read them (`booking_handover_codes`) |
+| Who records | Only the renter records check-in and check-out. The host can't |
+| Check-in | 9 photos: front, front-left corner, driver side, rear-left corner, rear, rear-right corner, passenger side, front-right corner, and the dashboard showing the odometer and fuel gauge. Plus the odometer number (0 to 3,000,000) and the host's check-in code. This starts the trip |
+| Check-out | The same 9 photos, the odometer (not below the pickup reading) and the host's check-out code. Ending early works the same way |
+| Wrong codes | 5 wrong codes lock entry for 15 minutes |
+| Trip completion | Only the check-out code completes a trip, so the host always confirms the car is back (GAP-11). The old `complete_booking` function was removed |
 | Settlement | Host receives provider earning, customer receives the deposit back |
 
 ## 10. Trip extension

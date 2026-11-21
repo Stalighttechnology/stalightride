@@ -444,7 +444,6 @@ function VehiclePage() {
     setBooking(true);
 
     try {
-      const qrPayload = crypto.randomUUID();
       let finalNotes = notes || "";
       if (airportMeet) {
         const meetTag = `[VIP Airport Meet & Greet${flightInfo.trim() ? `: Flight ${flightInfo.trim()}` : ""}]`;
@@ -466,7 +465,6 @@ function VehiclePage() {
           total_price: subtotal + Number(v.security_deposit),
           coupon_code: coupon?.code ?? null,
           status: "pending",
-          qr_code: qrPayload,
           notes: finalNotes || null,
         } as any)
         .select("id, status, respond_by, pay_by")
@@ -1308,15 +1306,18 @@ function ReviewItem({
   const submitReply = async () => {
     if (!reply.trim()) return;
     setSaving(true);
-    const { error } = await api
+    const { data, error } = await api
       .from("reviews")
       .update({
         vendor_response: reply.trim(),
         vendor_response_at: new Date().toISOString(),
       } as any)
-      .eq("id", r.id);
+      .eq("id", r.id)
+      .select("id");
     setSaving(false);
     if (error) return toast.error(error.message);
+    // Row-level security filters a non-owner's update to zero rows instead of raising.
+    if (!data?.length) return toast.error("Only this vehicle's host can reply to its reviews.");
     onChange({ vendor_response: reply.trim(), vendor_response_at: new Date().toISOString() });
     setEditing(false);
     toast.success("Response posted");

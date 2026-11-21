@@ -21,7 +21,7 @@
 | GAP-08 | Uploaded HTML files are served as web pages from public buckets. Sign-in tokens are kept in browser storage, so a malicious page could steal them | Account takeover | Reproduced | A | **Fixed** (HTML rejected on upload, served as octet-stream download with `nosniff`) |
 | GAP-09 | A cleaner can complete an unpaid wash in the app. The database also lets hosts and drivers complete unpaid work through the API | Service is delivered with no payment | Reproduced | A, B | **Fixed** (Migration 0020 triggers block `completed` status if unpaid. Since #44, unpaid washes never reach the job board. Retest VW-33) |
 | GAP-10 | A host can block dates over a confirmed booking. After that, the booking can't be cancelled or refunded | Customer money is stuck | Reproduced | A | **Fixed** (Migration 0020 `trg_prevent_availability_block_conflict` & Migration 0021) |
-| GAP-11 | The customer alone can submit the return checklist, which completes the trip and releases the host's money and the deposit | Host loses the chance to inspect the vehicle | Reproduced | A | **Reopened** (fixed earlier, but since #39 any return checklist sets `completed` in `submit_inspection`, `backend/payments/views.py`. Reproduced on 2026-11-21) |
+| GAP-11 | The customer alone can submit the return checklist, which completes the trip and releases the host's money and the deposit | Host loses the chance to inspect the vehicle | Reproduced | A | **Fixed again** (migration 0039: the trip completes only when the renter enters the host's check-out code; `complete_booking` removed. Covered by `backend/tests/test_trip_handover.py`) |
 | GAP-12 | Customers and hosts can rewrite inspection readings after they are recorded | Dispute evidence can't be trusted | Reproduced | A | **Fixed** (Migration 0020 prevents mutating odometer/fuel/photos once recorded) |
 | GAP-13 | The deposit is always returned on completion, and resolving a dispute moves no money | Hosts can't recover damage costs | Code review | C | **Fixed** (Dispute monetary compensation recorded via `resolve_dispute_compensation` and credited to recipient wallet) |
 | GAP-14 | The Corporate portal is a demo with sample data, including an approved credit line and "official" GST invoices. Nothing is saved | Misleading claims and false tax documents | Code review | C | **Fixed** (Corporate portal underwriting workflow) |
@@ -71,7 +71,6 @@ Corporate, membership benefits and rewards need product decisions before they ca
 
 - [ ] All blockers fixed
 - [ ] All high priority gaps fixed or formally accepted
-- [ ] GAP-11 fixed again, with a test in `backend/tests/`
 - [ ] `send_reminders` scheduled every 5 minutes
 - [ ] All 12 component docs signed off
 - [ ] One full payment cycle tested with Razorpay test mode, including a failed payment and a closed browser

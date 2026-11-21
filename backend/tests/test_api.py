@@ -242,11 +242,6 @@ def test_actions_need_login_and_a_valid_signature(alice, settings):
     assert again.json()["data"]["alreadyCredited"] is True
 
 
-def test_public_qr_lookup_returns_none_for_unknown_codes():
-    res = APIClient().post("/api/fn/getBookingByQr/", {"code": str(uuid.uuid4())}, format="json")
-    assert res.status_code == 200 and res.json()["data"] is None
-
-
 # -- trip window (same cases as frontend/src/lib/trip-window.test.ts) --------------
 
 BASE = {"status": "confirmed", "payment_status": "paid", "start_date": "2026-08-20", "end_date": "2026-08-22",

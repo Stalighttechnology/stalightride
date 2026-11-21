@@ -36,7 +36,6 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
 import { Route as AuthenticatedRewardsRouteImport } from './routes/_authenticated/rewards'
-import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedWashCenterDashboardRouteImport } from './routes/_authenticated/wash-center-dashboard'
 import { Route as AuthenticatedWashesRouteImport } from './routes/_authenticated/washes'
@@ -49,7 +48,6 @@ import { Route as AuthenticatedPoolingDriverRouteImport } from './routes/_authen
 import { Route as AuthenticatedPoolingMineRouteImport } from './routes/_authenticated/pooling.mine'
 import { Route as AuthenticatedPoolingNewRouteImport } from './routes/_authenticated/pooling.new'
 import { Route as AuthenticatedVendorIndexRouteImport } from './routes/_authenticated/vendor.index'
-import { Route as BookingQrCodeRouteImport } from './routes/booking.qr.$code'
 import { Route as AuthenticatedBookingsIdDisputeRouteImport } from './routes/_authenticated/bookings.$id.dispute'
 import { Route as AuthenticatedBookingsIdTripRouteImport } from './routes/_authenticated/bookings.$id.trip'
 import { Route as AuthenticatedReceiptKindIdRouteImport } from './routes/_authenticated/receipt.$kind.$id'
@@ -191,11 +189,6 @@ const AuthenticatedRewardsRoute = AuthenticatedRewardsRouteImport.update({
   path: '/rewards',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedScanRoute = AuthenticatedScanRouteImport.update({
-  id: '/scan',
-  path: '/scan',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
@@ -262,11 +255,6 @@ const AuthenticatedVendorIndexRoute =
     path: '/vendor/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const BookingQrCodeRoute = BookingQrCodeRouteImport.update({
-  id: '/booking/qr/$code',
-  path: '/booking/qr/$code',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedBookingsIdDisputeRoute =
   AuthenticatedBookingsIdDisputeRouteImport.update({
     id: '/bookings/$id/dispute',
@@ -319,7 +307,6 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
-  '/scan': typeof AuthenticatedScanRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/washes': typeof AuthenticatedWashesRoute
@@ -330,7 +317,6 @@ export interface FileRoutesByFullPath {
   '/pooling/driver': typeof AuthenticatedPoolingDriverRoute
   '/pooling/mine': typeof AuthenticatedPoolingMineRoute
   '/pooling/new': typeof AuthenticatedPoolingNewRoute
-  '/booking/qr/$code': typeof BookingQrCodeRoute
   '/bookings/': typeof AuthenticatedBookingsIndexRoute
   '/vendor/': typeof AuthenticatedVendorIndexRoute
   '/bookings/$id/dispute': typeof AuthenticatedBookingsIdDisputeRoute
@@ -365,7 +351,6 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/rewards': typeof AuthenticatedRewardsRoute
-  '/scan': typeof AuthenticatedScanRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/washes': typeof AuthenticatedWashesRoute
@@ -376,7 +361,6 @@ export interface FileRoutesByTo {
   '/pooling/driver': typeof AuthenticatedPoolingDriverRoute
   '/pooling/mine': typeof AuthenticatedPoolingMineRoute
   '/pooling/new': typeof AuthenticatedPoolingNewRoute
-  '/booking/qr/$code': typeof BookingQrCodeRoute
   '/bookings': typeof AuthenticatedBookingsIndexRoute
   '/vendor': typeof AuthenticatedVendorIndexRoute
   '/bookings/$id/dispute': typeof AuthenticatedBookingsIdDisputeRoute
@@ -413,7 +397,6 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
   '/_authenticated/rewards': typeof AuthenticatedRewardsRoute
-  '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/_authenticated/wash-center-dashboard': typeof AuthenticatedWashCenterDashboardRoute
   '/_authenticated/washes': typeof AuthenticatedWashesRoute
@@ -424,7 +407,6 @@ export interface FileRoutesById {
   '/_authenticated/pooling/driver': typeof AuthenticatedPoolingDriverRoute
   '/_authenticated/pooling/mine': typeof AuthenticatedPoolingMineRoute
   '/_authenticated/pooling/new': typeof AuthenticatedPoolingNewRoute
-  '/booking/qr/$code': typeof BookingQrCodeRoute
   '/_authenticated/bookings/': typeof AuthenticatedBookingsIndexRoute
   '/_authenticated/vendor/': typeof AuthenticatedVendorIndexRoute
   '/_authenticated/bookings/$id/dispute': typeof AuthenticatedBookingsIdDisputeRoute
@@ -461,7 +443,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/referrals'
     | '/rewards'
-    | '/scan'
     | '/wallet'
     | '/wash-center-dashboard'
     | '/washes'
@@ -472,7 +453,6 @@ export interface FileRouteTypes {
     | '/pooling/driver'
     | '/pooling/mine'
     | '/pooling/new'
-    | '/booking/qr/$code'
     | '/bookings/'
     | '/vendor/'
     | '/bookings/$id/dispute'
@@ -507,7 +487,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/referrals'
     | '/rewards'
-    | '/scan'
     | '/wallet'
     | '/wash-center-dashboard'
     | '/washes'
@@ -518,7 +497,6 @@ export interface FileRouteTypes {
     | '/pooling/driver'
     | '/pooling/mine'
     | '/pooling/new'
-    | '/booking/qr/$code'
     | '/bookings'
     | '/vendor'
     | '/bookings/$id/dispute'
@@ -554,7 +532,6 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/referrals'
     | '/_authenticated/rewards'
-    | '/_authenticated/scan'
     | '/_authenticated/wallet'
     | '/_authenticated/wash-center-dashboard'
     | '/_authenticated/washes'
@@ -565,7 +542,6 @@ export interface FileRouteTypes {
     | '/_authenticated/pooling/driver'
     | '/_authenticated/pooling/mine'
     | '/_authenticated/pooling/new'
-    | '/booking/qr/$code'
     | '/_authenticated/bookings/'
     | '/_authenticated/vendor/'
     | '/_authenticated/bookings/$id/dispute'
@@ -595,7 +571,6 @@ export interface RootRouteChildren {
   WashRoute: typeof WashRoute
   DriverIdRoute: typeof DriverIdRoute
   VehicleIdRoute: typeof VehicleIdRoute
-  BookingQrCodeRoute: typeof BookingQrCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -789,13 +764,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRewardsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/scan': {
-      id: '/_authenticated/scan'
-      path: '/scan'
-      fullPath: '/scan'
-      preLoaderRoute: typeof AuthenticatedScanRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/wallet': {
       id: '/_authenticated/wallet'
       path: '/wallet'
@@ -880,13 +848,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVendorIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/booking/qr/$code': {
-      id: '/booking/qr/$code'
-      path: '/booking/qr/$code'
-      fullPath: '/booking/qr/$code'
-      preLoaderRoute: typeof BookingQrCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/bookings/$id/dispute': {
       id: '/_authenticated/bookings/$id/dispute'
       path: '/bookings/$id/dispute'
@@ -928,7 +889,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
   AuthenticatedRewardsRoute: typeof AuthenticatedRewardsRoute
-  AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedWashCenterDashboardRoute: typeof AuthenticatedWashCenterDashboardRoute
   AuthenticatedWashesRoute: typeof AuthenticatedWashesRoute
@@ -955,7 +915,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
   AuthenticatedRewardsRoute: AuthenticatedRewardsRoute,
-  AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedWashCenterDashboardRoute: AuthenticatedWashCenterDashboardRoute,
   AuthenticatedWashesRoute: AuthenticatedWashesRoute,
@@ -996,7 +955,6 @@ const rootRouteChildren: RootRouteChildren = {
   WashRoute: WashRoute,
   DriverIdRoute: DriverIdRoute,
   VehicleIdRoute: VehicleIdRoute,
-  BookingQrCodeRoute: BookingQrCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

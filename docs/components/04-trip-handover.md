@@ -2,16 +2,18 @@
 
 **Track A** · Owner: ________
 
-Covers the QR handover, pickup and return checklists, trip extension, chat, live tracking, settlement and vehicle reviews.
+Covers the handover codes, the renter's photo check-in and check-out, trip extension, chat, live tracking, settlement and vehicle reviews.
+
+> **Changed:** the QR handover, the damage checklist and the fuel slider are gone. The host gives a check-in and a check-out code; the renter takes a 360° set of photos and enters the code. Rows with an empty **Result** need a fresh run.
 
 ## Where it lives
 
 | Part | Location |
 | --- | --- |
-| Pages | `/bookings/$id/trip`, `/scan`, `/booking/qr/$code`, `/messages/$bookingId`, `/bookings/$id/dispute` |
-| Components | `live-tracker.tsx`, `trip-safety-extension.tsx`, `qr-camera.tsx` |
-| Backend | `resolveHandoverCode`, `confirmHandover`, `submitInspection` in `payments/views.py`, plus `trip_window.py` |
-| Database | `booking_extensions`, `messages`, `booking_locations`, `reviews`, `tg_money_settle_booking` |
+| Pages | `/bookings/$id/trip`, `/messages/$bookingId`, `/bookings/$id/dispute` |
+| Components | `live-tracker.tsx`, `trip-safety-extension.tsx` |
+| Backend | `submitInspection` in `payments/views.py` (photos, odometer, code), plus `trip_window.py` |
+| Database | `booking_handover_codes` (migration 0039), `booking_extensions`, `messages`, `booking_locations`, `reviews`, `tg_money_settle_booking` |
 
 ## Rules
 
@@ -19,20 +21,20 @@ See [Business rules](../03-business-rules.md), sections 9 and 10.
 
 ## Test setup
 
-Create a paid booking for Asha with pickup in the next 30 minutes.
+Create a paid booking for Asha with pickup in the next 30 minutes. Sign in as Hari in a second browser.
 
 ## Main workflow
 
 | ID | Steps | Expected | Result |
 | --- | --- | --- | --- |
-| TH-01 | As Asha, open the trip page | QR code and a Start trip action are shown | **PASS** — Displayed vehicle details, safety checklist, document requirements, fuel slider, odometer, photo upload, damage checklist (9 zones), "Start trip" action, and "HANDOVER QR" badge |
-| TH-02 | As Hari, open `/scan` and scan or enter the code | Booking, rider and vehicle details appear | **PASS** — Entered code `7b53deb9-...`: booking details, rider Asha Customer, vehicle Maruti Swift, dates, fare + deposit, and pickup pending status appeared |
-| TH-03 | Confirm pickup | Both people are notified that pickup is confirmed | **PASS** — Clicked "Confirm pickup handover", handover recorded, status updated to confirmed pickup, Live GPS tracking unlocked |
-| TH-04 | Fill in the pickup checklist with fuel, odometer 10,000, photos and notes | Checklist saves | **PASS** — Fuel 100%, odometer 10,000 km, inspection photo, 9 damage zones OK, notes submitted; checklist saved to completed status snapshot |
+| TH-01 | As Hari, open the trip page from **Host trips** | A **Check-in code** card with 6 digits. No forms, no SOS, no document checklist | |
+| TH-02 | As Asha, open the trip page | The check-in form: 9 photo slots, odometer and code. No code is shown to her | |
+| TH-03 | Asha takes the 9 photos, enters odometer 10,000 and Hari's code → **Start trip** | `Trip started. Drive safe!` | |
+| TH-04 | As Hari, refresh | Asha's 9 photos labelled by angle, odometer 10,000, and now the **Check-out code** | |
 | TH-05 | Open chat and send a message each way | Messages arrive live without refreshing | **PASS** — Hari sent *"Hello Asha, vehicle is ready for pickup!"*, Asha saw and replied *"Thank you Hari, picking it up now!"*; live bidirectional delivery without reload |
 | TH-06 | Start live tracking and view it from the other account | Location updates appear | **PASS** — Clicked "Share live location" on trip page; toggled to "Stop sharing" with periodic background GPS pinging enabled |
-| TH-07 | As Hari, confirm return from `/scan` | Return is recorded | **PASS** — Scanned/entered code on `/scan`, clicked "Confirm return handover"; return timestamp stamped and return inspection unlocked |
-| TH-08 | Fill in the return checklist with odometer 10,100 | Trip status is `completed` | **PASS** — Submitted odometer 10,100 km (100 km driven), fuel 100%, return photo and notes; trip transitioned to `completed` |
+| TH-07 | Asha does the check-out: 9 photos, odometer 10,100 and Hari's check-out code | `Trip completed. Thanks for riding!`, status `completed` | |
+| TH-08 | Asha ends the trip a day early the same way | Completes with the check-out code; no separate "End ride early" button | |
 | TH-09 | Check both wallets | Hari gets ₹1,764 and Asha gets ₹3,000 back | **PASS** — Hari credited ₹1,764 (`Ride earning: Earning from completed trip (after commission)`); Asha credited ₹3,000 (`Refund: Security deposit returned`) |
 | TH-10 | As Asha, leave a 5-star review | Vehicle rating updates | **PASS** — Submitted 5-star review with comment *"Amazing ride, smooth handover!"*; review appeared immediately in vehicle reviews list and rating updated |
 | TH-11 | As Hari, reply to the review | Reply appears under the review | **PASS** — Posted host reply *"Thank you Asha, pleasure hosting you!"*; reply rendered under Asha's review with "HOST REPLY" badge |
@@ -41,19 +43,19 @@ Create a paid booking for Asha with pickup in the next 30 minutes.
 
 | ID | Steps | Expected | Result |
 | --- | --- | --- | --- |
-| TH-12 | Scan more than 30 min before pickup | Check-in is blocked and shows when it opens | **PASS** — Blocked by `handover_gate`: `'Check-in opens 1 Feb, 9:30 am (30 minutes before pickup).'` |
-| TH-13 | Scan an unpaid booking | Check-in stays blocked until the booking is confirmed and paid | **PASS** — Blocked by `confirm_handover`: `'This booking is not paid and confirmed yet.'` |
-| TH-14 | Ben scans Asha's code | Ben can't confirm the handover | **PASS** — Blocked by `confirm_handover`: `'Only the vehicle host can confirm the handover.'` |
-| TH-15 | Enter an unknown code | `No booking matches this QR code.` | **PASS** — Lookup returns `{'found': False}`; `confirm_handover` rejects with `'This QR code does not match any booking.'` |
-| TH-16 | Send the pickup confirmation twice through the API | `Pickup was already confirmed.` | **PASS** — Second pickup confirmation rejected with `'Pickup was already confirmed.'` |
-| TH-17 | Send the return confirmation before pickup through the API | `Confirm the pickup first.` | **PASS** — Return confirmation before pickup rejected with `'Confirm the pickup first.'` |
-| TH-18 | Enter a return odometer below pickup | `Return odometer can't be lower than the pickup reading.` | **PASS** — Return odometer (9,900) lower than pickup (10,000) rejected with `'Return odometer can\'t be lower than the pickup reading.'` |
-| TH-19 | Enter fuel of 150 | Refused | **PASS** — Fuel percentage 150 rejected with `'Invalid input: fuel'` |
-| TH-20 | Add more than 20 photos | Refused | **PASS** — Submitting 21 photos rejected with `'Invalid input: photoPaths'` |
-| TH-21 | Open the public QR link while signed out | Only public trip details are shown | **PASS** — Public lookup returns vehicle and booking dates without exposing internal billing or customer private info |
-| TH-22 | Deny camera permission on `/scan` | Code can still be entered by hand | **PASS** — `/scan` displays manual code input fallback: "Or paste the booking code" with "Verify" button |
+| TH-12 | Asha opens the trip more than 30 min before pickup | `Check-in opens … (30 minutes before pickup)` and no form | |
+| TH-13 | Booking not yet paid | No codes exist and check-in stays locked | |
+| TH-14 | Asha reads `booking_handover_codes` through the API | Returns no rows | |
+| TH-15 | Asha enters a wrong code | `That code is not right. Ask your host for the code.` | |
+| TH-16 | 5 wrong codes in a row, then the right one | `Too many wrong codes. Try again in 15 minutes.` even for the right code | |
+| TH-17 | Asha enters the check-out code at check-in, or the check-in code at check-out | Refused as a wrong code | |
+| TH-18 | Enter a return odometer below pickup | `Return odometer can't be lower than the pickup reading.` | |
+| TH-19 | Leave out one photo (for example the rear-left corner) | `Add the rear left photo.` | |
+| TH-20 | Use the same photo for two angles through the API | `Each photo must be a different picture.` | |
+| TH-21 | Hari calls `submitInspection` through the API with the right code | `Only the renter records the check-in and check-out.` | |
+| TH-22 | Asha calls `/api/rpc/complete_booking` or `completeBooking` | Not found. The trip stays open | |
 | TH-23 | Submit the pickup checklist days before pickup | **GAP-19:** must be refused | **PASS** — GAP-19 fixed: `submit_inspection` strictly enforces check-in window for customer pickup inspection |
-| TH-24 | As Asha alone, submit the return checklist | **GAP-11:** must not complete the trip or release money | **PASS** — GAP-11 fixed: Host return confirmation or inspection is required before status transitions to completed and funds settle |
+| TH-24 | As Asha alone, try to end the trip | **GAP-11:** impossible without Hari's check-out code | |
 | TH-25 | Change a recorded odometer reading through the API | **GAP-12:** must be refused | **PASS** — GAP-12 fixed: `trg_guard_booking_lifecycle_integrity` makes recorded inspection readings immutable |
 
 ## Extension cases

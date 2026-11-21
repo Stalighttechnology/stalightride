@@ -1,5 +1,5 @@
 """Server-side actions the browser must not do itself: Razorpay orders and
-signature checks, wallet top-up, QR lookup, handover and trip inspection.
+signature checks, wallet top-up, trip handover codes and inspection.
 
 Ported one-to-one from the old server functions (same inputs, checks, error
 messages and outputs). Reads run as the signed-in user, so row-level security
@@ -397,235 +397,100 @@ def verify_wallet_topup(data, user_id):
     return {"ok": True, "alreadyCredited": False, "newBalance": float(balance)}
 
 
-# -- QR lookup, handover, inspection ---------------------------------------------
+# -- trip handover: the renter's photos and odometer, plus the host's code --------
 
-_QR_FIELDS = ("id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, base_price, "
-              "security_deposit, total_price, provider_earning, paid_at, vehicle_id, customer_id, vendor_id, pickup_fuel_pct, "
-              "return_fuel_pct, pickup_odometer, return_odometer, pickup_checked_at, return_checked_at")
-
-
-def _by_code(select, code):
-    """A booking by its QR code, or by id when the code is a booking id."""
-    b = _get("bookings", select, "qr_code", code)
-    if b is None and re.fullmatch(r"[0-9a-fA-F-]{36}", code):
-        b = _get("bookings", select, "id", code)
-    return b
+# A 360-degree walk-around (four sides and four corners) plus one dashboard shot showing the odometer
+# and fuel gauge, required at both check-in and check-out. The slot name starts the file name.
+INSPECTION_SHOTS = ("front", "front_left", "driver_side", "rear_left", "rear", "rear_right",
+                    "passenger_side", "front_right", "dashboard")
+_MAX_CODE_ATTEMPTS = 5
+_CODE_LOCK = timedelta(minutes=15)
 
 
-def get_booking_by_qr(data, user_id):
-    """Public: anyone holding a printed QR may see the trip's public details."""
-    code = _text(data, "code", 8, 128)
-    with db_role("service_role"):
-        b = _by_code(_QR_FIELDS, code)
-        if b is None:
-            return None
-        vehicle = _get("vehicles", "title, brand, model, year, city, address, lat, lng, category, fuel, transmission",
-                       "id", b["vehicle_id"])
-        # The exact pickup point (migration 0036) only once the host has confirmed this booking.
-        exact = b["status"] in ("confirmed", "completed") and _get(
-            "vehicle_locations", "address, lat, lng", "vehicle_id", b["vehicle_id"])
-        if vehicle and exact:
-            vehicle.update({k: v for k, v in exact.items() if v is not None})
-        customer = _get("profiles", "full_name, avatar_url", "id", b["customer_id"])
-        vendor = _get("profiles", "full_name, avatar_url", "id", b["vendor_id"])
-
-    def num(v):
-        return float(v) if v is not None else None
-
-    # Money by viewer: the customer sees what they paid, the host only what they earn, anyone else nothing.
-    if user_id == str(b["customer_id"]):
-        money = {"basePrice": num(b["base_price"]), "securityDeposit": num(b["security_deposit"]),
-                 "totalPrice": num(b["total_price"])}
-    elif user_id == str(b["vendor_id"]):
-        money = {"providerEarning": num(b["provider_earning"])}
-    else:
-        money = {}
-    return {
-        "id": b["id"], "status": b["status"], "paymentStatus": b["payment_status"],
-        "startDate": b["start_date"], "endDate": b["end_date"],
-        "pickupTime": b["pickup_time"], "dropoffTime": b["dropoff_time"],
-        **money, "paidAt": b["paid_at"],
-        "pickupFuelPct": b["pickup_fuel_pct"], "returnFuelPct": b["return_fuel_pct"],
-        "pickupOdometer": b["pickup_odometer"], "returnOdometer": b["return_odometer"],
-        "pickupCheckedAt": b["pickup_checked_at"], "returnCheckedAt": b["return_checked_at"],
-        "vehicle": vehicle, "customer": customer, "vendor": vendor,
-    }
+def _inspection_photos(data, booking_id, phase):
+    shots, extras = data.get("photos"), data.get("extraPhotos") or []
+    if not isinstance(shots, dict) or not isinstance(extras, list) or len(extras) > 10:
+        raise FnError("Invalid input: photos")
+    prefix = f"{booking_id}/{phase}/"
+    paths = []
+    for shot in INSPECTION_SHOTS:
+        p = shots.get(shot)
+        if not isinstance(p, str) or not p.startswith(f"{prefix}{shot}-") or len(p) > 500:
+            raise FnError(f"Add the {shot.replace('_', ' ')} photo.")
+        paths.append(p)
+    for p in extras:
+        if not isinstance(p, str) or not p.startswith(prefix) or len(p) > 500:
+            raise FnError("Invalid input: extraPhotos")
+        paths.append(p)
+    if len(set(paths)) != len(paths):
+        raise FnError("Each photo must be a different picture.")
+    return paths
 
 
-def resolve_handover_code(data, user_id):
-    code = _text(data, "code", 8, 200)
-    b = _by_code("id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, total_price, "
-                 "provider_earning, pickup_checked_at, return_checked_at, customer_id, vendor_id, vehicle_id", code)
-    if b is None:
-        return {"found": False}
-    # The customer sees what they paid; the host (or admin) only the host's earning.
-    if b["customer_id"] == user_id:
-        b.pop("provider_earning")
-    else:
-        b.pop("total_price")
-    vehicle = _get("vehicles", "title, brand, model, city", "id", b["vehicle_id"])
-    rider = _get("public_profiles", "full_name, avatar_url", "id", b["customer_id"])
-    gate = handover_gate(b)
-    return {
-        "found": True, "booking": b, "vehicle": vehicle, "rider": rider,
-        "canConfirm": b["vendor_id"] == user_id or _is_admin(user_id),
-        "isRider": b["customer_id"] == user_id,
-        "gate": {**gate, "opensAt": gate["opensAt"].isoformat() if gate["opensAt"] else None},
-    }
-
-
-def confirm_handover(data, user_id):
-    code = _text(data, "code", 8, 200)
+def submit_inspection(data, user_id):
+    """The renter photographs the car, enters the odometer and the code the host gives them.
+    The check-in code starts the trip; the check-out code completes it, so a trip never
+    starts or ends without the host."""
+    booking_id = _uuid(data, "bookingId")
     phase = data.get("phase")
     if phase not in ("pickup", "return"):
         raise FnError("Invalid input: phase")
-    b = _by_code("id, status, payment_status, vendor_id, start_date, end_date, pickup_time, dropoff_time, "
-                 "pickup_checked_at, return_checked_at, return_odometer", code)
-    if b is None:
-        raise FnError("This QR code does not match any booking.")
-    if b["vendor_id"] != user_id and not _is_admin(user_id):
-        raise FnError("Only the vehicle host can confirm the handover.")
+    odo = _int(data, "odo", 0, 3_000_000)
+    code = _text(data, "code", 1, 20).strip()
+    notes = data.get("notes")
+    if notes is not None and (not isinstance(notes, str) or len(notes) > 2000):
+        raise FnError("Invalid input: notes")
+    paths = _inspection_photos(data, booking_id, phase)
+
+    b = _get("bookings", "id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, customer_id, "
+             "pickup_checked_at, return_checked_at, pickup_odometer", "id", booking_id)
+    if not b:
+        raise FnError("Booking not found.")
+    if user_id != b["customer_id"]:
+        raise FnError("Only the renter records the check-in and check-out.")
     if b["status"] != "confirmed" or b["payment_status"] != "paid":
-        raise FnError("This booking is not paid and confirmed yet.")
+        raise FnError("The booking must be confirmed and paid first.")
     gate = handover_gate(b)
     if phase == "pickup":
         if b["pickup_checked_at"]:
-            raise FnError("Pickup was already confirmed.")
+            raise FnError("The trip has already started.")
         if not gate["canCheckin"]:
             raise FnError(gate["checkinReason"] or "Check-in is not open yet.")
     else:
         if not b["pickup_checked_at"]:
-            raise FnError("Confirm the pickup first.")
+            raise FnError("Check in first.")
         if b["return_checked_at"]:
-            raise FnError("Return was already confirmed.")
-        if not gate["canCheckout"]:
-            raise FnError(gate["checkoutReason"] or "Check-out is not available yet.")
-    patch = {f"{phase}_checked_at": _now()}
-    if phase == "return":
-        patch["status"] = "completed"
+            raise FnError("The trip has already ended.")
+        if b["pickup_odometer"] is not None and odo < b["pickup_odometer"]:
+            raise FnError("Return odometer can't be lower than the pickup reading.")
+
+    now = datetime.now(timezone.utc)
+    where = [["booking_id", "eq", booking_id]]
     with db_role("service_role"):
-        _update("bookings", patch, [["id", "eq", b["id"]]])
-    return {"ok": True, "phase": phase, "bookingId": b["id"]}
-
-
-def submit_inspection(data, user_id):
-    booking_id = _uuid(data, "bookingId")
-    phase = data.get("phase")
-    if phase not in ("pickup", "return"):
-        raise FnError("Invalid input: phase")
-    fuel, odo = _int(data, "fuel", 0, 100), _int(data, "odo", 0, 3_000_000)
-    photos = data.get("photoPaths")
-    if not isinstance(photos, list) or len(photos) > 20 or not all(isinstance(p, str) and 1 <= len(p) <= 500 for p in photos):
-        raise FnError("Invalid input: photoPaths")
-    notes = data.get("notes")
-    if notes is not None and (not isinstance(notes, str) or len(notes) > 2000):
-        raise FnError("Invalid input: notes")
-    damage = data.get("damage")
-    if not isinstance(damage, list) or not all(
-            isinstance(d, dict) and isinstance(d.get("area"), str) and 1 <= len(d["area"]) <= 120
-            and d.get("condition") in ("ok", "minor", "major")
-            and (d.get("note") is None or (isinstance(d["note"], str) and len(d["note"]) <= 500)) for d in damage):
-        raise FnError("Invalid input: damage")
-
-    b = _get("bookings", "id, status, payment_status, start_date, end_date, pickup_time, dropoff_time, customer_id, "
-             "vendor_id, pickup_checked_at, return_checked_at, pickup_odometer, return_odometer", "id", booking_id)
-    if not b:
-        raise FnError("Booking not found.")
-    if user_id not in (b["customer_id"], b["vendor_id"]) and not _is_admin(user_id):
-        raise FnError("You don't have access to this trip.")
-    gate = handover_gate(b)
-    # A QR scan may already have stamped the handover; the checklist is still due then.
-    pickup_scanned = bool(b["pickup_checked_at"]) and b["pickup_odometer"] is None
-    return_scanned = bool(b["return_checked_at"]) and b["return_odometer"] is None
-    if phase == "pickup" and b["pickup_odometer"] is not None:
-        raise FnError("Pickup checklist already recorded.")
-    if phase == "return" and b["return_odometer"] is not None:
-        raise FnError("Return checklist already recorded.")
-    if phase == "return" and b["pickup_odometer"] is not None and odo < b["pickup_odometer"]:
-        raise FnError("Return odometer can't be lower than the pickup reading.")
-    is_paid = b["payment_status"] == "paid" and b["status"] == "confirmed"
-    if not is_paid:
-        raise FnError("Booking must be paid and confirmed before inspection.")
-    is_customer = (user_id == b["customer_id"])
-    if phase == "pickup" and is_customer and not gate["canCheckin"] and not pickup_scanned:
-        raise FnError(gate["checkinReason"] or "Check-in is not available yet.")
-    if phase == "return" and is_customer and not gate["canCheckout"] and not return_scanned:
-        raise FnError(gate["checkoutReason"] or "Check-out is not available yet.")
-
-    patch = {
-        f"{phase}_fuel_pct": fuel, f"{phase}_odometer": odo, f"{phase}_photos": photos,
-        f"{phase}_notes": notes or None, f"{phase}_damage": damage,
-        f"{phase}_checked_at": b[f"{phase}_checked_at"] or _now(),
-    }
-    if phase == "return":
-        # Completing return inspection allows the ride to complete early or on schedule
-        patch["status"] = "completed"
-    with db_role("service_role"):
-        _update("bookings", patch, [["id", "eq", b["id"]]])
+        codes = _get("booking_handover_codes", "checkin_code, checkout_code, failed_attempts, locked_until",
+                     "booking_id", booking_id)
+        if not codes:
+            raise FnError("No handover code exists for this booking. Contact support.")
+        if codes["locked_until"] and datetime.fromisoformat(codes["locked_until"]) > now:
+            return {"ok": False, "message": "Too many wrong codes. Try again in 15 minutes."}
+        expected = codes["checkin_code" if phase == "pickup" else "checkout_code"]
+        if not hmac.compare_digest(code, expected):
+            attempts = codes["failed_attempts"] + 1
+            locked = attempts >= _MAX_CODE_ATTEMPTS
+            _update("booking_handover_codes", {
+                "failed_attempts": 0 if locked else attempts,
+                "locked_until": (now + _CODE_LOCK).isoformat() if locked else None,
+            }, where)
+            # Returned, not raised: an error response would roll back the attempt counter.
+            return {"ok": False, "message": "Too many wrong codes. Try again in 15 minutes." if locked
+                    else "That code is not right. Ask your host for the code."}
+        _update("booking_handover_codes", {"failed_attempts": 0, "locked_until": None}, where)
+        patch = {f"{phase}_odometer": odo, f"{phase}_photos": paths, f"{phase}_notes": notes or None,
+                 f"{phase}_checked_at": now.isoformat()}
+        if phase == "return":
+            patch["status"] = "completed"
+        _update("bookings", patch, [["id", "eq", booking_id]])
     return {"ok": True, "phase": phase}
-
-
-def complete_booking(data, user_id):
-    booking_id = _uuid(data, "bookingId")
-    b = _get("bookings", "id, status, payment_status, customer_id, vendor_id, pickup_checked_at, "
-                         "return_checked_at, pickup_odometer, return_odometer, pickup_fuel_pct, "
-                         "return_fuel_pct, security_deposit, provider_earning", "id", booking_id)
-    if not b:
-        raise FnError("Booking not found.")
-    if user_id not in (b["customer_id"], b["vendor_id"]) and not _is_admin(user_id):
-        raise FnError("You don't have access to this trip.")
-    if b["status"] == "completed":
-        return {"ok": True, "bookingId": b["id"], "status": "completed", "alreadyCompleted": True}
-    if b["status"] != "confirmed":
-        raise FnError("Only confirmed active bookings can be completed.")
-    if b["payment_status"] != "paid":
-        raise FnError("Only paid bookings can be completed.")
-
-    odo = data.get("odo")
-    fuel = data.get("fuel")
-    notes = data.get("notes")
-
-    now_str = _now()
-    patch = {
-        "status": "completed",
-        "return_checked_at": b["return_checked_at"] or now_str,
-    }
-    if not b["pickup_checked_at"]:
-        patch["pickup_checked_at"] = now_str
-
-    if odo is not None:
-        try:
-            odo_val = int(odo)
-            if 0 <= odo_val <= 3_000_000:
-                patch["return_odometer"] = odo_val
-                if b["pickup_odometer"] is None:
-                    patch["pickup_odometer"] = odo_val
-        except (ValueError, TypeError):
-            pass
-    elif b["return_odometer"] is None and b["pickup_odometer"] is not None:
-        patch["return_odometer"] = b["pickup_odometer"]
-
-    if fuel is not None:
-        try:
-            fuel_val = int(fuel)
-            if 0 <= fuel_val <= 100:
-                patch["return_fuel_pct"] = fuel_val
-                if b["pickup_fuel_pct"] is None:
-                    patch["pickup_fuel_pct"] = fuel_val
-        except (ValueError, TypeError):
-            pass
-    elif b["return_fuel_pct"] is None and b["pickup_fuel_pct"] is not None:
-        patch["return_fuel_pct"] = b["pickup_fuel_pct"]
-
-    if notes and isinstance(notes, str):
-        patch["return_notes"] = notes[:2000]
-
-    with db_role("service_role"):
-        _update("bookings", patch, [["id", "eq", b["id"]]])
-        _notify(b["customer_id"], "Trip completed", "Vehicle returned. Security deposit returned to your wallet.", f"/bookings/{b['id']}/trip")
-        _notify(b["vendor_id"], "Trip completed", "Vehicle returned. Your earnings have been credited to wallet.", "/vendor?tab=payouts")
-
-    return {"ok": True, "bookingId": b["id"], "status": "completed"}
 
 
 # -- membership subscriptions ----------------------------------------------------
@@ -1141,11 +1006,7 @@ FUNCTIONS = {
     "verifyWashRazorpayPayment": verify_wash_razorpay_payment,
     "createWalletTopupOrder": create_wallet_topup_order,
     "verifyWalletTopup": verify_wallet_topup,
-    "getBookingByQr": get_booking_by_qr,
-    "resolveHandoverCode": resolve_handover_code,
-    "confirmHandover": confirm_handover,
     "submitInspection": submit_inspection,
-    "completeBooking": complete_booking,
     "createMembershipOrder": create_membership_order,
     "subscribeMembership": subscribe_membership,
     "cancelMembership": cancel_membership,
@@ -1156,7 +1017,7 @@ FUNCTIONS = {
     "convertPointsToWallet": convert_points_to_wallet,
     "resolveDisputeCompensation": resolve_dispute_compensation,
 }
-PUBLIC = {"getBookingByQr"}
+PUBLIC = set()
 
 
 @api_view(["POST"])
