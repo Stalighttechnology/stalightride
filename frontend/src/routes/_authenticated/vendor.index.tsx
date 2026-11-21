@@ -19,11 +19,11 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Plus,
+  ClipboardCheck,
   Car,
   DollarSign,
   Calendar,
   ShieldCheck,
-  ScanLine,
   Star,
   LayoutDashboard,
   BarChart3,
@@ -793,15 +793,15 @@ function VendorDashboard() {
               {displayVendor.business_name}
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Manage your fleet, view real-time trip handovers, track earnings, and maintain vehicle
+              Manage your fleet, share trip handover codes, track earnings, and maintain vehicle
               health.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm" className="rounded-xl">
-              <Link to="/scan">
-                <ScanLine className="mr-1.5 h-4 w-4" /> Scan QR Handover
+              <Link to="/bookings" search={{ tab: "vendor" } as any}>
+                <ClipboardCheck className="mr-1.5 h-4 w-4" /> Trips &amp; handover codes
               </Link>
             </Button>
             <Button
@@ -912,8 +912,8 @@ function VendorDashboard() {
                   size="sm"
                   className="w-full justify-start text-xs"
                 >
-                  <Link to="/scan">
-                    <ScanLine className="mr-2 h-3.5 w-3.5 text-brand" /> Scan QR Handover
+                  <Link to="/bookings" search={{ tab: "vendor" } as any}>
+                    <ClipboardCheck className="mr-2 h-3.5 w-3.5 text-brand" /> Trips &amp; handover codes
                   </Link>
                 </Button>
               </div>

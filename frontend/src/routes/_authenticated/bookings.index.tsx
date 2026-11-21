@@ -14,7 +14,6 @@ import { getHandoverGate, formatWhen } from "@/lib/trip-window";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSession } from "@/hooks/use-session";
 import { useActiveRole } from "@/hooks/use-active-role";
-import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import {
   MessageSquare,
@@ -29,7 +28,6 @@ import {
   CheckCircle2,
   CalendarDays,
   Clock,
-  ScanLine,
   Navigation,
 } from "lucide-react";
 import { createRazorpayOrder, verifyRazorpayPayment } from "@/lib/actions";
@@ -768,78 +766,35 @@ function List({
                           {role === "vendor" ? "Cancel & refund" : "Cancel"}
                         </Button>
                       )}
-                    {b.status === "confirmed" &&
-                      b.payment_status === "paid" &&
-                      role === "vendor" &&
-                      b.return_checked_at &&
-                      b.return_odometer != null && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-full"
-                          onClick={() => onAction(b.id, "completed")}
-                        >
-                          Mark completed
-                        </Button>
-                      )}
                     {(() => {
                       const gate = getHandoverGate(b);
                       if (!gate.ctaLabel) return null;
                       const onTrip = b.pickup_checked_at && !b.return_checked_at;
-                      const label =
-                        b.pickup_checked_at && b.pickup_odometer == null
-                          ? "Pickup checklist"
-                          : b.return_checked_at && b.return_odometer == null
-                            ? "Return checklist"
-                            : onTrip
-                              ? role === "customer"
-                                ? "Live trip & GPS"
-                                : "Track trip · End trip"
-                              : gate.ctaLabel;
-                      const locked = !gate.canCheckin && !gate.canCheckout && !b.return_checked_at;
-                      if (locked)
+                      if (role === "vendor")
                         return (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            {gate.opensAt
-                              ? `Check-in opens ${formatWhen(gate.opensAt)}`
-                              : gate.ctaLabel}
-                          </span>
-                        );
-                      return (
-                        <div className="flex flex-wrap items-center gap-2">
                           <Button asChild size="sm" variant="outline" className="rounded-full">
                             <Link to="/bookings/$id/trip" params={{ id: b.id }}>
                               <ClipboardCheck className="mr-1.5 h-4 w-4" />
-                              {label}
+                              {b.return_checked_at ? "Trip summary" : onTrip ? "Track trip · check-out code" : "Check-in code"}
                             </Link>
                           </Button>
-                          {onTrip && (
-                            <Button asChild size="sm" className="btn-gradient rounded-full">
-                              <Link
-                                to="/bookings/$id/trip"
-                                params={{ id: b.id }}
-                                search={{ action: "return" } as any}
-                              >
-                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                                {role === "customer" ? "End ride early" : "Complete trip"}
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })()}
-                    {role === "vendor" &&
-                      b.status === "confirmed" &&
-                      b.payment_status === "paid" &&
-                      !b.return_checked_at && (
-                        <Button asChild size="sm" className="btn-gradient rounded-full">
-                          <Link to="/scan">
-                            <ScanLine className="mr-1.5 h-4 w-4" />
-                            Scan rider QR
+                        );
+                      if (!gate.canCheckin && !gate.canCheckout && !b.return_checked_at)
+                        return (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            {gate.opensAt ? `Check-in opens ${formatWhen(gate.opensAt)}` : gate.ctaLabel}
+                          </span>
+                        );
+                      return (
+                        <Button asChild size="sm" variant="outline" className="rounded-full">
+                          <Link to="/bookings/$id/trip" params={{ id: b.id }}>
+                            <ClipboardCheck className="mr-1.5 h-4 w-4" />
+                            {onTrip ? "Live trip · check out" : gate.ctaLabel}
                           </Link>
                         </Button>
-                      )}
+                      );
+                    })()}
                     {b.status !== "completed" &&
                       b.status !== "cancelled" &&
                       b.status !== "rejected" && (
@@ -876,23 +831,6 @@ function List({
                   </div>
                 </div>
 
-                {role === "customer" && (b.payment_status === "paid" || b.paid_at) && (
-                  <a
-                    href={`/booking/qr/${b.qr_code || b.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex shrink-0 flex-col items-center justify-center gap-1.5 self-center rounded-2xl bg-white p-3 ring-1 ring-border shadow-xs transition-transform hover:scale-[1.03]"
-                    title="Scan or open to view booking details"
-                  >
-                    <QRCodeSVG
-                      value={`${typeof window !== "undefined" ? window.location.origin : ""}/booking/qr/${b.qr_code || b.id}`}
-                      size={92}
-                    />
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Handover QR
-                    </span>
-                  </a>
-                )}
               </CardContent>
             </Card>
           </li>

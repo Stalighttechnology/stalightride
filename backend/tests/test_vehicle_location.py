@@ -122,19 +122,3 @@ def test_customer_cannot_write_the_private_location(world):
     res = api(world.c, table="vehicle_locations", action="update", values={"address": "x"},
               filters=[["vehicle_id", "eq", str(world.vehicle)]])
     assert res.status_code >= 400
-
-
-def test_qr_lookup_hides_the_address_until_confirmed(world):
-    res = api(world.c, table="bookings", action="insert", select="id", single="one", values={
-        "vehicle_id": str(world.vehicle), "vendor_id": str(world.host.id), "customer_id": str(world.cust.id),
-        "start_date": day(10), "end_date": day(11), "base_price": 2000, "total_price": 2000})
-    booking = res.json()["data"]["id"]
-
-    def vehicle():
-        r = world.h.post("/api/fn/getBookingByQr/", {"code": booking}, format="json")
-        assert r.status_code == 200, r.json()
-        return r.json()["data"]["vehicle"]
-
-    assert vehicle()["address"] == "Indiranagar"
-    api(world.h, table="bookings", action="update", values={"status": "confirmed"}, filters=[["id", "eq", booking]])
-    assert vehicle()["address"] == EXACT

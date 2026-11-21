@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { SiteHeader } from "@/components/site-header";
@@ -10,59 +10,46 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
-import { Upload, X, Fuel, Gauge, Camera, ShieldAlert, Radio, CheckCircle2 } from "lucide-react";
+import { Camera, Gauge, KeyRound, ShieldAlert, Radio } from "lucide-react";
 import { getHandoverGate } from "@/lib/trip-window";
-import { submitInspection, completeBooking } from "@/lib/actions";
+import { submitInspection } from "@/lib/actions";
 import { LiveTracker } from "@/components/live-tracker";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { TripSafetyExtension } from "@/components/trip-safety-extension";
-import { useConfirm } from "@/components/confirm-dialog";
-import { currency } from "@/lib/format";
-import { InspectionPhotoUploader } from "@/components/inspection-photo-uploader";
 
 export const Route = createFileRoute("/_authenticated/bookings/$id/trip")({
-  component: TripInspection,
+  component: TripPage,
 });
-
-const DAMAGE_AREAS = [
-  "Front bumper",
-  "Rear bumper",
-  "Left side panels",
-  "Right side panels",
-  "Windshield",
-  "Wheels & tyres",
-  "Headlights & tail-lights",
-  "Interior & seats",
-  "Dashboard warning lights",
-];
-type DamageEntry = { area: string; condition: "ok" | "minor" | "major"; note?: string };
 
 type Phase = "pickup" | "return";
 
-function TripInspection() {
+// A 360-degree walk-around (four sides, four corners) plus one dashboard shot with the odometer and
+// fuel gauge, required at check-in and check-out. Keep in sync with INSPECTION_SHOTS in payments/views.py.
+const SHOTS = [
+  { key: "front", label: "Front" },
+  { key: "front_left", label: "Front-left corner" },
+  { key: "driver_side", label: "Driver side" },
+  { key: "rear_left", label: "Rear-left corner" },
+  { key: "rear", label: "Rear" },
+  { key: "rear_right", label: "Rear-right corner" },
+  { key: "passenger_side", label: "Passenger side" },
+  { key: "front_right", label: "Front-right corner" },
+  { key: "dashboard", label: "Dashboard (odometer + fuel)" },
+] as const;
+type ShotKey = (typeof SHOTS)[number]["key"];
+
+const shotLabel = (path: string) =>
+  SHOTS.find((s) => path.split("/").pop()?.startsWith(`${s.key}-`))?.label ?? "Extra photo";
+
+function TripPage() {
   const { id } = Route.useParams();
   const { user } = useSession();
   const navigate = useNavigate();
   const [b, setB] = useState<any>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
-  const [saving, setSaving] = useState<Phase | null>(null);
-  const [endRideModalOpen, setEndRideModalOpen] = useState(() => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).get("action") === "return";
-    }
-    return false;
-  });
-  const saveInspection = submitInspection;
 
   const load = async () => {
     const { data } = await api
@@ -71,11 +58,7 @@ function TripInspection() {
       .eq("id", id)
       .maybeSingle();
     setB(data);
-    const { data: rev } = await api
-      .from("reviews")
-      .select("id")
-      .eq("booking_id", id)
-      .maybeSingle();
+    const { data: rev } = await api.from("reviews").select("id").eq("booking_id", id).maybeSingle();
     setHasReviewed(Boolean(rev));
   };
   useEffect(() => {
@@ -100,36 +83,25 @@ function TripInspection() {
         </div>
       </div>
     );
-  if (!b)
+  if (!b || !role)
     return (
       <div className="min-h-screen">
         <SiteHeader />
         <div className="mx-auto max-w-md p-8 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">Booking not found.</p>
-        </div>
-      </div>
-    );
-  if (!role)
-    return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <div className="mx-auto max-w-md p-8 text-center">
-          <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">You don't have access to this trip.</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {b ? "You don't have access to this trip." : "Booking not found."}
+          </p>
         </div>
       </div>
     );
 
+  const isRenter = role === "customer";
   const gate = getHandoverGate(b);
-  // Checklist is "done" once readings exist; a QR scan alone only stamps the handover time.
-  const pickupDone = b.pickup_odometer != null;
-  const returnDone = b.return_odometer != null || b.status === "completed";
-  const isPaid = (b.payment_status === "paid" || !!b.paid_at) && b.status === "confirmed";
-  const tripStarted = !!b.pickup_checked_at || pickupDone;
-  const canCheckin = !pickupDone && (gate.canCheckin || !!b.pickup_checked_at || isPaid);
-  const canCheckout = tripStarted && !returnDone && b.status === "confirmed";
-  const tripActive = tripStarted && !returnDone && b.status === "confirmed";
+  const isPaid = b.payment_status === "paid" && b.status === "confirmed";
+  const started = Boolean(b.pickup_checked_at);
+  const ended = Boolean(b.return_checked_at) || b.status === "completed";
+  const onTrip = started && !ended && b.status === "confirmed";
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,7 +112,9 @@ function TripInspection() {
             <p className="text-xs text-muted-foreground">
               Booking · {b.start_date} → {b.end_date}
             </p>
-            <h1 className="font-display text-3xl font-semibold">Trip inspection</h1>
+            <h1 className="font-display text-3xl font-semibold">
+              {isRenter ? "Your trip" : "Trip handover"}
+            </h1>
             <p className="text-sm text-muted-foreground">
               {b.vehicles?.title} · {b.vehicles?.brand} {b.vehicles?.model}
             </p>
@@ -151,35 +125,11 @@ function TripInspection() {
         </div>
 
         <div className="grid gap-6">
+          {!isRenter && isPaid && !ended && <HostCodeCard bookingId={b.id} started={started} />}
+
           <TripSafetyExtension booking={b} role={role} onExtensionSubmitted={load} />
 
-          {tripActive && (
-            <Card className="border-emerald-500/30 bg-emerald-950/20">
-              <CardContent className="p-5 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm text-foreground">
-                      Ride is currently in progress
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Returning the vehicle early? You can finalize your trip now. Your host will be notified and your security deposit will be returned to your wallet immediately.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setEndRideModalOpen(true)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
-                >
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" /> End ride early &amp; Complete trip
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {tripActive && (
+          {onTrip && (
             <Card>
               <CardContent className="p-6">
                 <div className="mb-3 flex items-start justify-between gap-2">
@@ -188,9 +138,9 @@ function TripInspection() {
                       <Radio className="h-4 w-4 text-red-600" /> Live GPS tracking
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      {role === "customer"
+                      {isRenter
                         ? "Share your phone GPS so the host can see your live position during the trip."
-                        : "The rider's live phone position updates here while they're sharing."}
+                        : "The renter's live phone position updates here while they're sharing."}
                     </p>
                   </div>
                   <Badge className="bg-red-600 text-white">Active trip</Badge>
@@ -207,49 +157,22 @@ function TripInspection() {
           )}
 
           <Section
-            title="Pickup check-in"
-            subtitle="Record fuel, odometer and photos before starting the trip."
-            done={pickupDone}
+            title="Check-in"
+            subtitle={
+              isRenter
+                ? "Photograph the car, note the odometer and enter the check-in code your host gives you."
+                : "The renter photographs the car and enters your check-in code to start the trip."
+            }
+            done={started}
           >
-            {pickupDone ? (
-              <ReadOnlySnapshot
-                bookingId={b.id}
-                fuel={b.pickup_fuel_pct}
-                odo={b.pickup_odometer}
-                photos={b.pickup_photos}
-                notes={b.pickup_notes}
-                damage={b.pickup_damage}
-                at={b.pickup_checked_at}
-                phase="pickup"
-              />
-            ) : canCheckin ? (
-              <InspectionForm
-                bookingId={b.id}
-                phase="pickup"
-                saving={saving === "pickup"}
-                onSave={async (payload) => {
-                  setSaving("pickup");
-                  try {
-                    await saveInspection({
-                      data: {
-                        bookingId: b.id,
-                        phase: "pickup",
-                        fuel: payload.fuel,
-                        odo: payload.odo,
-                        photoPaths: payload.photoPaths,
-                        notes: payload.notes || null,
-                        damage: payload.damage as any,
-                      },
-                    });
-                  } catch (e: any) {
-                    setSaving(null);
-                    return toast.error(e?.message ?? "Could not record the pickup.");
-                  }
-                  setSaving(null);
-                  toast.success("Pickup recorded");
-                  load();
-                }}
-              />
+            {started ? (
+              <Snapshot odo={b.pickup_odometer} photos={b.pickup_photos} notes={b.pickup_notes} at={b.pickup_checked_at} />
+            ) : !isRenter ? (
+              <p className="text-sm text-muted-foreground">
+                Waiting for the renter. At handover, give them the check-in code shown above.
+              </p>
+            ) : isPaid && gate.canCheckin ? (
+              <CheckForm bookingId={b.id} phase="pickup" onDone={load} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 {gate.checkinReason ?? "Check-in is not available for this booking."}
@@ -257,84 +180,32 @@ function TripInspection() {
             )}
           </Section>
 
-          <Section
-            title="Return check-out"
-            subtitle="Record fuel, odometer and photos when returning the vehicle."
-            done={returnDone}
-          >
-            {returnDone ? (
-              <ReadOnlySnapshot
-                bookingId={b.id}
-                fuel={b.return_fuel_pct}
-                odo={b.return_odometer}
-                photos={b.return_photos}
-                notes={b.return_notes}
-                damage={b.return_damage}
-                at={b.return_checked_at}
-                phase="return"
-              />
-            ) : canCheckout ? (
-              <InspectionForm
-                bookingId={b.id}
-                phase="return"
-                saving={saving === "return"}
-                onSave={async (payload) => {
-                  setSaving("return");
-                  try {
-                    await saveInspection({
-                      data: {
-                        bookingId: b.id,
-                        phase: "return",
-                        fuel: payload.fuel,
-                        odo: payload.odo,
-                        photoPaths: payload.photoPaths,
-                        notes: payload.notes || null,
-                        damage: payload.damage as any,
-                      },
-                    });
-                    try {
-                      await completeBooking({
-                        data: {
-                          bookingId: b.id,
-                          odo: payload.odo,
-                          fuel: payload.fuel,
-                          notes: payload.notes || undefined,
-                        },
-                      });
-                    } catch {
-                      // Handled by saveInspection or database trigger
-                    }
-                  } catch (e: any) {
-                    setSaving(null);
-                    return toast.error(e?.message ?? "Could not record the return.");
-                  }
-                  setSaving(null);
-                  toast.success("Return recorded — trip completed successfully!");
-                  load();
-                }}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {gate.checkoutReason ?? "Check-out is not available yet."}
-              </p>
-            )}
-          </Section>
+          {(started || ended) && (
+            <Section
+              title="Check-out"
+              subtitle={
+                isRenter
+                  ? "Returning the car, even early? Take the same photos, note the odometer and enter the check-out code from your host."
+                  : "The trip ends when the renter enters your check-out code."
+              }
+              done={ended}
+            >
+              {ended ? (
+                <Snapshot odo={b.return_odometer} photos={b.return_photos} notes={b.return_notes} at={b.return_checked_at} />
+              ) : !isRenter ? (
+                <p className="text-sm text-muted-foreground">
+                  When you get the car back and have checked it, give the renter the check-out code shown above.
+                </p>
+              ) : (
+                <CheckForm bookingId={b.id} phase="return" minOdo={b.pickup_odometer} onDone={load} />
+              )}
+            </Section>
+          )}
 
           {b.pickup_odometer != null && b.return_odometer != null && (
             <Card>
-              <CardContent className="grid gap-3 p-4 sm:grid-cols-3">
-                <Stat
-                  label="Distance driven"
-                  value={`${b.return_odometer - b.pickup_odometer} km`}
-                />
-                <Stat
-                  label="Fuel change"
-                  value={
-                    b.return_fuel_pct != null && b.pickup_fuel_pct != null
-                      ? `${b.pickup_fuel_pct}% → ${b.return_fuel_pct}%`
-                      : "—"
-                  }
-                />
+              <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+                <Stat label="Distance driven" value={`${b.return_odometer - b.pickup_odometer} km`} />
                 <Stat label="Trip status" value={b.status} />
               </CardContent>
             </Card>
@@ -348,7 +219,7 @@ function TripInspection() {
                 </Link>
               </Button>
             )}
-            {b.status === "completed" && role === "customer" && b.vehicle_id && !hasReviewed && (
+            {b.status === "completed" && isRenter && b.vehicle_id && !hasReviewed && (
               <Button asChild variant="outline">
                 <Link to="/vehicle/$id" params={{ id: b.vehicle_id }}>
                   Review this ride
@@ -359,16 +230,46 @@ function TripInspection() {
               <span>Done</span>
             </Button>
           </div>
-
-          <EndRideModal
-            open={endRideModalOpen}
-            onOpenChange={setEndRideModalOpen}
-            booking={b}
-            onComplete={load}
-          />
         </div>
       </div>
     </div>
+  );
+}
+
+/** The host's codes. The database only returns them to the host and admins. */
+function HostCodeCard({ bookingId, started }: { bookingId: string; started: boolean }) {
+  const [codes, setCodes] = useState<{ checkin_code: string; checkout_code: string } | null>(null);
+  useEffect(() => {
+    api
+      .from("booking_handover_codes")
+      .select("checkin_code, checkout_code")
+      .eq("booking_id", bookingId)
+      .maybeSingle()
+      .then(({ data }) => setCodes(data ?? null));
+  }, [bookingId]);
+  if (!codes) return null;
+  const code = started ? codes.checkout_code : codes.checkin_code;
+  return (
+    <Card className="border-brand/40">
+      <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/15 text-brand">
+            <KeyRound className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-semibold">{started ? "Check-out code" : "Check-in code"}</h2>
+            <p className="text-xs text-muted-foreground">
+              {started
+                ? "Tell the renter this code once you have the car back and have checked it. Entering it ends the trip."
+                : "Tell the renter this code at handover, after they've photographed the car. Entering it starts the trip."}
+            </p>
+          </div>
+        </div>
+        <p className="font-mono text-3xl font-semibold tracking-[0.3em]" aria-label={`Code ${code.split("").join(" ")}`}>
+          {code}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -391,7 +292,7 @@ function Section({
             <h2 className="font-display text-lg font-semibold">{title}</h2>
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           </div>
-          {done && <Badge className="bg-emerald-600 text-white">Completed</Badge>}
+          {done && <Badge className="bg-emerald-600 text-white">Done</Badge>}
         </div>
         {children}
       </CardContent>
@@ -408,442 +309,233 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InspectionForm({
+/** The renter's check-in / check-out: five required photos, the odometer and the host's code. */
+function CheckForm({
   bookingId,
   phase,
-  saving,
-  onSave,
+  minOdo,
+  onDone,
 }: {
   bookingId: string;
   phase: Phase;
-  saving: boolean;
-  onSave: (p: {
-    fuel: number;
-    odo: number;
-    photoPaths: string[];
-    notes: string;
-    damage: DamageEntry[];
-  }) => void;
+  minOdo?: number | null;
+  onDone: () => void;
 }) {
-  const [fuel, setFuel] = useState(50);
-  const [odo, setOdo] = useState<string>("");
+  const [files, setFiles] = useState<Partial<Record<ShotKey, File>>>({});
+  const [odo, setOdo] = useState("");
+  const [code, setCode] = useState("");
   const [notes, setNotes] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [damage, setDamage] = useState<DamageEntry[]>(
-    DAMAGE_AREAS.map((area) => ({ area, condition: "ok" })),
-  );
+  const [busy, setBusy] = useState(false);
+  // Keep uploaded paths so a wrong code doesn't upload the photos again.
+  const uploaded = useRef(new Map<File, string>());
+
+  const missing = SHOTS.filter((s) => !files[s.key]);
 
   const submit = async () => {
-    if (!odo) return toast.error("Enter odometer reading");
-    if (files.length === 0) return toast.error("Add at least one photo");
-    const flagged = damage.filter((d) => d.condition !== "ok");
-    const missingNote = flagged.find((d) => !d.note?.trim());
-    if (missingNote) return toast.error(`Add a note for "${missingNote.area}"`);
-    setUploading(true);
+    if (missing.length) return toast.error(`Add the ${missing[0].label.toLowerCase()} photo`);
+    const odoNum = Number(odo);
+    if (!odo || !Number.isInteger(odoNum) || odoNum < 0) return toast.error("Enter the odometer reading in km");
+    if (minOdo != null && odoNum < minOdo) return toast.error(`Odometer can't be lower than ${minOdo} km`);
+    if (!/^\d{6}$/.test(code)) return toast.error("Enter the 6-digit code from your host");
+    setBusy(true);
     try {
-      const paths: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i];
-        const ext = f.name.split(".").pop() ?? "jpg";
-        const path = `${bookingId}/${phase}/${Date.now()}-${i}.${ext}`;
-        const { error } = await api.storage.from("trip-photos").upload(path, f, { upsert: false });
-        if (error) throw error;
-        paths.push(path);
+      const photos = {} as Record<ShotKey, string>;
+      for (const s of SHOTS) {
+        const f = files[s.key]!;
+        let path = uploaded.current.get(f);
+        if (!path) {
+          const ext = f.name.split(".").pop() ?? "jpg";
+          path = `${bookingId}/${phase}/${s.key}-${Date.now()}.${ext}`;
+          const { error } = await api.storage.from("trip-photos").upload(path, f, { upsert: false });
+          if (error) throw error;
+          uploaded.current.set(f, path);
+        }
+        photos[s.key] = path;
       }
-      onSave({ fuel, odo: Number(odo), photoPaths: paths, notes, damage });
+      const res = await submitInspection({
+        data: { bookingId, phase, odo: odoNum, code, photos, notes: notes.trim() || null },
+      });
+      if (!res.ok) return toast.error(res.message ?? "That code didn't work");
+      toast.success(phase === "pickup" ? "Trip started. Drive safe!" : "Trip completed. Thanks for riding!");
+      onDone();
     } catch (e: any) {
-      toast.error(e.message ?? "Upload failed");
+      toast.error(e?.message ?? "Could not save");
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <div>
         <Label className="flex items-center gap-2">
-          <Fuel className="h-4 w-4" /> Fuel level: <span className="font-mono">{fuel}%</span>
+          <Camera className="h-4 w-4" /> Car photos
         </Label>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={fuel}
-          onChange={(e) => setFuel(Number(e.target.value))}
-          className="mt-2 w-full"
-        />
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>Empty</span>
-          <span>¼</span>
-          <span>½</span>
-          <span>¾</span>
-          <span>Full</span>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Walk all the way round the car, clockwise from the front. The dashboard photo should show the odometer and the fuel gauge.
+        </p>
+        <div className="mt-2 grid grid-cols-3 gap-2.5">
+          {SHOTS.map((s) => (
+            <PhotoSlot
+              key={s.key}
+              label={s.label}
+              file={files[s.key]}
+              disabled={busy}
+              onPick={(f) => setFiles((prev) => ({ ...prev, [s.key]: f }))}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor={`${phase}-odo`} className="flex items-center gap-2">
+            <Gauge className="h-4 w-4" /> Odometer (km)
+          </Label>
+          <Input
+            id={`${phase}-odo`}
+            type="number"
+            inputMode="numeric"
+            value={odo}
+            onChange={(e) => setOdo(e.target.value)}
+            placeholder={minOdo != null ? `At least ${minOdo}` : "e.g. 42315"}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor={`${phase}-code`} className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4" /> {phase === "pickup" ? "Check-in code" : "Check-out code"} from your host
+          </Label>
+          <Input
+            id={`${phase}-code`}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            placeholder="6 digits"
+            className="mt-1 font-mono tracking-[0.3em]"
+          />
         </div>
       </div>
       <div>
-        <Label className="flex items-center gap-2">
-          <Gauge className="h-4 w-4" /> Odometer (km)
-        </Label>
-        <Input
-          type="number"
-          inputMode="numeric"
-          value={odo}
-          onChange={(e) => setOdo(e.target.value)}
-          placeholder="e.g. 42315"
-          className="mt-1"
-        />
-      </div>
-      <InspectionPhotoUploader
-        files={files}
-        onChange={setFiles}
-        maxPhotos={8}
-        label="Vehicle photos"
-        description="Add clear photos of the vehicle (front, back, sides, dashboard, and odometer) to record condition."
-        disabled={saving || uploading}
-      />
-      <div>
-        <Label className="flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4" /> Damage checklist
-        </Label>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Walk around the vehicle and mark each area. Add a note for anything not OK.
-        </p>
-        <ul className="mt-2 space-y-2">
-          {damage.map((d, idx) => (
-            <li key={d.area} className="rounded-lg border border-border p-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-medium">{d.area}</span>
-                <div className="flex gap-1">
-                  {(["ok", "minor", "major"] as const).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() =>
-                        setDamage((prev) =>
-                          prev.map((x, i) => (i === idx ? { ...x, condition: c } : x)),
-                        )
-                      }
-                      className={`rounded-md px-2 py-0.5 text-xs capitalize ${
-                        d.condition === c
-                          ? c === "ok"
-                            ? "bg-emerald-600 text-white"
-                            : c === "minor"
-                              ? "bg-amber-500 text-white"
-                              : "bg-red-600 text-white"
-                          : "border border-border bg-background"
-                      }`}
-                    >
-                      {c === "ok" ? "OK" : c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {d.condition !== "ok" && (
-                <Input
-                  className="mt-2"
-                  placeholder="Describe (e.g. scratch on left door, dent near rear light)"
-                  value={d.note ?? ""}
-                  onChange={(e) =>
-                    setDamage((prev) =>
-                      prev.map((x, i) => (i === idx ? { ...x, note: e.target.value } : x)),
-                    )
-                  }
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div>
-        <Label>Notes</Label>
+        <Label htmlFor={`${phase}-notes`}>Notes (optional)</Label>
         <Textarea
-          rows={3}
+          id={`${phase}-notes`}
+          rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Any scratches, warning lights, personal items…"
+          placeholder="Anything worth recording, e.g. a scratch already on the left door"
         />
       </div>
       <div className="flex justify-end">
-        <Button onClick={submit} disabled={saving || uploading}>
-          {uploading
-            ? "Uploading…"
-            : saving
-              ? "Saving…"
-              : phase === "pickup"
-                ? "Start trip"
-                : "End trip"}
+        <Button onClick={submit} disabled={busy}>
+          {busy ? "Saving…" : phase === "pickup" ? "Start trip" : "End trip"}
         </Button>
       </div>
     </div>
   );
 }
 
-function ReadOnlySnapshot({
-  fuel,
-  odo,
-  photos,
-  notes,
-  damage,
-  at,
-  phase,
+function PhotoSlot({
+  label,
+  file,
+  disabled,
+  onPick,
 }: {
-  bookingId: string;
-  fuel: number | null;
-  odo: number | null;
-  photos: string[] | null;
-  notes: string | null;
-  damage?: DamageEntry[] | null;
-  at: string;
-  phase: Phase;
+  label: string;
+  file?: File;
+  disabled: boolean;
+  onPick: (f: File) => void;
 }) {
-  const urls = useSignedUrls("trip-photos", photos ?? []);
-  const flagged = (damage ?? []).filter((d) => d.condition !== "ok");
-  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
-
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) return setPreview(null);
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
   return (
-    <div className="grid gap-3">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Fuel" value={fuel != null ? `${fuel}%` : "—"} />
-        <Stat label="Odometer" value={odo != null ? `${odo} km` : "—"} />
-        <Stat label="Recorded" value={new Date(at).toLocaleString()} />
-      </div>
-      {photos && photos.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">
-              Inspection photos ({photos.length})
-            </span>
-            <span>Click photo to enlarge</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-            {photos.map((p, idx) => (
-              <div
-                key={p}
-                onClick={() => urls[p] && setLightboxPhoto(urls[p]!)}
-                className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-all hover:border-primary/50 hover:shadow-md"
-              >
-                {urls[p] ? (
-                  <>
-                    <img
-                      src={urls[p]!}
-                      alt={`${phase} photo ${idx + 1}`}
-                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    />
-                    <div className="absolute top-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
-                      #{idx + 1}
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 backdrop-blur-[2px] transition-opacity duration-150 group-hover:opacity-100">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-md backdrop-blur-md dark:bg-card/90">
-                        View
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-muted/40 text-xs text-muted-foreground">
-                    Loading…
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+    <label
+      className={`relative flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border text-center text-xs transition-colors ${
+        file ? "border-emerald-500/60" : "border-dashed border-border hover:border-brand/60"
+      } ${disabled ? "pointer-events-none opacity-60" : ""}`}
+    >
+      {preview ? (
+        <img src={preview} alt={label} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <Camera className="mb-1 h-5 w-5 text-muted-foreground" />
       )}
-
-      {/* Lightbox Dialog */}
-      <Dialog open={!!lightboxPhoto} onOpenChange={(open) => !open && setLightboxPhoto(null)}>
-        <DialogContent className="max-w-3xl p-4 sm:p-6 bg-card border-border text-card-foreground">
-          {lightboxPhoto && (
-            <div className="grid gap-3">
-              <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-border">
-                <DialogTitle className="text-base font-semibold capitalize">
-                  {phase} Inspection Photo
-                </DialogTitle>
-              </DialogHeader>
-              <div className="relative aspect-video max-h-[70vh] w-full overflow-hidden rounded-xl border border-border bg-black/10 dark:bg-black/40">
-                <img
-                  src={lightboxPhoto}
-                  alt="Inspection preview"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button size="sm" variant="outline" onClick={() => setLightboxPhoto(null)}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      {damage && damage.length > 0 && (
-        <div className="rounded-md border border-border p-3">
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Damage checklist</p>
-          {flagged.length === 0 ? (
-            <p className="mt-1 text-sm text-emerald-700">All areas marked OK.</p>
-          ) : (
-            <ul className="mt-2 space-y-1 text-sm">
-              {flagged.map((d) => (
-                <li key={d.area} className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    className={
-                      d.condition === "major" ? "bg-red-600 text-white" : "bg-amber-500 text-white"
-                    }
-                  >
-                    {d.condition}
-                  </Badge>
-                  <span className="font-medium">{d.area}</span>
-                  {d.note && <span className="text-muted-foreground">— {d.note}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-      {notes && <p className="whitespace-pre-line rounded-md bg-muted p-3 text-sm">{notes}</p>}
-    </div>
+      <span
+        className={`relative z-10 rounded-md px-1.5 py-0.5 font-medium ${preview ? "mt-auto mb-1.5 bg-black/60 text-white" : "text-muted-foreground"}`}
+      >
+        {label}
+      </span>
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          if (!f.type.startsWith("image/")) return toast.error("Choose an image");
+          if (f.size > 15 * 1024 * 1024) return toast.error("Photo is over 15 MB");
+          onPick(f);
+        }}
+      />
+    </label>
   );
 }
 
-function EndRideModal({
-  open,
-  onOpenChange,
-  booking,
-  onComplete,
+function Snapshot({
+  odo,
+  photos,
+  notes,
+  at,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  booking: any;
-  onComplete: () => void;
+  odo: number | null;
+  photos: string[] | null;
+  notes: string | null;
+  at: string | null;
 }) {
-  const [odo, setOdo] = useState<string>("");
-  const [fuel, setFuel] = useState<number>(100);
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(false);
-  const confirm = useConfirm();
-
-  useEffect(() => {
-    if (booking?.pickup_odometer) {
-      setOdo(String(booking.pickup_odometer));
-    }
-    if (booking?.pickup_fuel_pct != null) {
-      setFuel(booking.pickup_fuel_pct);
-    }
-  }, [booking?.pickup_odometer, booking?.pickup_fuel_pct, open]);
-
-  const handleEndRide = async () => {
-    const odoNum = odo ? parseInt(odo, 10) : undefined;
-    if (odoNum !== undefined && booking?.pickup_odometer && odoNum < booking.pickup_odometer) {
-      return toast.error("Return odometer cannot be less than pickup odometer");
-    }
-
-    const ok = await confirm({
-      title: "End Ride Early & Complete Trip?",
-      description: `Are you sure you want to end this ride early and return the vehicle now?
-This will finalize the trip, credit host earnings, and return your security deposit (${currency(Number(booking?.security_deposit || 0))}) to your wallet.`,
-      confirmText: "End Ride & Complete",
-      cancelText: "Keep Riding",
-      variant: "destructive",
-    });
-    if (!ok) return;
-
-    setLoading(true);
-    try {
-      await completeBooking({
-        data: {
-          bookingId: booking.id,
-          odo: odoNum,
-          fuel,
-          notes: notes.trim() || undefined,
-        },
-      });
-      toast.success("Ride ended early — trip completed successfully!");
-      onOpenChange(false);
-      onComplete();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to end ride");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const urls = useSignedUrls("trip-photos", photos ?? []);
+  const [open, setOpen] = useState<{ url: string; label: string } | null>(null);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-            End Ride Early &amp; Complete Trip
-          </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Returning the vehicle before scheduled dropoff? Confirm your final vehicle readings to complete the trip now.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {booking?.pickup_odometer != null && (
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs">
-              <span className="text-muted-foreground">Pickup Odometer: </span>
-              <span className="font-semibold">{booking.pickup_odometer} km</span>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Return Odometer (km)</Label>
-            <Input
-              type="number"
-              placeholder={booking?.pickup_odometer ? String(booking.pickup_odometer) : "e.g. 15420"}
-              value={odo}
-              onChange={(e) => setOdo(e.target.value)}
-              className="h-9 text-sm"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium">Return Fuel Level</Label>
-              <span className="text-xs font-semibold text-brand">{fuel}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={fuel}
-              onChange={(e) => setFuel(Number(e.target.value))}
-              className="w-full accent-brand"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Return Notes / Remarks (Optional)</Label>
-            <Textarea
-              placeholder="e.g. Parked in designated bay, handed keys to host"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="h-20 text-xs"
-            />
-          </div>
-
-          <div className="rounded-lg bg-emerald-500/10 p-3 text-xs text-emerald-600 dark:text-emerald-400">
-            ✓ Security deposit of {currency(Number(booking?.security_deposit || 0))} will be credited back to your wallet upon completion.
-          </div>
+    <div className="grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Stat label="Odometer" value={odo != null ? `${odo} km` : "—"} />
+        <Stat label="Recorded" value={at ? new Date(at).toLocaleString() : "—"} />
+      </div>
+      {photos && photos.length > 0 && (
+        <div className="grid grid-cols-3 gap-2.5">
+          {photos.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => urls[p] && setOpen({ url: urls[p]!, label: shotLabel(p) })}
+              className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/40"
+            >
+              {urls[p] ? (
+                <img src={urls[p]!} alt={shotLabel(p)} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+              ) : (
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              )}
+              <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {shotLabel(p)}
+              </span>
+            </button>
+          ))}
         </div>
-
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleEndRide}
-            disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {loading ? "Completing Trip…" : "Confirm & Complete Trip"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      )}
+      {notes && <p className="whitespace-pre-line rounded-md bg-muted p-3 text-sm">{notes}</p>}
+      <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{open?.label}</DialogTitle>
+          </DialogHeader>
+          {open && <img src={open.url} alt={open.label} className="max-h-[70vh] w-full rounded-xl object-contain" />}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

@@ -72,27 +72,6 @@ def test_host_payment_notification_quotes_only_the_earning(paid):
     assert str(paid.total) not in body
 
 
-def test_qr_lookup_shows_money_by_viewer(paid):
-    def money(client):
-        r = client.post("/api/fn/getBookingByQr/", {"code": paid.booking}, format="json")
-        assert r.status_code == 200, r.json()
-        d = r.json()["data"]
-        return {k: d.get(k) for k in ("totalPrice", "basePrice", "securityDeposit", "providerEarning")}
-
-    assert money(paid.c) == {"totalPrice": float(paid.total), "basePrice": 2000.0,
-                             "securityDeposit": 3000.0, "providerEarning": None}
-    assert money(paid.h) == {"totalPrice": None, "basePrice": None, "securityDeposit": None,
-                             "providerEarning": float(paid.earning)}
-    assert money(paid.o) == dict.fromkeys(("totalPrice", "basePrice", "securityDeposit", "providerEarning"))
-
-
-def test_handover_lookup_gives_the_host_only_the_earning(paid):
-    r = paid.h.post("/api/fn/resolveHandoverCode/", {"code": paid.booking}, format="json")
-    assert r.status_code == 200, r.json()
-    b = r.json()["data"]["booking"]
-    assert "total_price" not in b and float(b["provider_earning"]) == float(paid.earning)
-
-
 def test_provider_payment_notifications_never_quote_the_customer_total(db):
     for fn in ("tg_notify_booking", "tg_notify_driver_booking"):
         body = q("SELECT pg_get_functiondef(%s::regproc)", [f"public.{fn}"])[0][0]

@@ -444,7 +444,6 @@ function VehiclePage() {
     setBooking(true);
 
     try {
-      const qrPayload = crypto.randomUUID();
       let finalNotes = notes || "";
       if (airportMeet) {
         const meetTag = `[VIP Airport Meet & Greet${flightInfo.trim() ? `: Flight ${flightInfo.trim()}` : ""}]`;
@@ -466,7 +465,6 @@ function VehiclePage() {
           total_price: subtotal + Number(v.security_deposit),
           coupon_code: coupon?.code ?? null,
           status: "pending",
-          qr_code: qrPayload,
           notes: finalNotes || null,
         } as any)
         .select("id, status, respond_by, pay_by")

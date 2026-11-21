@@ -19,7 +19,6 @@ import {
   Droplets,
   LayoutDashboard,
   CarFront as Steering,
-  ScanLine,
   Settings,
   ChevronRight,
   Gift,
@@ -123,7 +122,6 @@ function Account() {
     { to: "/wishlist", icon: Heart, label: "Saved", tint: "text-violet" },
     { to: "/hires", icon: UserRound, label: "My drivers", tint: "text-cyan" },
     { to: "/washes", icon: Droplets, label: "My washes", tint: "text-cyan" },
-    ...(isHost ? [{ to: "/scan", icon: ScanLine, label: "Scan QR", tint: "text-ember" }] : []),
   ];
 
   const shortcuts = [

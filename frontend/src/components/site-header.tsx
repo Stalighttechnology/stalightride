@@ -19,7 +19,6 @@ import {
   Crown,
   Gift,
   Award,
-  ScanLine,
   Plus,
   Users,
   Droplets,
@@ -54,7 +53,6 @@ const ROLE_NAV_PILLS: Record<string, NavPill[]> = {
   host: [
     { to: "/vendor", label: "Fleet Overview" },
     { to: "/vendor/vehicles/new", label: "Add Vehicle" },
-    { to: "/scan", label: "Scan QR" },
     { to: "/wallet", label: "Payouts" },
   ],
   driver: [
@@ -241,12 +239,6 @@ export function SiteHeader() {
                       <Link to="/vendor/vehicles/new">
                         <Plus className="mr-2 h-4 w-4" />
                         Add vehicle
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/scan">
-                        <ScanLine className="mr-2 h-4 w-4" />
-                        Scan QR handover
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

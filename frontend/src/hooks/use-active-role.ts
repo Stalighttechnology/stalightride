@@ -92,7 +92,7 @@ export function useActiveRole() {
 
     // 1. Explicit management/provider route matching (instant check, no async delay)
     if (pathname.startsWith("/admin")) return "admin";
-    if (pathname.startsWith("/vendor") || pathname === "/scan") return "host";
+    if (pathname.startsWith("/vendor")) return "host";
     if (pathname.startsWith("/driver-dashboard") || pathname === "/pooling/driver") return "driver";
     if (pathname.startsWith("/cleaner-dashboard")) return "cleaner";
     if (pathname.startsWith("/wash-center-dashboard")) return "wash_center";
@@ -102,7 +102,7 @@ export function useActiveRole() {
       typeof sessionStorage !== "undefined"
         ? (sessionStorage.getItem("synchoo_active_role") as AppRole | null)
         : null;
-    if (pathname === "/wallet" || pathname === "/scan") {
+    if (pathname === "/wallet") {
       if (storedRole === "host" || isHost) return "host";
       if (storedRole === "driver" && driverStatus === "approved") return "driver";
       if (storedRole === "cleaner" && cleanerStatus === "approved") return "cleaner";

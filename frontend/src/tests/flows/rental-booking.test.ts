@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { createBackend, DAY_MS, RuleError, bookingDeadline } from "../harness/fake-backend";
 
+/** The host's handover codes, read the way the host would (empty before payment). */
+const codes = (be: any, b: { id: string; vendor_id: string }) =>
+  be.handoverCodes(b.vendor_id, b.id) ?? { checkin: "", checkout: "" };
+
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 function setup() {
@@ -254,23 +258,23 @@ describe("handover, completion and reviews", () => {
       pickup_time: "10:00",
       dropoff_time: "18:00",
     });
-    expect(() => be.checkIn(customer, b.id, 80)).toThrow(/acceptance and payment/);
+    expect(() => be.checkIn(customer, b.id, 1000, codes(be, b).checkin)).toThrow(/acceptance and payment/);
     be.hostDecide(host, b.id, "confirmed");
     be.wallet.topup(customer, b.total_price);
     be.payBookingWithWallet(customer, b.id);
-    expect(() => be.checkIn(customer, b.id, 80)).toThrow(/not open yet/);
+    expect(() => be.checkIn(customer, b.id, 1000, codes(be, b).checkin)).toThrow(/not open yet/);
 
     be.setNow("2026-08-20T09:45:00Z");
-    expect(() => be.checkOut(customer, b.id, 50)).toThrow(/check-in first/);
-    be.checkIn(customer, b.id, 80);
-    expect(() => be.checkIn(customer, b.id, 80)).toThrow(/Already checked in/);
+    expect(() => be.checkOut(customer, b.id, 1100, codes(be, b).checkout)).toThrow(/check-in first/);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
+    expect(() => be.checkIn(customer, b.id, 1000, codes(be, b).checkin)).toThrow(/Already checked in/);
     expect(be.canReview(b.id)).toBe(false);
 
     be.setNow("2026-08-22T17:30:00Z");
-    const done = be.checkOut(customer, b.id, 45);
+    const done = be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
     expect(done.status).toBe("completed");
-    expect(done.pickup_fuel_pct).toBe(80);
-    expect(done.return_fuel_pct).toBe(45);
+    expect(done.pickup_odometer).toBe(1000);
+    expect(done.return_odometer).toBe(1100);
     expect(be.canReview(b.id)).toBe(true);
     expect(() => be.cancelBooking(customer, b.id)).toThrow(/cannot be cancelled/);
   });
@@ -288,7 +292,7 @@ describe("handover, completion and reviews", () => {
     be.wallet.topup(customer, b.total_price);
     be.payBookingWithWallet(customer, b.id);
     be.setNow("2026-08-20T10:05:00Z");
-    be.checkIn(customer, b.id, 90);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
     expect(() => be.cancelBooking(customer, b.id)).toThrow(/already started/);
   });
 
@@ -308,14 +312,14 @@ describe("handover, completion and reviews", () => {
 
     // Trip starts on Aug 20
     be.setNow("2026-08-20T10:00:00Z");
-    be.checkIn(customer, b.id, 90);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
 
     // Early closing on Aug 21 (4 days before scheduled dropoff on Aug 25)
     be.setNow("2026-08-21T14:00:00Z");
-    const completed = be.checkOut(customer, b.id, 75);
+    const completed = be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
     expect(completed.status).toBe("completed");
     expect(completed.return_checked_at).toBeTruthy();
-    expect(completed.return_fuel_pct).toBe(75);
+    expect(completed.return_odometer).toBe(1100);
     expect(be.canReview(b.id)).toBe(true);
   });
 });

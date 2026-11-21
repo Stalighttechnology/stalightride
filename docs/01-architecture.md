@@ -65,7 +65,7 @@ sequenceDiagram
 | --- | --- | --- |
 | `core` | Turns the frontend's query chain into safe SQL, runs database functions, switches roles | `query.py`, `views.py`, `db.py`, `auth.py`, `middleware.py` |
 | `accounts` | Sign-up, sign-in, token refresh, Google sign-in, password reset | `accounts/views.py`, `accounts/models.py` |
-| `payments` | Razorpay orders and signature checks, payment-window checks, refunds for late payments, wallet top-up, QR lookup, handover, inspection, membership | `payments/views.py`, `payments/trip_window.py` |
+| `payments` | Razorpay orders and signature checks, payment-window checks, refunds for late payments, wallet top-up, trip check-in and check-out with handover codes, membership | `payments/views.py`, `payments/trip_window.py` |
 | `files` | Uploads and signed links for storage buckets | `files/views.py` |
 | `realtime` | One WebSocket that pushes table changes to signed-in users | `realtime/consumers.py` |
 

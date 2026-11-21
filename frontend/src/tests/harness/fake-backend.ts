@@ -152,8 +152,8 @@ export type Booking = Money & {
   refund_amount: number;
   pickup_checked_at: string | null;
   return_checked_at: string | null;
-  pickup_fuel_pct?: number;
-  return_fuel_pct?: number;
+  pickup_odometer?: number;
+  return_odometer?: number;
   respond_by?: string | null;
   pay_by?: string | null;
   paid_at?: string | null;
@@ -506,6 +506,16 @@ export function createBackend(
   const extensions = new Map<string, BookingExtension>();
   const vehicles = new Map<string, Vehicle>();
   const bookings = new Map<string, Booking>();
+  /** public.booking_handover_codes: created once a rental is paid, readable by the host and admins only. */
+  const handoverCodes = new Map<string, { checkin: string; checkout: string }>();
+  const codesOf = (b: Booking) => {
+    if (b.payment_status !== "paid") return undefined;
+    if (!handoverCodes.has(b.id)) {
+      const six = () => String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+      handoverCodes.set(b.id, { checkin: six(), checkout: six() });
+    }
+    return handoverCodes.get(b.id);
+  };
   const drivers = new Map<string, Driver>();
   const driverBookings = new Map<string, DriverBooking>();
   const driverReviews = new Map<string, DriverReview>();
@@ -1052,42 +1062,43 @@ export function createBackend(
       b.payment_status = "paid";
       return b;
     },
-    /** Host marks the trip completed (tg_money_guard_booking rules). */
-    completeBooking(actor: string, booking_id: string) {
-      const b = bookings.get(booking_id)!;
-      if (actor !== b.vendor_id && !admins.has(actor))
-        throw new RuleError("Only the host can complete a trip");
-      if (b.status !== "confirmed") throw new RuleError("Only confirmed bookings can be completed");
-      if (b.payment_status === "paid" && !b.return_checked_at && !admins.has(actor))
-        throw new RuleError("Record the return check-out before completing the trip");
-      b.status = "completed";
-      settleRental(b);
-      return b;
-    },
     /** A client trying to rewrite money columns on UPDATE is reset by the guard. */
     tamperBookingPrice(booking_id: string, total_price: number) {
       const b = bookings.get(booking_id)!;
       void total_price;
       return b;
     },
-    checkIn(actor: string, booking_id: string, fuel_pct: number) {
+    /** RLS on booking_handover_codes: only the host and admins see the codes. */
+    handoverCodes(actor: string, booking_id: string) {
       const b = bookings.get(booking_id)!;
-      if (b.customer_id !== actor && b.vendor_id !== actor) throw new RuleError("Not your booking");
+      if (actor !== b.vendor_id && !admins.has(actor))
+        throw new RuleError("Only the host can see the handover codes");
+      return codesOf(b) ?? null;
+    },
+    /** submitInspection, pickup: the renter's photos + odometer + the host's check-in code start the trip. */
+    checkIn(actor: string, booking_id: string, odometer: number, code: string) {
+      const b = bookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Only the renter records the check-in and check-out");
       if (b.status !== "confirmed" || b.payment_status !== "paid")
         throw new RuleError("Check-in unlocks after acceptance and payment");
       const opensAt = new Date(`${b.start_date}T${b.pickup_time}:00Z`).getTime() - 30 * 60_000;
       if (clock.now.getTime() < opensAt) throw new RuleError("Check-in is not open yet");
       if (b.pickup_checked_at) throw new RuleError("Already checked in");
+      if (code !== codesOf(b)!.checkin) throw new RuleError("That code is not right");
       b.pickup_checked_at = clock.now.toISOString();
-      b.pickup_fuel_pct = fuel_pct;
+      b.pickup_odometer = odometer;
       return b;
     },
-    checkOut(actor: string, booking_id: string, fuel_pct: number) {
+    /** submitInspection, return: the host's check-out code is the only way a trip completes. */
+    checkOut(actor: string, booking_id: string, odometer: number, code: string) {
       const b = bookings.get(booking_id)!;
+      if (b.customer_id !== actor) throw new RuleError("Only the renter records the check-in and check-out");
       if (!b.pickup_checked_at) throw new RuleError("Complete the pickup check-in first");
       if (b.return_checked_at) throw new RuleError("Already checked out");
+      if (odometer < (b.pickup_odometer ?? 0)) throw new RuleError("Return odometer can't be lower");
+      if (code !== codesOf(b)!.checkout) throw new RuleError("That code is not right");
       b.return_checked_at = clock.now.toISOString();
-      b.return_fuel_pct = fuel_pct;
+      b.return_odometer = odometer;
       b.status = "completed";
       settleRental(b);
       return b;

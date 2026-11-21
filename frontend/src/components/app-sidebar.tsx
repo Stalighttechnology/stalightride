@@ -14,7 +14,6 @@ import {
   LogOut,
   LogIn,
   Droplets,
-  ScanLine,
   BadgeIndianRupee,
   Users,
   LifeBuoy,
@@ -100,7 +99,6 @@ const hostFleetItems: Item[] = [
   { to: "/vendor", label: "Host dashboard", icon: LayoutDashboard },
   { to: "/bookings", label: "Host trips", icon: CalendarDays, search: { tab: "vendor" } },
   { to: "/vendor/vehicles/new", label: "Add vehicle", icon: Plus },
-  { to: "/scan", label: "Scan QR handover", icon: ScanLine },
 ];
 
 const hostFinanceItems: Item[] = [

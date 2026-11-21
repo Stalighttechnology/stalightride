@@ -15,7 +15,7 @@ GitHub Actions runs the backend and frontend checks on each pull request. See `.
 
 ## Protecting fixed gaps
 
-The old launch-gate file (`docs/automated/`) has been removed. Each fixed gap needs a test in `backend/tests/` so CI catches a regression. GAP-11 shows why: it was fixed, then reopened by #39, and nothing in CI noticed. When you fix or reopen a gap, add or update its test in the file that covers that area (table below).
+The old launch-gate file (`docs/automated/`) has been removed. Each fixed gap needs a test in `backend/tests/` so CI catches a regression. GAP-11 shows why: it was fixed, reopened by #39 without CI noticing, and is now guarded by `test_trip_handover.py`. When you fix or reopen a gap, add or update its test in the file that covers that area (table below).
 
 ## What the existing tests cover
 
@@ -27,6 +27,7 @@ The old launch-gate file (`docs/automated/`) has been removed. Each fixed gap ne
 | `backend/tests/test_booking_windows.py` | Rental deadlines, 2-hour notice, lazy expiry, Instant Book, host response stats, listing pauses |
 | `backend/tests/test_driver_windows.py` | Driver hire deadlines, similar drivers, linked rental cancellation |
 | `backend/tests/test_wash_dispatch.py` | Wash payment window, dispatch tiers, radius and clash checks, claim races, releases and strikes, auto-cancel refunds, tier notifications |
+| `backend/tests/test_trip_handover.py` | Handover codes: host-only visibility, renter-only check-in/out, the 360° photo set, wrong-code lockout, no completion without the check-out code |
 | `backend/tests/test_dashboard_stats.py` | Host, driver and wash center dashboard totals |
 | `backend/tests/test_realtime.py` | WebSocket live updates |
 | `frontend/src/tests/flows/rental-booking.test.ts` | Rental rules |
@@ -94,7 +95,6 @@ WHERE status = 'confirmed' AND payment_status = 'paid' AND assigned_cleaner_id I
 | Payments | Failed verification never shows success (GAP-06) |
 | Browser | Playwright journey for each main workflow |
 | Time | Reminders on a UTC database (GAP-25) |
-| Handover | Customer alone cannot complete the trip (GAP-11, reopened) |
 | Payments | Razorpay webhook: signature check, late-payment refund (GAP-05) |
 | Wash | Admin manual assignment (`admin_assign_wash_cleaner`) |
 | Pooling | Request deadlines, once booking windows step 5 is built (GAP-32) |

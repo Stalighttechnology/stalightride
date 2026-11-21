@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 import { DEFAULT_SETTINGS } from "@/lib/charges";
 import { createBackend, RuleError } from "../harness/fake-backend";
 
+/** The host's handover codes, read the way the host would (empty before payment). */
+const codes = (be: any, b: { id: string; vendor_id: string }) =>
+  be.handoverCodes(b.vendor_id, b.id) ?? { checkin: "", checkout: "" };
+
 const NOW = new Date("2026-08-15T10:00:00Z");
 
 /** Production rates: 10% commission, 5% service fee, 18% GST, Rs 500 min withdrawal. */
@@ -143,9 +147,9 @@ describe("earnings are released on completion", () => {
     const { be, host, customer, b } = paidRental();
     expect(be.wallet.balance(host)).toBe(0);
     be.setNow("2026-08-20T10:00:00Z");
-    be.checkIn(customer, b.id, 80);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
     be.setNow("2026-08-21T10:00:00Z");
-    be.checkOut(customer, b.id, 70);
+    be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
     expect(be.wallet.balance(host)).toBe(882);
     expect(be.wallet.balance(customer)).toBe(2000); // deposit returned
   });
@@ -156,30 +160,37 @@ describe("earnings are released on completion", () => {
     s.be.hostDecide(s.host, b.id, "confirmed");
     s.be.payBookingWithRazorpay(s.customer, b.id);
     s.be.setNow("2026-08-20T10:00:00Z");
-    s.be.checkIn(s.customer, b.id, 80);
-    s.be.checkOut(s.customer, b.id, 70);
+    s.be.checkIn(s.customer, b.id, 1000, codes(s.be, b).checkin);
+    s.be.checkOut(s.customer, b.id, 1100, codes(s.be, b).checkout);
     expect(s.be.wallet.balance(s.host)).toBe(882);
   });
 
-  test("the host cannot complete a paid trip before the return check-out", () => {
-    const { be, host, b } = paidRental();
-    expect(() => be.completeBooking(host, b.id)).toThrow(/return check-out/);
+  test("only the renter checks in and out, and only with the host's codes", () => {
+    const { be, host, customer, b } = paidRental();
+    be.setNow("2026-08-20T10:00:00Z");
+    expect(() => be.handoverCodes(customer, b.id)).toThrow(/Only the host/);
+    expect(() => be.checkIn(host, b.id, 1000, codes(be, b).checkin)).toThrow(/renter/);
+    expect(() => be.checkIn(customer, b.id, 1000, codes(be, b).checkout)).toThrow(/not right/);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
+    expect(() => be.checkOut(customer, b.id, 900, codes(be, b).checkout)).toThrow(/lower/);
+    expect(() => be.checkOut(customer, b.id, 1100, codes(be, b).checkin)).toThrow(/not right/);
+    expect(be.wallet.txns(host).filter((t) => t.kind === "booking_earning")).toHaveLength(0);
   });
 
   test("earnings are credited exactly once", () => {
     const { be, host, customer, admin, b } = paidRental();
     be.setNow("2026-08-20T10:00:00Z");
-    be.checkIn(customer, b.id, 80);
-    be.checkOut(customer, b.id, 70);
-    expect(() => be.completeBooking(admin, b.id)).toThrow(/confirmed/);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
+    be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
+    expect(() => be.checkOut(customer, b.id, 1200, codes(be, b).checkout)).toThrow(/Already checked out/);
     expect(be.wallet.txns(host).filter((t) => t.kind === "booking_earning")).toHaveLength(1);
   });
 
   test("service fee is routed to admin wallet on booking completion", () => {
     const { be, host, customer, admin, b } = paidRental();
     be.setNow("2026-08-20T10:00:00Z");
-    be.checkIn(customer, b.id, 80);
-    be.checkOut(customer, b.id, 70);
+    be.checkIn(customer, b.id, 1000, codes(be, b).checkin);
+    be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
 
     // Host receives only provider_earning
     const hostTxns = be.wallet.txns(host).filter((t) => t.kind === "booking_earning");
@@ -260,8 +271,8 @@ describe("withdrawals", () => {
       s.be.hostDecide(s.host, b.id, "confirmed");
       s.be.payBookingWithRazorpay(s.customer, b.id);
       s.be.setNow(`${start}T10:00:00Z`);
-      s.be.checkIn(s.customer, b.id, 80);
-      s.be.checkOut(s.customer, b.id, 80);
+      s.be.checkIn(s.customer, b.id, 1000, codes(s.be, b).checkin);
+      s.be.checkOut(s.customer, b.id, 1100, codes(s.be, b).checkout);
     }
     return s;
   }
@@ -385,7 +396,7 @@ describe("trip extension", () => {
   function activeTrip() {
     const s = paidRental();
     s.be.setNow("2026-08-20T10:00:00Z");
-    s.be.checkIn(s.host, s.b.id, 80);
+    s.be.checkIn(s.customer, s.b.id, 1000, codes(s.be, s.b).checkin);
     return s;
   }
 
@@ -393,7 +404,7 @@ describe("trip extension", () => {
     const s = paidRental();
     expect(() => s.be.requestExtension(s.customer, s.b.id, 6)).toThrow(/active trip/);
     s.be.setNow("2026-08-20T10:00:00Z");
-    s.be.checkIn(s.host, s.b.id, 80);
+    s.be.checkIn(s.customer, s.b.id, 1000, codes(s.be, s.b).checkin);
     expect(() => s.be.requestExtension(s.host, s.b.id, 6)).toThrow(/Not your booking/);
     expect(() => s.be.requestExtension(s.customer, s.b.id, 0)).toThrow(/1 to 72/);
     expect(() => s.be.requestExtension(s.customer, s.b.id, 73)).toThrow(/1 to 72/);
@@ -436,7 +447,7 @@ describe("trip extension", () => {
     });
     expect(() => be.payExtension(customer, e.id)).toThrow(/Already paid/);
 
-    be.checkOut(host, b.id, 70);
+    be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
     expect(
       be.wallet
         .txns(host)
@@ -481,7 +492,7 @@ describe("trip extension", () => {
     const { be, host, customer, b } = activeTrip();
     const e = be.requestExtension(customer, b.id, 6);
     be.decideExtension(host, e.id, true);
-    be.checkOut(host, b.id, 70);
+    be.checkOut(customer, b.id, 1100, codes(be, b).checkout);
     be.wallet.topup(customer, 2000);
     expect(() => be.payExtension(customer, e.id)).toThrow(/already ended/);
     expect(() => be.requestExtension(customer, b.id, 6)).toThrow(/paid, confirmed|active trip/);
