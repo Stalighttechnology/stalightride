@@ -272,17 +272,50 @@ def verify_driver_razorpay_payment(data, user_id):
 
 # -- washes --------------------------------------------------------------------
 
+def _refund_late_wash_payment(b, payment_id):
+    if b.get("payment_status") == "refunded" and b.get("razorpay_payment_id") == payment_id:
+        return
+    with db_role("service_role"):
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT public.wallet_apply(%s, %s, 'wash_refund', NULL, %s, 'Refund: payment arrived after wash booking closed')",
+                [b["customer_id"], b["price"], str(b["id"])],
+            )
+            cur.execute(
+                """UPDATE public.wash_bookings
+                   SET payment_status = 'refunded',
+                       payment_method = 'razorpay',
+                       razorpay_payment_id = %s,
+                       refund_amount = %s
+                   WHERE id = %s""",
+                [payment_id, b["price"], b["id"]],
+            )
+            cur.execute(
+                """INSERT INTO public.notifications (user_id, title, body, link)
+                   VALUES (%s, %s, %s, %s)""",
+                [
+                    b["customer_id"],
+                    "Payment refunded",
+                    f"Your payment of Rs {b['price']} was refunded to your wallet because the wash booking was closed.",
+                    "/washes",
+                ],
+            )
+
+
 def create_wash_razorpay_order(data, user_id):
     wash_id = _uuid(data, "washBookingId")
-    b = _get("wash_bookings", "id, customer_id, status, payment_status, price", "id", wash_id)
+    b = _get("wash_bookings", "id, customer_id, status, payment_status, price, pay_by", "id", wash_id)
     if not b:
         raise FnError("Wash booking not found")
     if b["customer_id"] != user_id:
         raise FnError("Not your booking")
-    if b["status"] != "confirmed":
-        raise FnError("Admin has not approved this wash yet")
+    if b["status"] not in ("pending", "confirmed"):
+        raise FnError("Wash booking cannot be paid")
     if b["payment_status"] == "paid":
         raise FnError("Already paid")
+    pay_by = _parse_dt(b.get("pay_by"))
+    if pay_by and pay_by <= datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise FnError("Payment window has closed or expires in less than 5 minutes")
     order = _create_order({"amount": _paise(b["price"]), "currency": "INR", "receipt": b["id"],
                            "notes": {"wash_booking_id": b["id"], "customer_id": user_id}}, "Razorpay order failed")
     with db_role("service_role"):
@@ -293,19 +326,28 @@ def create_wash_razorpay_order(data, user_id):
 def verify_wash_razorpay_payment(data, user_id):
     wash_id = _uuid(data, "washBookingId")
     order_id, payment_id = _check_signature(data)
-    b = _get("wash_bookings", "id, customer_id, status, payment_status, razorpay_order_id", "id", wash_id)
+    b = _get("wash_bookings", "id, customer_id, price, status, payment_status, razorpay_order_id, razorpay_payment_id, pay_by", "id", wash_id)
     if not b:
         raise FnError("Wash booking not found")
     if b["customer_id"] != user_id:
         raise FnError("Not your booking")
-    if b["status"] != "confirmed":
-        raise FnError("This wash is not approved")
     if b["razorpay_order_id"] != order_id:
         raise FnError("Order mismatch")
-    if b.get("payment_status") in ("paid", "refunded", "partially_refunded") or b.get("status") in ("cancelled", "rejected"):
+    
+    pay_by = _parse_dt(b.get("pay_by"))
+    is_late = (pay_by and pay_by < datetime.now(timezone.utc)) or b.get("status") in ("cancelled", "rejected")
+    if is_late:
+        _refund_late_wash_payment(b, payment_id)
+        return {"ok": True}
+
+    if b.get("payment_status") in ("paid", "refunded", "partially_refunded"):
         return {"ok": True}
     with db_role("service_role"):
-        _update("wash_bookings", _paid_patch(payment_id), [["id", "eq", b["id"]], ["customer_id", "eq", user_id]])
+        patch = _paid_patch(payment_id)
+        patch["status"] = "confirmed"
+        patch["progress"] = "confirmed"
+        patch["paid_at"] = _now()
+        _update("wash_bookings", patch, [["id", "eq", b["id"]], ["customer_id", "eq", user_id]])
     return {"ok": True}
 
 
@@ -1189,13 +1231,31 @@ def razorpay_webhook(request):
         # 3. Vehicle washes
         wash_booking_id = notes.get("wash_booking_id")
         if wash_booking_id:
-            wb = _get("wash_bookings", "id, status, payment_status", "id", wash_booking_id)
-            if wb and wb.get("payment_status") not in ("paid", "refunded", "partially_refunded") and wb.get("status") not in ("cancelled", "rejected"):
-                _update("wash_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", wb["id"]]])
+            wb = _get("wash_bookings", "id, customer_id, price, status, payment_status, razorpay_payment_id, pay_by", "id", wash_booking_id)
+            if wb:
+                pay_by = _parse_dt(wb.get("pay_by"))
+                is_late = (pay_by and pay_by < datetime.now(timezone.utc)) or wb.get("status") in ("cancelled", "rejected")
+                if is_late:
+                    _refund_late_wash_payment(wb, payment_id or "pay_webhook")
+                elif wb.get("payment_status") not in ("paid", "refunded", "partially_refunded"):
+                    patch = _paid_patch(payment_id or "pay_webhook")
+                    patch["status"] = "confirmed"
+                    patch["progress"] = "confirmed"
+                    patch["paid_at"] = _now()
+                    _update("wash_bookings", patch, [["id", "eq", wb["id"]]])
         elif order_id:
-            wb = _get("wash_bookings", "id, status, payment_status", "razorpay_order_id", order_id)
-            if wb and wb.get("payment_status") not in ("paid", "refunded", "partially_refunded") and wb.get("status") not in ("cancelled", "rejected"):
-                _update("wash_bookings", _paid_patch(payment_id or "pay_webhook"), [["id", "eq", wb["id"]]])
+            wb = _get("wash_bookings", "id, customer_id, price, status, payment_status, razorpay_payment_id, pay_by", "razorpay_order_id", order_id)
+            if wb:
+                pay_by = _parse_dt(wb.get("pay_by"))
+                is_late = (pay_by and pay_by < datetime.now(timezone.utc)) or wb.get("status") in ("cancelled", "rejected")
+                if is_late:
+                    _refund_late_wash_payment(wb, payment_id or "pay_webhook")
+                elif wb.get("payment_status") not in ("paid", "refunded", "partially_refunded"):
+                    patch = _paid_patch(payment_id or "pay_webhook")
+                    patch["status"] = "confirmed"
+                    patch["progress"] = "confirmed"
+                    patch["paid_at"] = _now()
+                    _update("wash_bookings", patch, [["id", "eq", wb["id"]]])
 
         # 4. Wallet topups
         if order_id:

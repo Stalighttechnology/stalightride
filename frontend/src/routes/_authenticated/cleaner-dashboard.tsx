@@ -33,6 +33,7 @@ import {
   AlertCircle,
   Edit,
 } from "lucide-react";
+import { MapPicker } from "@/components/map-picker";
 
 export const Route = createFileRoute("/_authenticated/cleaner-dashboard")({
   component: CleanerDashboard,
@@ -62,6 +63,9 @@ interface CleanerProfile {
   services: string[];
   avg_rating: number;
   review_count: number;
+  base_lat?: number | null;
+  base_lng?: number | null;
+  radius_km?: number;
 }
 
 const DEFAULT_SERVICES = [
@@ -86,6 +90,10 @@ function CleanerDashboard() {
   const [bio, setBio] = useState("");
   const [experience, setExperience] = useState("2");
   const [selectedServices, setSelectedServices] = useState<string[]>(DEFAULT_SERVICES);
+  const [baseLat, setBaseLat] = useState<number | null>(null);
+  const [baseLng, setBaseLng] = useState<number | null>(null);
+  const [baseAddress, setBaseAddress] = useState("");
+  const [radiusKm, setRadiusKm] = useState<number>(8);
 
   // Bookings & stats state
   const [assignedJobs, setAssignedJobs] = useState<any[]>([]);
@@ -177,6 +185,9 @@ function CleanerDashboard() {
               : DEFAULT_SERVICES,
           avg_rating: Number(cleanerData.avg_rating) || 0,
           review_count: cleanerData.review_count || 0,
+          base_lat: cleanerData.base_lat ?? null,
+          base_lng: cleanerData.base_lng ?? null,
+          radius_km: Number(cleanerData.radius_km) || 8,
         };
         setProfile(loaded);
         setFullName(loaded.full_name);
@@ -186,13 +197,16 @@ function CleanerDashboard() {
         setBio(loaded.bio);
         setExperience(String(loaded.experience_years));
         setSelectedServices(loaded.services);
+        setBaseLat(loaded.base_lat ?? null);
+        setBaseLng(loaded.base_lng ?? null);
+        setRadiusKm(loaded.radius_km ?? 8);
       } else {
         setFullName(user.user_metadata?.full_name || "");
         setPhone(user.phone || "");
       }
 
       // 2. Load wash bookings
-      await refreshBookings(cleanerData?.city || "Bangalore");
+      await refreshBookings();
       setLoading(false);
     };
 
@@ -200,11 +214,28 @@ function CleanerDashboard() {
   }, [user?.id]);
 
   useEffect(() => {
+    if (!user) return;
+    const channel = api
+      .channel("cleaner_job_board_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wash_bookings" },
+        () => {
+          refreshBookings();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      api.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     if (user?.id) loadPastJobs();
   }, [user?.id, pastJobsPager.page]);
 
-  const refreshBookings = async (cleanerCity?: string) => {
-    const city = cleanerCity || profile?.city;
+  const refreshBookings = async () => {
     // Active jobs assigned to this cleaner
     const { data: assigned } = await api
       .from("wash_bookings")
@@ -217,21 +248,11 @@ function CleanerDashboard() {
 
     setAssignedJobs(assigned || []);
 
-    // Unassigned confirmed wash jobs in the cleaner's operating city (CJ-01, CJ-02)
-    const { data: avail } = await api
-      .from("wash_bookings")
-      .select("*, wash_services:service_id(name, duration_minutes, vehicle_category)")
-      .is("assigned_cleaner_id", null)
-      .is("assigned_vendor_id", null)
-      .eq("status", "confirmed")
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    setAvailableRequests(
-      (avail || []).filter(
-        (b) => !city || b.city?.trim().toLowerCase() === city.trim().toLowerCase(),
-      ),
-    );
+    // Available jobs from the tiered dispatch board
+    const { data: boardData, error: boardErr } = await api.rpc("wash_job_board");
+    if (!boardErr && boardData) {
+      setAvailableRequests(boardData);
+    }
 
     // Summary of all completed earnings
     const { data: completedSummary } = await api
@@ -265,6 +286,33 @@ function CleanerDashboard() {
     await refreshBookings();
   };
 
+  const releaseJob = async (job: any) => {
+    if (!user) return;
+    const time = job.slot_time ? String(job.slot_time).slice(0, 8) : "00:00:00";
+    const slotStart = new Date(`${job.slot_date}T${time.length === 5 ? time + ":00" : time}+05:30`);
+    const hoursLeft = (slotStart.getTime() - Date.now()) / (3600 * 1000);
+    const isLate = hoursLeft < 12;
+
+    const ok = window.confirm(
+      isLate
+        ? "Warning: This wash job starts in less than 12 hours. Releasing it now will count as a late strike (2 strikes in 30 days exclude you from priority Tier 1 dispatch). Do you want to release it?"
+        : "Are you sure you want to release this wash job back to the available job board?"
+    );
+    if (!ok) return;
+
+    setActiveJobId(job.id);
+    const { error } = await api.rpc("release_wash_job", {
+      _wash_booking_id: job.id,
+    });
+    setActiveJobId(null);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(isLate ? "Job released with a late strike." : "Job released back to the job board.");
+    await refreshBookings();
+  };
+
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -281,6 +329,9 @@ function CleanerDashboard() {
       available: profile?.available ?? true,
       verification_status: profile?.verification_status ?? ("pending" as const),
       services: selectedServices,
+      base_lat: baseLat,
+      base_lng: baseLng,
+      radius_km: radiusKm,
     };
 
     const { error } = await api.from("cleaners").upsert(cleanerPayload);
@@ -299,6 +350,9 @@ function CleanerDashboard() {
       rejection_reason: profile?.rejection_reason || null,
       avg_rating: profile?.avg_rating || 0,
       review_count: profile?.review_count || 0,
+      base_lat: cleanerPayload.base_lat,
+      base_lng: cleanerPayload.base_lng,
+      radius_km: cleanerPayload.radius_km,
     };
 
     setProfile(updatedProfile);
@@ -490,6 +544,39 @@ function CleanerDashboard() {
                   />
                   <p className="text-xs text-muted-foreground">
                     List neighborhoods where you can travel for doorstep washing.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Base Location & Dispatch Center</Label>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Pin your central location to receive jobs dispatching near your location.
+                  </p>
+                  <MapPicker
+                    value={{ lat: baseLat, lng: baseLng }}
+                    address={baseAddress}
+                    onAddressChange={setBaseAddress}
+                    onChange={(v) => {
+                      setBaseLat(v.lat);
+                      setBaseLng(v.lng);
+                      if (v.address) setBaseAddress(v.address);
+                    }}
+                    mapHeight="h-44"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="c-radius">Service Radius (km)</Label>
+                  <Input
+                    id="c-radius"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(Number(e.target.value) || 8)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Jobs within this radius from your base location will unlock in Tier 2 dispatch.
                   </p>
                 </div>
 
@@ -822,13 +909,24 @@ function CleanerDashboard() {
                       </Button>
                       {((job.progress || job.status) === "confirmed" ||
                         (job.progress || job.status) === "assigned") && (
-                        <Button
-                          size="sm"
-                          disabled={activeJobId === job.id}
-                          onClick={() => advanceJobStatus(job.id, "on_the_way")}
-                        >
-                          <Navigation className="mr-1 h-3.5 w-3.5" /> On the Way
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={activeJobId === job.id}
+                            onClick={() => advanceJobStatus(job.id, "on_the_way")}
+                          >
+                            <Navigation className="mr-1 h-3.5 w-3.5" /> On the Way
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:bg-destructive/10"
+                            disabled={activeJobId === job.id}
+                            onClick={() => releaseJob(job)}
+                          >
+                            Release job
+                          </Button>
+                        </>
                       )}
                       {(job.progress || job.status) === "on_the_way" && (
                         <Button
@@ -875,11 +973,15 @@ function CleanerDashboard() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-sm">
-                        {req.wash_services?.name || "Vehicle Wash"}
+                        {req.service_name || req.wash_services?.name || "Vehicle Wash"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {req.slot_date} · {req.slot_time} · {req.city} · Payout:{" "}
-                        {currency(Number(req.provider_earning || 0))}
+                        {req.slot_date} · {String(req.slot_time).slice(0, 5)} · {req.area || req.city}
+                        {req.distance_km != null ? ` · ${req.distance_km} km away` : ""}
+                        {" · Payout: "}
+                        <span className="font-semibold text-foreground">
+                          {currency(Number(req.payout ?? req.provider_earning ?? 0))}
+                        </span>
                       </p>
                     </div>
                     <Button
@@ -1020,14 +1122,47 @@ function CleanerDashboard() {
                     <Input value={phone} onChange={(e) => setPhone(e.target.value)} required />
                   </div>
                 </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Coverage Area / Localities</Label>
+                    <Input
+                      value={serviceArea}
+                      onChange={(e) => setServiceArea(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Service Radius (km)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={radiusKm}
+                      onChange={(e) => setRadiusKm(Number(e.target.value) || 8)}
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <Label className="text-xs">Coverage Area</Label>
-                  <Input
-                    value={serviceArea}
-                    onChange={(e) => setServiceArea(e.target.value)}
-                    required
+                  <Label className="text-xs">Base Location (Dispatch Center)</Label>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Pin your central home/base location for calculating job distance.
+                  </p>
+                  <MapPicker
+                    value={{ lat: baseLat, lng: baseLng }}
+                    address={baseAddress}
+                    onAddressChange={setBaseAddress}
+                    onChange={(v) => {
+                      setBaseLat(v.lat);
+                      setBaseLng(v.lng);
+                      if (v.address) setBaseAddress(v.address);
+                    }}
+                    mapHeight="h-44"
                   />
                 </div>
+
                 <div>
                   <Label className="text-xs">Bio & Equipment</Label>
                   <Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} />

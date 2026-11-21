@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0033_driver_booking_windows")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0034_wash_booking_dispatch")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -41,7 +41,8 @@ def test_schema_matches_the_original_migrations():
     drizzle/, plus 0020's block-over-booking guard and 0021's
     admin_broadcast function and admin_bookings_feed grant, 0025's vehicle_booked_ranges,
     0028's complete_booking, 0030's rental booking windows, 0031's dashboard stats,
-    0032's instant book & host response stats, and 0033's driver booking windows.
+    0032's instant book & host response stats, 0033's driver booking windows,
+    and 0034's wash booking dispatch.
     A change here means the schema changed."""
     tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = ANY(%s) AND NOT (schemaname = 'public' AND tablename ~ %s)",
                [APP_SCHEMAS, DJANGO_TABLE])[0][0]
@@ -53,7 +54,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (51, 119, 96, 142, 998)
+    assert (tables, functions, triggers, policies, grants) == (52, 124, 96, 144, 1006)
 
 
 def test_signup_trigger_creates_profile_and_role():
@@ -124,8 +125,8 @@ def test_wash_booking_status_and_advance_wash_status():
     service_id = q("SELECT id FROM public.wash_services WHERE active LIMIT 1")[0][0]
     booking_id = q(
         """
-        INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
-        VALUES (%s, %s, 'Bengaluru', '123 MG Road', CURRENT_DATE + 1, '10:00', 499)
+        INSERT INTO public.wash_bookings (customer_id, service_id, city, address, lat, lng, slot_date, slot_time, price)
+        VALUES (%s, %s, 'Bengaluru', '123 MG Road', 12.9716, 77.5946, CURRENT_DATE + 1, '10:00', 499)
         RETURNING id
         """,
         [customer, service_id],
@@ -253,8 +254,8 @@ def test_cancelled_wash_is_not_told_to_pay():
     """A wash cancelled after approval gets 'Wash cancelled', not another 'Wash slot approved'."""
     customer = make_user("wa-cust@example.com")
     service_id = q("SELECT id FROM public.wash_services WHERE active LIMIT 1")[0][0]
-    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
-               VALUES (%s, %s, 'Bengaluru', 'x', CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
+    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, lat, lng, slot_date, slot_time, price)
+               VALUES (%s, %s, 'Bengaluru', 'x', 12.9716, 77.5946, CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
     q("UPDATE public.wash_bookings SET status = 'confirmed', progress = 'confirmed' WHERE id = %s RETURNING id", [wid])
     q("UPDATE public.wash_bookings SET status = 'cancelled' WHERE id = %s RETURNING id", [wid])
     titles = [r[0] for r in q("SELECT title FROM public.notifications WHERE user_id = %s ORDER BY created_at, title", [customer])]
@@ -275,8 +276,8 @@ def test_revenue_aggregates_use_stored_commission():
     admin, customer = make_user("rev-adm@example.com"), make_user("rev-cust@example.com")
     q("INSERT INTO public.user_roles (user_id, role) VALUES (%s, 'admin') RETURNING user_id", [admin])
     service_id = q("SELECT id FROM public.wash_services WHERE name = 'Car Express Wash'")[0][0]
-    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, slot_date, slot_time, price)
-               VALUES (%s, %s, 'Bengaluru', 'x', CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
+    wid = q("""INSERT INTO public.wash_bookings (customer_id, service_id, city, address, lat, lng, slot_date, slot_time, price)
+               VALUES (%s, %s, 'Bengaluru', 'x', 12.9716, 77.5946, CURRENT_DATE + 3, '10:00', 0) RETURNING id""", [customer, service_id])[0][0]
     q("UPDATE public.wash_bookings SET payment_status = 'paid' WHERE id = %s RETURNING id", [wid])
     kept = q("SELECT commission_amount + service_fee FROM public.wash_bookings WHERE id = %s", [wid])[0][0]
     with db_role("authenticated", admin):

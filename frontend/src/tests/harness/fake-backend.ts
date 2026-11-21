@@ -250,6 +250,17 @@ export type Cleaner = {
   services: string[];
   avg_rating: number;
   review_count: number;
+  base_lat?: number;
+  base_lng?: number;
+  radius_km?: number;
+};
+
+export type WashJobRelease = {
+  id: string;
+  cleaner_id: string;
+  wash_booking_id: string;
+  released_at: string;
+  late: boolean;
 };
 
 export type WashCenter = {
@@ -405,6 +416,8 @@ export type WashBooking = Money & {
   slot_time?: string;
   address?: string;
   city?: string;
+  lat?: number;
+  lng?: number;
   price: number;
   status: string;
   progress?: WashStatus;
@@ -414,7 +427,25 @@ export type WashBooking = Money & {
   assigned_vendor_id: string | null;
   assigned_cleaner_id?: string | null;
   refund_amount: number;
+  pay_by?: string | null;
+  paid_at?: string | null;
+  created_at?: string;
+  tier_notified?: number;
+  admin_alerted_at?: string | null;
+  cancellation_reason?: string | null;
 };
+
+export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export type WalletTxn = { user_id: string; amount: number; kind: string; balance_after: number };
 
@@ -473,6 +504,7 @@ export function createBackend(
   const poolRequests = new Map<string, PoolRequest>();
   const washes = new Map<string, WashBooking>();
   const cleaners = new Map<string, Cleaner>();
+  const washReleases = new Map<string, WashJobRelease>();
 
   function cancelLinkedDriverHires(rental_id: string) {
     for (const db of driverBookings.values()) {
@@ -644,6 +676,8 @@ export function createBackend(
       trips,
       poolRequests,
       washes,
+      cleaners,
+      washReleases,
       withdrawals,
       coupons,
       extensions,
@@ -1688,19 +1722,35 @@ export function createBackend(
       service_price = 499,
       city = "Bangalore",
       address?: string,
-      slot_time?: string,
+      slot_time = "10:00",
       coupon_code?: string | null,
+      lat = 12.9716,
+      lng = 77.5946,
     ) {
+      if (lat == null || lng == null) {
+        throw new RuleError("Latitude and longitude are required");
+      }
+      const slotTimeClean = slot_time
+        ? slot_time.length === 5
+          ? `${slot_time}:00`
+          : slot_time
+        : "10:00:00";
+      const slotStart = new Date(`${slot_date}T${slotTimeClean.slice(0, 5)}:00+05:30`);
+      if (slotStart.getTime() - clock.now.getTime() < 2 * 3600 * 1000 - 1000) {
+        throw new RuleError("Wash slot must be at least 2 hours in the future");
+      }
       const money = price(service_price, coupon_code);
       const w: WashBooking = {
         ...money,
         id: id("wash"),
         customer_id,
         slot_date,
-        slot_time,
+        slot_time: slotTimeClean,
         address,
         city,
-        price: money.customer_total ?? price,
+        lat,
+        lng,
+        price: money.customer_total ?? service_price,
         status: "pending",
         progress: "requested",
         before_photos: [],
@@ -1709,6 +1759,12 @@ export function createBackend(
         assigned_vendor_id: null,
         assigned_cleaner_id: null,
         refund_amount: 0,
+        pay_by: new Date(clock.now.getTime() + 15 * 60 * 1000).toISOString(),
+        paid_at: null,
+        created_at: clock.now.toISOString(),
+        tier_notified: 0,
+        admin_alerted_at: null,
+        cancellation_reason: null,
       };
       washes.set(w.id, w);
       return w;
@@ -1718,26 +1774,193 @@ export function createBackend(
       slot_date: string,
       city = "Bangalore",
       service_price = 499,
+      slot_time = "10:00:00",
+      lat = 12.9716,
+      lng = 77.5946,
     ) {
+      const slotTimeClean = slot_time
+        ? slot_time.length === 5
+          ? `${slot_time}:00`
+          : slot_time
+        : "10:00:00";
       const money = price(service_price);
       const w: WashBooking = {
         ...money,
         id: id("wash"),
         customer_id,
         slot_date,
+        slot_time: slotTimeClean,
         city,
+        lat,
+        lng,
         price: service_price,
         status: "confirmed",
         progress: "confirmed",
         before_photos: [],
         after_photos: [],
         payment_status: "paid",
+        paid_at: clock.now.toISOString(),
+        created_at: clock.now.toISOString(),
         assigned_vendor_id: null,
         assigned_cleaner_id: null,
         refund_amount: 0,
+        pay_by: new Date(clock.now.getTime() + 15 * 60 * 1000).toISOString(),
+        tier_notified: 0,
+        admin_alerted_at: null,
+        cancellation_reason: null,
       };
       washes.set(w.id, w);
       return w;
+    },
+    canCleanerSeeJob(cleaner_id: string, wash_id: string): boolean {
+      const c = cleaners.get(cleaner_id);
+      if (!c || c.verification_status !== "approved" || !c.available) return false;
+      const w = washes.get(wash_id);
+      if (
+        !w ||
+        w.status !== "confirmed" ||
+        w.progress !== "confirmed" ||
+        w.payment_status !== "paid" ||
+        w.assigned_cleaner_id
+      ) {
+        return false;
+      }
+      if ((c.city || "").trim().toLowerCase() !== (w.city || "").trim().toLowerCase()) return false;
+
+      const slotTime = (w.slot_time || "10:00").slice(0, 5);
+      const slotStart = new Date(`${w.slot_date}T${slotTime}:00+05:30`);
+      const durationMins = 45;
+
+      // Clash check: cleaner has another active job overlapping [slot, slot + duration + 30m]
+      const clash = [...washes.values()].some((o) => {
+        if (o.id === w.id || o.assigned_cleaner_id !== cleaner_id) return false;
+        if (o.status !== "confirmed" || !["assigned", "on_the_way", "started"].includes(o.progress || ""))
+          return false;
+        const oTime = (o.slot_time || "10:00").slice(0, 5);
+        const oStart = new Date(`${o.slot_date}T${oTime}:00+05:30`);
+        const oEnd = new Date(oStart.getTime() + (45 + 30) * 60 * 1000);
+        const wEnd = new Date(slotStart.getTime() + (durationMins + 30) * 60 * 1000);
+        return slotStart.getTime() < oEnd.getTime() && oStart.getTime() < wEnd.getTime();
+      });
+      if (clash) return false;
+
+      if (!w.paid_at) return false;
+      const paidAt = new Date(w.paid_at);
+      const leadTimeMs = slotStart.getTime() - paidAt.getTime();
+      const elapsedMs = clock.now.getTime() - paidAt.getTime();
+
+      let currentTier = 1;
+      if (w.tier_notified && w.tier_notified >= 3) {
+        currentTier = 3;
+      } else if (leadTimeMs > 24 * 3600 * 1000) {
+        if (elapsedMs >= 8 * 3600 * 1000) currentTier = 3;
+        else if (elapsedMs >= 4 * 3600 * 1000) currentTier = 2;
+        else currentTier = 1;
+      } else if (leadTimeMs >= 6 * 3600 * 1000) {
+        if (elapsedMs >= 2 * 3600 * 1000) currentTier = 3;
+        else if (elapsedMs >= 1 * 3600 * 1000) currentTier = 2;
+        else currentTier = 1;
+      } else {
+        if (elapsedMs >= 30 * 60 * 1000) currentTier = 3;
+        else if (elapsedMs >= 15 * 60 * 1000) currentTier = 2;
+        else currentTier = 1;
+      }
+
+      const dist =
+        c.base_lat != null && c.base_lng != null && w.lat != null && w.lng != null
+          ? haversineKm(c.base_lat, c.base_lng, w.lat, w.lng)
+          : null;
+
+      // Tier 1 check: within 5km, radius ok, <2 late releases, top 3
+      if (dist != null && dist <= 5.0 && (c.radius_km == null || dist <= c.radius_km)) {
+        const thirtyDaysAgo = clock.now.getTime() - 30 * 24 * 3600 * 1000;
+        const lateReleases = [...washReleases.values()].filter(
+          (r) => r.cleaner_id === cleaner_id && r.late && new Date(r.released_at).getTime() >= thirtyDaysAgo,
+        ).length;
+
+        if (lateReleases < 2) {
+          const eligibleCleaners = [...cleaners.values()].filter((cl) => {
+            if (cl.verification_status !== "approved" || !cl.available) return false;
+            if ((cl.city || "").trim().toLowerCase() !== (w.city || "").trim().toLowerCase()) return false;
+            if (cl.base_lat == null || cl.base_lng == null) return false;
+            const d = haversineKm(cl.base_lat, cl.base_lng, w.lat!, w.lng!);
+            if (d > 5.0) return false;
+            if (cl.radius_km != null && d > cl.radius_km) return false;
+            const lReleases = [...washReleases.values()].filter(
+              (r) => r.cleaner_id === cl.id && r.late && new Date(r.released_at).getTime() >= thirtyDaysAgo,
+            ).length;
+            if (lReleases >= 2) return false;
+            const clClash = [...washes.values()].some((o) => {
+              if (o.id === w.id || o.assigned_cleaner_id !== cl.id) return false;
+              if (o.status !== "confirmed" || !["assigned", "on_the_way", "started"].includes(o.progress || ""))
+                return false;
+              const oTime = (o.slot_time || "10:00").slice(0, 5);
+              const oStart = new Date(`${o.slot_date}T${oTime}:00+05:30`);
+              const oEnd = new Date(oStart.getTime() + (45 + 30) * 60 * 1000);
+              const wEnd = new Date(slotStart.getTime() + (durationMins + 30) * 60 * 1000);
+              return slotStart.getTime() < oEnd.getTime() && oStart.getTime() < wEnd.getTime();
+            });
+            return !clClash;
+          });
+
+          eligibleCleaners.sort((a, b) => {
+            if (b.avg_rating !== a.avg_rating) return b.avg_rating - a.avg_rating;
+            const aJobs = [...washes.values()].filter(
+              (wb) =>
+                wb.assigned_cleaner_id === a.id &&
+                wb.slot_date === w.slot_date &&
+                !["cancelled", "rejected"].includes(wb.status),
+            ).length;
+            const bJobs = [...washes.values()].filter(
+              (wb) =>
+                wb.assigned_cleaner_id === b.id &&
+                wb.slot_date === w.slot_date &&
+                !["cancelled", "rejected"].includes(wb.status),
+            ).length;
+            if (aJobs !== bJobs) return aJobs - bJobs;
+            return a.id.localeCompare(b.id);
+          });
+
+          const top3 = eligibleCleaners.slice(0, 3);
+          if (top3.some((cl) => cl.id === cleaner_id)) return true;
+        }
+      }
+
+      // Tier 2: within own radius
+      if (currentTier >= 2) {
+        if (dist != null && dist <= (c.radius_km ?? 8)) return true;
+      }
+
+      // Tier 3: whole city
+      if (currentTier >= 3) {
+        return true;
+      }
+
+      return false;
+    },
+    washJobBoard(cleaner_id: string) {
+      const c = cleaners.get(cleaner_id);
+      if (!c || c.verification_status !== "approved") {
+        throw new RuleError("Only verified cleaners can view the job board");
+      }
+      return [...washes.values()]
+        .filter((w) => this.canCleanerSeeJob(cleaner_id, w.id))
+        .map((w) => {
+          const dist =
+            c.base_lat != null && c.base_lng != null && w.lat != null && w.lng != null
+              ? Math.round(haversineKm(c.base_lat, c.base_lng, w.lat, w.lng) * 10) / 10
+              : null;
+          return {
+            id: w.id,
+            service_name: "Doorstep Vehicle Wash",
+            duration_minutes: 45,
+            slot_date: w.slot_date,
+            slot_time: w.slot_time,
+            area: w.address?.split(",")[0]?.trim() || w.city,
+            distance_km: dist,
+            payout: w.provider_earning || w.price,
+          };
+        });
     },
     claimWashJob(cleaner_id: string, wash_id: string) {
       const cleaner = cleaners.get(cleaner_id);
@@ -1750,7 +1973,7 @@ export function createBackend(
       if (!w) throw new RuleError("Wash booking not found");
 
       if (w.assigned_cleaner_id || w.assigned_vendor_id) {
-        throw new RuleError("This wash job is already assigned");
+        throw new RuleError("Another partner just claimed this job (already assigned)");
       }
 
       if (w.status !== "confirmed" && w.progress !== "confirmed") {
@@ -1765,7 +1988,6 @@ export function createBackend(
         );
       }
 
-      // wash_bookings_cleaner_slot_uniq (migration 0020): one person, one job per slot.
       const busy = [...washes.values()].some(
         (o) =>
           o.id !== w.id &&
@@ -1776,10 +1998,69 @@ export function createBackend(
       );
       if (busy) throw new RuleError("You already have a wash job in this slot");
 
+      if (!this.canCleanerSeeJob(cleaner_id, wash_id)) {
+        throw new RuleError("You are not eligible to claim this job");
+      }
+
       // Atomic claim
       w.assigned_cleaner_id = cleaner_id;
       w.progress = "assigned";
       w.status = "confirmed";
+      notify(w.customer_id, "Cleaner Assigned to Your Wash");
+      return w;
+    },
+    releaseWashJob(cleaner_id: string, wash_id: string) {
+      const w = washes.get(wash_id);
+      if (!w) throw new RuleError("Wash booking not found");
+      if (w.assigned_cleaner_id !== cleaner_id) {
+        throw new RuleError("You are not the assigned cleaner for this job");
+      }
+      if (w.status !== "confirmed" || w.progress !== "assigned") {
+        throw new RuleError("Only assigned jobs can be released");
+      }
+
+      const slotTime = (w.slot_time || "10:00").slice(0, 5);
+      const slotStart = new Date(`${w.slot_date}T${slotTime}:00+05:30`);
+      const isLate = slotStart.getTime() - clock.now.getTime() < 12 * 3600 * 1000;
+
+      const rel: WashJobRelease = {
+        id: id("wash_release"),
+        cleaner_id,
+        wash_booking_id: wash_id,
+        released_at: clock.now.toISOString(),
+        late: isLate,
+      };
+      washReleases.set(rel.id, rel);
+
+      w.assigned_cleaner_id = null;
+      w.progress = "confirmed";
+      w.tier_notified = 3;
+
+      for (const a of admins) {
+        notify(
+          a,
+          "Wash job released",
+          `Cleaner released wash job for ${w.city} on ${w.slot_date} (late: ${isLate})`,
+        );
+      }
+
+      return { id: w.id, status: "confirmed", progress: "confirmed", late: isLate };
+    },
+    adminAssignWashCleaner(admin_id: string, wash_id: string, cleaner_id: string) {
+      if (!admins.has(admin_id)) throw new RuleError("Only admins can manually assign wash cleaners");
+      const cleaner = cleaners.get(cleaner_id);
+      if (!cleaner) throw new RuleError("Cleaner profile not found");
+      if (cleaner.verification_status !== "approved") {
+        throw new RuleError("Cleaner must be approved to receive manual assignments");
+      }
+      const w = washes.get(wash_id);
+      if (!w) throw new RuleError("Wash booking not found");
+      if (w.status !== "confirmed" || w.progress !== "confirmed") {
+        throw new RuleError("Only confirmed, unassigned wash bookings can be assigned");
+      }
+      w.assigned_cleaner_id = cleaner_id;
+      w.progress = "assigned";
+      notify(cleaner_id, "Wash booking assigned by admin", `You have been assigned wash booking #${w.id}.`);
       notify(w.customer_id, "Cleaner Assigned to Your Wash");
       return w;
     },
@@ -1860,20 +2141,40 @@ export function createBackend(
       const w = washes.get(wash_id)!;
       if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
-      if (w.status !== "confirmed") throw new RuleError("Wait for admin approval before paying");
+      if (w.payment_status === "paid") throw new RuleError("Already paid");
+      if (w.status !== "pending" && w.status !== "confirmed") {
+        throw new RuleError("Wait for admin approval before paying: this wash booking cannot be paid");
+      }
+      if (w.pay_by && clock.now.getTime() > new Date(w.pay_by).getTime()) {
+        throw new RuleError("Payment window has closed");
+      }
       wallet.apply(actor, -w.price, "wash_payment");
       w.payment_status = "paid";
+      w.status = "confirmed";
+      w.progress = "confirmed";
+      w.paid_at = clock.now.toISOString();
       return w;
     },
     payWashWithRazorpay(actor: string, wash_id: string, payment_id: string) {
       const w = washes.get(wash_id)!;
       if (!w) throw new RuleError("Wash booking not found");
       if (w.customer_id !== actor) throw new RuleError("Not your wash booking");
-      if (w.status !== "confirmed") throw new RuleError("Wait for admin approval before paying");
       if (w.payment_status === "paid") {
         return { ok: true, replayed: true, wash: w };
       }
+      if (w.status !== "pending" && w.status !== "confirmed") {
+        throw new RuleError("Wait for admin approval before paying: this wash booking cannot be paid");
+      }
+      if (w.pay_by && clock.now.getTime() > new Date(w.pay_by).getTime()) {
+        w.payment_status = "refunded";
+        wallet.apply(actor, w.price, "wash_refund");
+        notify(w.customer_id, "Late wash payment refunded to wallet");
+        return { ok: false, refunded: true, wash: w };
+      }
       w.payment_status = "paid";
+      w.status = "confirmed";
+      w.progress = "confirmed";
+      w.paid_at = clock.now.toISOString();
       notify(w.customer_id, `Wash payment received via Razorpay (${payment_id})`);
       return { ok: true, replayed: false, wash: w };
     },
@@ -2275,7 +2576,91 @@ export function createBackend(
         }
       }
 
-      return { rentals_cancelled: cancelledCount, reminders_sent: remindedCount };
+      // Wash expiries, alerts, auto-cancels & tier widening notifications
+      let washesCancelled = 0;
+      for (const w of washes.values()) {
+        if (
+          w.status === "pending" &&
+          w.payment_status !== "paid" &&
+          w.pay_by &&
+          nowMs > new Date(w.pay_by).getTime()
+        ) {
+          w.status = "cancelled";
+          w.cancellation_reason = "payment_timeout";
+          washesCancelled++;
+          notify(w.customer_id, "Wash payment window expired", "Payment was not completed in time.", "/washes");
+        } else if (w.status === "confirmed" && w.payment_status === "paid" && !w.assigned_cleaner_id) {
+          const slotTime = (w.slot_time || "10:00").slice(0, 5);
+          const slotStart = new Date(`${w.slot_date}T${slotTime}:00+05:30`);
+          const paidAt = new Date(w.paid_at || w.created_at || clock.now);
+          const leadTimeMs = slotStart.getTime() - paidAt.getTime();
+          const msUntilSlot = slotStart.getTime() - nowMs;
+
+          let adminAlertThresholdMs = 12 * 3600 * 1000;
+          let autoCancelThresholdMs = 2 * 3600 * 1000;
+          if (leadTimeMs > 24 * 3600 * 1000) {
+            adminAlertThresholdMs = 12 * 3600 * 1000;
+            autoCancelThresholdMs = 2 * 3600 * 1000;
+          } else if (leadTimeMs >= 6 * 3600 * 1000) {
+            adminAlertThresholdMs = 3 * 3600 * 1000;
+            autoCancelThresholdMs = 1 * 3600 * 1000;
+          } else {
+            adminAlertThresholdMs = 1 * 3600 * 1000;
+            autoCancelThresholdMs = 30 * 60 * 1000;
+          }
+
+          // Auto-cancel & refund
+          if (msUntilSlot <= autoCancelThresholdMs) {
+            w.status = "cancelled";
+            w.progress = "cancelled";
+            w.cancellation_reason = "no_washer";
+            w.payment_status = "refunded";
+            w.refund_amount = w.price;
+            wallet.apply(w.customer_id, w.price, "wash_refund");
+            washesCancelled++;
+            notify(
+              w.customer_id,
+              "Wash cancelled — no washer found",
+              "We couldn't find a washer in time. A full refund has been credited to your wallet.",
+              "/washes",
+            );
+          } else if (msUntilSlot <= adminAlertThresholdMs && !w.admin_alerted_at) {
+            // Admin alert
+            w.admin_alerted_at = clock.now.toISOString();
+            for (const a of admins) {
+              notify(
+                a,
+                "At risk: unassigned wash booking",
+                `Wash job #${w.id} in ${w.city} on ${w.slot_date} at ${w.slot_time} is unassigned and at risk.`,
+                "/admin",
+              );
+            }
+          }
+        }
+      }
+
+      // Tier widening summary notifications: at most 1 per cleaner
+      for (const cleaner of cleaners.values()) {
+        if (cleaner.verification_status !== "approved" || !cleaner.available) continue;
+        let newlyVisibleCount = 0;
+        for (const w of washes.values()) {
+          if (w.status === "confirmed" && w.payment_status === "paid" && !w.assigned_cleaner_id) {
+            if (this.canCleanerSeeJob(cleaner.id, w.id)) {
+              newlyVisibleCount++;
+            }
+          }
+        }
+        if (newlyVisibleCount > 0) {
+          notify(
+            cleaner.id,
+            "New wash jobs available",
+            `${newlyVisibleCount} new wash job${newlyVisibleCount > 1 ? "s are" : " is"} available in your area.`,
+            "/cleaner-dashboard",
+          );
+        }
+      }
+
+      return { rentals_cancelled: cancelledCount, reminders_sent: remindedCount, washes_cancelled: washesCancelled };
     },
 
     reactivateVendorListings(actor: string, vendor_id: string) {
@@ -2429,6 +2814,9 @@ export function createBackend(
     ) {
       const cleaner: Cleaner = {
         ...profile,
+        base_lat: profile.base_lat ?? 12.9716,
+        base_lng: profile.base_lng ?? 77.5946,
+        radius_km: profile.radius_km ?? 8,
         avg_rating: profile.avg_rating ?? 0,
         review_count: profile.review_count ?? 0,
         verification_status: "pending",

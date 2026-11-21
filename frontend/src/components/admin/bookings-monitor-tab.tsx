@@ -18,6 +18,7 @@ import {
   Clock,
   XCircle,
   ArrowUpRight,
+  AlertTriangle,
 } from "lucide-react";
 
 type BookingKind = "rental" | "driver" | "wash" | "pooling";
@@ -40,6 +41,45 @@ export function BookingsMonitorTab() {
   const [search, setSearch] = useState("");
   const pager = usePage();
 
+  // At risk washes
+  const [atRiskWashes, setAtRiskWashes] = useState<any[]>([]);
+  const [approvedCleaners, setApprovedCleaners] = useState<any[]>([]);
+  const [assignCleanerMap, setAssignCleanerMap] = useState<Record<string, string>>({});
+  const [assigning, setAssigning] = useState<string | null>(null);
+
+  const loadAtRiskWashes = async () => {
+    const [wRes, cRes] = await Promise.all([
+      api
+        .from("wash_bookings")
+        .select("id, city, address, slot_date, slot_time, price, admin_alerted_at, wash_services:service_id(name)")
+        .eq("status", "confirmed")
+        .eq("payment_status", "paid")
+        .is("assigned_cleaner_id", null)
+        .not("admin_alerted_at", "is", null),
+      api
+        .from("cleaners")
+        .select("id, full_name, city")
+        .eq("verification_status", "approved"),
+    ]);
+    if (wRes.data) setAtRiskWashes(wRes.data);
+    if (cRes.data) setApprovedCleaners(cRes.data);
+  };
+
+  const assignCleaner = async (washId: string) => {
+    const cleanerId = assignCleanerMap[washId];
+    if (!cleanerId) return toast.error("Select a cleaner partner first");
+    setAssigning(washId);
+    const { error } = await api.rpc("admin_assign_wash_cleaner", {
+      _wash_booking_id: washId,
+      _cleaner_id: cleanerId,
+    });
+    setAssigning(null);
+    if (error) return toast.error(error.message);
+    toast.success("Washer partner assigned successfully!");
+    loadAtRiskWashes();
+    loadAllBookings();
+  };
+
   // One server-side view of all four kinds, so paging, filters and counts are exact.
   const loadAllBookings = async () => {
     let q = api
@@ -61,6 +101,7 @@ export function BookingsMonitorTab() {
 
   useEffect(() => {
     loadAllBookings();
+    loadAtRiskWashes();
   }, [pager.page, kindFilter, search]);
 
   if (!items) return <Skeleton className="h-44 w-full mt-4" />;
@@ -122,6 +163,67 @@ export function BookingsMonitorTab() {
 
   return (
     <div className="mt-4 space-y-4">
+      {/* At risk: no washer list */}
+      {atRiskWashes.length > 0 && (
+        <Card className="border-amber-500/50 bg-amber-500/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 text-amber-600 font-semibold text-sm">
+              <AlertTriangle className="h-4 w-4" />
+              <span>At risk: no washer assigned ({atRiskWashes.length})</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These doorstep washes have received an admin alert because no cleaner has claimed them before the deadline. Assign a cleaner manually or take action before auto-cancellation.
+            </p>
+            <div className="grid gap-2">
+              {atRiskWashes.map((w) => {
+                const cityCleaners = approvedCleaners.filter(
+                  (c) => c.city?.toLowerCase() === w.city?.toLowerCase()
+                );
+                return (
+                  <div
+                    key={w.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">
+                        {w.wash_services?.name || "Doorstep Vehicle Wash"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {w.slot_date} · {String(w.slot_time).slice(0, 5)} · 📍 {w.address}, {w.city} · {currency(w.price)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        aria-label="Assign cleaner"
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        value={assignCleanerMap[w.id] ?? ""}
+                        onChange={(e) =>
+                          setAssignCleanerMap({ ...assignCleanerMap, [w.id]: e.target.value })
+                        }
+                      >
+                        <option value="">Select cleaner partner…</option>
+                        {cityCleaners.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.full_name} ({c.city})
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        disabled={assigning === w.id || !assignCleanerMap[w.id]}
+                        onClick={() => assignCleaner(w.id)}
+                      >
+                        {assigning === w.id ? "Assigning…" : "Assign"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search and Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">

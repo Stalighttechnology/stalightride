@@ -161,10 +161,10 @@ def test_wash_center_dashboard_stats(env):
          VALUES (%s, 'Basic Wash', 30, 'car', 400, true)""", [service_id])
 
     wb1, wb2, wb3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    q("""INSERT INTO public.wash_bookings (id, customer_id, service_id, city, address, slot_date, slot_time)
-         VALUES (%s, %s, %s, 'Bangalore', 'Addr 1', %s, '10:00:00'),
-                (%s, %s, %s, 'Bangalore', 'Addr 2', %s, '11:00:00'),
-                (%s, %s, %s, 'Bangalore', 'Addr 3', %s, '14:00:00')""",
+    q("""INSERT INTO public.wash_bookings (id, customer_id, service_id, city, address, lat, lng, slot_date, slot_time)
+         VALUES (%s, %s, %s, 'Bangalore', 'Addr 1', 12.9716, 77.5946, %s, '10:00:00'),
+                (%s, %s, %s, 'Bangalore', 'Addr 2', 12.9716, 77.5946, %s, '11:00:00'),
+                (%s, %s, %s, 'Bangalore', 'Addr 3', 12.9716, 77.5946, %s, '14:00:00')""",
       [wb1, env.cust.id, service_id, day(1),
        wb2, env.cust.id, service_id, day(2),
        wb3, env.cust.id, service_id, day(3)])

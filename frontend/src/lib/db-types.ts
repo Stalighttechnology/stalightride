@@ -328,6 +328,8 @@ export type Database = {
         Row: {
           available: boolean;
           avg_rating: number;
+          base_lat: number | null;
+          base_lng: number | null;
           bio: string | null;
           city: string;
           created_at: string;
@@ -335,6 +337,7 @@ export type Database = {
           full_name: string;
           id: string;
           phone: string | null;
+          radius_km: number;
           rejection_reason: string | null;
           review_count: number;
           service_area: string | null;
@@ -345,6 +348,8 @@ export type Database = {
         Insert: {
           available?: boolean;
           avg_rating?: number;
+          base_lat?: number | null;
+          base_lng?: number | null;
           bio?: string | null;
           city?: string;
           created_at?: string;
@@ -352,6 +357,7 @@ export type Database = {
           full_name: string;
           id: string;
           phone?: string | null;
+          radius_km?: number;
           rejection_reason?: string | null;
           review_count?: number;
           service_area?: string | null;
@@ -362,6 +368,8 @@ export type Database = {
         Update: {
           available?: boolean;
           avg_rating?: number;
+          base_lat?: number | null;
+          base_lng?: number | null;
           bio?: string | null;
           city?: string;
           created_at?: string;
@@ -369,6 +377,7 @@ export type Database = {
           full_name?: string;
           id?: string;
           phone?: string | null;
+          radius_km?: number;
           rejection_reason?: string | null;
           review_count?: number;
           service_area?: string | null;
@@ -1668,6 +1677,7 @@ export type Database = {
           coupon_code: string | null;
           discount: number;
           address: string;
+          admin_alerted_at: string | null;
           admin_note: string | null;
           after_photos: string[];
           assigned_cleaner_id: string | null;
@@ -1681,6 +1691,7 @@ export type Database = {
           pay_reminded_at: string | null;
           respond_by: string | null;
           respond_reminded_at: string | null;
+          tier_notified: number;
           city: string;
           completed_at: string | null;
           created_at: string;
@@ -1717,6 +1728,7 @@ export type Database = {
           coupon_code?: string | null;
           discount?: number;
           address: string;
+          admin_alerted_at?: string | null;
           admin_note?: string | null;
           after_photos?: string[];
           assigned_cleaner_id?: string | null;
@@ -1730,6 +1742,7 @@ export type Database = {
           pay_reminded_at?: string | null;
           respond_by?: string | null;
           respond_reminded_at?: string | null;
+          tier_notified?: number;
           city: string;
           completed_at?: string | null;
           created_at?: string;
@@ -1766,6 +1779,7 @@ export type Database = {
           coupon_code?: string | null;
           discount?: number;
           address?: string;
+          admin_alerted_at?: string | null;
           admin_note?: string | null;
           after_photos?: string[];
           assigned_cleaner_id?: string | null;
@@ -1779,6 +1793,7 @@ export type Database = {
           pay_reminded_at?: string | null;
           respond_by?: string | null;
           respond_reminded_at?: string | null;
+          tier_notified?: number;
           city?: string;
           completed_at?: string | null;
           created_at?: string;
@@ -1824,6 +1839,45 @@ export type Database = {
             columns: ["vehicle_id"];
             isOneToOne: false;
             referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      wash_job_releases: {
+        Row: {
+          cleaner_id: string;
+          id: string;
+          late: boolean;
+          released_at: string;
+          wash_booking_id: string;
+        };
+        Insert: {
+          cleaner_id: string;
+          id?: string;
+          late?: boolean;
+          released_at?: string;
+          wash_booking_id: string;
+        };
+        Update: {
+          cleaner_id?: string;
+          id?: string;
+          late?: boolean;
+          released_at?: string;
+          wash_booking_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wash_job_releases_cleaner_id_fkey";
+            columns: ["cleaner_id"];
+            isOneToOne: false;
+            referencedRelation: "cleaners";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wash_job_releases_wash_booking_id_fkey";
+            columns: ["wash_booking_id"];
+            isOneToOne: false;
+            referencedRelation: "wash_bookings";
             referencedColumns: ["id"];
           },
         ];
@@ -2654,6 +2708,39 @@ export type Database = {
           id?: string;
         };
         Returns: Json;
+      };
+      wash_job_board: {
+        Args: Record<string, never>;
+        Returns: {
+          area: string;
+          distance_km: number | null;
+          duration_minutes: number;
+          id: string;
+          payout: number;
+          service_name: string;
+          slot_date: string;
+          slot_time: string;
+        }[];
+      };
+      release_wash_job: {
+        Args: {
+          _wash_booking_id: string;
+        };
+        Returns: Json;
+      };
+      can_cleaner_see_wash_job: {
+        Args: {
+          _cleaner_id: string;
+          _wash_booking_id: string;
+        };
+        Returns: boolean;
+      };
+      admin_assign_wash_cleaner: {
+        Args: {
+          _cleaner_id: string;
+          _wash_booking_id: string;
+        };
+        Returns: undefined;
       };
       delete_my_account_data: { Args: never; Returns: Json };
       has_pool_request_on_trip: { Args: { _trip_id: string }; Returns: boolean };
