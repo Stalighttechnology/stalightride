@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
@@ -115,6 +116,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     const { data: sub } = api.auth.onAuthStateChange(async (event, session) => {
@@ -139,10 +141,20 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [queryClient, router]);
 
-  const isHome =
-    typeof window !== "undefined"
-      ? window.location.pathname === "/" || window.location.pathname === ""
-      : false;
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isHome = pathname === "/" || pathname === "";
+
+  if (isAdminRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <HeadContent />
+        <ConfirmDialogProvider>
+          <Outlet />
+        </ConfirmDialogProvider>
+        <Toaster />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

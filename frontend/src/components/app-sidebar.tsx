@@ -466,7 +466,7 @@ export function AppSidebar() {
           <>
             {renderGroup("Platform management", adminItems)}
             {renderGroup("System & audits", [helpItems[0]])}
-            {renderGroup("Account", [{ to: "/profile", label: "Admin profile", icon: UserIcon }])}
+            {renderGroup("Account", [{ to: "/admin", search: { tab: "profile" }, label: "Admin profile", icon: UserIcon }])}
           </>
         )}
       </SidebarContent>
