@@ -415,7 +415,7 @@ export function SiteHeader() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/profile">
+                      <Link to="/admin" search={{ tab: "profile" }}>
                         <UserIcon className="mr-2 h-4 w-4" />
                         Admin Profile
                       </Link>
