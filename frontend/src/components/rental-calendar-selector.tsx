@@ -31,6 +31,7 @@ import {
   rentalDurationHours,
 } from "@/lib/format";
 import { computeCharges } from "@/lib/charges";
+import { usePlatformSettings } from "@/hooks/use-platform-settings";
 import {
   type BookedRange,
   toIsoDate,
@@ -175,11 +176,12 @@ export function RentalCalendarSelector({
     });
   }, [startDate, endDate, pickupTime, dropoffTime, vehicle]);
 
+  const settings = usePlatformSettings();
   const subtotal = priceBreakdown.subtotal;
 
   const charges = useMemo(() => {
-    return computeCharges(subtotal, undefined, coupon, membershipPlan);
-  }, [subtotal, coupon, membershipPlan]);
+    return computeCharges(subtotal, settings, coupon, membershipPlan);
+  }, [subtotal, settings, coupon, membershipPlan]);
 
   const deposit = isBlackVip ? 0 : Number(vehicle.security_deposit || 0);
   const grandTotal = charges.customer_total + deposit + deliveryFee;
