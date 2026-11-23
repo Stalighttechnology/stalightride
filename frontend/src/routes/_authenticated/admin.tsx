@@ -15,9 +15,10 @@ import {
   ExternalLink,
   Plus,
   ArrowLeft,
-  ChevronRight,
   LayoutDashboard,
   Check,
+  CalendarClock,
+  Bell,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ import { CoronaSidebar } from "@/components/admin/corona-sidebar";
 import { CoronaNavbar } from "@/components/admin/corona-navbar";
 import { CoronaDashboardOverview } from "@/components/admin/corona-dashboard-overview";
 import { AdminProfileTab } from "@/components/admin/admin-profile-tab";
+import { AdminNotificationsTab } from "@/components/admin/admin-notifications-tab";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -47,6 +49,11 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string; category: st
     title: "Command Center Overview",
     subtitle: "Real-time telemetry, KPI monitoring, and fleet operational status.",
     category: "Main",
+  },
+  notifications: {
+    title: "Notifications & Action Center",
+    subtitle: "Real-time alerts, operational requests, and verification approvals requiring administrative action.",
+    category: "Communication",
   },
   vehicles: {
     title: "Vehicle Verification Queue",
@@ -302,9 +309,9 @@ function AdminPage() {
 
   if (isAdmin === null)
     return (
-      <div className="min-h-screen bg-slate-100 dark:bg-[#0c0d12] flex items-center justify-center p-8 transition-colors">
-        <div className="w-full max-w-md p-6 rounded-3xl border border-slate-200 dark:border-[#222433] bg-white dark:bg-[#12131a] shadow-xl space-y-4">
-          <div className="h-8 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-8 transition-colors font-sans">
+        <div className="w-full max-w-md p-6 rounded-3xl border border-border bg-card shadow-xl space-y-4">
+          <div className="h-8 w-40 bg-muted rounded-lg animate-pulse" />
           <Skeleton className="h-32 rounded-2xl" />
         </div>
       </div>
@@ -312,25 +319,25 @@ function AdminPage() {
 
   if (!isAdmin)
     return (
-      <div className="min-h-screen bg-slate-100 dark:bg-[#0c0d12] flex items-center justify-center p-8 transition-colors">
-        <div className="mx-auto max-w-md p-8 text-center rounded-3xl border border-slate-200 dark:border-[#222433] bg-white dark:bg-[#12131a] shadow-xl">
-          <div className="h-16 w-16 mx-auto rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-8 transition-colors font-sans">
+        <div className="mx-auto max-w-md p-8 text-center rounded-3xl border border-border bg-card shadow-xl">
+          <div className="h-16 w-16 mx-auto rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
             <ShieldAlert className="h-8 w-8" />
           </div>
-          <h2 className="mt-4 font-display text-xl font-bold text-slate-900 dark:text-white">
+          <h2 className="mt-4 font-display text-xl font-bold text-foreground">
             Access Restricted
           </h2>
-          <p className="mt-2 text-xs text-slate-500 dark:text-[#8d92a8]">
+          <p className="mt-2 text-xs text-muted-foreground">
             Super Administrator credentials are required to access this dashboard.
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Button asChild size="sm" variant="outline" className="rounded-xl">
+            <Button asChild size="sm" variant="outline" className="rounded-xl border-border">
               <Link to="/">Storefront Home</Link>
             </Button>
             <Button
               asChild
               size="sm"
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="rounded-xl bg-brand hover:bg-brand/90 text-brand-foreground"
             >
               <Link to="/auth">Sign In</Link>
             </Button>
@@ -342,7 +349,7 @@ function AdminPage() {
   const currentInfo = TAB_TITLES[activeTab] || TAB_TITLES.overview;
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-[#0c0d12] text-slate-900 dark:text-white flex transition-colors duration-200">
+    <div className="min-h-screen bg-background text-foreground flex transition-colors duration-200 font-sans">
       {/* Corona Sidebar */}
       <CoronaSidebar
         activeTab={activeTab}
@@ -449,45 +456,51 @@ function AdminPage() {
 
         {/* Content Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
-          {/* Breadcrumb & Section Header (Rendered on Sub-Tabs) */}
-          {activeTab !== "overview" && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80 dark:border-[#222433]">
-              <div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#7f849e] mb-1">
-                  <button
-                    onClick={() => handleTabChange("overview")}
-                    className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium"
-                  >
-                    Dashboard
-                  </button>
-                  <ChevronRight className="h-3 w-3" />
-                  <span className="text-slate-400 dark:text-[#555a73]">{currentInfo.category}</span>
-                  <ChevronRight className="h-3 w-3" />
-                  <span className="text-slate-900 dark:text-white font-semibold">
-                    {currentInfo.title}
-                  </span>
-                </div>
-                <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  {currentInfo.title}
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-[#8d92a8] mt-0.5">
-                  {currentInfo.subtitle}
-                </p>
-              </div>
+          {/* Breadcrumb & Section Header (Unified across all views) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
+            <div>
+              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                {currentInfo.title}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {currentInfo.subtitle}
+              </p>
+            </div>
 
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              {activeTab === "overview" ? (
+                <>
+                  <Button
+                    onClick={() => handleTabChange("bookings")}
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl text-xs gap-1.5 border-border bg-card text-foreground hover:bg-muted"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    Live Bookings
+                  </Button>
+                  <Button
+                    onClick={() => handleTabChange("notifications")}
+                    size="sm"
+                    className="rounded-xl text-xs gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90"
+                  >
+                    <Bell className="h-3.5 w-3.5" />
+                    Action Queues ({stats.pendingTotal})
+                  </Button>
+                </>
+              ) : (
                 <Button
                   onClick={() => handleTabChange("overview")}
                   size="sm"
                   variant="outline"
-                  className="rounded-xl text-xs gap-1.5 border-slate-200 dark:border-[#262838] bg-white dark:bg-[#181a24] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#202332]"
+                  className="rounded-xl text-xs gap-1.5 border-border bg-card text-foreground hover:bg-muted"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   Back to Overview
                 </Button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Active Tab Panel */}
           {activeTab === "overview" && (
@@ -498,6 +511,10 @@ function AdminPage() {
               reportedReviewsCount={reportedReviewsCount}
               searchTerm={searchTerm}
             />
+          )}
+
+          {activeTab === "notifications" && (
+            <AdminNotificationsTab onSelectTab={handleTabChange} />
           )}
 
           {activeTab === "vehicles" && <VehicleQueue />}
@@ -526,9 +543,9 @@ function AdminPage() {
         </main>
 
         {/* Admin Footer */}
-        <footer className="border-t border-slate-200/80 dark:border-[#1f212e] bg-white/60 dark:bg-[#0e0f15]/80 py-4 px-6 text-xs text-slate-500 dark:text-[#7f849e] flex flex-col sm:flex-row items-center justify-between gap-2 mt-auto">
+        <footer className="border-t border-border bg-card/60 py-4 px-6 text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-2 mt-auto">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-700 dark:text-slate-300">Synchoo Admin</span>
+            <span className="font-semibold text-foreground">Synchoo Admin</span>
             <span>·</span>
             <span>Master Console v2.4</span>
           </div>
@@ -539,7 +556,7 @@ function AdminPage() {
             <Link to="/help" className="hover:underline">
               Help &amp; Docs
             </Link>
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+            <span className="text-emerald-500 font-medium">
               Telemetry Connected ●
             </span>
           </div>
@@ -559,10 +576,16 @@ function VehicleQueue() {
         "id,title,brand,model,year,city,vendor_id,rc_url,insurance_url,pollution_url,fitness_url,verification_status,rejection_reason,created_at,vendors:vendor_id(business_name,kyc_status)" as any,
         { count: "exact" },
       )
+      .order("verification_status", { ascending: true })
       .order("created_at", { ascending: false })
       .range(pager.from, pager.to);
     if (error) toast.error(error.message);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aPending = a.verification_status === "pending" ? 1 : 0;
+      const bPending = b.verification_status === "pending" ? 1 : 0;
+      return bPending - aPending;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -600,50 +623,66 @@ function VehicleQueue() {
 
   return (
     <div className="mt-4 space-y-3">
-      {items.map((v) => (
-        <Card key={v.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    to="/vehicle/$id"
-                    params={{ id: v.id }}
-                    className="font-medium hover:underline"
-                  >
-                    {v.title}
-                  </Link>
-                  <StatusBadge status={v.verification_status} />
+      {items.map((v) => {
+        const isPending = v.verification_status === "pending";
+        return (
+          <Card
+            key={v.id}
+            className={
+              isPending
+                ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                : "transition-all"
+            }
+          >
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link
+                      to="/vehicle/$id"
+                      params={{ id: v.id }}
+                      className="font-medium hover:underline text-foreground"
+                    >
+                      {v.title}
+                    </Link>
+                    <StatusBadge status={v.verification_status} />
+                    {isPending && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Approval Required
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {v.brand} {v.model} · {v.year} · {v.city} · Host:{" "}
+                    {v.vendors?.business_name ?? v.vendor_id.slice(0, 8)} · KYC:{" "}
+                    {v.vendors?.kyc_status ?? "—"}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {v.brand} {v.model} · {v.year} · {v.city} · Host:{" "}
-                  {v.vendors?.business_name ?? v.vendor_id.slice(0, 8)} · KYC:{" "}
-                  {v.vendors?.kyc_status ?? "—"}
-                </p>
+                <div className="flex gap-2">
+                  {v.verification_status !== "approved" && (
+                    <Button size="sm" onClick={() => decide(v.id, "approved")}>
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      Approve
+                    </Button>
+                  )}
+                  {v.verification_status !== "rejected" && (
+                    <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>
+                      Reject
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {v.verification_status !== "approved" && (
-                  <Button size="sm" onClick={() => decide(v.id, "approved")}>
-                    <ShieldCheck className="mr-1 h-3 w-3" />
-                    Approve
-                  </Button>
-                )}
-                {v.verification_status !== "rejected" && (
-                  <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>
-                    Reject
-                  </Button>
-                )}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <DocLink label="RC" url={v.rc_url ? signed[v.rc_url] : null} />
+                <DocLink label="Insurance" url={v.insurance_url ? signed[v.insurance_url] : null} />
+                <DocLink label="Pollution" url={v.pollution_url ? signed[v.pollution_url] : null} />
+                <DocLink label="Fitness" url={v.fitness_url ? signed[v.fitness_url] : null} />
               </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <DocLink label="RC" url={v.rc_url ? signed[v.rc_url] : null} />
-              <DocLink label="Insurance" url={v.insurance_url ? signed[v.insurance_url] : null} />
-              <DocLink label="Pollution" url={v.pollution_url ? signed[v.pollution_url] : null} />
-              <DocLink label="Fitness" url={v.fitness_url ? signed[v.fitness_url] : null} />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       <ListPager {...pager} />
     </div>
   );
@@ -663,7 +702,12 @@ function LicenceQueue() {
       .order("dl_status", { ascending: true } as any)
       .order("id")
       .range(pager.from, pager.to);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aPending = a.dl_status === "pending" ? 1 : 0;
+      const bPending = b.dl_status === "pending" ? 1 : 0;
+      return bPending - aPending;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -693,55 +737,82 @@ function LicenceQueue() {
   };
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
-  const pending = items.filter((p) => p.dl_status === "pending");
-  if (pending.length === 0)
-    return <p className="mt-6 text-sm text-muted-foreground">Nothing pending.</p>;
+  if (items.length === 0)
+    return <p className="mt-6 text-sm text-muted-foreground">No driving licence submissions found.</p>;
 
   return (
     <div className="mt-4 space-y-3">
-      {pending.map((p) => (
-        <Card key={p.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-medium">{p.full_name || p.id.slice(0, 8)}</p>
-                <p className="text-xs text-muted-foreground">
-                  Licence: {p.dl_number} · Expiry: {p.dl_expiry}
-                </p>
+      {items.map((p) => {
+        const isPending = p.dl_status === "pending";
+        return (
+          <Card
+            key={p.id}
+            className={
+              isPending
+                ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                : "transition-all"
+            }
+          >
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{p.full_name || p.id.slice(0, 8)}</p>
+                    <StatusBadge status={p.dl_status} />
+                    {isPending && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Approval Required
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Licence: {p.dl_number || "—"} · Expiry: {p.dl_expiry || "—"}
+                  </p>
+                  {p.dl_rejection_reason && (
+                    <p className="text-xs text-destructive mt-1">
+                      Reason: {p.dl_rejection_reason}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {p.dl_status !== "approved" && (
+                    <Button size="sm" onClick={() => decide(p.id, "approved")}>
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      Approve
+                    </Button>
+                  )}
+                  {p.dl_status !== "rejected" && (
+                    <Button size="sm" variant="outline" onClick={() => decide(p.id, "rejected")}>
+                      Reject
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => decide(p.id, "approved")}>
-                  <ShieldCheck className="mr-1 h-3 w-3" />
-                  Approve
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => decide(p.id, "rejected")}>
-                  Reject
-                </Button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {p.dl_front_url && signed[p.dl_front_url] && (
+                  <a href={signed[p.dl_front_url]} target="_blank" rel="noreferrer">
+                    <img
+                      src={signed[p.dl_front_url]}
+                      className="aspect-[16/10] w-full rounded-md border border-border object-cover"
+                      alt="front"
+                    />
+                  </a>
+                )}
+                {p.dl_back_url && signed[p.dl_back_url] && (
+                  <a href={signed[p.dl_back_url]} target="_blank" rel="noreferrer">
+                    <img
+                      src={signed[p.dl_back_url]}
+                      className="aspect-[16/10] w-full rounded-md border border-border object-cover"
+                      alt="back"
+                    />
+                  </a>
+                )}
               </div>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {p.dl_front_url && signed[p.dl_front_url] && (
-                <a href={signed[p.dl_front_url]} target="_blank" rel="noreferrer">
-                  <img
-                    src={signed[p.dl_front_url]}
-                    className="aspect-[16/10] w-full rounded-md border object-cover"
-                    alt="front"
-                  />
-                </a>
-              )}
-              {p.dl_back_url && signed[p.dl_back_url] && (
-                <a href={signed[p.dl_back_url]} target="_blank" rel="noreferrer">
-                  <img
-                    src={signed[p.dl_back_url]}
-                    className="aspect-[16/10] w-full rounded-md border object-cover"
-                    alt="back"
-                  />
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       <ListPager {...pager} />
     </div>
   );
@@ -801,7 +872,12 @@ function DisputeQueue() {
       .select("*, bookings(id,vehicles(title))", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(pager.from, pager.to);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aOpen = a.status === "open" || a.status === "in_review" ? 1 : 0;
+      const bOpen = b.status === "open" || b.status === "in_review" ? 1 : 0;
+      return bOpen - aOpen;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -862,19 +938,35 @@ function DisputeCard({
   onReview: () => void;
 }) {
   const urls = useSignedUrls("trip-photos", d.photos ?? []);
+  const isOpen = d.status === "open" || d.status === "in_review";
+
   return (
-    <Card>
+    <Card
+      className={
+        isOpen
+          ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+          : "transition-all"
+      }
+    >
       <CardContent className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="font-medium">{d.subject}</p>
-            <p className="text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-medium text-foreground">{d.subject}</p>
+              <Badge variant={d.status === "resolved" ? "secondary" : "outline"}>{d.status}</Badge>
+              {isOpen && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Resolution Pending
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {d.category} · {d.bookings?.vehicles?.title ?? "—"} ·{" "}
               {new Date(d.created_at).toLocaleString()}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={d.status === "resolved" ? "secondary" : "outline"}>{d.status}</Badge>
             {d.status === "open" && (
               <Button size="sm" variant="outline" onClick={onReview}>
                 Mark in review
@@ -897,7 +989,7 @@ function DisputeCard({
                 href={urls[p] ?? "#"}
                 target="_blank"
                 rel="noreferrer"
-                className="block aspect-square overflow-hidden rounded-lg border"
+                className="block aspect-square overflow-hidden rounded-lg border border-border"
               >
                 {urls[p] && <img src={urls[p]!} alt="" className="h-full w-full object-cover" />}
               </a>
@@ -926,10 +1018,16 @@ function HostQueue() {
       .select("id,business_name,bio,kyc_status,id_document_url,payout_email,created_at", {
         count: "exact",
       })
+      .order("kyc_status", { ascending: true })
       .order("created_at", { ascending: false })
       .range(pager.from, pager.to);
     if (error) toast.error(error.message);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aPending = a.kyc_status === "pending" ? 1 : 0;
+      const bPending = b.kyc_status === "pending" ? 1 : 0;
+      return bPending - aPending;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -951,61 +1049,77 @@ function HostQueue() {
 
   if (!items) return <Skeleton className="mt-4 h-40" />;
   if (items.length === 0)
-    return <p className="mt-6 text-sm text-muted-foreground">No hosts yet.</p>;
+    return <p className="mt-6 text-sm text-muted-foreground">No hosts registered yet.</p>;
 
   return (
     <div className="mt-4 space-y-3">
-      {items.map((v) => (
-        <Card key={v.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{v.business_name}</p>
-                  <Badge
-                    variant={
-                      v.kyc_status === "approved"
-                        ? "secondary"
-                        : v.kyc_status === "rejected"
-                          ? "destructive"
-                          : "outline"
-                    }
-                    className={
-                      v.kyc_status === "approved"
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold"
-                        : ""
-                    }
-                  >
-                    {v.kyc_status}
-                  </Badge>
+      {items.map((v) => {
+        const isPending = v.kyc_status === "pending";
+        return (
+          <Card
+            key={v.id}
+            className={
+              isPending
+                ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                : "transition-all"
+            }
+          >
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{v.business_name}</p>
+                    <Badge
+                      variant={
+                        v.kyc_status === "approved"
+                          ? "secondary"
+                          : v.kyc_status === "rejected"
+                            ? "destructive"
+                            : "outline"
+                      }
+                      className={
+                        v.kyc_status === "approved"
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold"
+                          : ""
+                      }
+                    >
+                      {v.kyc_status}
+                    </Badge>
+                    {isPending && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        KYC Approval Required
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {v.bio || "No bio"} · Joined {new Date(v.created_at).toLocaleDateString()}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {v.bio || "No bio"} · Joined {new Date(v.created_at).toLocaleDateString()}
-                </p>
+                <div className="flex gap-2">
+                  {v.kyc_status !== "approved" && (
+                    <Button size="sm" onClick={() => decide(v.id, "approved")}>
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      Approve host
+                    </Button>
+                  )}
+                  {v.kyc_status !== "rejected" && (
+                    <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>
+                      Reject
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {v.kyc_status !== "approved" && (
-                  <Button size="sm" onClick={() => decide(v.id, "approved")}>
-                    <ShieldCheck className="mr-1 h-3 w-3" />
-                    Approve host
-                  </Button>
-                )}
-                {v.kyc_status !== "rejected" && (
-                  <Button size="sm" variant="outline" onClick={() => decide(v.id, "rejected")}>
-                    Reject
-                  </Button>
-                )}
+              <div className="mt-3 text-xs">
+                <DocLink
+                  label="ID document"
+                  url={v.id_document_url ? signed[v.id_document_url] : null}
+                />
               </div>
-            </div>
-            <div className="mt-3 text-xs">
-              <DocLink
-                label="ID document"
-                url={v.id_document_url ? signed[v.id_document_url] : null}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       <ListPager {...pager} />
     </div>
   );
@@ -1021,10 +1135,16 @@ function DriverQueue() {
         "id,full_name,city,phone,experience_years,hourly_rate,daily_rate,dl_number,dl_expiry,dl_front_url,dl_back_url,id_document_url,verification_status,status,rejection_reason,created_at",
         { count: "exact" },
       )
+      .order("verification_status", { ascending: true })
       .order("created_at", { ascending: false })
       .range(pager.from, pager.to);
     if (error) toast.error(error.message);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aPending = a.verification_status === "pending" ? 1 : 0;
+      const bPending = b.verification_status === "pending" ? 1 : 0;
+      return bPending - aPending;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -1062,46 +1182,67 @@ function DriverQueue() {
 
   return (
     <div className="mt-4 space-y-3">
-      {items.map((d) => (
-        <Card key={d.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{d.full_name}</p>
-                  <StatusBadge status={d.verification_status} />
-                  <Badge variant="outline">{d.status}</Badge>
+      {items.map((d) => {
+        const isPending = d.verification_status === "pending";
+        return (
+          <Card
+            key={d.id}
+            className={
+              isPending
+                ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                : "transition-all"
+            }
+          >
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{d.full_name}</p>
+                    <StatusBadge status={d.verification_status} />
+                    <Badge variant="outline">{d.status}</Badge>
+                    {isPending && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Accreditation Pending
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {d.city} · {d.experience_years} yrs · ₹{d.hourly_rate}/hr · ₹{d.daily_rate}/day ·
+                    Licence {d.dl_number ?? "—"} (exp {d.dl_expiry ?? "—"})
+                  </p>
+                  {d.rejection_reason && (
+                    <p className="text-xs text-destructive mt-1">
+                      Reason: {d.rejection_reason}
+                    </p>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {d.city} · {d.experience_years} yrs · ₹{d.hourly_rate}/hr · ₹{d.daily_rate}/day ·
-                  Licence {d.dl_number ?? "—"} (exp {d.dl_expiry ?? "—"})
-                </p>
+                <div className="flex gap-2">
+                  {d.verification_status !== "approved" && (
+                    <Button size="sm" onClick={() => decide(d.id, "approved")}>
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      Approve
+                    </Button>
+                  )}
+                  {d.verification_status !== "rejected" && (
+                    <Button size="sm" variant="outline" onClick={() => decide(d.id, "rejected")}>
+                      Reject
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {d.verification_status !== "approved" && (
-                  <Button size="sm" onClick={() => decide(d.id, "approved")}>
-                    <ShieldCheck className="mr-1 h-3 w-3" />
-                    Approve
-                  </Button>
-                )}
-                {d.verification_status !== "rejected" && (
-                  <Button size="sm" variant="outline" onClick={() => decide(d.id, "rejected")}>
-                    Reject
-                  </Button>
-                )}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <DocLink label="Licence front" url={d.dl_front_url ? signed[d.dl_front_url] : null} />
+                <DocLink label="Licence back" url={d.dl_back_url ? signed[d.dl_back_url] : null} />
+                <DocLink
+                  label="Government ID"
+                  url={d.id_document_url ? signed[d.id_document_url] : null}
+                />
               </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <DocLink label="Licence front" url={d.dl_front_url ? signed[d.dl_front_url] : null} />
-              <DocLink label="Licence back" url={d.dl_back_url ? signed[d.dl_back_url] : null} />
-              <DocLink
-                label="Government ID"
-                url={d.id_document_url ? signed[d.id_document_url] : null}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       <ListPager {...pager} />
     </div>
   );
@@ -1131,7 +1272,12 @@ function WashQueue() {
         .order("full_name"),
     ]);
     if (error) toast.error(error.message);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aAction = (!a.assigned_cleaner_id && a.status === "confirmed") || a.status === "pending" ? 1 : 0;
+      const bAction = (!b.assigned_cleaner_id && b.status === "confirmed") || b.status === "pending" ? 1 : 0;
+      return bAction - aAction;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
     setCleaners((cl as any) ?? []);
   };
@@ -1211,14 +1357,22 @@ function WashQueue() {
       )}
       {items.map((b) => {
         const isAtRisk = Boolean(b.admin_alerted_at && !b.assigned_cleaner_id && b.status === "confirmed");
+        const needsAssign = !b.assigned_cleaner_id && b.status === "confirmed";
         const assignedCleaner = cleaners.find((c) => c.id === b.assigned_cleaner_id);
         return (
-          <Card key={b.id} className={isAtRisk ? "border-amber-500/50 bg-amber-500/5" : ""}>
+          <Card
+            key={b.id}
+            className={
+              isAtRisk || needsAssign
+                ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                : "transition-all"
+            }
+          >
             <CardContent className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">{b.wash_services?.name ?? "Vehicle wash"}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{b.wash_services?.name ?? "Vehicle wash"}</p>
                     <Badge
                       variant={
                         b.status === "confirmed"
@@ -1237,13 +1391,18 @@ function WashQueue() {
                       b.payment_status === "partially_refunded") && (
                       <Badge variant="outline">{b.payment_status}</Badge>
                     )}
-                    {isAtRisk && (
+                    {isAtRisk ? (
                       <Badge variant="destructive" className="animate-pulse">
                         At risk: unassigned
                       </Badge>
-                    )}
+                    ) : needsAssign ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Washer Assignment Needed
+                      </span>
+                    ) : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {b.slot_date} at {String(b.slot_time).slice(0, 5)} · {b.city} · ₹{b.price}
                     {assignedCleaner?.full_name ? ` · Washer: ${assignedCleaner.full_name}` : ""}
                   </p>
@@ -1273,7 +1432,7 @@ function WashQueue() {
                     <div className="flex items-center gap-1.5">
                       <select
                         aria-label="Assign washer partner"
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
                         value={assign[b.id] ?? ""}
                         onChange={(e) => setAssign({ ...assign, [b.id]: e.target.value })}
                       >
@@ -1336,10 +1495,16 @@ function CleanersQueue() {
     const { data, error, count } = await api
       .from("cleaners")
       .select("*", { count: "exact" })
+      .order("verification_status", { ascending: true })
       .order("created_at", { ascending: false })
       .range(pager.from, pager.to);
     if (error) toast.error(error.message);
-    setItems((data as any) ?? []);
+    const sorted = ((data as any) ?? []).sort((a: any, b: any) => {
+      const aPending = a.verification_status === "pending" ? 1 : 0;
+      const bPending = b.verification_status === "pending" ? 1 : 0;
+      return bPending - aPending;
+    });
+    setItems(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -1372,57 +1537,73 @@ function CleanersQueue() {
 
   return (
     <div className="mt-4 space-y-3">
-      {items.map((c) => (
-        <Card key={c.id}>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{c.full_name}</p>
-                  <StatusBadge status={c.verification_status} />
-                  <Badge
-                    variant={c.available ? "secondary" : "outline"}
-                    className={c.available ? "bg-emerald-50 text-emerald-700" : ""}
-                  >
-                    {c.available ? "Online" : "Offline"}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {c.city} · {c.experience_years} yrs exp · Area: {c.service_area || "Citywide"}{" "}
-                  {c.phone ? `· ${c.phone}` : ""}
-                </p>
-                {c.bio && <p className="text-xs text-muted-foreground mt-1 italic">"{c.bio}"</p>}
-                {c.rejection_reason && (
-                  <p className="text-xs text-red-500 mt-1">
-                    Rejection reason: {c.rejection_reason}
+      {items.map((c) => {
+        const isPending = c.verification_status === "pending";
+        return (
+          <Card
+            key={c.id}
+            className={
+              isPending
+                ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                : "transition-all"
+            }
+          >
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{c.full_name}</p>
+                    <StatusBadge status={c.verification_status} />
+                    <Badge
+                      variant={c.available ? "secondary" : "outline"}
+                      className={c.available ? "bg-emerald-50 text-emerald-700" : ""}
+                    >
+                      {c.available ? "Online" : "Offline"}
+                    </Badge>
+                    {isPending && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Application Pending
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {c.city} · {c.experience_years} yrs exp · Area: {c.service_area || "Citywide"}{" "}
+                    {c.phone ? `· ${c.phone}` : ""}
                   </p>
-                )}
+                  {c.bio && <p className="text-xs text-muted-foreground mt-1 italic">"{c.bio}"</p>}
+                  {c.rejection_reason && (
+                    <p className="text-xs text-destructive mt-1">
+                      Rejection reason: {c.rejection_reason}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {c.verification_status !== "approved" && (
+                    <Button
+                      size="sm"
+                      disabled={busy === c.id}
+                      onClick={() => decide(c.id, "approved")}
+                    >
+                      <ShieldCheck className="mr-1 h-3 w-3" /> Approve
+                    </Button>
+                  )}
+                  {c.verification_status !== "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy === c.id}
+                      onClick={() => decide(c.id, "rejected")}
+                    >
+                      Reject
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {c.verification_status !== "approved" && (
-                  <Button
-                    size="sm"
-                    disabled={busy === c.id}
-                    onClick={() => decide(c.id, "approved")}
-                  >
-                    <ShieldCheck className="mr-1 h-3 w-3" /> Approve
-                  </Button>
-                )}
-                {c.verification_status !== "rejected" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy === c.id}
-                    onClick={() => decide(c.id, "rejected")}
-                  >
-                    Reject
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
       <ListPager {...pager} />
     </div>
   );
@@ -1451,7 +1632,12 @@ function WashCentersQueue() {
         .order("created_at", { ascending: false })
         .range(pager.from, pager.to);
       if (error) toast.error(error.message);
-      setCenters(wcData ?? []);
+      const sorted = ((wcData ?? []) as any[]).sort((a: any, b: any) => {
+        const aPending = a.verification_status === "pending" || !a.active ? 1 : 0;
+        const bPending = b.verification_status === "pending" || !b.active ? 1 : 0;
+        return bPending - aPending;
+      });
+      setCenters(sorted);
       pager.setTotal(count ?? 0);
       return;
     }
@@ -1462,7 +1648,12 @@ function WashCentersQueue() {
       .order("created_at", { ascending: false })
       .range(pager.from, pager.to);
     if (error) toast.error(error.message);
-    setCenters(data ?? []);
+    const sorted = ((data ?? []) as any[]).sort((a: any, b: any) => {
+      const aPending = !a.active ? 1 : 0;
+      const bPending = !b.active ? 1 : 0;
+      return bPending - aPending;
+    });
+    setCenters(sorted);
     pager.setTotal(count ?? 0);
   };
   useEffect(() => {
@@ -1589,80 +1780,96 @@ function WashCentersQueue() {
         <p className="mt-6 text-sm text-muted-foreground">No washing centers registered yet.</p>
       ) : (
         <div className="grid gap-3">
-          {centers.map((c) => (
-            <Card key={c.id}>
-              <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm">{c.name}</p>
-                    {c.verification_status ? (
-                      <StatusBadge status={c.verification_status} />
-                    ) : (
-                      <Badge
-                        variant={c.active ? "secondary" : "outline"}
-                        className={c.active ? "bg-emerald-50 text-emerald-700" : ""}
-                      >
-                        {c.active ? "Verified / Active" : "Inactive"}
-                      </Badge>
+          {centers.map((c) => {
+            const isPending = c.verification_status === "pending" || !c.active;
+            return (
+              <Card
+                key={c.id}
+                className={
+                  isPending
+                    ? "border-amber-500/50 bg-amber-500/[0.04] shadow-sm ring-1 ring-amber-500/20 transition-all"
+                    : "transition-all"
+                }
+              >
+                <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm text-foreground">{c.name}</p>
+                      {c.verification_status ? (
+                        <StatusBadge status={c.verification_status} />
+                      ) : (
+                        <Badge
+                          variant={c.active ? "secondary" : "outline"}
+                          className={c.active ? "bg-emerald-50 text-emerald-700" : ""}
+                        >
+                          {c.active ? "Verified / Active" : "Inactive"}
+                        </Badge>
+                      )}
+                      {isPending && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Verification Needed
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      City: {c.city} · Capacity: {c.daily_capacity} washes/day{" "}
+                      {c.contact_phone ? `· ${c.contact_phone}` : ""}
+                    </p>
+                    {c.rejection_reason && (
+                      <p className="text-xs text-destructive mt-1">
+                        Rejection reason: {c.rejection_reason}
+                      </p>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    City: {c.city} · Capacity: {c.daily_capacity} washes/day{" "}
-                    {c.contact_phone ? `· ${c.contact_phone}` : ""}
-                  </p>
-                  {c.rejection_reason && (
-                    <p className="text-xs text-red-500 mt-1">
-                      Rejection reason: {c.rejection_reason}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {c.verification_status ? (
-                    <>
-                      {c.verification_status !== "approved" && (
-                        <Button
-                          size="sm"
-                          disabled={busy === c.id}
-                          onClick={() => decideCenter(c.id, "approved")}
-                        >
-                          <ShieldCheck className="mr-1 h-3 w-3" /> Approve
-                        </Button>
-                      )}
-                      {c.verification_status !== "rejected" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy === c.id}
-                          onClick={() => decideCenter(c.id, "rejected")}
-                        >
-                          Reject
-                        </Button>
-                      )}
-                      {c.verification_status === "approved" && (
-                        <Button
-                          size="sm"
-                          variant={c.active ? "outline" : "default"}
-                          disabled={busy === c.id}
-                          onClick={() => toggleActive(c)}
-                        >
-                          {c.active ? "Deactivate" : "Approve & Activate"}
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant={c.active ? "outline" : "default"}
-                      disabled={busy === c.id}
-                      onClick={() => toggleActive(c)}
-                    >
-                      {c.active ? "Deactivate" : "Approve & Activate"}
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex gap-2">
+                    {c.verification_status ? (
+                      <>
+                        {c.verification_status !== "approved" && (
+                          <Button
+                            size="sm"
+                            disabled={busy === c.id}
+                            onClick={() => decideCenter(c.id, "approved")}
+                          >
+                            <ShieldCheck className="mr-1 h-3 w-3" /> Approve
+                          </Button>
+                        )}
+                        {c.verification_status !== "rejected" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy === c.id}
+                            onClick={() => decideCenter(c.id, "rejected")}
+                          >
+                            Reject
+                          </Button>
+                        )}
+                        {c.verification_status === "approved" && (
+                          <Button
+                            size="sm"
+                            variant={c.active ? "outline" : "default"}
+                            disabled={busy === c.id}
+                            onClick={() => toggleActive(c)}
+                          >
+                            {c.active ? "Deactivate" : "Approve & Activate"}
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant={c.active ? "outline" : "default"}
+                        disabled={busy === c.id}
+                        onClick={() => toggleActive(c)}
+                      >
+                        {c.active ? "Deactivate" : "Approve & Activate"}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
       <ListPager {...pager} />

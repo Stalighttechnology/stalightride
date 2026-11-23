@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ListPager, usePage } from "@/components/list-pager";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { IndianRupee, TrendingUp, Percent, Wallet, PieChart, Save } from "lucide-react";
 
 export function RevenueCommissionsTab() {
+  const pager = usePage(1);
   const [loading, setLoading] = useState(true);
   const [commissions, setCommissions] = useState({
     rental: 10,
@@ -335,6 +337,8 @@ export function RevenueCommissionsTab() {
           </CardContent>
         </Card>
       </div>
+
+      <ListPager {...pager} />
     </div>
   );
 }

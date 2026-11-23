@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
+import { ListPager, usePage } from "@/components/list-pager";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface AdminProfileTabProps {
 }
 
 export function AdminProfileTab({ user, onSelectTab }: AdminProfileTabProps) {
+  const pager = usePage(1);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -410,6 +412,8 @@ export function AdminProfileTab({ user, onSelectTab }: AdminProfileTabProps) {
           </Card>
         </div>
       </div>
+
+      <ListPager {...pager} />
     </div>
   );
 }
