@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ListPager, usePage } from "@/components/list-pager";
 import { toast } from "sonner";
 import { Send, Bell, Users, CheckCircle2 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export function BroadcastsTab() {
   const [message, setMessage] = useState("");
   const [targetAudience, setTargetAudience] = useState("all");
   const [sending, setSending] = useState(false);
+  const pager = usePage(5);
   const [history, setHistory] = useState<BroadcastLog[]>([
     {
       id: "b1",
@@ -76,6 +78,12 @@ export function BroadcastsTab() {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    pager.setTotal(history.length);
+  }, [history.length]);
+
+  const pagedHistory = history.slice(pager.from, pager.to + 1);
 
   return (
     <div className="mt-4 space-y-6">
@@ -141,7 +149,7 @@ export function BroadcastsTab() {
       <div>
         <h3 className="font-semibold text-sm mb-3">Broadcast History</h3>
         <div className="grid gap-2.5">
-          {history.map((item) => (
+          {pagedHistory.map((item) => (
             <Card key={item.id} className="p-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -158,6 +166,7 @@ export function BroadcastsTab() {
             </Card>
           ))}
         </div>
+        <ListPager {...pager} />
       </div>
     </div>
   );

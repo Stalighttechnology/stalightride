@@ -320,6 +320,7 @@ const SETTING_FIELDS = [
 ] as const;
 
 export function PlatformSettingsForm() {
+  const pager = usePage(1);
   const [values, setValues] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -357,31 +358,34 @@ export function PlatformSettingsForm() {
 
   if (!values) return <Skeleton className="mt-4 h-40" />;
   return (
-    <Card className="mt-4 max-w-xl">
-      <CardContent className="grid gap-3 p-4">
-        {SETTING_FIELDS.map((f) => (
-          <div key={f.key} className="grid gap-1.5">
-            <Label htmlFor={`ps-${f.key}`}>{f.label}</Label>
-            <Input
-              id={`ps-${f.key}`}
-              type="number"
-              min={0}
-              max={f.max}
-              step="0.01"
-              value={values[f.key]}
-              onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
-            />
-          </div>
-        ))}
-        <p className="text-xs text-muted-foreground">
-          Changes affect bookings created from now on. Existing bookings keep the fees they were
-          priced with.
-        </p>
-        <Button onClick={save} disabled={saving} className="w-fit">
-          {saving ? "Saving…" : "Save settings"}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card className="mt-4 max-w-xl">
+        <CardContent className="grid gap-3 p-4">
+          {SETTING_FIELDS.map((f) => (
+            <div key={f.key} className="grid gap-1.5">
+              <Label htmlFor={`ps-${f.key}`}>{f.label}</Label>
+              <Input
+                id={`ps-${f.key}`}
+                type="number"
+                min={0}
+                max={f.max}
+                step="0.01"
+                value={values[f.key]}
+                onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+              />
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Changes affect bookings created from now on. Existing bookings keep the fees they were
+            priced with.
+          </p>
+          <Button onClick={save} disabled={saving} className="w-fit">
+            {saving ? "Saving…" : "Save settings"}
+          </Button>
+        </CardContent>
+      </Card>
+      <ListPager {...pager} />
+    </div>
   );
 }
 
@@ -389,6 +393,7 @@ export function PlatformSettingsForm() {
 /* Promo credit                                                        */
 /* ------------------------------------------------------------------ */
 export function GrantCreditForm() {
+  const pager = usePage(1);
   const confirm = useConfirm();
   const [form, setForm] = useState({ email: "", amount: "", note: "" });
   const [saving, setSaving] = useState(false);
@@ -419,44 +424,47 @@ export function GrantCreditForm() {
   };
 
   return (
-    <Card className="mt-4 max-w-xl">
-      <CardContent className="grid gap-3 p-4">
-        <p className="text-sm text-muted-foreground">
-          Promo credit can be spent on bookings but is never withdrawable.
-        </p>
-        <div className="grid gap-1.5">
-          <Label htmlFor="gc-email">User email</Label>
-          <Input
-            id="gc-email"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="gc-amount">Amount (₹)</Label>
-          <Input
-            id="gc-amount"
-            type="number"
-            min={1}
-            max={100000}
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="gc-note">Note shown in their wallet (optional)</Label>
-          <Input
-            id="gc-note"
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            placeholder="Sorry for the delay — here's ₹200"
-          />
-        </div>
-        <Button onClick={grant} disabled={saving} className="w-fit">
-          {saving ? "Crediting…" : "Grant credit"}
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card className="mt-4 max-w-xl">
+        <CardContent className="grid gap-3 p-4">
+          <p className="text-sm text-muted-foreground">
+            Promo credit can be spent on bookings but is never withdrawable.
+          </p>
+          <div className="grid gap-1.5">
+            <Label htmlFor="gc-email">User email</Label>
+            <Input
+              id="gc-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="gc-amount">Amount (₹)</Label>
+            <Input
+              id="gc-amount"
+              type="number"
+              min={1}
+              max={100000}
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="gc-note">Note shown in their wallet (optional)</Label>
+            <Input
+              id="gc-note"
+              value={form.note}
+              onChange={(e) => setForm({ ...form, note: e.target.value })}
+              placeholder="Sorry for the delay — here's ₹200"
+            />
+          </div>
+          <Button onClick={grant} disabled={saving} className="w-fit">
+            {saving ? "Crediting…" : "Grant credit"}
+          </Button>
+        </CardContent>
+      </Card>
+      <ListPager {...pager} />
+    </div>
   );
 }

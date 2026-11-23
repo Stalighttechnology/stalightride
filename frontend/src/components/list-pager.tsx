@@ -26,21 +26,71 @@ export function ListPager({
   pageSize: number;
   setPage: (page: number) => void;
 }) {
-  const pages = Math.ceil(total / pageSize);
-  if (pages <= 1) return null;
+  const pages = Math.max(1, Math.ceil((total || 0) / pageSize));
+
+  // Generates page numbers; always shows at least page 1 in format: Previous 1 Next
+  const getPageNumbers = () => {
+    if (pages <= 5) {
+      return Array.from({ length: pages }, (_, i) => i);
+    }
+    const current = page;
+    const items: (number | "ellipsis")[] = [];
+    items.push(0);
+    if (current > 2) items.push("ellipsis");
+    const start = Math.max(1, current - 1);
+    const end = Math.min(pages - 2, current + 1);
+    for (let i = start; i <= end; i++) items.push(i);
+    if (current < pages - 3) items.push("ellipsis");
+    items.push(pages - 1);
+    return items;
+  };
+
+  const pageNumbers = getPageNumbers();
+
   return (
-    <nav aria-label="Pagination" className="mt-6 flex items-center justify-center gap-3">
-      <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
+    <nav aria-label="Pagination" className="mt-6 flex items-center justify-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page === 0}
+        onClick={() => setPage(page - 1)}
+        className="h-8 rounded-xl px-3 text-xs font-medium cursor-pointer border-border hover:bg-muted text-foreground disabled:opacity-40"
+      >
         Previous
       </Button>
-      <span className="text-sm text-muted-foreground">
-        Page {page + 1} of {pages} · {total} total
-      </span>
+
+      {pageNumbers.map((p, idx) => {
+        if (p === "ellipsis") {
+          return (
+            <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">
+              …
+            </span>
+          );
+        }
+        const isActive = page === p;
+        return (
+          <Button
+            key={p}
+            variant={isActive ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPage(p)}
+            className={`h-8 min-w-[32px] px-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              isActive
+                ? "bg-brand text-brand-foreground hover:bg-brand/90 shadow-xs"
+                : "border-border hover:bg-muted text-foreground"
+            }`}
+          >
+            {p + 1}
+          </Button>
+        );
+      })}
+
       <Button
         variant="outline"
         size="sm"
         disabled={page + 1 >= pages}
         onClick={() => setPage(page + 1)}
+        className="h-8 rounded-xl px-3 text-xs font-medium cursor-pointer border-border hover:bg-muted text-foreground disabled:opacity-40"
       >
         Next
       </Button>
