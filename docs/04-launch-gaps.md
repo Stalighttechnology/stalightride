@@ -24,7 +24,7 @@
 | GAP-11 | The customer alone can submit the return checklist, which completes the trip and releases the host's money and the deposit | Host loses the chance to inspect the vehicle | Reproduced | A | **Fixed again** (migration 0039: the trip completes only when the renter enters the host's check-out code; `complete_booking` removed. Covered by `backend/tests/test_trip_handover.py`) |
 | GAP-12 | Customers and hosts can rewrite inspection readings after they are recorded | Dispute evidence can't be trusted | Reproduced | A | **Fixed** (Migration 0020 prevents mutating odometer/fuel/photos once recorded) |
 | GAP-13 | The deposit is always returned on completion, and resolving a dispute moves no money | Hosts can't recover damage costs | Code review | C | **Fixed** (Dispute monetary compensation recorded via `resolve_dispute_compensation` and credited to recipient wallet) |
-| GAP-14 | The Corporate portal is a demo with sample data, including an approved credit line and "official" GST invoices. Nothing is saved | Misleading claims and false tax documents | Code review | C | **Fixed** (Corporate portal underwriting workflow) |
+| GAP-14 | The Corporate portal is a demo with sample data, including an approved credit line and "official" GST invoices. Nothing is saved | Misleading claims and false tax documents | Code review | C | **Fixed** (Migration 0038: corporate accounts, policies, parallel approval windows, company wallet billing, and compliant GST invoices; covered by `test_corporate.py`) |
 
 ## High priority: fix before public launch
 
@@ -45,14 +45,14 @@
 
 | ID | Problem or decision | Evidence | Track | Status |
 | --- | --- | --- | --- | --- |
-| GAP-25 | Reminders compare trip times using the database server's time zone. They work when it is `Asia/Kolkata`, as on local machines. **Set this time zone on the production database** or fix the function. The booking-window deadlines (#40 to #44) already convert to India time explicitly | Code review, local behaviour tested | C | Open |
+| GAP-25 | Reminders compare trip times using the database server's time zone. They work when it is `Asia/Kolkata`, as on local machines. **Set this time zone on the production database** or fix the function. The booking-window deadlines (#40 to #45, #49) already convert to India time explicitly | Code review, local behaviour tested | C | Open |
 | GAP-26 | Wash jobs assigned to the seeded partners have no payee, so the provider's earning isn't credited to anyone | Code review | B | Open |
 | GAP-27 | **Decision:** all refunds go to the wallet, even for card payments. Confirm this is acceptable or add refunds to the original payment method | Code review | C | Open |
 | GAP-28 | **Decision:** an hourly rental under 24 hours can cost more than a full day. 23 hours at ₹200 is ₹4,600 against a ₹2,000 daily price. Decide whether to cap it | Code review | A | **Fixed** (Capped at daily price in DB function & frontend format) |
 | GAP-29 | A deleted vehicle with past bookings is hidden using browser storage, so it reappears on another device | Code review | A | **Fixed** (`is_deleted` column added to `vehicles`, soft-delete in UI & DB) |
 | GAP-30 | Non-hosts see sample fleet data and a "Verified" badge on `/vendor` | Code review | A | **Fixed** (Real empty state + onboarding banner on `/vendor` for non-hosts) |
 | GAP-31 | Lists return at most 1000 rows, so large admin lists are cut off with no paging | Code review | C | **Fixed** (Server-side paging on admin, wallet and trip lists; migration 0022 for the bookings feed and broadcasts; remaining lists and database-backed dashboard totals in #41) |
-| GAP-32 | Pool seat requests never expire. A request nobody answers stays pending until the trip leaves | Code review | B | Open (booking windows step 5, not built) |
+| GAP-32 | Pool seat requests never expire. A request nobody answers stays pending until the trip leaves | Code review | B | **Fixed** (Migration 0035: `pool_requests.respond_by` via `booking_deadline`, 1-hour departure cutoff, driver halfway reminders, auto-expiry; covered by `backend/tests/test_pooling_windows.py`) |
 | GAP-33 | `send_reminders` must run every 5 minutes in production, or expiries, reminders and wash auto-refunds never happen | Code review | C | Open (hosting setting) |
 
 ## Suggested fix order
@@ -63,7 +63,7 @@
 | 2 | GAP-02, 09, 10, 18, 19 | Makes booking states reliable |
 | 3 | GAP-05, 11, 12, 13 | Makes payments, handover and disputes trustworthy |
 | 4 | GAP-14, 15, 16, 17, 20, 21, 22, 23, 24 | Removes false promises and closes the remaining product gaps |
-| 5 | GAP-25 to GAP-31 | Decisions and polish |
+| 5 | GAP-25 to GAP-32 | Decisions, booking windows and polish |
 
 Corporate, membership benefits and rewards need product decisions before they can be built. Until then, label them clearly as coming soon or hide them.
 
