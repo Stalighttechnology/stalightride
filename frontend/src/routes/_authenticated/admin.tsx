@@ -1119,7 +1119,7 @@ function WashQueue() {
       api
         .from("wash_bookings")
         .select(
-          "*, wash_services:service_id(name,duration_minutes,vehicle_category), cleaners:assigned_cleaner_id(full_name,phone,city)",
+          "*, wash_services:service_id(name,duration_minutes,vehicle_category)",
           { count: "exact" },
         )
         .order("created_at", { ascending: false })
@@ -1211,6 +1211,7 @@ function WashQueue() {
       )}
       {items.map((b) => {
         const isAtRisk = Boolean(b.admin_alerted_at && !b.assigned_cleaner_id && b.status === "confirmed");
+        const assignedCleaner = cleaners.find((c) => c.id === b.assigned_cleaner_id);
         return (
           <Card key={b.id} className={isAtRisk ? "border-amber-500/50 bg-amber-500/5" : ""}>
             <CardContent className="p-4">
@@ -1244,7 +1245,7 @@ function WashQueue() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {b.slot_date} at {String(b.slot_time).slice(0, 5)} · {b.city} · ₹{b.price}
-                    {b.cleaners?.full_name ? ` · Washer: ${b.cleaners.full_name}` : ""}
+                    {assignedCleaner?.full_name ? ` · Washer: ${assignedCleaner.full_name}` : ""}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     📍 {b.address}

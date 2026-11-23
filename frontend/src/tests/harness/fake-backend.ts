@@ -56,6 +56,7 @@ export type Money = Charges & {
 export type Vehicle = {
   id: string;
   vendor_id: string;
+  title?: string;
   price_daily: number;
   price_hourly?: number;
   security_deposit: number;
@@ -409,6 +410,19 @@ export type UserReport = {
   created_at: string;
 };
 
+export type Dispute = {
+  id: string;
+  booking_id: string;
+  raised_by: string;
+  subject: string;
+  detail: string;
+  category: string;
+  status: "open" | "in_review" | "resolved";
+  resolution?: string;
+  created_at: string;
+  resolved_at?: string;
+};
+
 export type WashStatus =
   | "requested"
   | "confirmed"
@@ -578,6 +592,7 @@ export function createBackend(
 
   const reviews = new Map<string, Review>();
   const supportTickets = new Map<string, SupportTicket>();
+  const disputes = new Map<string, Dispute>();
   const ticketMessages = new Map<string, TicketMessage[]>();
   const incidents = new Map<string, Incident>();
   const trustedContacts = new Map<string, TrustedContact[]>();
@@ -709,6 +724,7 @@ export function createBackend(
       reviews,
       userReports,
       supportTickets,
+      disputes,
       ticketMessages,
       incidents,
       trustedContacts,
@@ -3184,6 +3200,78 @@ export function createBackend(
       const coupon = { ...c, code: c.code.trim().toUpperCase() };
       coupons.set(coupon.code, coupon);
       return coupon;
+    },
+    toggleCoupon(actor: string, code: string) {
+      if (!admins.has(actor)) throw new RuleError("Admins only");
+      const norm = code.trim().toUpperCase();
+      const coupon = coupons.get(norm);
+      if (!coupon) throw new RuleError("Coupon not found");
+      coupon.active = !coupon.active;
+      return coupon;
+    },
+    broadcast(
+      actor: string,
+      title: string,
+      body: string,
+      audience: "all" | "hosts" | "drivers" | "cleaners" = "all",
+    ) {
+      if (!admins.has(actor)) throw new RuleError("Only admins can send broadcasts");
+      if (!title.trim() || !body.trim()) throw new RuleError("Provide both title and message");
+      let recipients: string[] = [];
+      if (audience === "all") recipients = [...profiles.keys()];
+      else if (audience === "hosts") recipients = [...hosts];
+      else if (audience === "drivers") recipients = [...drivers.keys()];
+      else if (audience === "cleaners") recipients = [...cleaners.keys()];
+      for (const r of recipients) {
+        notify(r, title.trim(), body.trim(), "/browse");
+      }
+      return recipients.length;
+    },
+    fileDispute(args: {
+      booking_id: string;
+      raised_by: string;
+      subject: string;
+      detail: string;
+      category?: string;
+    }): Dispute {
+      const d: Dispute = {
+        id: id("disp"),
+        booking_id: args.booking_id,
+        raised_by: args.raised_by,
+        subject: args.subject.slice(0, 120),
+        detail: args.detail.slice(0, 2000),
+        category: args.category || "other",
+        status: "open",
+        created_at: clock.now.toISOString(),
+      };
+      disputes.set(d.id, d);
+      for (const admin of admins) {
+        notify(admin, "New dispute raised", d.subject, "/admin");
+      }
+      notify(d.raised_by, "Report received", "Our support team will review it shortly.", "/bookings");
+      return d;
+    },
+    reviewDispute(actor: string, dispute_id: string) {
+      if (!admins.has(actor)) throw new RuleError("Admins only");
+      const d = disputes.get(dispute_id);
+      if (!d) throw new RuleError("Dispute not found");
+      d.status = "in_review";
+      notify(d.raised_by, "Dispute in review", "An administrator is reviewing your dispute.", "/bookings");
+      return d;
+    },
+    resolveDispute(actor: string, dispute_id: string, resolution: string) {
+      if (!admins.has(actor)) throw new RuleError("Admins only");
+      const d = disputes.get(dispute_id);
+      if (!d) throw new RuleError("Dispute not found");
+      d.status = "resolved";
+      d.resolution = resolution;
+      d.resolved_at = clock.now.toISOString();
+      notify(d.raised_by, "Dispute resolved", resolution, "/bookings");
+      return d;
+    },
+    getDisputes(actor: string) {
+      if (admins.has(actor)) return [...disputes.values()];
+      return [...disputes.values()].filter((d) => d.raised_by === actor);
     },
     updateSettings(actor: string, patch: Partial<FeeSettings>) {
       if (!admins.has(actor)) throw new RuleError("Admins only");
