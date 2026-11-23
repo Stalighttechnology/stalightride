@@ -6,8 +6,8 @@ These checks run without clicking through the app. Manual workflows are in the [
 
 | Check | Run from | Command | Latest result |
 | --- | --- | --- | --- |
-| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 74 passed (2026-11-21) |
-| Frontend rules and pricing | `frontend/` | `npm run test` | 251 passed in 17 files (2026-11-21) |
+| Backend API and database | `backend/` | `.venv/Scripts/python -m pytest` | 103 passed in 14 test suites |
+| Frontend rules and pricing | `frontend/` | `npm run test` | 272 passed in 18 files |
 | Type check | `frontend/` | `npx tsc --noEmit` | No errors |
 | Production build | `frontend/` | `npm run build` | Builds successfully |
 | Migration check | `backend/` | `.venv/Scripts/python manage.py makemigrations --check --dry-run` | No changes detected |
@@ -29,12 +29,18 @@ The old launch-gate file (`docs/automated/`) has been removed. Each fixed gap ne
 | `backend/tests/test_wash_dispatch.py` | Wash payment window, dispatch tiers, radius and clash checks, claim races, releases and strikes, auto-cancel refunds, tier notifications |
 | `backend/tests/test_trip_handover.py` | Handover codes: host-only visibility, renter-only check-in/out, the 360° photo set, wrong-code lockout, no completion without the check-out code |
 | `backend/tests/test_dashboard_stats.py` | Host, driver and wash center dashboard totals |
+| `backend/tests/test_pooling_windows.py` | Pool request deadlines, 1h cutoff, halfway reminder, request expiry, departure closures, driver response stats |
+| `backend/tests/test_corporate.py` | Corporate accounts, policies, parallel approval windows, company wallet billing, and GST invoicing |
+| `backend/tests/test_vehicle_location.py` | Private pickup location: exact address and pin hidden until host confirms |
+| `backend/tests/test_provider_amounts.py` | Provider privacy: hosts and drivers see only their earnings in payment notifications |
+| `backend/tests/test_review_and_booking_host.py` | Host review reply scope, booking host locked to vehicle owner |
 | `backend/tests/test_realtime.py` | WebSocket live updates |
 | `frontend/src/tests/flows/rental-booking.test.ts` | Rental rules |
 | `frontend/src/tests/flows/driver-hire.test.ts` | Driver hire rules |
 | `frontend/src/tests/flows/pooling.test.ts` | Pooling rules |
 | `frontend/src/tests/flows/wash-and-wallet.test.ts` | Wash and wallet rules |
 | `frontend/src/tests/flows/money.test.ts` | Charges, refunds and settlement |
+| `frontend/src/tests/flows/corporate.test.ts` | Corporate accounts, policies, monthly limits, parallel approvals and billing |
 | `frontend/src/tests/flows/admin-platform-safety.test.ts` | Admin and safety rules |
 | `frontend/src/tests/unit/` | Charges, rental pricing, vehicle availability, notification routing, confirm dialog |
 | `frontend/src/lib/trip-window.test.ts` | Check-in window |
@@ -97,5 +103,4 @@ WHERE status = 'confirmed' AND payment_status = 'paid' AND assigned_cleaner_id I
 | Time | Reminders on a UTC database (GAP-25) |
 | Payments | Razorpay webhook: signature check, late-payment refund (GAP-05) |
 | Wash | Admin manual assignment (`admin_assign_wash_cleaner`) |
-| Pooling | Request deadlines, once booking windows step 5 is built (GAP-32) |
 | Permissions | Each table tested for each role |

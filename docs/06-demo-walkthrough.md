@@ -65,7 +65,7 @@ Mark each step **PASS**, **FAIL** or **BLOCKED** in the last column of a printed
 
 | #   | Do                                                                                                                               | Check                                                                                                                                             | Result |
 | --- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 0.1 | `git pull`, then in `backend/` run `.venv/Scripts/python manage.py migrate`                                                | Ends with `0022_hot_path_indexes` applied, or "No migrations to apply"                                                                          |        |
+| 0.1 | `git pull`, then in `backend/` run `.venv/Scripts/python manage.py migrate`                                                | Ends with `0040_review_reply_and_booking_host_integrity` applied, or "No migrations to apply"                                                                          |        |
 | 0.2 | Start the backend with `.venv/Scripts/python manage.py runserver 8000`, and the frontend with `npm run dev` in `frontend/` | [http://localhost:8000/health/](http://localhost:8000/health/) shows `{"status": "ok"}`, and [http://localhost:8080](http://localhost:8080) loads |        |
 | 0.3 | Sign in on windows A, B and C as Asha, Hari and Ada                                                                              | Ada lands on `/admin` (**Super Admin Console**), Hari on `/vendor`                                                                      |        |
 | 0.4 | Check the standard data from doc 02 §4 exists                                                                                   | Licences approved, Hari approved, **Test Swift** is **Live**, Asha and Ben each have at least ₹20,000                                |        |
@@ -324,4 +324,4 @@ Ledger check:     rows returned? (paste them)
 | 10 Admin console        |        |      |                       |       |
 | 11 Sidebar              |        |      |                       |       |
 
-**Out of the demo**: avoid **Corporate travel**, which is still a demo with sample data (GAP-14). Other open defects are listed in [Launch gaps](04-launch-gaps.md).
+**Corporate travel**: now fully backed by database tables, approval windows, company policies, and compliant GST invoices (migration 0038). Other open defects and polish decisions are listed in [Launch gaps](04-launch-gaps.md).

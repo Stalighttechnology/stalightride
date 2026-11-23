@@ -101,8 +101,10 @@ export function TimePicker({
             className,
           )}
         >
-          <Clock className="mr-1 h-3.5 w-3.5 shrink-0 opacity-70" />
-          <span className="truncate flex-1">{value ? formatTime12h(value) : placeholder}</span>
+          <Clock className="mr-1 sm:mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+          <span className="truncate flex-1 whitespace-nowrap tabular-nums">
+            {value ? formatTime12h(value) : placeholder}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="start">

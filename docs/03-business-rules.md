@@ -308,18 +308,23 @@ Payment is by wallet or Razorpay. Cancelling turns off auto-renew, and benefits 
 | Wallet | `wallet_apply`, `withdrawable_balance`, `request_withdrawal` |
 | Handover | `backend/payments/trip_window.py`, `frontend/src/lib/trip-window.ts` |
 | Pool matching | `frontend/src/lib/pool-match.ts` |
-| Booking windows | `booking_deadline`, `prevent_booking_conflict`, `trg_zz_booking_windows`, `trg_zz_driver_booking_windows`, `expire_booking_windows` (migrations 0030 to 0034) |
+| Booking windows | `booking_deadline`, `prevent_booking_conflict`, `trg_zz_booking_windows`, `trg_zz_driver_booking_windows`, `enforce_pool_request_guard`, `expire_booking_windows` (migrations 0030 to 0035, 0038) |
 | Host accountability | `host_response_stats`, `reactivate_vendor_listings` (0032) |
-| Similar drivers | `similar_drivers` (0033) |
+| Similar drivers & pool stats | `similar_drivers` (0033), `pool_driver_response_stats` (0035) |
 | Wash dispatch | `can_cleaner_see_wash_job`, `wash_job_board`, `claim_wash_job`, `release_wash_job`, `admin_assign_wash_cleaner`, `haversine_km` (0034) |
 | Late payment refunds | `_refund_late_*_payment` in `backend/payments/views.py` |
 | Dashboard totals | `host_dashboard_stats`, `driver_dashboard_stats`, `wash_center_dashboard_stats` (0031) |
+| Location privacy | `address_area`, `vehicle_locations` (0036) |
+| Provider earning notifications | `tg_notify_booking`, `tg_notify_driver_booking` (0037) |
+| Corporate travel & approval windows | `check_corporate_policy`, `create_corporate_trip`, `corporate_decide_trip`, `generate_corporate_invoice` (0038) |
+| Trip handover codes | `booking_handover_codes`, `submitInspection` (0039) |
+| Review replies & host integrity | `enforce_review_update_scope`, `trg_booking_vendor` (0040) |
 
 Later migrations in `backend/core/migrations/` replace some of these functions, so check them for the latest version.
 
 ## 17. Booking windows
 
-Every request now has deadlines, so a stalled request no longer blocks dates indefinitely. The deadlines are stored on the row (`respond_by`, `pay_by`) and the app only displays them. Pooling and corporate are not covered yet.
+Every request now has deadlines, so a stalled request no longer blocks dates or seats indefinitely. The deadlines are stored on the row (`respond_by`, `pay_by`) and the app only displays them.
 
 ### The deadline formula
 
@@ -337,7 +342,8 @@ deadline(from, start, buffer) = earliest of:
 | Rental | Host, or nobody with Instant Book | `deadline(requested, pickup, 1h)` | `deadline(confirmed, pickup, 30m)` | 2h |
 | Driver hire | Driver | `deadline(requested, start, 1h)` | `deadline(confirmed, start, 1h)` | 2h |
 | Doorstep wash | Nobody | None | 15 minutes after booking | 2h |
-| Pooling | Trip driver | Not built | None (cash) | None |
+| Pooling | Trip driver | `deadline(requested, depart_at, 30m)` | None (direct/cash) | 1h |
+| Corporate | Manager and provider in parallel | `deadline(requested, start, buffer per service)` | Automatic on confirmation (company wallet) | Per service |
 
 ### Worked examples: rentals
 

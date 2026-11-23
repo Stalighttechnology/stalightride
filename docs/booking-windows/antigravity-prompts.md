@@ -10,9 +10,9 @@ The design and reasoning are in [`suggested-approach.md`](suggested-approach.md)
 | 2 | Hosts: Instant Book and accountability | 1 | Done (#42, migration 0032) |
 | 3 | Driver hire | 1 | Done (#43, migration 0033) |
 | 4 | Doorstep washes: job board | 1 | Done (#44, migration 0034) |
-| 5 | Pooling | 1 | **Next.** Use migration `0035` |
-| 6a | Corporate: record the design | none | Not started |
-| 6b | Corporate: build | 6a, plus the business decisions in the corporate doc | Not started |
+| 5 | Pooling | 1 | Done (#45, migration 0035) |
+| 6a | Corporate: record the design | none | Done (#49) |
+| 6b | Corporate: build | 6a, plus corporate doc design | Done (#49, migration 0038) |
 
 The prompts below still say "the next free number" for migrations. The latest is `0034_wash_booking_dispatch`, so prompt 5 creates `0035` and depends on `0034`.
 

@@ -96,6 +96,6 @@ cd backend && .venv/Scripts/python manage.py migrate
 | `api.auth.*`                                                     | `/api/auth/...` (`accounts/`)        | Email and password, Google, password reset; JWT access and refresh tokens |
 | `api.storage.from(bucket)`                                       | `/api/storage/...` (`files/`)        | Files on disk under `backend/media/`; the bucket policies apply         |
 | `api.channel(...).on("postgres_changes", ...)`                   | `ws://.../ws/` (`realtime/`)         | Live chat, notifications, location, wallet                                |
-| `src/lib/actions.ts`                                             | `POST /api/fn/<name>/` (`payments/`) | Razorpay, wallet top-up, trip check-in/check-out                         |
+| `src/lib/actions.ts`                                             | `POST /api/fn/<name>/` (`payments/`) | Razorpay, wallet top-up, trip check-in/check-out                          |
 
 Schema changes: add a migration in `backend/core/migrations/` containing the SQL (`migrations.RunSQL`). Never edit `backend/sql/schema.sql`, which is the starting point only. Update `frontend/src/tests/harness/fake-backend.ts` and its flow tests when a rule changes.
