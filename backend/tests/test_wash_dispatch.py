@@ -273,3 +273,23 @@ def test_one_summary_notification_per_tier(wash_world):
         assert len(notifs) == 1
         assert notifs[0][0] == "New wash jobs near you"
         assert "3 new wash jobs" in notifs[0][1]
+
+
+def test_wash_booking_embed_cleaners(wash_world):
+    from core.query import run
+    w = wash_world
+    slot_dt = datetime.now(IST) + timedelta(hours=5)
+    wid = create_paid_wash(w, slot_dt, datetime.now(ZoneInfo("UTC")))
+    q("UPDATE public.wash_bookings SET assigned_cleaner_id = %s, progress = 'assigned' WHERE id = %s", [w.cln1.id, wid])
+
+    data, _ = run({
+        "table": "wash_bookings",
+        "action": "select",
+        "select": "id, assigned_cleaner_id, cleaners:assigned_cleaner_id(full_name,phone,city)",
+        "filters": [["id", "eq", str(wid)]],
+    })
+    assert len(data) == 1
+    assert data[0]["cleaners"]["full_name"] == getattr(w.cln1, "full_name", "Cleaner")
+    assert data[0]["cleaners"]["phone"] == "9876543210"
+    assert data[0]["cleaners"]["city"] == "Bengaluru"
+

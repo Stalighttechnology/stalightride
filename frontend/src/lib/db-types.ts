@@ -2092,6 +2092,13 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "wash_bookings_assigned_cleaner_id_fkey";
+            columns: ["assigned_cleaner_id"];
+            isOneToOne: false;
+            referencedRelation: "cleaners";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "wash_bookings_assigned_vendor_id_fkey";
             columns: ["assigned_vendor_id"];
             isOneToOne: false;
