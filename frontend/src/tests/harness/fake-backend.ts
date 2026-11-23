@@ -56,6 +56,7 @@ export type Money = Charges & {
 export type Vehicle = {
   id: string;
   vendor_id: string;
+  title?: string;
   price_daily: number;
   price_hourly?: number;
   security_deposit: number;

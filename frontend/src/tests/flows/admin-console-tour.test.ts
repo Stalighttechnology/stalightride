@@ -19,7 +19,15 @@ describe("10. Admin Console Tour Verification", () => {
     b.verifyDriver(admin, drv.id, "approved");
     driver = drv.id;
     const clUser = b.registerCustomer("approved", "cleaner@example.com");
-    b.registerCleaner({ id: clUser, full_name: "Cara Cleaner", city: "Bengaluru", phone: "9876543210" });
+    b.registerCleaner({
+      id: clUser,
+      full_name: "Cara Cleaner",
+      city: "Bengaluru",
+      phone: "9876543210",
+      available: true,
+      services: [],
+      experience_years: 2,
+    });
     b.verifyCleaner(admin, clUser, "approved");
     cleaner = clUser;
   });

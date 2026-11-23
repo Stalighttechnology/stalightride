@@ -7726,7 +7726,7 @@ ALTER TABLE ONLY public.wallet_transactions
 --
 
 ALTER TABLE ONLY public.wash_bookings
-    ADD CONSTRAINT wash_bookings_assigned_cleaner_id_fkey FOREIGN KEY (assigned_cleaner_id) REFERENCES public.cleaners(id) ON DELETE SET NULL;
+    ADD CONSTRAINT wash_bookings_assigned_cleaner_id_fkey FOREIGN KEY (assigned_cleaner_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
