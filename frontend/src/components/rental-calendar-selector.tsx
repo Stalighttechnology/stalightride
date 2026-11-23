@@ -152,7 +152,6 @@ export function RentalCalendarSelector({
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
 
-  const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
   const todayStr = useMemo(() => toIsoDate(new Date()), []);
 
   const isDelivery = fulfillmentType === "delivery";
@@ -566,65 +565,50 @@ export function RentalCalendarSelector({
           </div>
         )}
 
-        {/* Sticky Duration & Price Summary Bar */}
+        {/* Transparent Fare & Billing Breakdown (Always visible with clear, prominent font) */}
         {rentalHours > 0 && !validationError && (
-          <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs">
-            <div>
-              <span className="text-muted-foreground">Duration: </span>
-              <strong className="text-foreground">
+          <div className="mt-4 rounded-2xl border border-border/80 bg-muted/30 p-4 sm:p-5 space-y-2.5 animate-fade-in shadow-sm">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2.5 text-xs text-muted-foreground">
+              <span className="font-medium">Trip Duration:</span>
+              <strong className="text-foreground text-sm font-semibold">
                 {Math.floor(rentalHours / 24) > 0 ? `${Math.floor(rentalHours / 24)}d ` : ""}
                 {rentalHours % 24 > 0 ? `${(rentalHours % 24).toFixed(0)}h` : ""}
                 {rentalHours < 24 && `${rentalHours} hrs`}
               </strong>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-foreground">{currency(grandTotal)}</span>
-              <button
-                type="button"
-                onClick={() => setShowPriceBreakdown(!showPriceBreakdown)}
-                className="text-[11px] text-brand hover:underline font-semibold"
-              >
-                {showPriceBreakdown ? "Hide" : "Details"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Collapsible Fare breakdown */}
-        {showPriceBreakdown && rentalHours > 0 && (
-          <div className="mt-3 rounded-2xl border border-border/70 bg-muted/30 p-3 text-xs space-y-1.5 animate-fade-in">
             {priceBreakdown.lines.map((l) => (
-              <div key={l.label} className="flex justify-between text-muted-foreground">
+              <div key={l.label} className="flex justify-between text-sm text-foreground/90 font-medium py-0.5">
                 <span>{l.label}</span>
-                <span>{currency(l.value)}</span>
+                <span className="font-semibold text-foreground">{currency(l.value)}</span>
               </div>
             ))}
             {charges.discount > 0 && (
-              <div className="flex justify-between text-brand font-medium">
+              <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-semibold py-0.5">
                 <span>Discount</span>
                 <span>-{currency(charges.discount)}</span>
               </div>
             )}
             {isDelivery && (
-              <div className="flex justify-between text-muted-foreground">
+              <div className="flex justify-between text-sm text-foreground/90 font-medium py-0.5">
                 <span>Delivery</span>
-                <span>{isBlackVip ? "FREE (VIP)" : currency(deliveryFee)}</span>
+                <span className="font-semibold text-foreground">{isBlackVip ? "FREE (VIP)" : currency(deliveryFee)}</span>
               </div>
             )}
-            <div className="flex justify-between text-muted-foreground">
+            <div className="flex justify-between text-sm text-foreground/90 font-medium py-0.5">
               <span>GST & Platform Fee</span>
-              <span>{currency(charges.service_fee + charges.gst)}</span>
+              <span className="font-semibold text-foreground">{currency(charges.service_fee + charges.gst)}</span>
             </div>
             {deposit > 0 && (
-              <div className="flex justify-between text-muted-foreground">
+              <div className="flex justify-between text-sm text-foreground/90 font-medium py-0.5">
                 <span>Deposit (refundable)</span>
-                <span>{currency(deposit)}</span>
+                <span className="font-semibold text-foreground">{currency(deposit)}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-foreground border-t border-border/50 pt-1.5">
-              <span>Payable Total</span>
-              <span>{currency(grandTotal)}</span>
+
+            <div className="flex items-center justify-between font-bold text-foreground border-t-2 border-border/80 pt-3 mt-3">
+              <span className="text-base sm:text-lg font-bold text-foreground">Payable Total</span>
+              <span className="text-xl sm:text-2xl font-black text-brand tracking-tight">{currency(grandTotal)}</span>
             </div>
           </div>
         )}
