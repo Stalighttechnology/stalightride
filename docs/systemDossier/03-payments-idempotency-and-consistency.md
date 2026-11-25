@@ -3,6 +3,7 @@
 ## 1. The 5-Year-Old Explanation: "The Magic Piggy Bank & Stamped Receipts"
 
 Imagine you have a magic piggy bank:
+
 - **The Problem (Double Spending or Double Charging):** You put 10 shiny coins into your piggy bank to buy a toy car. You hand the receipt to the cashier. Just as you hand it, your baby brother yells, your internet freezes, and you accidentally press the button twice! In a broken toy store, the cashier takes 20 coins instead of 10!
 - **The Solution: The Secret Stamped Receipt (Idempotency Key):**
   - In Synchoo, every time you buy something, the bank officer stamps a unique serial number on your receipt (for example: `REC-9941`).
@@ -57,7 +58,7 @@ sequenceDiagram
 
 ## 3. Cryptographic Signature Verification (`_check_signature`)
 
-Never trust client-reported success without server verification! In [backend/payments/views.py](file:///C:/Users/gclik/Desktop/Projects/Stalight%20Technologies/stalightride/backend/payments/views.py):
+Never trust client-reported success without server verification! In [backend/payments/views.py](<file:///C:/Users/gclik/Desktop/Projects/Stalight%20Technologies/stalightride/backend/payments/views.py>):
 
 ```python
 def _check_signature(data):
@@ -66,15 +67,15 @@ def _check_signature(data):
     payment_id = _text(data, "razorpay_payment_id")
     signature = _text(data, "razorpay_signature")
     key_id, secret = _credentials()
-    
+  
     # Message is order_id + "|" + payment_id
     body = f"{order_id}|{payment_id}".encode("ascii")
     expected = hmac.new(secret.encode("ascii"), body, hashlib.sha256).hexdigest()
-    
+  
     # Constant-time comparison prevents timing attacks!
     if not hmac.compare_digest(signature, expected):
         raise FnError("Payment signature verification failed")
-        
+      
     return order_id, payment_id
 ```
 
@@ -83,19 +84,23 @@ def _check_signature(data):
 ## 4. Idempotency Keys in Action
 
 ### 4.1 What is Idempotency?
+
 An operation is **idempotent** if applying it once has the exact same effect as applying it 100 times:
-$$\forall N \ge 1: \quad f(x) = f^N(x)$$
+
+$$
+\forall N \ge 1: \quad f(x) = f^N(x)
+$$
 
 In payments, a non-idempotent system causes double charges, duplicate wallet credits, and financial loss.
 
 ### 4.2 The Wallet Top-Up Idempotency Engine
 
-Look at how `verify_wallet_topup` in [backend/payments/views.py](file:///C:/Users/gclik/Desktop/Projects/Stalight%20Technologies/stalightride/backend/payments/views.py) guarantees absolute idempotency against concurrent retries and webhooks:
+Look at how `verify_wallet_topup` in [backend/payments/views.py](<file:///C:/Users/gclik/Desktop/Projects/Stalight%20Technologies/stalightride/backend/payments/views.py>) guarantees absolute idempotency against concurrent retries and webhooks:
 
 ```python
 def verify_wallet_topup(data, user_id):
     order_id, payment_id = _check_signature(data)
-    
+  
     with db_role("service_role"):
         with connection.cursor() as c:
             # 1. Pessimistic Row Lock: Only ONE process can examine or modify this top-up!
@@ -107,25 +112,25 @@ def verify_wallet_topup(data, user_id):
             if not row:
                 raise FnError("Top-up not found")
             topup_id, topup_user_id, amount, status = row
-            
+          
             # 2. Authorization invariant
             if str(topup_user_id) != str(user_id):
                 raise FnError("Not your top-up")
-                
+              
             # 3. IDEMPOTENCY CHECK: If already processed, return immediately WITHOUT crediting!
             if status == "paid":
                 w = _get("wallets", "balance", "user_id", user_id)
                 return {"ok": True, "alreadyCredited": True, "newBalance": float((w or {}).get("balance") or 0)}
-                
+              
             if status == "failed":
                 raise FnError("This top-up can no longer be completed")
-                
+              
             # 4. Atomic state transition: from 'created' to 'paid'
             c.execute(
                 "UPDATE public.wallet_topups SET status = 'paid', razorpay_payment_id = %s, updated_at = now() WHERE id = %s AND status = 'created'",
                 [payment_id, topup_id],
             )
-            
+          
         # 5. Ledger update: executes inside the same atomic database transaction
         balance = run_rpc("wallet_apply", {
             "_user_id": user_id, 
@@ -134,11 +139,12 @@ def verify_wallet_topup(data, user_id):
             "_reference": payment_id, 
             "_description": "Money added to wallet"
         })
-        
+      
     return {"ok": True, "alreadyCredited": False, "newBalance": float(balance)}
 ```
 
 ### Why this is bulletproof:
+
 1. If the user double-clicks, both requests hit the endpoint with the identical `order_id`.
 2. The database's `FOR UPDATE` lock forces Request 2 to wait until Request 1 finishes.
 3. Request 1 updates `status = 'paid'` and adds the coins via `wallet_apply`.
@@ -187,6 +193,7 @@ END; $$;
 ```
 
 ### Ledger Kinds:
+
 - `topup`: Real money added via Razorpay.
 - `booking_payment` / `driver_payment` / `wash_payment`: Money spent on services.
 - `booking_earning` / `driver_earning` / `wash_earning`: Host/Driver/Cleaner share credited after trip.
@@ -199,16 +206,21 @@ END; $$;
 ## 6. The Late-Payment Auto-Refund Safeguard
 
 ### The Edge Case:
+
 A customer opens checkout for a rental. While typing their OTP, the 30-minute booking window expires, or the host cancels the booking. 1 minute later, the user completes the bank OTP and the payment succeeds!
 
 ### How Synchoo Solves It:
+
 In both `verify_razorpay_payment` and `razorpay_webhook`:
+
 ```python
 if b.get("status") in ("cancelled", "rejected"):
     _refund_late_rental_payment(b, payment_id)
     return {"ok": True}
 ```
+
 `_refund_late_rental_payment()` automatically:
+
 1. Calls `public.wallet_apply(b['customer_id'], b['total_price'], 'refund', ...)`
 2. Marks the booking as `payment_status = 'refunded'`
 3. Dispatches an urgent push notification to the customer:
@@ -218,9 +230,9 @@ if b.get("status") in ("cancelled", "rejected"):
 
 ## 7. Retry Mechanisms Across All Layers
 
-| Layer | Trigger | Strategy | Safety Guarantee |
-|---|---|---|---|
-| **Razorpay Webhooks** | HTTP 5xx or network failure | Exponential backoff (retries up to 24 hours) | Idempotent handling via `razorpay_order_id` check |
-| **Frontend Auth** | HTTP 401 Unauthorized (Expired Access Token) | Automatic token refresh via `/api/auth/refresh` | Refresh token rotation and reuse detection |
-| **Database Transactions** | Deadlock / Serialization failure (`40P01`) | Immediate transaction rollback by `DbRoleMiddleware` | Clean state reset without partial table updates |
-| **Handover Codes** | Wrong 6-digit trip start code entered | Cooldown throttling: locked for 15 minutes after 5 failed attempts | Prevents brute-force pin guessing attacks |
+| Layer                           | Trigger                                      | Strategy                                                           | Safety Guarantee                                    |
+| ------------------------------- | -------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------- |
+| **Razorpay Webhooks**     | HTTP 5xx or network failure                  | Exponential backoff (retries up to 24 hours)                       | Idempotent handling via `razorpay_order_id` check |
+| **Frontend Auth**         | HTTP 401 Unauthorized (Expired Access Token) | Automatic token refresh via `/api/auth/refresh`                  | Refresh token rotation and reuse detection          |
+| **Database Transactions** | Deadlock / Serialization failure (`40P01`) | Immediate transaction rollback by `DbRoleMiddleware`             | Clean state reset without partial table updates     |
+| **Handover Codes**        | Wrong 6-digit trip start code entered        | Cooldown throttling: locked for 15 minutes after 5 failed attempts | Prevents brute-force pin guessing attacks           |
