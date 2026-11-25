@@ -18,32 +18,32 @@ Imagine you go to a magical restaurant:
 Synchoo does not write 500 individual CRUD REST endpoints (like `/get-booking-by-id`, `/update-booking-status`, `/list-vehicles-by-city`). Instead, it uses **5 purposeful communication channels**:
 
 ```mermaid
-flowchart TD
-    subgraph Frontend ["React Client (frontend/src/lib/api.ts)"]
-        F1["api.from('vehicles').select(...)"]
-        F2["api.rpc('cancel_booking', {...})"]
-        F3["api.fn('verifyRazorpayPayment', {...})"]
-        F4["api.auth.signInWithPassword(...)"]
-        F5["api.storage.from('avatars').upload(...)"]
-        F6["api.channel('notifications').on(...)"]
+flowchart LR
+    subgraph Frontend ["1. Frontend (api.ts)"]
+        F1["api.from('vehicles')"]
+        F2["api.rpc('cancel_booking')"]
+        F3["api.fn('verifyRazorpayPayment')"]
+        F4["api.auth.signIn()"]
+        F5["api.storage.upload()"]
+        F6["api.channel('realtime')"]
     end
 
-    subgraph Backend_Endpoints ["Django Gateway Routes"]
+    subgraph Gateway ["2. Django API Routes"]
         E1["POST /api/query/"]
-        E2["POST /api/rpc/<name>/"]
-        E3["POST /api/fn/<name>/"]
-        E4["POST /api/auth/<action>/"]
-        E5["POST /api/storage/<bucket>/<action>/"]
+        E2["POST /api/rpc/:name/"]
+        E3["POST /api/fn/:name/"]
+        E4["POST /api/auth/:action/"]
+        E5["POST /api/storage/:bucket/"]
         E6["GET /ws/ (WebSocket)"]
     end
 
-    subgraph Handlers ["Backend Handlers"]
-        H1["core/query.py (Dynamic SQL Compiler)"]
-        H2["core/views.py (PostgreSQL Function Runner)"]
+    subgraph Handlers ["3. Backend Handlers"]
+        H1["core/query.py (Dynamic SQL)"]
+        H2["core/views.py (Postgres RPC)"]
         H3["payments/views.py (Server Actions)"]
         H4["accounts/views.py (SimpleJWT & OAuth)"]
-        H5["files/views.py (Media Root & S3 Bridge)"]
-        H6["realtime/consumers.py (Channels WebSocket)"]
+        H5["files/views.py (Media & S3 Bridge)"]
+        H6["realtime/consumers.py (Channels WS)"]
     end
 
     F1 --> E1 --> H1
@@ -53,6 +53,17 @@ flowchart TD
     F5 --> E5 --> H5
     F6 <--> E6 <--> H6
 ```
+
+### Quick Architecture Mapping
+
+| Channel | Frontend Method (`api.ts`) | HTTP/WS Endpoint | Backend Handler | Primary Purpose |
+|---|---|---|---|---|
+| **1. Query API** | `api.from(table).select(...)` | `POST /api/query/` | `core/query.py` | Declarative reads/writes running directly under RLS |
+| **2. RPC API** | `api.rpc(funcName, params)` | `POST /api/rpc/:name/` | `core/views.py` | Executes atomic PostgreSQL stored procedures |
+| **3. Server Actions** | `api.fn(actionName, payload)` | `POST /api/fn/:name/` | `payments/views.py` | Razorpay orders, HMAC verification, inspections |
+| **4. Auth API** | `api.auth.signInWithPassword()` | `POST /api/auth/:action/` | `accounts/views.py` | User signup, login, refresh tokens, Google OAuth |
+| **5. Storage API** | `api.storage.from(b).upload()` | `POST /api/storage/:bucket/` | `files/views.py` | Photo uploads & signed temporary URLs |
+| **6. Realtime WS** | `api.channel(topic).on(...)` | `GET /ws/` | `realtime/consumers.py` | Live chat, booking status, and push alerts |
 
 ---
 
