@@ -76,23 +76,23 @@ Any competing transaction trying to select that wallet `FOR UPDATE` will block u
 
 ```mermaid
 flowchart TD
-    subgraph Synchronous_Path ["Synchronous Path (Request-Response, Port 8000)"]
-        Req[HTTP POST /api/query/ or /api/rpc/] --> MW[DbRoleMiddleware]
-        MW --> Tx[Atomic DB Transaction]
-        Tx --> SQL[Execute Query with RLS]
-        SQL --> Res[Return HTTP 200 JSON]
+    subgraph Synchronous_Path ["1. Synchronous Path: Request-Response (Port 8000)"]
+        Req["HTTP POST /api/query/ or /api/rpc/"] --> MW["DbRoleMiddleware"]
+        MW --> Tx["Atomic DB Transaction"]
+        Tx --> SQL["Execute Query with RLS"]
+        SQL --> Res["Return HTTP 200 JSON"]
     end
 
-    subgraph Asynchronous_Path ["Asynchronous Path (Channels & Daphne)"]
-        DB[(PostgreSQL)] -->|Trigger pg_notify| Listener[Django Channels LISTEN Task]
-        Listener --> WS[WebSocket Consumer (/ws/)]
-        WS --> Push[Instant Push to Browser]
+    subgraph Asynchronous_Path ["2. Asynchronous Path: Channels & Daphne"]
+        DB[("PostgreSQL")] -->|"Trigger pg_notify"| Listener["Django Channels LISTEN Task"]
+        Listener --> WS["WebSocket Consumer (/ws/)"]
+        WS --> Push["Instant Push to Browser"]
     end
 
-    subgraph Background_Path ["Scheduled Background Path (Cron)"]
-        Cron[Scheduled Runner (send_reminders)] --> Every5Min[Every 5 Minutes]
-        Every5Min --> ExpireWindows[expire_booking_windows()]
-        Every5Min --> Reminders[generate_scheduled_reminders()]
+    subgraph Background_Path ["3. Scheduled Background Path: Cron"]
+        Cron["Scheduled Runner: send_reminders"] --> Every5Min["Every 5 Minutes"]
+        Every5Min --> ExpireWindows["expire_booking_windows()"]
+        Every5Min --> Reminders["generate_scheduled_reminders()"]
     end
 ```
 

