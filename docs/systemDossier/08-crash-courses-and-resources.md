@@ -74,7 +74,26 @@ Understand real-time asynchronous streaming versus synchronous transactional exe
 
 ---
 
-## 5. Declarative APIs & Modern Backend Architecture
+## 5. Django 5, DRF & Backend Architecture (The Synchoo Backbone)
+
+Master Django's ASGI server, middleware lifecycle, Django REST Framework, and database cursor management:
+
+* **Django 5 & Python Full Course for Beginners** (Dennis Ivy / FreeCodeCamp)
+  * [Watch on YouTube](https://www.youtube.com/watch?v=PtQiiknWUcI)
+  * *Why watch:* Master Django project layout, modular apps (`core`, `accounts`, `payments`, `files`), settings, routing, and management commands.
+* **Django REST Framework (DRF) Crash Course** (Dennis Ivy)
+  * [Watch on YouTube](https://www.youtube.com/watch?v=TmsD8QExZ84)
+  * *Why watch:* How `@api_view`, REST status codes, JSON request/response bodies, and permissions operate in Synchoo's endpoints.
+* **Django Middleware & Custom User Authentication** (Corey Schafer)
+  * [Watch on YouTube](https://www.youtube.com/watch?v=eBfq_5o_hB8)
+  * *Why watch:* The exact request lifecycle behind `DbRoleMiddleware` (which starts every request as `anon` and manages atomic database transactions).
+* **Django Raw SQL Queries & Database Cursors** (Real Python / Official Docs)
+  * [Read the Guide](https://docs.djangoproject.com/en/5.0/topics/db/sql/)
+  * *Why read:* Explains `connection.cursor()` and parameterized `%s` binding, which `core/query.py` and `payments/views.py` use to communicate with PostgreSQL.
+
+---
+
+## 6. Declarative APIs & Modern Backend Architecture
 
 Learn how Synchoo's query engine (`core/query.py`) and RPC engine replace hundreds of REST endpoints:
 
@@ -87,7 +106,7 @@ Learn how Synchoo's query engine (`core/query.py`) and RPC engine replace hundre
 
 ---
 
-## 6. Enterprise Workflows & Approval Windows (Corporate Travel)
+## 7. Enterprise Workflows & Approval Windows (Corporate Travel)
 
 Master state-machines, manager approvals, and automated timeout windows:
 
@@ -100,7 +119,7 @@ Master state-machines, manager approvals, and automated timeout windows:
 
 ---
 
-## 7. Frontend Engineering: React 19, TanStack Router & shadcn/ui
+## 8. Frontend Engineering: React 19, TanStack Router & shadcn/ui
 
 Master the modern React ecosystem used in `frontend/`:
 
@@ -116,7 +135,7 @@ Master the modern React ecosystem used in `frontend/`:
 
 ---
 
-## 8. Docker, Docker Compose, Redis & Load Balancing
+## 9. Docker, Docker Compose, Redis & Load Balancing
 
 Master infrastructure, container networking, caching, and traffic routing:
 
@@ -132,24 +151,27 @@ Master infrastructure, container networking, caching, and traffic routing:
 
 ---
 
-## 9. Recommended "One-Shot" Study Sequence
+## 10. Recommended "One-Shot" Study Sequence
 
-If you want to master all 11 topics sequentially in 1–2 days:
+If you want to master all technologies sequentially in 1–2 days:
 
 1. **Step 1: The Core Database Engine**
    * Watch Hussein Nasser's *PostgreSQL Row-Level Security* and *Database Concurrency & Locking*.
    * Read Synchoo Dossier: [`01-auth-rbac-and-security.md`](01-auth-rbac-and-security.md) & [`04-concurrency-and-async-systems.md`](04-concurrency-and-async-systems.md).
-2. **Step 2: Payments & Idempotency**
+2. **Step 2: Django 5, DRF & Custom Middleware**
+   * Watch Dennis Ivy's *Django 5 Crash Course* and Corey Schafer's *Django Middleware*.
+   * Read Synchoo Dossier: [`01-auth-rbac-and-security.md`](01-auth-rbac-and-security.md) & [`02-apis-and-data-flow.md`](02-apis-and-data-flow.md).
+3. **Step 3: Payments & Idempotency**
    * Watch ByteByteGo's *Idempotency in Payments* and *System Design of Payment Systems*.
    * Read Synchoo Dossier: [`03-payments-idempotency-and-consistency.md`](03-payments-idempotency-and-consistency.md).
-3. **Step 3: Asynchronous Channels & WebSockets**
+4. **Step 4: Asynchronous Channels & WebSockets**
    * Watch Hussein Nasser's *WebSockets vs HTTP* and FreeCodeCamp's *Django Channels*.
    * Read Synchoo Dossier: [`02-apis-and-data-flow.md`](02-apis-and-data-flow.md).
-4. **Step 4: Enterprise Workflows & Corporate Travel**
+5. **Step 5: Enterprise Workflows & Corporate Travel**
    * Read Synchoo Dossier: [`05-corporate-travel-subsystem.md`](05-corporate-travel-subsystem.md) and review migration `0038`.
-5. **Step 5: Frontend React 19 & TanStack Router**
+6. **Step 6: Frontend React 19 & TanStack Router**
    * Watch Jack Herrington's *React 19* & *TanStack Router*.
    * Read Synchoo Dossier: [`06-frontend-ui-and-react-patterns.md`](06-frontend-ui-and-react-patterns.md).
-6. **Step 6: Docker, Redis & Load Balancing**
+7. **Step 7: Docker, Redis & Load Balancing**
    * Watch TechWorld with Nana's *Docker Compose* and Hussein Nasser's *Nginx Load Balancers*.
    * Read Synchoo Dossier: [`07-infrastructure-docker-redis-and-scale.md`](07-infrastructure-docker-redis-and-scale.md).
