@@ -23,36 +23,82 @@ Synchoo uses Razorpay for domestic INR payments (supporting UPI, Cards, NetBanki
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Customer (Browser)
+    actor Customer as Customer (Browser)
     participant UI as React UI (actions.ts)
-    participant Django as Django backend (payments/views.py)
+    participant Django as Django Backend (payments/views.py)
     participant RZP as Razorpay API Gateway
-    participant DB as PostgreSQL (wallets, bookings)
-    participant Webhook as Razorpay Webhook Worker
+    participant DB as PostgreSQL Database
+    participant Webhook as Webhook Worker
 
-    User->>UI: Clicks "Pay ₹3,500 via Razorpay"
+    %% Phase 1: Order Initialization
+    rect rgb(240, 248, 255)
+    Note over Customer,DB: Phase 1: Order Initialization & Validation
+    Customer->>UI: Clicks "Pay ₹3,500 via Razorpay"
     UI->>Django: POST /api/fn/createRazorpayOrder { bookingId }
-    Note over Django: Validates booking status, pay_by window<br/>Converts rupees to paise (350000)
-    Django->>RZP: POST https://api.razorpay.com/v1/orders
-    RZP-->>Django: { order_id: "order_K7x9..." }
+    Django->>Django: Verify booking status is 'confirmed'
+    Django->>Django: Validate pay_by deadline has > 5 mins remaining
+    Django->>Django: Convert ₹3,500 to 350,000 paise (integer)
+    Django->>RZP: POST https://api.razorpay.com/v1/orders { amount: 350000, currency: "INR" }
+    RZP-->>Django: HTTP 200 { id: "order_K7x9..." }
     Django->>DB: UPDATE bookings SET razorpay_order_id = 'order_K7x9...' (service_role)
-    Django-->>UI: { orderId, amount: 350000, keyId }
+    Django-->>UI: Return { orderId: "order_K7x9...", amount: 350000, keyId }
+    end
 
-    UI->>RZP: Opens Razorpay Checkout Modal (UPI / Card)
-    User->>RZP: Authorizes payment on phone (GPay / PhonePe)
-    RZP-->>UI: Success callback: { razorpay_payment_id, razorpay_signature }
+    %% Phase 2: Payment Execution
+    rect rgb(255, 250, 240)
+    Note over Customer,RZP: Phase 2: Checkout & User Authorization
+    UI->>RZP: Launch Razorpay Standard Checkout Modal
+    RZP-->>Customer: Present Payment Options (UPI / GPay / NetBanking / Cards)
+    Customer->>RZP: Authorize payment via UPI PIN or Bank OTP
+    RZP->>RZP: Bank captures funds and settles transaction
+    RZP-->>UI: Trigger onSuccess callback { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+    end
 
-    par Path A: Direct Browser Verification (Immediate)
-        UI->>Django: POST /api/fn/verifyRazorpayPayment { order_id, payment_id, signature }
-        Note over Django: Cryptographic HMAC SHA256 verification<br/>Locks booking row FOR UPDATE<br/>Updates payment_status = 'paid'
-        Django-->>UI: { ok: true }
-        UI->>User: Displays "Booking Confirmed!"
-    and Path B: Asynchronous Webhook (Safety Net)
-        RZP->>Webhook: POST /api/fn/razorpay_webhook/ [Headers: X-Razorpay-Signature]
-        Note over Webhook: Verifies webhook HMAC signature<br/>Checks if booking already marked paid<br/>If browser crashed/closed, marks paid and notifies user!
-        Webhook-->>RZP: HTTP 200 OK (Stops RZP retry queue)
+    %% Phase 3: Immediate Browser Verification
+    rect rgb(240, 255, 240)
+    Note over Customer,DB: Phase 3: Direct Browser Verification (Fast Path)
+    UI->>Django: POST /api/fn/verifyRazorpayPayment { order_id, payment_id, signature }
+    Django->>Django: Compute expected = HMAC-SHA256(order_id + "|" + payment_id, SECRET_KEY)
+    Django->>Django: Verify signature using hmac.compare_digest()
+    Django->>DB: SELECT * FROM bookings WHERE id = bookingId FOR UPDATE
+    alt Booking is active and in valid window
+        Django->>DB: UPDATE bookings SET payment_status = 'paid', paid_at = now()
+        Django-->>UI: Return { ok: true }
+        UI-->>Customer: Display "Booking Confirmed & Paid!"
+    else Booking expired or cancelled during checkout (Late Payment)
+        Django->>DB: Call public.wallet_apply(customer_id, 3500, 'refund')
+        Django->>DB: UPDATE bookings SET payment_status = 'refunded'
+        Django-->>UI: Return { ok: true, refunded: true }
+        UI-->>Customer: Display "Booking window closed — ₹3,500 refunded to wallet"
+    end
+    end
+
+    %% Phase 4: Asynchronous Webhook Safety Net
+    rect rgb(255, 245, 245)
+    Note over RZP,DB: Phase 4: Asynchronous Webhook Reconciler (Safety Net)
+    RZP->>Webhook: POST /api/fn/razorpay_webhook/ (Event: payment.captured)
+    Webhook->>Webhook: Verify X-Razorpay-Signature header against WEBHOOK_SECRET
+    Webhook->>DB: SELECT payment_status FROM bookings WHERE razorpay_order_id = order_id FOR UPDATE
+    alt Already marked 'paid' by Browser Verification (Idempotent Hit)
+        Webhook-->>RZP: HTTP 200 OK (Duplicate ignored safely)
+    else Browser closed / crashed before Phase 3 completed
+        Webhook->>DB: UPDATE bookings SET payment_status = 'paid'
+        Webhook->>DB: INSERT INTO notifications ("Payment confirmed via Webhook")
+        Webhook-->>RZP: HTTP 200 OK (Booking saved without customer losing money)
+    end
     end
 ```
+
+### End-to-End Step-by-Step Breakdown Table
+
+| Step # | Phase | What Happens | Security & Consistency Guarantee |
+|:---:|---|---|---|
+| **1–4** | **Order Creation** | Frontend requests an order. Backend validates that the booking is confirmed, verifies that the payment window (`pay_by`) has not expired, converts rupees to paise, and calls Razorpay API. | Only signed-in customers can create orders for their own bookings. |
+| **5–7** | **Order Persistence** | Razorpay returns `order_id`. Backend records `razorpay_order_id` in the database under `service_role` and passes the order ID to the frontend. | Stores the order receipt before opening checkout to anchor idempotency. |
+| **8–11** | **User Checkout** | Frontend opens the Razorpay Modal. Customer authenticates with UPI PIN or card OTP. Bank captures money and returns payment credentials to the frontend. | Sensitive card numbers/PINs never touch Synchoo servers. |
+| **12–15** | **Browser Verification** | Frontend sends `{ order_id, payment_id, signature }` to `/api/fn/verifyRazorpayPayment`. Backend computes HMAC-SHA256 and locks the row `FOR UPDATE`. | Cryptographic tamper-proofing: amount and order cannot be altered by client script. |
+| **16–17** | **Late-Payment Protection** | If booking expired while user was typing their OTP, backend triggers `wallet_apply` to immediately credit 100% of money back to customer wallet. | Customer never loses money on expired bookings. |
+| **18–22** | **Webhook Reconciler** | If user's battery dies or browser closes right after payment, Razorpay webhooks call `/api/fn/razorpay_webhook/`. Backend re-checks state idempotently and marks it paid. | Guarantees bookings are never stuck in unpaid limbo. |
 
 ---
 
