@@ -120,7 +120,7 @@ All trip times are India time (`Asia/Kolkata`).
 
 ### Booking windows (deadlines)
 
-Since #40 to #44, requests and payments have deadlines ([Business rules §17](03-business-rules.md#17-booking-windows)). Expiry, reminders and wash dispatch alerts only happen when the scheduled job runs, so run it by hand while testing:
+Since #40 to #45 and #49, requests, payments, pooling seats, and corporate approvals have deadlines ([Business rules §17](03-business-rules.md#17-booking-windows)). Expiry, reminders, departure closures, and wash dispatch alerts only happen when the scheduled job runs, so run it by hand while testing:
 
 ```bash
 cd backend && .venv/Scripts/python manage.py send_reminders
@@ -133,8 +133,10 @@ To make a deadline pass without waiting, change it in `psql` (connected as `sync
 | To test | SQL |
 | --- | --- |
 | Host or driver missed the response window | `UPDATE public.bookings SET respond_by = now() - interval '1 minute' WHERE id = '<id>';` (use `public.driver_bookings` for a hire) |
+| Pool driver missed response window | `UPDATE public.pool_requests SET respond_by = now() - interval '1 minute' WHERE id = '<id>';` |
 | Halfway reminder is due | `UPDATE public.bookings SET respond_by = now() + interval '1 minute' WHERE id = '<id>';` |
 | Customer missed the payment window | `UPDATE public.bookings SET pay_by = now() - interval '1 minute' WHERE id = '<id>';` (works on `driver_bookings` and `wash_bookings` too) |
+| Corporate manager missed response window | `UPDATE public.company_trips SET respond_by = now() - interval '1 minute' WHERE id = '<id>';` |
 | Wash moves to a later tier | `UPDATE public.wash_bookings SET paid_at = paid_at - interval '5 hours' WHERE id = '<id>';` then refresh the cleaner's board |
 | Wash reaches its admin alert or auto-cancel time | Move the slot close: `UPDATE public.wash_bookings SET slot_date = (now() AT TIME ZONE 'Asia/Kolkata')::date, slot_time = ((now() AT TIME ZONE 'Asia/Kolkata') + interval '45 minutes')::time WHERE id = '<id>';` Use 20 minutes instead of 45 for the auto-cancel |
 | Host pause after 3 expiries | Expire three of Hari's requests as above, then run `send_reminders` |

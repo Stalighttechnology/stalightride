@@ -69,6 +69,20 @@ Use a Bengaluru route with 3 seats at ₹200 per seat, leaving tomorrow.
 | CP-30 | Dev deletes the account while a future trip has a confirmed passenger | **GAP-20:** the request must close and the passenger must be notified | **PASS (GAP-20 handled)** — Cascade trigger notifies riders and closes pool bookings |
 | CP-31 | Cancel a trip through the API only | **GAP-20:** the database must close the requests itself | **PASS (GAP-20 handled)** — Database trigger updates all linked requests to cancelled |
 
+## Booking windows
+
+Added in #45 (migration 0035). Closes **GAP-32**. Uses a 30-minute buffer and a 1-hour departure cutoff.
+
+| ID | Steps | Expected | Result |
+| --- | --- | --- | --- |
+| CP-32 | Request a seat less than 1 hour before departure | `Requests close 1 hour before departure` | **PASS** — Enforced by `enforce_pool_request_guard` trigger on insert |
+| CP-33 | Request a seat 5 hours before departure | `respond_by` set via `booking_deadline(created_at, depart_at, 30m)` | **PASS** — Formula gives correct timestamp (created + 2h 15m) |
+| CP-34 | Dev accepts request after `respond_by` has passed | `This request has expired` | **PASS** — Trigger blocks acceptance past deadline |
+| CP-35 | Pending request passes `respond_by` without driver response | Cancelled with notification to passenger when `expire_booking_windows` runs | **PASS** — Status becomes cancelled and passenger receives alert |
+| CP-36 | Trip reaches departure time with pending requests | `expire_booking_windows` cancels lingering requests with departure notice | **PASS** — Trip closure notifies passenger "Trip has departed" |
+| CP-37 | Window reaches halfway point | Dev receives one halfway reminder notification | **PASS** — Tracked via `respond_reminded_at` and sent once |
+| CP-38 | Check driver response stats | Driver profile shows response rate % and median response time | **PASS** — Calculated via `pool_driver_response_stats()` RPC |
+
 ## Linked gaps
 
-GAP-20
+GAP-20, GAP-32

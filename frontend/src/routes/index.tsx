@@ -203,19 +203,19 @@ function Index() {
                       <label className="text-[11px] font-medium text-muted-foreground">
                         Pickup
                       </label>
-                      <div className="grid grid-cols-[1fr_96px] sm:grid-cols-[1fr_100px] gap-1.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <DatePicker
                           value={pickupDate}
                           onChange={setPickupDate}
                           minDate={new Date()}
                           placeholder="Select date"
-                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
+                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium flex-1 min-w-0"
                         />
                         <TimePicker
                           value={pickupTime}
                           onChange={setPickupTime}
                           placeholder="Time"
-                          className="h-9 sm:h-10 rounded-xl px-2 text-xs sm:text-sm w-full"
+                          className="h-9 sm:h-10 rounded-xl px-2 sm:px-2.5 text-xs sm:text-sm font-medium w-auto min-w-[110px] sm:min-w-[118px] shrink-0"
                         />
                       </div>
                     </div>
@@ -223,19 +223,19 @@ function Index() {
                       <label className="text-[11px] font-medium text-muted-foreground">
                         Return
                       </label>
-                      <div className="grid grid-cols-[1fr_96px] sm:grid-cols-[1fr_100px] gap-1.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <DatePicker
                           value={returnDate}
                           onChange={setReturnDate}
                           minDate={pickupDate || new Date()}
                           placeholder="Select date"
-                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
+                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium flex-1 min-w-0"
                         />
                         <TimePicker
                           value={returnTime}
                           onChange={setReturnTime}
                           placeholder="Time"
-                          className="h-9 sm:h-10 rounded-xl px-2 text-xs sm:text-sm w-full"
+                          className="h-9 sm:h-10 rounded-xl px-2 sm:px-2.5 text-xs sm:text-sm font-medium w-auto min-w-[110px] sm:min-w-[118px] shrink-0"
                         />
                       </div>
                     </div>
@@ -252,14 +252,14 @@ function Index() {
                         value={pickupDate}
                         onChange={setPickupDate}
                         minDate={new Date()}
-                        placeholder="dd-mm-yyyy"
-                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
+                        placeholder="Select date"
+                        className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
                       />
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Reporting time"
-                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
+                        className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
                       />
                     </div>
                   </div>
@@ -275,14 +275,14 @@ function Index() {
                         value={pickupDate}
                         onChange={setPickupDate}
                         minDate={new Date()}
-                        placeholder="dd-mm-yyyy"
-                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
+                        placeholder="Select date"
+                        className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
                       />
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
                         placeholder="Preferred time"
-                        className="h-9 sm:h-10 rounded-xl px-2 text-xs"
+                        className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
                       />
                     </div>
                   </div>

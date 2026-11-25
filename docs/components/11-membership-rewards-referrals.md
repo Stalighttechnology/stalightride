@@ -4,9 +4,9 @@
 
 | Feature | Current state |
 | --- | --- |
-| Referrals | Working |
-| Membership | Purchase works, but benefits are not applied and payment proof is not enforced |
-| Rewards | Preview only. Points live in the browser |
+| Referrals | Working (`apply_referral_bonus_on_first_paid`, `my_referrals`) |
+| Membership | Working: verified payment signature, 0% service fee and rental discounts applied via migration 0014, renew job `renew_memberships.py` |
+| Rewards | Working: database-backed `starlight_rewards` points ledger & service-scoped redemption via migration 0017 |
 
 ## Where it lives
 
