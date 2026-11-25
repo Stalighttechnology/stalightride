@@ -77,16 +77,16 @@ Every SQL query in Synchoo runs under one of three PostgreSQL roles:
 
 ```mermaid
 flowchart TD
-    Req[Incoming HTTP Request] --> MW[DbRoleMiddleware]
-    MW -->|Transaction Starts| AnonRole["SET LOCAL role = 'anon'"]
+    Req["Incoming HTTP Request"] --> MW["DbRoleMiddleware"]
+    MW -->|"Transaction Starts"| AnonRole["SET LOCAL role = 'anon'"]
     
-    AnonRole --> AuthCheck{Has Valid JWT Token?}
-    AuthCheck -->|No| KeepAnon["Remains 'anon'<br/>(Can only view public vehicles, reviews, public drivers)"]
+    AnonRole --> AuthCheck{"Has Valid JWT Token?"}
+    AuthCheck -->|No| KeepAnon["Remains 'anon'<br/>Can only view public vehicles, reviews, public drivers"]
     AuthCheck -->|Yes| SetAuth["JWTRoleAuthentication calls:<br/>SET LOCAL role = 'authenticated'<br/>SET LOCAL request.jwt.claim.sub = user_id"]
     
-    SetAuth --> ServerActionCheck{Is Server-Privileged Action?}
+    SetAuth --> ServerActionCheck{"Is Server-Privileged Action?"}
     ServerActionCheck -->|No| RunAuthQuery["Runs as 'authenticated'<br/>RLS filters rows where auth.uid() matches"]
-    ServerActionCheck -->|Yes (e.g. Webhook, Payout)| ServiceRole["with db_role('service_role'):<br/>Can modify locked columns (payment_status, refund_amount)"]
+    ServerActionCheck -->|"Yes (e.g. Webhook, Payout)"| ServiceRole["with db_role('service_role'):<br/>Can modify locked columns"]
 ```
 
 ### 4.2 How `DbRoleMiddleware` and `core/auth.py` Work
