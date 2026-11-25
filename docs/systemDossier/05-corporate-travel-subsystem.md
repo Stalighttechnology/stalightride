@@ -39,14 +39,14 @@ flowchart TD
 
     subgraph Trip_Request ["2. Trip Request"]
         Employee["Employee Books Vehicle / Driver / Wash"] --> Check["check_corporate_policy() RPC"]
-        Check --> DecisionTree{Within Policy & Under Threshold?}
+        Check --> DecisionTree{"Within Policy & Under Threshold?"}
         
         DecisionTree -->|Yes| AutoApprove["approval_status = 'auto'<br/>Instant Confirmation<br/>Paid via Company Wallet"]
-        DecisionTree -->|No / Above Threshold| ManagerQueue["approval_status = 'pending'<br/>respond_by = now() + 2 hours<br/>Push notification to Manager"]
+        DecisionTree -->|"No / Above Threshold"| ManagerQueue["approval_status = 'pending'<br/>respond_by = now() + 2 hours<br/>Push notification to Manager"]
     end
 
     subgraph Manager_Action ["3. Manager Approval Window"]
-        ManagerQueue --> MgrAction{Manager Decides?}
+        ManagerQueue --> MgrAction{"Manager Decides?"}
         MgrAction -->|Approves| Paid["Trip Confirmed<br/>Deducted from Company Wallet"]
         MgrAction -->|Declines| Declined["Trip Cancelled<br/>Reason recorded in audit log"]
         MgrAction -->|Timer Expires| Expired["expire_booking_windows() marks 'expired'<br/>Vehicle unlocked for public<br/>Both parties notified"]
