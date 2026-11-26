@@ -3,7 +3,11 @@ import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  WheelPicker,
+  WheelPickerWrapper,
+  type WheelPickerOption,
+} from "@/components/wheel-picker";
 
 export interface TimePickerProps {
   value?: string; // Format "HH:mm" (24-hour)
@@ -12,29 +16,21 @@ export interface TimePickerProps {
   className?: string;
   disabled?: boolean;
   id?: string;
-  slots?: string[]; // Optional specific slots
+  slots?: string[];
   disabledSlots?: string[];
   isTimeDisabled?: (time: string) => boolean;
 }
 
-const DEFAULT_SLOTS = [
-  "06:00",
-  "07:00",
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-  "21:00",
-  "22:00",
+const HOUR_OPTIONS: WheelPickerOption<string>[] = Array.from({ length: 12 }, (_, i) => {
+  const h = String(i + 1);
+  return { value: h, label: h.padStart(2, "0") };
+});
+
+const BASE_MINUTES = ["00", "15", "30", "45"];
+
+const PERIOD_OPTIONS: WheelPickerOption<"AM" | "PM">[] = [
+  { value: "AM", label: "AM" },
+  { value: "PM", label: "PM" },
 ];
 
 function formatTime12h(timeStr: string) {
@@ -54,38 +50,47 @@ export function TimePicker({
   className,
   disabled,
   id,
-  slots = DEFAULT_SLOTS,
   disabledSlots,
   isTimeDisabled,
 }: TimePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  const [currentH, currentM] = (value || "10:00").split(":");
-  const hourNum = parseInt(currentH, 10) || 10;
-  const period = hourNum >= 12 ? "PM" : "AM";
-  const hour12 = hourNum % 12 === 0 ? 12 : hourNum % 12;
+  const [currentH, rawM] = (value || "10:00").split(":");
+  const parsedH = parseInt(currentH, 10);
+  const hourNum = Number.isNaN(parsedH) ? 10 : parsedH;
+  const currentM = rawM || "00";
+  const period: "AM" | "PM" = hourNum >= 12 ? "PM" : "AM";
+  const hour12 = String(hourNum % 12 === 0 ? 12 : hourNum % 12);
 
-  const setHour = (h12: number, p: "AM" | "PM") => {
+  const minuteOptions = React.useMemo<WheelPickerOption<string>[]>(() => {
+    const mins = BASE_MINUTES.includes(currentM)
+      ? BASE_MINUTES
+      : [...BASE_MINUTES, currentM].sort();
+    return mins.map((m) => ({ value: m, label: m }));
+  }, [currentM]);
+
+  const to24Hour = (h12Str: string, p: "AM" | "PM") => {
+    const h12 = parseInt(h12Str, 10) || 12;
     let h24 = h12 % 12;
     if (p === "PM") h24 += 12;
-    const newH = String(h24).padStart(2, "0");
-    const newM = currentM || "00";
-    onChange?.(`${newH}:${newM}`);
+    return String(h24).padStart(2, "0");
+  };
+
+  const setHour = (h12Str: string) => {
+    onChange?.(`${to24Hour(h12Str, period)}:${currentM}`);
   };
 
   const setMinute = (m: string) => {
-    const newH = currentH || "10";
-    onChange?.(`${newH}:${m}`);
+    onChange?.(`${String(hourNum).padStart(2, "0")}:${m}`);
   };
 
   const setPeriod = (p: "AM" | "PM") => {
-    setHour(hour12, p);
+    onChange?.(`${to24Hour(hour12, p)}:${currentM}`);
   };
 
-  const selectSlot = (slot: string) => {
-    onChange?.(slot);
-    setOpen(false);
-  };
+  const timeUnavailable = isTimeDisabled
+    ? isTimeDisabled(value)
+    : Boolean(disabledSlots?.includes(value));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -107,123 +112,44 @@ export function TimePicker({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="start">
+      <PopoverContent className="w-64 p-3" align="start">
         <div className="space-y-3">
           <div className="flex items-center justify-between border-b pb-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Select Time
             </span>
-            <span className="font-mono text-sm font-bold text-foreground">
+            <span className="font-mono text-sm font-bold text-foreground tabular-nums">
               {formatTime12h(value || "10:00")}
             </span>
           </div>
 
-          {/* Quick presets */}
-          <div>
-            <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">Common slots</div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {slots.slice(0, 8).map((slot) => {
-                const isSlotDisabled = isTimeDisabled
-                  ? isTimeDisabled(slot)
-                  : disabledSlots?.includes(slot);
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    disabled={isSlotDisabled}
-                    onClick={() => !isSlotDisabled && selectSlot(slot)}
-                    className={cn(
-                      "rounded-md py-1 text-center text-xs transition-colors",
-                      isSlotDisabled
-                        ? "opacity-35 line-through cursor-not-allowed bg-muted/30 text-muted-foreground"
-                        : value === slot
-                          ? "bg-primary text-primary-foreground font-semibold"
-                          : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    {slot}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <WheelPickerWrapper className="w-full border-border/80 bg-muted/20">
+            <WheelPicker
+              options={HOUR_OPTIONS}
+              value={hour12}
+              onValueChange={setHour}
+              infinite
+              visibleCount={12}
+              optionItemHeight={32}
+            />
+            <WheelPicker
+              options={minuteOptions}
+              value={currentM}
+              onValueChange={setMinute}
+              infinite
+              visibleCount={12}
+              optionItemHeight={32}
+            />
+            <WheelPicker
+              options={PERIOD_OPTIONS}
+              value={period}
+              onValueChange={setPeriod}
+              visibleCount={12}
+              optionItemHeight={32}
+            />
+          </WheelPickerWrapper>
 
-          {/* Custom hour / minute / AM-PM selector */}
-          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              {/* Hours 1-12 */}
-              <div>
-                <span className="text-[10px] font-medium text-muted-foreground">Hour</span>
-                <ScrollArea className="h-28 mt-1">
-                  <div className="space-y-0.5 pr-1">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
-                      <button
-                        key={h}
-                        type="button"
-                        onClick={() => setHour(h, period)}
-                        className={cn(
-                          "w-full rounded py-1 text-xs transition-colors",
-                          hour12 === h
-                            ? "bg-primary text-primary-foreground font-bold"
-                            : "hover:bg-muted",
-                        )}
-                      >
-                        {h}
-                      </button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* Minutes */}
-              <div>
-                <span className="text-[10px] font-medium text-muted-foreground">Min</span>
-                <ScrollArea className="h-28 mt-1">
-                  <div className="space-y-0.5 pr-1">
-                    {["00", "15", "30", "45"].map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setMinute(m)}
-                        className={cn(
-                          "w-full rounded py-1 text-xs transition-colors",
-                          currentM === m
-                            ? "bg-primary text-primary-foreground font-bold"
-                            : "hover:bg-muted",
-                        )}
-                      >
-                        :{m}
-                      </button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* AM / PM */}
-              <div>
-                <span className="text-[10px] font-medium text-muted-foreground">Period</span>
-                <div className="mt-1 space-y-1">
-                  {(["AM", "PM"] as const).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPeriod(p)}
-                      className={cn(
-                        "w-full rounded py-1.5 text-xs font-semibold transition-colors",
-                        period === p
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted/70 text-muted-foreground hover:bg-muted",
-                      )}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {isTimeDisabled?.(value) && (
+          {timeUnavailable && (
             <p className="text-center text-[11px] font-medium text-destructive">
               This time slot is unavailable
             </p>
@@ -233,7 +159,7 @@ export function TimePicker({
             type="button"
             size="sm"
             className="w-full text-xs h-8"
-            disabled={isTimeDisabled?.(value)}
+            disabled={timeUnavailable}
             onClick={() => setOpen(false)}
           >
             Apply time

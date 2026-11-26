@@ -291,7 +291,7 @@ export function CoronaNavbar({
 
         {/* Dark / Light Theme Toggle (Directly Switches Website Palette) */}
         <div className="border-l border-border pl-2 sm:pl-3 flex items-center">
-          <ThemeToggle className="h-9 w-9 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground cursor-pointer" />
+          <ThemeToggle className="cursor-pointer" />
         </div>
 
         {/* Notifications Dropdown with Direct Queue Links (modal={false} prevents scroll locking) */}

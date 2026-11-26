@@ -199,6 +199,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    transition: background-color 250ms ease, color 250ms ease;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     max-width: 100%;
