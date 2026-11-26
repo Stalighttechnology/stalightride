@@ -49,4 +49,14 @@ def query(request):
 
 @api_view(["POST"])
 def rpc(request, name):
-    return guarded(lambda: {"data": run_rpc(name, request.data)})
+    def go():
+        data = run_rpc(name, request.data)
+        if name == "delete_my_account_data" and getattr(request, "user", None) and request.user.is_authenticated:
+            try:
+                from files.views import purge_user_media
+                purge_user_media(request.user.id)
+            except Exception:
+                pass
+        return {"data": data}
+
+    return guarded(go)

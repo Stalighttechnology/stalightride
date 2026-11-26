@@ -3,6 +3,7 @@
 ## 1. The 5-Year-Old Explanation: "The School Field Trip Permission Slip"
 
 Imagine you and your school friends are going on a science museum trip:
+
 - **The Problem Without Rules:** You want to hire a giant golden stretch limousine with a swimming pool inside! You tell the limousine driver: *"Send the million-dollar bill to my school principal!"* The principal would be furious, the school budget would be ruined, and nobody would get to go on any more trips.
 - **The Solution (The Corporate Policy & Permission Slip):**
   - **The School Rulebook (Company Policy):** The school says: *"Students can only book regular mini-vans or bicycles. No luxury sports cars. Max 30 coins per day. Trips must be for school purposes."*
@@ -16,6 +17,7 @@ Imagine you and your school friends are going on a science museum trip:
 ## 2. The Corporate Travel Business Problem
 
 Modern enterprises face huge friction with employee business travel:
+
 1. **Rogue & Out-of-Policy Spending:** Employees booking premium luxury vehicles or unapproved services on corporate cards.
 2. **Delayed Manager Approvals:** Booking requests sit in email inboxes for days, causing vehicle hosts to reject the trips or vehicle availability to vanish.
 3. **Receipt & Expense Chaos:** Employees paying from personal pockets, losing paper receipts, and waiting 60 days for HR reimbursement.
@@ -40,7 +42,7 @@ flowchart TD
     subgraph Trip_Request ["2. Trip Request"]
         Employee["Employee Books Vehicle / Driver / Wash"] --> Check["check_corporate_policy() RPC"]
         Check --> DecisionTree{"Within Policy & Under Threshold?"}
-        
+      
         DecisionTree -->|Yes| AutoApprove["approval_status = 'auto'<br/>Instant Confirmation<br/>Paid via Company Wallet"]
         DecisionTree -->|"No / Above Threshold"| ManagerQueue["approval_status = 'pending'<br/>respond_by = now() + 2 hours<br/>Push notification to Manager"]
     end
@@ -174,7 +176,7 @@ BEGIN
    WHERE member_id = mem.id 
      AND approval_status IN ('auto', 'approved') 
      AND created_at >= date_trunc('month', now());
-     
+   
   IF (m_spent + _amount) > mem.monthly_limit THEN
     RETURN jsonb_build_object('allowed', false, 'reason', 'Exceeds monthly employee spending limit');
   END IF;
@@ -193,13 +195,16 @@ END; $$;
 ## 6. Approval Windows & Automatic Expiration
 
 ### The Parallel Approval Window
+
 When a trip requires manager approval:
+
 1. `approval_status` is set to `'pending'`.
 2. A strict deadline is assigned: `respond_by = now() + interval '2 hours'` (or before trip start time, whichever is earlier).
 3. The employee's manager receives an instant real-time notification with a link to `/corporate`.
 
 ### What Happens if the Manager Sleeps?
-In [backend/core/migrations/0038_corporate_accounts_and_approval_windows.py](file:///C:/Users/gclik/Desktop/Projects/Stalight%20Technologies/stalightride/backend/core/migrations/0038_corporate_accounts_and_approval_windows.py), `expire_booking_windows()` automatically processes expired approvals:
+
+In [backend/core/migrations/0038_corporate_accounts_and_approval_windows.py](<file:///C:/Users/gclik/Desktop/Projects/Stalight%20Technologies/stalightride/backend/core/migrations/0038_corporate_accounts_and_approval_windows.py>), `expire_booking_windows()` automatically processes expired approvals:
 
 ```sql
 -- Inside expire_booking_windows() (executed every 5 minutes by cron):
@@ -212,6 +217,7 @@ UPDATE public.company_trips
 -- Automatically releases any reserved vehicle/driver booking!
 -- Sends push alerts to both employee and manager!
 ```
+
 **Outcome:** The vehicle is never held hostage by an absent manager. The vehicle returns to the public catalog so other users can book it!
 
 ---
