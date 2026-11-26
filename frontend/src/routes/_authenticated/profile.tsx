@@ -1,7 +1,7 @@
 import { CityPicker } from "@/components/city-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useId } from "react";
 import { api } from "@/lib/api";
 import { useSession } from "@/hooks/use-session";
 import { useActiveRole } from "@/hooks/use-active-role";
@@ -43,6 +43,7 @@ import {
   Sparkles,
   Building2,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/profile")({ component: Profile });
@@ -142,9 +143,10 @@ function Profile() {
       .from("verification-docs")
       .upload(path, file, { upsert: true });
     if (error) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to upload document");
       return null;
     }
+    toast.success(`${side === "front" ? "Front" : "Back"} photo uploaded successfully`);
     return path;
   };
 
@@ -489,7 +491,7 @@ function Profile() {
                   disabled={status === "approved" || status === "pending"}
                   onFile={async (f) => {
                     const p = await uploadDl("front", f);
-                    if (p) setProfile({ ...profile, dl_front_url: p });
+                    if (p) setProfile((prev: any) => ({ ...prev, dl_front_url: p }));
                   }}
                 />
                 <DlUpload
@@ -499,7 +501,7 @@ function Profile() {
                   disabled={status === "approved" || status === "pending"}
                   onFile={async (f) => {
                     const p = await uploadDl("back", f);
-                    if (p) setProfile({ ...profile, dl_back_url: p });
+                    if (p) setProfile((prev: any) => ({ ...prev, dl_back_url: p }));
                   }}
                 />
               </div>
@@ -576,43 +578,75 @@ function DlUpload({
   disabled?: boolean;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const inputId = useId();
 
-  const openPicker = () => {
-    if (disabled) return;
-    if (inputRef.current) {
-      inputRef.current.value = "";
+  const handleFile = async (file: File) => {
+    try {
+      setUploading(true);
+      await onFile(file);
+    } finally {
+      setUploading(false);
     }
-    inputRef.current?.click();
   };
 
   return (
     <div>
-      <Label className="text-xs font-medium text-foreground">{label}</Label>
+      <div className="flex items-center justify-between">
+        <label htmlFor={inputId} className="text-xs font-medium text-foreground cursor-pointer">
+          {label}
+        </label>
+        {path && (
+          <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <Check className="h-3 w-3" /> Attached
+          </span>
+        )}
+      </div>
+
       <input
-        ref={inputRef}
+        id={inputId}
         type="file"
         accept="image/*,.pdf"
-        className="hidden"
-        disabled={disabled}
+        className="sr-only"
+        disabled={disabled || uploading}
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) {
-            onFile(file);
+            handleFile(file);
           }
+          e.target.value = "";
         }}
       />
       <div className="mt-1 flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          onClick={openPicker}
-          className="flex-1 text-xs justify-start gap-2 h-9 rounded-xl border-dashed hover:border-solid"
+        <label
+          htmlFor={disabled || uploading ? undefined : inputId}
+          className={`flex-1 flex items-center justify-start gap-2 h-9 px-3 text-xs rounded-xl border border-dashed transition-colors select-none ${
+            disabled || uploading
+              ? "opacity-50 cursor-not-allowed bg-muted/30"
+              : path
+                ? "border-emerald-500/50 bg-emerald-500/5 text-foreground hover:bg-emerald-500/10 cursor-pointer"
+                : "border-input bg-background hover:bg-accent hover:border-solid cursor-pointer"
+          }`}
         >
-          <Upload className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="truncate">{path ? "Replace Image" : "Upload Document"}</span>
-        </Button>
+          {uploading ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+              <span className="truncate">Uploading...</span>
+            </>
+          ) : path ? (
+            <>
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="truncate font-medium text-emerald-600 dark:text-emerald-400">
+                Replace Document
+              </span>
+            </>
+          ) : (
+            <>
+              <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="truncate">Upload Document</span>
+            </>
+          )}
+        </label>
         {path && signed && (
           <Button
             type="button"

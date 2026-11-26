@@ -13,13 +13,13 @@ Use these docs to split the work between three people, test each part by hand, a
 | 5 | [Launch gaps](04-launch-gaps.md) | Known defects that must be fixed before launch |
 | 6 | [Automated tests](05-automated-tests.md) | Database, API and unit checks that CI runs on every pull request |
 | 7 | [Demo walkthrough](06-demo-walkthrough.md) | Click-by-click GUI journeys across customer, provider and admin windows, for demos and full passes |
-| 8 | [Booking windows](booking-windows/suggested-approach.md) | Approval and payment deadlines, wash dispatch. Steps 1 to 4 are built, pooling and corporate are not. Build prompts in [antigravity-prompts.md](booking-windows/antigravity-prompts.md) |
+| 8 | [Booking windows](booking-windows/suggested-approach.md) | Approval and payment deadlines, wash dispatch, pooling request windows, and corporate approval flows. Steps 1 to 6 are all built. Prompts in [antigravity-prompts.md](booking-windows/antigravity-prompts.md) |
 
 ## Testing what's merged so far (booking windows)
 
-Booking windows steps 1 to 4 are on `main` (#40, #42, #43, #44). Pooling (step 5) and corporate (step 6) are still being built, so skip them for now.
+All booking windows steps 1 to 6 are on `main` (#40, #42, #43, #44, #45, #49).
 
-1. Pull `main`, then run `.venv/Scripts/python manage.py migrate` in `backend/`. The latest migration is `0034_wash_booking_dispatch`. If `migrate` fails on an old `0031`, `0032` or `0033` name, recreate the database ([doc 02 §8](02-local-setup-and-test-data.md#8-start-again-with-a-clean-database)).
+1. Pull `main`, then run `.venv/Scripts/python manage.py migrate` in `backend/`. The latest migration is `0040_review_reply_and_booking_host_integrity`. If `migrate` fails on an old migration name, recreate the database ([doc 02 §8](02-local-setup-and-test-data.md#8-start-again-with-a-clean-database)).
 2. Create the second cleaner, Cleo, and give both cleaners a base pin ([doc 02 §3 and §4](02-local-setup-and-test-data.md#3-create-the-test-accounts)).
 3. Run `manage.py send_reminders` by hand whenever a case says so. To make deadlines pass without waiting, use the SQL shortcuts in [doc 02 §6](02-local-setup-and-test-data.md#booking-windows-deadlines).
 4. Run the new and changed cases:
@@ -30,8 +30,10 @@ Booking windows steps 1 to 4 are on `main` (#40, #42, #43, #44). Pooling (step 5
 | Instant Book, response rate, listing pauses | HV-24 to HV-32 | [02 Hosts and vehicles](components/02-hosts-and-vehicles.md#instant-book-and-response-rate) |
 | Driver hire deadlines and similar drivers | DH-34 to DH-44 | [05 Driver hire](components/05-driver-hire.md#booking-windows) |
 | Wash payment, job board, tiers, releases, auto-cancel | Every row with an empty **Result** | [07 Vehicle wash](components/07-vehicle-wash.md) |
+| Pooling request deadlines and driver response stats | CP-32 to CP-38 | [06 Car pooling](components/06-car-pooling.md#booking-windows) |
+| Corporate accounts, policies and approval windows | CO-06 to CO-21 | [12 Corporate](components/12-corporate.md#workflows-to-specify-and-test) |
 | Admin wash rescue | AD-11, AD-38, AD-39 | [09 Admin console](components/09-admin-console.md) |
-| Click-through demo | Sections 2, 2b, 5 and 7 | [06 Demo walkthrough](06-demo-walkthrough.md) |
+| Click-through demo | Sections 2, 2b, 5, 7, 8 | [06 Demo walkthrough](06-demo-walkthrough.md) |
 
 Trip handover now uses codes instead of the QR: the host gives a check-in and a check-out code, the renter enters them with a 360° set of photos. Retest [04 Trip handover](components/04-trip-handover.md).
 

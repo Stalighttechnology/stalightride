@@ -2,7 +2,7 @@
 
 Decided on 2026-11-20. The step-by-step prompts are in [`antigravity-prompts.md`](antigravity-prompts.md).
 
-## Build status (2026-11-21)
+## Build status
 
 | Step | Status | Merged in | Migration | Test it with |
 | --- | --- | --- | --- | --- |
@@ -10,8 +10,8 @@ Decided on 2026-11-20. The step-by-step prompts are in [`antigravity-prompts.md`
 | 2. Hosts: Instant Book, response stats, pausing listings | **Built** | #42 | `0032_instant_book_and_host_accountability` | [02 Hosts and vehicles](../components/02-hosts-and-vehicles.md#instant-book-and-response-rate) |
 | 3. Driver hire | **Built** | #43 | `0033_driver_booking_windows` | [05 Driver hire](../components/05-driver-hire.md#booking-windows) |
 | 4. Doorstep washes: job board with tiers | **Built** | #44 | `0034_wash_booking_dispatch` | [07 Vehicle wash](../components/07-vehicle-wash.md) |
-| 5. Pooling | Not started | | | Pool requests still never expire |
-| 6. Corporate | Not started | | | |
+| 5. Pooling: request windows, 1h cutoff, halfway reminder, response stats | **Built** | #45 | `0035_pool_request_booking_windows` | [06 Car pooling](../components/06-car-pooling.md#booking-windows) |
+| 6. Corporate: accounts, policies, parallel approval windows, GST invoicing | **Built** | #49 | `0038_corporate_accounts_and_approval_windows` | [12 Corporate](../components/12-corporate.md#workflows-to-specify-and-test) |
 
 Migration `0031_dashboard_stats` (#41) is unrelated and sits between steps 1 and 2. The rules as built are in [Business rules §17](../03-business-rules.md#17-booking-windows).
 

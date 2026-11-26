@@ -145,7 +145,7 @@ A database trigger announces each change. The WebSocket server then re-reads the
 
 ## Booking windows and dispatch
 
-Built in #40, #42, #43 and #44 (migrations 0030 and 0032 to 0034). Pooling and corporate are not built yet. The rules are in [Business rules §17](03-business-rules.md#17-booking-windows), and the design is in [booking-windows/suggested-approach.md](booking-windows/suggested-approach.md).
+Built in #40, #42, #43, #44, #45 and #49 (migrations 0030 to 0035, and 0038). Covers rentals, hosts, driver hire, doorstep washes, car pooling and corporate travel. The rules are in [Business rules §17](03-business-rules.md#17-booking-windows), and the design is in [booking-windows/suggested-approach.md](booking-windows/suggested-approach.md).
 
 ```mermaid
 flowchart LR
@@ -165,21 +165,24 @@ flowchart LR
 | Piece | Where |
 | --- | --- |
 | Deadline formula | `booking_deadline()` |
-| Stored deadlines | `respond_by`, `pay_by`, `confirmed_at`, `respond_reminded_at`, `pay_reminded_at` on `bookings` and `driver_bookings`. `pay_by`, `tier_notified`, `admin_alerted_at` on `wash_bookings` |
-| Approval and payment guards | `prevent_booking_conflict`, `prevent_driver_booking_conflict`, `trg_zz_booking_windows`, `trg_zz_driver_booking_windows`, `wallet_pay_*`. The `zz` triggers run after the update-scope triggers because Postgres runs BEFORE triggers in name order |
+| Stored deadlines | `respond_by`, `pay_by`, `confirmed_at`, `respond_reminded_at`, `pay_reminded_at` on `bookings` and `driver_bookings`. `pay_by`, `tier_notified`, `admin_alerted_at` on `wash_bookings`. `respond_by`, `respond_reminded_at` on `pool_requests` |
+| Approval and payment guards | `prevent_booking_conflict`, `prevent_driver_booking_conflict`, `enforce_pool_request_guard`, `trg_zz_booking_windows`, `trg_zz_driver_booking_windows`, `wallet_pay_*`. The `zz` triggers run after the update-scope triggers because Postgres runs BEFORE triggers in name order |
 | Razorpay checks | `create_*_razorpay_order` refuse with under 5 minutes left. `verify_*` and the webhook refund late payments to the wallet |
 | Host accountability | `vehicles.instant_book`, `vendors.listings_paused_at`, `host_response_stats()`, `reactivate_vendor_listings()` |
-| Driver alternatives | `similar_drivers()`, `trg_cancel_linked_driver_hire` |
+| Driver alternatives | `similar_drivers()`, `trg_cancel_linked_driver_hire`, `pool_driver_response_stats()` |
 | Wash dispatch | `cleaners.base_lat`, `base_lng`, `radius_km`, `haversine_km()`, `can_cleaner_see_wash_job()`, `wash_job_board()`, `claim_wash_job()`, `release_wash_job()`, `admin_assign_wash_cleaner()` |
+| Corporate travel | `companies`, `company_members`, `company_policies`, `company_trips`, `company_invoices`, `check_corporate_policy()`, `create_corporate_trip()`, `corporate_decide_trip()`, `generate_corporate_invoice()` |
+| Trip handover codes | `booking_handover_codes`, 360° photo check-in and check-out via `submitInspection` |
+| Pickup location privacy | `vehicle_locations`, `address_area()` |
 | Dashboard totals (#41) | `host_dashboard_stats()`, `driver_dashboard_stats()`, `wash_center_dashboard_stats()` |
 
-The frontend only displays deadlines (`/bookings`, `/hires`, `/washes`, `/vendor`, `/driver-dashboard`, `/cleaner-dashboard`) and never recomputes them. The cleaner job board refreshes live over the WebSocket.
+The frontend only displays deadlines (`/bookings`, `/hires`, `/washes`, `/pooling/driver`, `/corporate`, `/vendor`, `/driver-dashboard`, `/cleaner-dashboard`) and never recomputes them. The cleaner job board refreshes live over the WebSocket.
 
 ## How to change something safely
 
 | Change | What to do |
 | --- | --- |
-| Business rule or schema | Add a re-runnable `RunSQL` migration in `backend/core/migrations/` with the next number (latest: `0034_wash_booking_dispatch`). Update the schema counts in `backend/tests/test_db_roles.py`, `frontend/src/tests/harness/fake-backend.ts` and the flow tests |
+| Business rule or schema | Add a re-runnable `RunSQL` migration in `backend/core/migrations/` with the next number (latest: `0040_review_reply_and_booking_host_integrity`). Update the schema counts in `backend/tests/test_db_roles.py`, `frontend/src/tests/harness/fake-backend.ts` and the flow tests |
 | Two branches both add a migration | Renumber one so the chain has a single latest migration. `test_core_migration_graph_has_one_leaf` fails otherwise |
 | Price calculation | Update the database function and its frontend preview together |
 | Check-in window | Update `trip-window.ts` and `trip_window.py` together |

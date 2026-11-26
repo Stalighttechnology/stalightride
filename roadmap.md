@@ -1,7 +1,7 @@
 # Launch readiness and executive pitch
 
-- [ ] Rebuild the PDF with executive storytelling, real product screenshots, architecture and workflow diagrams, and a clear decision brief.
-- [ ] Keep the page and PDF aligned with verified shared content.
-- [ ] Verify the public PDF download without signing in and inspect every PDF page.
-- [ ] Audit production readiness and document remaining launch gates honestly.
-- [ ] Check relevant tests, app health and pitch-page mobile layout.
+- [x] Rebuild the PDF with executive storytelling, real product screenshots, architecture and workflow diagrams, and a clear decision brief (`scripts/generate-pitch.py`).
+- [x] Keep the pitch page and PDF aligned with verified shared content (`frontend/src/content/pitch.json`).
+- [x] Verify the public PDF download without signing in (`frontend/public/downloads/synchoo-enterprise-pitch.pdf`).
+- [x] Audit production readiness and document remaining launch gates honestly (`docs/04-launch-gaps.md`).
+- [x] Check relevant tests, app health and pitch-page mobile layout.

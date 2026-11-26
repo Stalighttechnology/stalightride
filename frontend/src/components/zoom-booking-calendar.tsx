@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState } from "react";
 import {
   CalendarDays,
   Clock,
@@ -10,6 +10,11 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  WheelPicker,
+  WheelPickerWrapper,
+  type WheelPickerOption,
+} from "@/components/wheel-picker";
 
 export interface BookedDateRange {
   start_date: string; // YYYY-MM-DD
@@ -135,63 +140,29 @@ export function ScrollableTimeDrum({
   onChange: (time: string) => void;
   isSlotDisabled?: (time: string) => boolean;
 }) {
-  const ITEM_HEIGHT = 44;
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isScrollingRef = useRef(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Sync scroll position when `value` changes externally
-  useEffect(() => {
-    if (isScrollingRef.current) return;
-    const idx = slots.indexOf(value);
-    if (idx >= 0 && containerRef.current) {
-      containerRef.current.scrollTo({
-        top: idx * ITEM_HEIGHT,
-        behavior: "smooth",
-      });
-    }
-  }, [value, slots]);
-
-  const handleScroll = () => {
-    isScrollingRef.current = true;
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      if (!containerRef.current) return;
-      const currentScrollTop = containerRef.current.scrollTop;
-      const rawIdx = Math.round(currentScrollTop / ITEM_HEIGHT);
-      const validIdx = Math.max(0, Math.min(slots.length - 1, rawIdx));
-      const targetSlot = slots[validIdx];
-      if (targetSlot && !isSlotDisabled?.(targetSlot) && targetSlot !== value) {
-        onChange(targetSlot);
-      }
-      containerRef.current.scrollTo({
-        top: validIdx * ITEM_HEIGHT,
-        behavior: "smooth",
-      });
-      isScrollingRef.current = false;
-    }, 100);
-  };
-
-  const handleSlotClick = (slot: string, idx: number) => {
-    if (isSlotDisabled?.(slot)) return;
-    onChange(slot);
-    containerRef.current?.scrollTo({
-      top: idx * ITEM_HEIGHT,
-      behavior: "smooth",
-    });
-  };
+  const options = useMemo<WheelPickerOption<string>[]>(
+    () =>
+      slots.map((slot) => ({
+        value: slot,
+        label: formatZoomTimeSlot(slot),
+        disabled: isSlotDisabled ? isSlotDisabled(slot) : false,
+      })),
+    [slots, isSlotDisabled],
+  );
 
   const activeIdx = Math.max(0, slots.indexOf(value));
   const canGoPrev = activeIdx > 0;
   const canGoNext = activeIdx < slots.length - 1;
 
   const handleStep = (direction: -1 | 1) => {
-    const nextIdx = activeIdx + direction;
-    if (nextIdx >= 0 && nextIdx < slots.length) {
+    let nextIdx = activeIdx + direction;
+    while (nextIdx >= 0 && nextIdx < slots.length) {
       const nextSlot = slots[nextIdx];
       if (!isSlotDisabled?.(nextSlot)) {
-        handleSlotClick(nextSlot, nextIdx);
+        onChange(nextSlot);
+        return;
       }
+      nextIdx += direction;
     }
   };
 
@@ -223,41 +194,24 @@ export function ScrollableTimeDrum({
         </div>
       </div>
 
-      <div className="relative w-full h-[132px] overflow-hidden rounded-2xl bg-muted/15 border border-border/70 select-none">
-        {/* Subtle top & bottom 3D drum gradient fades */}
-        <div className="pointer-events-none absolute top-0 inset-x-0 h-8 bg-gradient-to-b from-card via-card/75 to-transparent z-20" />
-        <div className="pointer-events-none absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-card via-card/75 to-transparent z-20" />
-
-        {/* Center active slot framing line (Zoomcar style top & bottom borders) */}
-        <div className="pointer-events-none absolute top-[44px] inset-x-0 h-[44px] border-y-2 border-brand/80 bg-brand/5 z-10" />
-
-        {/* Genuine scrollable time drum wheel */}
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          className="h-[132px] w-full overflow-y-auto no-scrollbar inapp-scroll snap-y snap-mandatory py-[44px]"
-        >
-          {slots.map((slot, idx) => {
-            const isSelected = slot === value;
-            const disabled = isSlotDisabled ? isSlotDisabled(slot) : false;
-            return (
-              <div
-                key={slot}
-                onClick={() => handleSlotClick(slot, idx)}
-                className={cn(
-                  "h-[44px] w-full flex items-center justify-center snap-center cursor-pointer transition-all duration-150 px-2",
-                  isSelected
-                    ? "text-base sm:text-lg font-bold text-foreground scale-105"
-                    : "text-xs sm:text-sm font-medium text-muted-foreground/60 hover:text-foreground hover:scale-100",
-                  disabled && "line-through opacity-30 cursor-not-allowed text-muted-foreground",
-                )}
-              >
-                {formatZoomTimeSlot(slot)}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <WheelPickerWrapper className="w-full rounded-2xl border-border/70 bg-muted/15 px-1">
+        <WheelPicker
+          options={options}
+          value={value}
+          onValueChange={(next) => {
+            if (!isSlotDisabled?.(next)) {
+              onChange(next);
+            }
+          }}
+          visibleCount={12}
+          optionItemHeight={40}
+          classNames={{
+            optionItem: "text-xs sm:text-sm font-medium text-muted-foreground/70 data-disabled:line-through data-disabled:opacity-30",
+            highlightWrapper: "border-y-2 border-brand/80 bg-brand/5 text-foreground",
+            highlightItem: "text-sm sm:text-base font-bold text-foreground data-disabled:line-through data-disabled:opacity-30",
+          }}
+        />
+      </WheelPickerWrapper>
     </div>
   );
 }
