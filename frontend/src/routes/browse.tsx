@@ -4,7 +4,12 @@ import { z } from "zod";
 import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import {
+  CompactDateRangePicker,
+  formatIsoDate,
+  parseIsoDate,
+} from "@/components/CompactDateRangePicker";
 import { CityPicker } from "@/components/city-picker";
 import { CITIES, useSelectedCity } from "@/components/city-selector";
 
@@ -23,7 +28,6 @@ import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSavedVehicles } from "@/hooks/use-saved-items";
@@ -609,20 +613,77 @@ function Browse() {
       </div>
 
       <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogContent className="max-w-xl p-0 overflow-hidden bg-card border-border/80">
-          <div className="p-3 sm:p-5 max-h-[85vh] overflow-y-auto">
-            <ZoomBookingCalendar
-              startDate={params.from ?? ""}
-              endDate={params.to ?? ""}
-              startTime={params.pickupTime ?? "08:00"}
-              endTime={params.dropoffTime ?? "09:00"}
-              onStartDateChange={(d) => update({ from: d || undefined })}
-              onEndDateChange={(d) => update({ to: d || undefined })}
-              onStartTimeChange={(t) => update({ pickupTime: t || undefined })}
-              onEndTimeChange={(t) => update({ dropoffTime: t || undefined })}
-              continueButtonLabel="APPLY DATES & SLOTS"
-              onContinue={() => setCalendarOpen(false)}
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[358px] p-4 bg-card border-border/80 rounded-2xl">
+          <DialogHeader className="pb-1">
+            <DialogTitle className="text-sm font-bold flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-brand" />
+              Rental Dates &amp; Times
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-3">
+            <CompactDateRangePicker
+              value={{
+                start: parseIsoDate(params.from),
+                end: parseIsoDate(params.to),
+              }}
+              onChange={(range) =>
+                update({
+                  from: formatIsoDate(range.start) || undefined,
+                  to: formatIsoDate(range.end) || undefined,
+                })
+              }
+              className="w-full"
             />
+            <div className="grid w-full grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Pickup time
+                </Label>
+                <TimePicker
+                  value={params.pickupTime ?? "08:00"}
+                  onChange={(t) => update({ pickupTime: t || undefined })}
+                  className="h-9 rounded-xl text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Drop-off time
+                </Label>
+                <TimePicker
+                  value={params.dropoffTime ?? "09:00"}
+                  onChange={(t) => update({ dropoffTime: t || undefined })}
+                  className="h-9 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+            <div className="flex w-full items-center gap-2 pt-1">
+              {(params.from || params.to) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl text-xs"
+                  onClick={() =>
+                    update({
+                      from: undefined,
+                      to: undefined,
+                      pickupTime: undefined,
+                      dropoffTime: undefined,
+                    })
+                  }
+                >
+                  Clear
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                className="btn-gradient flex-1 h-9 rounded-xl text-xs font-semibold"
+                onClick={() => setCalendarOpen(false)}
+              >
+                Apply dates &amp; times
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

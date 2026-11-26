@@ -71,12 +71,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  RentalCalendarSelector,
   formatZoomDate,
   formatZoomSummaryTime,
 } from "@/components/rental-calendar-selector";
+import {
+  CompactDateRangePicker,
+  formatIsoDate,
+  parseIsoDate,
+} from "@/components/CompactDateRangePicker";
 import { useSession } from "@/hooks/use-session";
-import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 
 const vehicleSearch = z.object({
@@ -151,6 +154,20 @@ function VehiclePage() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false);
   const [bookedRanges, setBookedRanges] = useState<BookedRange[]>([]);
+
+  const disabledCalendarDates = useMemo(() => {
+    if (!bookedRanges.length) return [];
+    const blocked: Date[] = [];
+    const base = new Date();
+    base.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 180; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+      if (isPickupDateFullyBlocked(toIsoDate(d), bookedRanges)) {
+        blocked.push(d);
+      }
+    }
+    return blocked;
+  }, [bookedRanges]);
   const [hostStats, setHostStats] = useState<{
     response_rate: number | null;
     median_response_minutes: number | null;
@@ -1339,39 +1356,113 @@ function VehiclePage() {
 
       {/* Expanded Modal Calendar Dialog */}
       <Dialog open={calendarDialogOpen} onOpenChange={setCalendarDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border-border/80">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-[366px] p-4 bg-card border-border/80 rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-1">
+            <DialogTitle className="text-sm font-bold flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-brand" />
-              Choose Rental Dates & Time Slots
+              Choose Rental Dates &amp; Times
             </DialogTitle>
           </DialogHeader>
-          <div className="p-2 sm:p-4 max-h-[85vh] overflow-y-auto">
-            <RentalCalendarSelector
-              vehicle={v}
-              bookedRanges={bookedRanges}
-              startDate={start}
-              endDate={end}
-              pickupTime={pickupTime}
-              dropoffTime={dropoffTime}
-              fulfillmentType={fulfillmentType}
-              deliveryAddress={deliveryAddress}
-              onStartDateChange={handleStartChange}
-              onEndDateChange={(d) => setEnd(d)}
-              onPickupTimeChange={(t) => setPickupTime(t)}
-              onDropoffTimeChange={(t) => setDropoffTime(t)}
-              onFulfillmentTypeChange={setFulfillmentType}
-              onDeliveryAddressChange={setDeliveryAddress}
-              onBookClick={() => {
-                setCalendarDialogOpen(false);
+          <div className="flex flex-col items-center space-y-3">
+            {/* Hub Pickup vs Home Delivery */}
+            <div className="grid w-full grid-cols-2 gap-1.5 rounded-xl bg-muted/50 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setFulfillmentType("pickup")}
+                className={`rounded-lg py-1.5 font-semibold transition-colors ${
+                  fulfillmentType === "pickup"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Hub Pickup (Free)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFulfillmentType("delivery")}
+                className={`rounded-lg py-1.5 font-semibold transition-colors ${
+                  fulfillmentType === "delivery"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Delivery {myProfile?.membership_plan === "black" ? "(VIP Free)" : "(+₹350)"}
+              </button>
+            </div>
+
+            {fulfillmentType === "delivery" && (
+              <div className="w-full space-y-1">
+                <Label htmlFor="modal-delivery-address" className="text-[11px] font-medium text-muted-foreground">
+                  Delivery address in {v.city}
+                </Label>
+                <Input
+                  id="modal-delivery-address"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="Apartment, street, or landmark..."
+                  className="h-9 rounded-xl text-xs"
+                />
+              </div>
+            )}
+
+            <CompactDateRangePicker
+              value={{
+                start: parseIsoDate(start),
+                end: parseIsoDate(end),
               }}
-              bookingLoading={booking}
-              isOwner={isOwner}
-              isDlApproved={dlOk}
-              user={user}
-              membershipPlan={myProfile?.membership_plan}
-              coupon={coupon}
+              disabledDates={disabledCalendarDates}
+              onChange={(range) => {
+                const nextStart = formatIsoDate(range.start);
+                const nextEnd = formatIsoDate(range.end);
+                if (nextStart !== start) {
+                  handleStartChange(nextStart);
+                }
+                setEnd(nextEnd);
+              }}
+              className="w-full"
             />
+
+            <div className="grid w-full grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Pickup time
+                </Label>
+                <TimePicker
+                  value={pickupTime}
+                  onChange={(t) => setPickupTime(t)}
+                  isTimeDisabled={(t) => Boolean(start && isPickupSlotBlocked(start, t, bookedRanges))}
+                  className="h-9 rounded-xl text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Drop-off time
+                </Label>
+                <TimePicker
+                  value={dropoffTime}
+                  onChange={(t) => setDropoffTime(t)}
+                  isTimeDisabled={(t) =>
+                    Boolean(end && isDropoffSlotBlocked(end, t, start, pickupTime, bookedRanges))
+                  }
+                  className="h-9 rounded-xl text-xs"
+                />
+              </div>
+            </div>
+
+            {scheduleConflict && (
+              <p className="w-full rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive">
+                {scheduleConflict}
+              </p>
+            )}
+
+            <Button
+              type="button"
+              size="sm"
+              className="btn-gradient w-full h-9 rounded-xl text-xs font-semibold"
+              onClick={() => setCalendarDialogOpen(false)}
+            >
+              Apply Schedule
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
