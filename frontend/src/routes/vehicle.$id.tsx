@@ -29,6 +29,7 @@ import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { VehicleMap } from "@/components/vehicle-map";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { computeCharges } from "@/lib/charges";
+import { usePlatformSettings } from "@/hooks/use-platform-settings";
 import { SAVED_VEHICLES_EVENT } from "@/hooks/use-saved-items";
 import { toast } from "sonner";
 import {
@@ -420,15 +421,16 @@ function VehiclePage() {
     [dropoffTime, end, pickupTime, start, v],
   );
   const subtotal = priceBreakdown.subtotal;
+  const settings = usePlatformSettings();
   const charges = useMemo(
     () =>
       computeCharges(
         subtotal,
-        undefined,
+        settings,
         coupon ? { percent_off: coupon.percent_off, amount_off: coupon.amount_off } : undefined,
         myProfile?.membership_plan,
       ),
-    [subtotal, coupon, myProfile?.membership_plan],
+    [subtotal, settings, coupon, myProfile?.membership_plan],
   );
 
   const handleStartChange = (d: string) => {
