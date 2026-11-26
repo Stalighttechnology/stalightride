@@ -398,16 +398,12 @@ function CleanerDashboard() {
     photos?: string[],
     note?: string,
   ) => {
+    if (nextStatus === "completed" && (!photos || photos.length === 0)) {
+      toast.error("At least one completion photo is required to mark the wash as completed.");
+      return;
+    }
     setActiveJobId(jobId);
-    // After photos are required on complete (WP-03)
-    const cleanPhotos =
-      photos && photos.length
-        ? photos
-        : nextStatus === "completed"
-          ? [
-              "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=600&auto=format&fit=crop&q=60",
-            ]
-          : [];
+    const cleanPhotos = photos && photos.length ? photos : [];
     const { error } = await api.rpc("advance_wash_status", {
       _wash_booking_id: jobId,
       _next_status: nextStatus,
@@ -432,6 +428,10 @@ function CleanerDashboard() {
 
   const handleCompleteWithPhotos = async () => {
     if (!completingJob) return;
+    if (washPhotos.length === 0) {
+      toast.error("Please take or upload at least one completion photo of the washed vehicle.");
+      return;
+    }
     setSubmittingCompletion(true);
     try {
       const paths: string[] = [];
@@ -1264,7 +1264,7 @@ function CleanerDashboard() {
                 type="button"
                 size="sm"
                 onClick={handleCompleteWithPhotos}
-                disabled={submittingCompletion}
+                disabled={submittingCompletion || washPhotos.length === 0}
                 className="gap-1.5 text-xs"
               >
                 {submittingCompletion ? (
@@ -1273,7 +1273,10 @@ function CleanerDashboard() {
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Confirm &amp; Complete Job
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {washPhotos.length === 0
+                      ? "Add photo to complete"
+                      : `Confirm & Complete (${washPhotos.length} photo${washPhotos.length > 1 ? "s" : ""})`}
                   </>
                 )}
               </Button>

@@ -206,9 +206,15 @@ function ReceiptPage() {
                       Refunded
                     </Badge>
                   )}
-                  {data.paymentStatus === "partially_refunded" && (
+                  {data.paymentStatus === "partially_refunded" && data.refund > 0 && (
                     <Badge variant="outline" className="border-amber-300 text-amber-700">
                       Partly refunded
+                    </Badge>
+                  )}
+                  {(data.paymentStatus === "no_refund" ||
+                    (data.status === "cancelled" && data.refund === 0 && data.paymentStatus !== "unpaid" && data.paymentStatus !== "pending")) && (
+                    <Badge variant="outline" className="border-rose-300 text-rose-700">
+                      Cancelled — Non-refundable
                     </Badge>
                   )}
                 </div>
