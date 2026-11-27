@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { usePage, ListPager } from "@/components/list-pager";
+import { useConfirm } from "@/components/confirm-dialog";
 import {
   Sparkles,
   MapPin,
@@ -87,6 +88,7 @@ const DEFAULT_SERVICES = [
 
 function CleanerDashboard() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [profile, setProfile] = useState<CleanerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -310,11 +312,15 @@ function CleanerDashboard() {
     const hoursLeft = (slotStart.getTime() - Date.now()) / (3600 * 1000);
     const isLate = hoursLeft < 12;
 
-    const ok = window.confirm(
-      isLate
-        ? "Warning: This wash job starts in less than 12 hours. Releasing it now will count as a late strike (2 strikes in 30 days exclude you from priority Tier 1 dispatch). Do you want to release it?"
-        : "Are you sure you want to release this wash job back to the available job board?"
-    );
+    const ok = await confirm({
+      title: isLate ? "Release wash job with late strike?" : "Release wash job?",
+      description: isLate
+        ? "This wash job starts in less than 12 hours. Releasing it now will count as a late strike (2 strikes in 30 days exclude you from priority Tier 1 dispatch)."
+        : "Are you sure you want to release this wash job back to the available job board?",
+      confirmText: "Release job",
+      cancelText: "Keep job",
+      variant: isLate ? "destructive" : "default",
+    });
     if (!ok) return;
 
     setActiveJobId(job.id);

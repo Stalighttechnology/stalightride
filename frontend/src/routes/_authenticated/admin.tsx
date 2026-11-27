@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { toast } from "sonner";
+import { usePrompt } from "@/components/confirm-dialog";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -569,6 +570,7 @@ function AdminPage() {
 function VehicleQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const load = async () => {
     const { data, error, count } = await api
       .from("vehicles")
@@ -600,7 +602,12 @@ function VehicleQueue() {
   const decide = async (id: string, status: "approved" | "rejected") => {
     let reason: string | null = null;
     if (status === "rejected") {
-      reason = window.prompt("Rejection reason?") || null;
+      reason = await prompt({
+        title: "Rejection reason",
+        placeholder: "Enter reason for rejection…",
+        confirmText: "Reject",
+        variant: "destructive",
+      });
       if (!reason) return;
     }
     const { error } = await api
@@ -691,6 +698,7 @@ function VehicleQueue() {
 function LicenceQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const load = async () => {
     const { data, count } = await api
       .from("profiles")
@@ -720,7 +728,12 @@ function LicenceQueue() {
   const decide = async (id: string, status: "approved" | "rejected") => {
     let reason: string | null = null;
     if (status === "rejected") {
-      reason = window.prompt("Rejection reason?") || null;
+      reason = await prompt({
+        title: "Rejection reason",
+        placeholder: "Enter reason for rejection…",
+        confirmText: "Reject",
+        variant: "destructive",
+      });
       if (!reason) return;
     }
     const { error } = await api
@@ -866,6 +879,7 @@ function DocLink({ label, url }: { label: string; url: string | null | undefined
 function DisputeQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const load = async () => {
     const { data, count } = await api
       .from("disputes")
@@ -885,7 +899,12 @@ function DisputeQueue() {
   }, [pager.page]);
 
   const resolve = async (id: string) => {
-    const resolution = window.prompt("Resolution notes (visible to both parties)?");
+    const resolution = await prompt({
+      title: "Resolve dispute",
+      description: "Resolution notes (visible to both parties).",
+      placeholder: "Enter resolution notes…",
+      confirmText: "Resolve",
+    });
     if (!resolution?.trim()) return;
     const { error } = await api
       .from("disputes")
@@ -1012,6 +1031,7 @@ function DisputeCard({
 function HostQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const load = async () => {
     const { data, error, count } = await api
       .from("vendors")
@@ -1128,6 +1148,7 @@ function HostQueue() {
 function DriverQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const load = async () => {
     const { data, error, count } = await api
       .from("drivers")
@@ -1159,7 +1180,12 @@ function DriverQueue() {
   const decide = async (id: string, status: "approved" | "rejected") => {
     let reason: string | null = null;
     if (status === "rejected") {
-      reason = window.prompt("Rejection reason?") || null;
+      reason = await prompt({
+        title: "Rejection reason",
+        placeholder: "Enter reason for rejection…",
+        confirmText: "Reject",
+        variant: "destructive",
+      });
       if (!reason) return;
     }
     const { error } = await api
@@ -1251,6 +1277,7 @@ function DriverQueue() {
 function WashQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const [cleaners, setCleaners] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [assign, setAssign] = useState<Record<string, string>>({});
@@ -1329,7 +1356,13 @@ function WashQueue() {
   const decide = async (b: any, decision: "rejected" | "completed") => {
     let note: string | null = null;
     if (decision === "rejected") {
-      note = window.prompt("Reason for cancellation / refund?") || null;
+      note = await prompt({
+        title: "Cancel & refund wash booking",
+        description: "Enter the reason for cancellation / refund.",
+        placeholder: "e.g. Washer unavailable in your area",
+        confirmText: "Cancel & Refund",
+        variant: "destructive",
+      });
       if (!note) return;
     }
     setBusy(b.id);
@@ -1489,6 +1522,7 @@ function WashQueue() {
 function CleanersQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const pager = usePage();
+  const prompt = usePrompt();
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
@@ -1514,7 +1548,12 @@ function CleanersQueue() {
   const decide = async (id: string, decision: "approved" | "rejected") => {
     let reason: string | null = null;
     if (decision === "rejected") {
-      reason = window.prompt("Rejection reason?") || null;
+      reason = await prompt({
+        title: "Rejection reason",
+        placeholder: "Enter reason for rejection…",
+        confirmText: "Reject",
+        variant: "destructive",
+      });
       if (!reason) return;
     }
     setBusy(id);
@@ -1611,6 +1650,7 @@ function CleanersQueue() {
 
 function WashCentersQueue() {
   const [centers, setCenters] = useState<any[] | null>(null);
+  const prompt = usePrompt();
   const [busy, setBusy] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
@@ -1663,7 +1703,12 @@ function WashCentersQueue() {
   const decideCenter = async (id: string, decision: "approved" | "rejected") => {
     let reason: string | null = null;
     if (decision === "rejected") {
-      reason = window.prompt("Rejection reason?") || null;
+      reason = await prompt({
+        title: "Rejection reason",
+        placeholder: "Enter reason for rejection…",
+        confirmText: "Reject",
+        variant: "destructive",
+      });
       if (!reason) return;
     }
     setBusy(id);
