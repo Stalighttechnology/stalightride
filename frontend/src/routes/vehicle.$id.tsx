@@ -820,8 +820,8 @@ function VehiclePage() {
             <Skeleton className="h-8 w-2/3 max-w-md" />
             <Skeleton className="h-3 w-32" />
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1fr_390px] items-start">
-            <div className="min-w-0 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px] items-start">
+            <div className="space-y-6 min-w-0">
               <Skeleton className="aspect-[16/10] rounded-2xl" />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -910,7 +910,7 @@ function VehiclePage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_390px] items-start">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px] items-start">
           <div className="min-w-0">
             {/* Mobile Zoomcar Trip Schedule Banner */}
             <div
@@ -1521,10 +1521,10 @@ function VehiclePage() {
 
             {/* Similar Cars (Smooth Draggable Carousel) */}
             {similarVehicles.length > 0 && (
-              <section className="mt-6">
+              <section className="mt-6 min-w-0 overflow-hidden">
                 <Carousel
                   opts={{ align: "start", dragFree: true }}
-                  className="w-full"
+                  className="w-full min-w-0"
                 >
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <div>

@@ -25,9 +25,10 @@ import {
   QrCode,
   CalendarDays,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CategoryIcon } from "@/components/category-icon";
 import { HeroIllustration } from "@/components/hero-illustration";
+import { toIsoDate, getEarliestBookingTimeForDate } from "@/lib/vehicle-availability";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -77,11 +78,46 @@ function Index() {
   const { city: savedCity, select: saveCity } = useSelectedCity();
   const [city, setCity] = useState(savedCity ?? "");
   const [service, setService] = useState<"rental" | "driver" | "wash">("rental");
+  const todayStr = useMemo(() => toIsoDate(new Date()), []);
+  const initialEarliest = useMemo(() => getEarliestBookingTimeForDate(todayStr) || "10:00", [todayStr]);
+
   const [pickupDate, setPickupDate] = useState("");
-  const [pickupTime, setPickupTime] = useState("10:00");
+  const [pickupTime, setPickupTime] = useState(initialEarliest);
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("10:00");
   const [rentalDatesOpen, setRentalDatesOpen] = useState(false);
+
+  // If pickupDate is today (or not selected yet), compute the strictly future earliest time:
+  const minPickupTime = useMemo(() => {
+    return getEarliestBookingTimeForDate(pickupDate || todayStr);
+  }, [pickupDate, todayStr]);
+
+  // Enforce future time if today is the trip start date
+  useEffect(() => {
+    const isToday = !pickupDate || pickupDate === todayStr;
+    if (isToday) {
+      const earliest = getEarliestBookingTimeForDate(todayStr);
+      if (earliest && pickupTime < earliest) {
+        setPickupTime(earliest);
+      }
+    }
+  }, [pickupDate, todayStr, pickupTime]);
+
+  const minReturnTime = useMemo(() => {
+    if (returnDate && pickupDate && returnDate === pickupDate) {
+      return pickupTime;
+    }
+    if (returnDate === todayStr) {
+      return minPickupTime;
+    }
+    return undefined;
+  }, [returnDate, pickupDate, pickupTime, todayStr, minPickupTime]);
+
+  useEffect(() => {
+    if (minReturnTime && returnTime < minReturnTime) {
+      setReturnTime(minReturnTime);
+    }
+  }, [minReturnTime, returnTime]);
 
   useEffect(() => {
     if (savedCity && !city) {
@@ -272,6 +308,7 @@ function Index() {
                         <TimePicker
                           value={pickupTime}
                           onChange={setPickupTime}
+                          minTime={minPickupTime}
                           placeholder="Pickup time"
                           className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm w-full"
                         />
@@ -283,6 +320,7 @@ function Index() {
                         <TimePicker
                           value={returnTime}
                           onChange={setReturnTime}
+                          minTime={minReturnTime}
                           placeholder="Return time"
                           className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm w-full"
                         />
@@ -307,6 +345,7 @@ function Index() {
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
+                        minTime={minPickupTime}
                         placeholder="Reporting time"
                         className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
                       />
@@ -330,6 +369,7 @@ function Index() {
                       <TimePicker
                         value={pickupTime}
                         onChange={setPickupTime}
+                        minTime={minPickupTime}
                         placeholder="Preferred time"
                         className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium w-full min-w-0"
                       />

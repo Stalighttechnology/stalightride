@@ -188,7 +188,7 @@ part1_items = [
         'severity': 'Critical',
         'current_defect': 'public.incidents RLS allows any authenticated user to file lost_item/accident reports against any foreign booking ID, spamming unrelated hosts.',
         'proposed_fix': 'Harden public.incidents INSERT RLS policy: require reporter to be customer or vehicle vendor/driver of the booking. Add database trigger check.',
-        'affected_files': 'backend/sql/schema.sql, backend/core/migrations/0041_incident_and_storage_security.py',
+        'affected_files': 'backend/sql/schema.sql, backend/core/migrations/0042_incident_and_storage_security.py',
         'verification_steps': '1. In psql, authenticate as user A. 2. Attempt INSERT into incidents referencing booking owned by user B. 3. Confirm insert fails with RLS permission denied error.',
         'status': 'Pending',
         'actual_result': 'Awaiting plan approval & implementation',
