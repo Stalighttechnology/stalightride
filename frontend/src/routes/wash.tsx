@@ -15,7 +15,7 @@ import { currency } from "@/lib/format";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { useSelectedCity } from "@/components/city-selector";
 import { toast } from "sonner";
-import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles, Wallet as WalletIcon, CreditCard } from "lucide-react";
+import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles, Wallet as WalletIcon, CreditCard, Building2 } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { z } from "zod";
@@ -95,6 +95,34 @@ function WashPage() {
   const [saving, setSaving] = useState(false);
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
+  const [corporateAccount, setCorporateAccount] = useState<{ companyId: string; companyName: string } | null>(null);
+  const [billToCorporate, setBillToCorporate] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setCorporateAccount(null);
+      setBillToCorporate(false);
+      return;
+    }
+    api
+      .from("company_members")
+      .select("company_id, status")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .then(async ({ data: mems }) => {
+        if (mems && mems.length > 0) {
+          const { data: comp } = await api
+            .from("companies")
+            .select("id, name, status")
+            .eq("id", mems[0].company_id)
+            .single();
+          if (comp && comp.status === "active") {
+            setCorporateAccount({ companyId: comp.id, companyName: comp.name });
+          }
+        }
+      });
+  }, [user?.id]);
   const [freeWashApplied, setFreeWashApplied] = useState<boolean>(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [paying, setPaying] = useState(false);
@@ -304,6 +332,31 @@ function WashPage() {
         }
         sessionStorage.removeItem("synchoo_pending_wash_coupon");
       } catch {}
+    }
+
+    if (billToCorporate && corporateAccount && created?.id) {
+      try {
+        const { data: corpTrip, error: corpErr } = await api.rpc("create_corporate_trip", {
+          _company_id: corporateAccount.companyId,
+          _booking_id: null,
+          _driver_booking_id: null,
+          _wash_booking_id: created.id,
+          _service_type: "wash",
+          _amount: created.price || service.price,
+          _force_personal: false,
+        });
+        if (corpErr) {
+          toast.error(`Corporate billing note: ${corpErr.message}`);
+        } else if (corpTrip && (!corpTrip.in_policy || corpTrip.status === "pending")) {
+          toast.info("Doorstep wash booking submitted for corporate manager approval (2-hour approval window).");
+        } else {
+          toast.success("Billed to corporate account!");
+        }
+      } catch (corpEx: any) {
+        toast.error(corpEx?.message || "Corporate billing check failed");
+      }
+      navigate({ to: "/washes" });
+      return;
     }
 
     const isFree = coupon && (coupon.percent_off === 100 || Number(service.price) <= Number(coupon.amount_off ?? 0));
@@ -575,6 +628,29 @@ function WashPage() {
                 ? "Free wash voucher applied! Total payable is ₹0. No payment required."
                 : "Pay now; we'll assign a nearby washer and notify you. If no washer claims before your slot, you receive a full refund to your wallet."}
             </div>
+
+            {user && corporateAccount && (
+              <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-semibold">Corporate Mobility</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
+                    {corporateAccount.companyName}
+                  </Badge>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={billToCorporate}
+                    onChange={(e) => setBillToCorporate(e.target.checked)}
+                    className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <span>Bill to corporate account (subject to policy)</span>
+                </label>
+              </div>
+            )}
 
             {user ? (
               <Button className="mt-4 w-full" disabled={saving || !service} onClick={submit}>

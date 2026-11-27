@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0040_review_reply_and_booking_host_integrity")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0041_driver_review_reply_scope")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -44,7 +44,8 @@ def test_schema_matches_the_original_migrations():
     0032's instant book & host response stats, 0033's driver booking windows,
     0034's wash booking dispatch, 0035's pool booking windows, 0036's private vehicle location,
     0037's provider-only payment notifications, 0038's corporate accounts & approval windows,
-    0039's trip handover codes (which drops 0028's complete_booking), and 0040's booking host guard.
+    0039's trip handover codes (which drops 0028's complete_booking), 0040's booking host guard,
+    and 0041's driver review reply scope.
     A change here means the schema changed."""
     tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = ANY(%s) AND NOT (schemaname = 'public' AND tablename ~ %s)",
                [APP_SCHEMAS, DJANGO_TABLE])[0][0]

@@ -370,3 +370,38 @@ def test_flag_in_policy_trip(corp_env):
     flag_row = q("SELECT is_flagged, flagged_reason FROM public.company_trips WHERE id = %s", [trip_id])[0]
     assert flag_row[0] is True
     assert flag_row[1] == "Excessive weekend travel"
+
+
+def test_generate_corporate_invoices_command(corp_env):
+    """Management command generates monthly invoices for companies with approved trips."""
+    from django.core.management import call_command
+    import io
+
+    cid = uuid.uuid4()
+    q("""INSERT INTO public.companies (id, name, gstin, billing_email, city, verification_status, wallet_balance, status)
+         VALUES (%s, 'Invoicing Corp', '29XYZAB1234C1D2', 'invoices@corp.test', 'Bengaluru', 'approved', 50000, 'active')""",
+      [cid])
+
+    q("""INSERT INTO public.company_members (company_id, user_id, role, department, monthly_limit, status)
+         VALUES (%s, %s, 'employee', 'Sales', 25000, 'active')""", [cid, corp_env.employee.id])
+
+    month_str = datetime.now(IST).strftime("%Y-%m")
+    q("""INSERT INTO public.company_trips (company_id, member_id, service_type, amount, approval_status, created_at)
+         SELECT %s, id, 'rental', 11800, 'approved', now() FROM public.company_members WHERE user_id = %s""",
+      [cid, corp_env.employee.id])
+
+    out = io.StringIO()
+    call_command("generate_corporate_invoices", month=month_str, company_id=str(cid), stdout=out)
+    output = out.getvalue()
+
+    assert "[CREATED]" in output
+    assert "Invoicing Corp" in output
+
+    inv = q("SELECT month, base_amount, cgst, sgst, total, status FROM public.company_invoices WHERE company_id = %s AND month = %s", [cid, month_str])[0]
+    assert inv[0] == month_str
+    assert inv[1] == 10000.0
+    assert inv[2] == 900.0
+    assert inv[3] == 900.0
+    assert inv[4] == 11800.0
+    assert inv[5] == "paid"
+
