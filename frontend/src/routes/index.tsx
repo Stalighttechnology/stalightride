@@ -124,7 +124,7 @@ function Index() {
       <section className="aurora relative overflow-hidden">
         <div aria-hidden className="grid-lines pointer-events-none absolute inset-0 opacity-60" />
         <div className="relative mx-auto grid max-w-7xl gap-6 sm:gap-12 px-4 pt-4 pb-16 sm:px-6 sm:py-16 md:grid-cols-[1.05fr_1fr] md:items-center md:py-24">
-          <div className="rise flex flex-col justify-center">
+          <div className="rise min-w-0 flex flex-col justify-center">
             <h1 className="font-display text-2xl xs:text-3xl sm:text-5xl md:text-[4.2rem] font-bold leading-[1.08] tracking-tight text-foreground">
               Move like the
               <br />
@@ -243,7 +243,7 @@ function Index() {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-auto p-0 border-0 bg-transparent shadow-none"
+                          className="w-auto max-w-[calc(100vw-2rem)] p-0 border-0 bg-transparent shadow-none"
                           align="start"
                           sideOffset={6}
                         >
