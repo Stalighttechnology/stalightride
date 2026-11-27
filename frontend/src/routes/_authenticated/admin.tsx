@@ -19,6 +19,7 @@ import {
   Check,
   CalendarClock,
   Bell,
+  Terminal,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,7 @@ import { CoronaNavbar } from "@/components/admin/corona-navbar";
 import { CoronaDashboardOverview } from "@/components/admin/corona-dashboard-overview";
 import { AdminProfileTab } from "@/components/admin/admin-profile-tab";
 import { AdminNotificationsTab } from "@/components/admin/admin-notifications-tab";
+import { SystemLogsTab } from "@/components/admin/system-logs-tab";
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -49,6 +51,11 @@ const TAB_TITLES: Record<string, { title: string; subtitle: string; category: st
     title: "Command Center Overview",
     subtitle: "Real-time telemetry, KPI monitoring, and fleet operational status.",
     category: "Main",
+  },
+  logs: {
+    title: "End-to-End System & Audit Logs",
+    subtitle: "Live server log stream: user logins, bookings, cancellations, payments, and system telemetry.",
+    category: "System",
   },
   notifications: {
     title: "Notifications & Action Center",
@@ -471,6 +478,15 @@ function AdminPage() {
               {activeTab === "overview" ? (
                 <>
                   <Button
+                    onClick={() => handleTabChange("logs")}
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl text-xs gap-1.5 border-border bg-card text-foreground hover:bg-muted cursor-pointer"
+                  >
+                    <Terminal className="h-3.5 w-3.5 text-emerald-500" />
+                    Server Logs
+                  </Button>
+                  <Button
                     onClick={() => handleTabChange("bookings")}
                     size="sm"
                     variant="outline"
@@ -512,6 +528,8 @@ function AdminPage() {
               searchTerm={searchTerm}
             />
           )}
+
+          {activeTab === "logs" && <SystemLogsTab />}
 
           {activeTab === "notifications" && (
             <AdminNotificationsTab onSelectTab={handleTabChange} />

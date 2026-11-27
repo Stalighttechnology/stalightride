@@ -59,6 +59,10 @@ export function CoronaSidebar({
           label: "Dashboard Overview",
         },
         {
+          id: "logs",
+          label: "Server & Audit Logs",
+        },
+        {
           id: "notifications",
           label: "Notifications",
           badgeCount: totalPending,

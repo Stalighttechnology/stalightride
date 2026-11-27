@@ -280,6 +280,13 @@ function DriverProfile() {
     if (price.error || price.subtotal <= 0)
       return toast.error(price.error ?? "Choose a valid duration");
 
+    // Require valid pickup location selection
+    if (!pickupPin.lat || !pickupPin.lng || !pickupAddress.trim()) {
+      const el = document.getElementById("driver-pickup-address");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return toast.error("Please select a pickup location on the map");
+    }
+
     // 2h minimum notice check
     const startDateTime = new Date(`${startDate}T${startTime}:00+05:30`).getTime();
     if (startDateTime < Date.now() + 2 * 60 * 60 * 1000) {
@@ -652,8 +659,15 @@ function DriverProfile() {
                       </div>
                     </div>
                   </div>
-                  <div id="driver-pickup-address">
-                    <Label className="text-xs">Pickup address</Label>
+                  <div id="driver-pickup-address" className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-foreground">
+                        Pickup Location
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Pinpoint exact location on map
+                      </span>
+                    </div>
                     <MapPicker
                       value={pickupPin}
                       address={pickupAddress}
@@ -662,7 +676,10 @@ function DriverProfile() {
                         if (v.address) setPickupAddress(v.address);
                       }}
                       onAddressChange={setPickupAddress}
-                      mapHeight="h-48"
+                      mapHeight="h-52"
+                      searchPlacement="below"
+                      autoLocate={true}
+                      placeholder="Search pickup landmark, building, metro, or area…"
                     />
                   </div>
                   <div>

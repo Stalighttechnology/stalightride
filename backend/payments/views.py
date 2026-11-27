@@ -27,6 +27,7 @@ from rest_framework.response import Response
 from core.db import db_role
 from core.query import QueryError, run, run_rpc
 from core.views import pg_error
+from core.audit import log_audit_event
 from .trip_window import handover_gate
 
 
@@ -1032,12 +1033,49 @@ def call(request, name):
     if isinstance(data.get("data"), dict):
         data = data["data"]
     try:
-        return Response({"data": fn(data, user_id)})
+        res = fn(data, user_id)
+        log_audit_event(
+            f"server_fn.{name}",
+            "payment" if any(k in name for k in ["pay", "order", "wallet", "withdrawal"]) else "booking",
+            f"Executed server action '{name}'",
+            level="info",
+            actor_id=user_id,
+            details={"action": name, "params": {k: v for k, v in data.items() if k not in ["password", "token"]}},
+            request=request,
+        )
+        return Response({"data": res})
     except FnError as e:
+        log_audit_event(
+            f"server_fn.{name}.error",
+            "error",
+            f"Server action '{name}' rejected: {str(e)}",
+            level="warning",
+            actor_id=user_id,
+            details={"action": name, "error": str(e)},
+            request=request,
+        )
         return Response({"message": str(e)}, status=e.status)
     except QueryError as e:
+        log_audit_event(
+            f"server_fn.{name}.query_error",
+            "error",
+            f"Query error during server action '{name}'",
+            level="error",
+            actor_id=user_id,
+            details={"action": name, "body": e.body},
+            request=request,
+        )
         return Response(e.body, status=e.status)
     except DatabaseError as e:
+        log_audit_event(
+            f"server_fn.{name}.db_error",
+            "error",
+            f"Database error during server action '{name}'",
+            level="error",
+            actor_id=user_id,
+            details={"action": name, "error": str(e)},
+            request=request,
+        )
         return Response(pg_error(e), status=400)
 
 
@@ -1152,4 +1190,12 @@ def razorpay_webhook(request):
                     "_description": f"Wallet top-up ({order_id}) via Webhook"
                 })
 
+    log_audit_event(
+        "payment.webhook_processed",
+        "payment",
+        f"Processed Razorpay webhook for order {order_id} (payment: {payment_id})",
+        level="info",
+        details={"order_id": order_id, "payment_id": payment_id, "notes": notes},
+        request=request,
+    )
     return Response({"status": "ok"})

@@ -40,6 +40,7 @@ export interface SearchableModule {
 
 export const ADMIN_SEARCH_MODULES: SearchableModule[] = [
   { id: "overview", label: "Dashboard Overview & Telemetry", category: "Navigation", keywords: ["home", "stats", "kpi", "overview", "revenue", "command"] },
+  { id: "logs", label: "Server & Audit Logs", category: "Navigation", keywords: ["logs", "server logs", "audit", "events", "user login", "booking log", "cancellation log", "payment log", "instructions", "telemetry"] },
   { id: "notifications", label: "Notifications & Action Center", category: "Navigation", keywords: ["alerts", "requests", "notifications", "approvals", "pending", "inbox"] },
   { id: "vehicles", label: "Vehicle Verification Queue", category: "Verification", keywords: ["cars", "rc", "insurance", "fitness", "pollution", "verify", "fleet", "reg"] },
   { id: "hosts", label: "Host KYC Queue", category: "Verification", keywords: ["vendor", "identity", "pan", "aadhaar", "host", "business", "kyc"] },

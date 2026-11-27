@@ -6,6 +6,7 @@ import {
   useRouter,
   useRouterState,
   HeadContent,
+  isRedirect,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -41,7 +42,17 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: ErrorComponentProps) {
+export function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  if (isRedirect(error)) {
+    return null;
+  }
+  const errObj = error as any;
+  if (
+    errObj?.name === "AbortError" ||
+    (typeof errObj?.message === "string" && errObj.message.toLowerCase().includes("aborted"))
+  ) {
+    return null;
+  }
   console.error("Root Error Boundary caught:", error);
   const router = useRouter();
   return (
@@ -121,8 +132,11 @@ function RootComponent() {
   useEffect(() => {
     const { data: sub } = api.auth.onAuthStateChange(async (event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      if (event === "SIGNED_OUT") {
+        router.invalidate();
+      } else {
+        queryClient.invalidateQueries();
+      }
 
       if (
         typeof window !== "undefined" &&

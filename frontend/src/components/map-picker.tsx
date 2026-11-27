@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Crosshair, MapPin, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Crosshair, MapPin, Loader2, Navigation, CheckCircle2 } from "lucide-react";
 import { loadGoogleMaps } from "@/lib/gmaps";
 
 declare global {
@@ -24,6 +25,11 @@ interface Props {
   className?: string;
   /** Tailwind height class for the map canvas. */
   mapHeight?: string;
+  /** Whether the search bar appears above or below the map. Default: "above". */
+  searchPlacement?: "above" | "below";
+  /** Automatically detect device location on mount if no value provided. */
+  autoLocate?: boolean;
+  placeholder?: string;
 }
 
 export function MapPicker({
@@ -33,6 +39,9 @@ export function MapPicker({
   onAddressChange,
   className,
   mapHeight = "h-64",
+  searchPlacement = "above",
+  autoLocate = false,
+  placeholder = "Start typing an address, area, or landmark…",
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -44,6 +53,8 @@ export function MapPicker({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [locatingDevice, setLocatingDevice] = useState(false);
+  const [deviceLocationDetected, setDeviceLocationDetected] = useState(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -78,6 +89,33 @@ export function MapPicker({
     } finally {
       if (isMountedRef.current) setSearching(false);
     }
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocatingDevice(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (!isMountedRef.current) return;
+        setLocatingDevice(false);
+        setDeviceLocationDetected(true);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        onChange({ lat, lng });
+        if (mapRef.current) {
+          mapRef.current.setZoom(16);
+          mapRef.current.panTo({ lat, lng });
+        }
+        markerRef.current?.setPosition({ lat, lng });
+        reverseGeocode(lat, lng);
+      },
+      (err) => {
+        if (!isMountedRef.current) return;
+        setLocatingDevice(false);
+        console.warn("[MapPicker] Geolocation error:", err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
   };
 
   useEffect(() => {
@@ -121,6 +159,11 @@ export function MapPicker({
           commit(marker.getPosition());
         });
         setReady(true);
+
+        // Auto-detect device location if requested and no coordinates yet
+        if (autoLocate && value.lat == null && value.lng == null && navigator.geolocation) {
+          useMyLocation();
+        }
       })
       .catch((e) => setError(e.message));
     return () => {
@@ -193,83 +236,123 @@ export function MapPicker({
     }
   };
 
-  const useMyLocation = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        onChange({ lat, lng });
-        mapRef.current?.setZoom(16);
-        mapRef.current?.panTo({ lat, lng });
-        markerRef.current?.setPosition({ lat, lng });
-        reverseGeocode(lat, lng);
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
-  };
+  const renderSearchInput = () => (
+    <div className="relative">
+      <Input
+        value={address}
+        onChange={(e) => {
+          onAddressChange(e.target.value);
+          setShowSuggest(true);
+        }}
+        onFocus={() => setShowSuggest(true)}
+        onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="h-10 rounded-xl pr-8 text-xs sm:text-sm"
+      />
+      {searching && (
+        <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+      )}
+      {showSuggest && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-border bg-popover shadow-xl animate-fade-in">
+          {suggestions.map((s) => (
+            <button
+              key={s.placeId}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pickSuggestion(s)}
+              className="flex w-full items-start gap-2 border-b border-border/40 px-3 py-2.5 text-left text-xs sm:text-sm last:border-b-0 hover:bg-muted cursor-pointer transition-colors"
+            >
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+              <span className="line-clamp-2 text-foreground">{s.text}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMapCanvas = () => (
+    <div className="relative overflow-hidden rounded-xl border border-border shadow-xs">
+      <div ref={ref} className={`${mapHeight} w-full ${ready ? "" : "map-shimmer"}`} />
+      {error && (
+        <div className="absolute inset-0 grid place-items-center bg-muted text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-destructive" />
+            {error}
+          </div>
+        </div>
+      )}
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={useMyLocation}
+        disabled={locatingDevice}
+        className="absolute right-2 top-2 shadow-md gap-1.5 h-8 text-xs rounded-lg cursor-pointer bg-background/95 hover:bg-background text-foreground"
+      >
+        {locatingDevice ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Crosshair className="h-3.5 w-3.5 text-brand" />
+        )}
+        {locatingDevice ? "Locating…" : "Current location"}
+      </Button>
+
+      {/* Floating coordinates badge if pinned */}
+      {value.lat && value.lng && (
+        <div className="absolute bottom-2 left-2 pointer-events-none">
+          <Badge
+            variant="secondary"
+            className="glass bg-background/90 text-foreground text-[10px] font-mono shadow-xs border-border/80 gap-1 px-2 py-0.5"
+          >
+            <Navigation className="h-2.5 w-2.5 text-brand" />
+            {value.lat.toFixed(5)}, {value.lng.toFixed(5)}
+          </Badge>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className={className}>
-      <div className="relative">
-        <Input
-          value={address}
-          onChange={(e) => {
-            onAddressChange(e.target.value);
-            setShowSuggest(true);
-          }}
-          onFocus={() => setShowSuggest(true)}
-          onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
-          placeholder="Start typing an address, area, or landmark…"
-          autoComplete="off"
-        />
-        {searching && (
-          <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-        )}
-        {showSuggest && suggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-lg animate-fade-in">
-            {suggestions.map((s) => (
-              <button
-                key={s.placeId}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pickSuggestion(s)}
-                className="flex w-full items-start gap-2 border-b border-border/40 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
-              >
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="line-clamp-2">{s.text}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className={`space-y-2.5 ${className ?? ""}`}>
+      {searchPlacement === "above" && (
+        <>
+          {renderSearchInput()}
+          {renderMapCanvas()}
+        </>
+      )}
 
-      <div className="relative mt-3 overflow-hidden rounded-xl border border-border">
-        <div ref={ref} className={`${mapHeight} w-full ${ready ? "" : "map-shimmer"}`} />
-        {error && (
-          <div className="absolute inset-0 grid place-items-center bg-muted text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              {error}
-            </div>
+      {searchPlacement === "below" && (
+        <>
+          {renderMapCanvas()}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+              <span>Search pickup spot or landmark</span>
+              {deviceLocationDetected && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Device location pinned
+                </span>
+              )}
+            </label>
+            {renderSearchInput()}
           </div>
+        </>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-muted-foreground pt-0.5">
+        <span>
+          {value.lat && value.lng
+            ? "Tap map or drag the pin to fine-tune your exact pickup point."
+            : "Select a pickup location on the map or type in the search bar."}
+        </span>
+        {value.lat && value.lng && (
+          <span className="font-mono text-[10px] text-foreground/80 font-medium">
+            Lat: {value.lat.toFixed(4)} &bull; Lng: {value.lng.toFixed(4)}
+          </span>
         )}
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={useMyLocation}
-          className="absolute right-2 top-2 shadow-md"
-        >
-          <Crosshair className="mr-1 h-3.5 w-3.5" /> Use my location
-        </Button>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {value.lat && value.lng
-          ? `Pin: ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)} — search, drag the marker, or tap the map to adjust.`
-          : "Search an address, tap the map, or use your current location to drop a pickup pin."}
-      </p>
     </div>
   );
 }
+

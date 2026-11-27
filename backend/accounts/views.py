@@ -25,6 +25,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.db import as_owner
+from core.audit import log_audit_event
 
 User = get_user_model()
 log = logging.getLogger(__name__)
@@ -121,6 +122,16 @@ def signup(request):
                 cur.execute("UPDATE public.profiles SET referred_by = %s WHERE id = %s", [referrer_id, user.id])
 
     session = session_for(user)
+    log_audit_event(
+        "auth.signup",
+        "auth",
+        f"New user registered: {user.email}",
+        level="success",
+        actor_id=str(user.id),
+        actor_email=user.email,
+        details={"referral_code": ref if ref else None},
+        request=request,
+    )
     return Response({"user": session["user"], "session": session})
 
 
@@ -140,9 +151,28 @@ def signin(request):
         )
     if not ok:
         _count(key)
+        log_audit_event(
+            "auth.login_failed",
+            "auth",
+            f"Failed sign-in attempt for email '{email}'",
+            level="warning",
+            actor_email=email,
+            details={"reason": "invalid_credentials"},
+            request=request,
+        )
         return _error("Invalid login credentials", "invalid_credentials")
     cache.delete(key)
     session = session_for(user)
+    log_audit_event(
+        "auth.login",
+        "auth",
+        f"User {user.email} signed in successfully",
+        level="success",
+        actor_id=str(user.id),
+        actor_email=user.email,
+        details={"method": "password"},
+        request=request,
+    )
     return Response({"user": session["user"], "session": session})
 
 
@@ -168,6 +198,13 @@ def signout(request):
             RefreshToken(str(request.data.get("refresh_token") or "")).blacklist()
     except TokenError:
         pass  # already invalid: signed out either way
+    log_audit_event(
+        "auth.signout",
+        "auth",
+        "User signed out session",
+        level="info",
+        request=request,
+    )
     return Response(status=204)
 
 
@@ -207,7 +244,26 @@ def google(request):
             user = User.objects.create_user(
                 email, full_name=claims.get("name") or email.split("@")[0], avatar_url=claims.get("picture"))
         elif not user.is_active:
+            log_audit_event(
+                "auth.google_login_failed",
+                "auth",
+                f"Banned user '{email}' attempted Google sign-in",
+                level="error",
+                actor_id=str(user.id),
+                actor_email=email,
+                request=request,
+            )
             return _error("User is banned", "user_banned", 403)
+    log_audit_event(
+        "auth.google_login",
+        "auth",
+        f"User {user.email} signed in via Google OAuth",
+        level="success",
+        actor_id=str(user.id),
+        actor_email=user.email,
+        details={"provider": "google"},
+        request=request,
+    )
     return Response(session_for(user))
 
 
@@ -227,6 +283,24 @@ def password_reset(request):
             send_mail("Reset your Synchoo password",
                       f"Open this link to choose a new password:\n\n{link}\n\nIf you did not ask for this, ignore this email.",
                       None, [user.email])
+            log_audit_event(
+                "auth.password_reset_requested",
+                "auth",
+                f"Password reset email sent to {email}",
+                level="info",
+                actor_id=str(user.id),
+                actor_email=user.email,
+                request=request,
+            )
+        else:
+            log_audit_event(
+                "auth.password_reset_unknown",
+                "auth",
+                f"Password reset requested for non-existent email '{email}'",
+                level="warning",
+                actor_email=email,
+                request=request,
+            )
     return Response({})
 
 
