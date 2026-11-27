@@ -17,6 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { currency } from "@/lib/format";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useConfirm } from "@/components/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /* ------------------------------------------------------------------ */
 /* Payouts                                                             */
@@ -24,6 +32,15 @@ import { useConfirm } from "@/components/confirm-dialog";
 export function WithdrawalQueue() {
   const [items, setItems] = useState<any[] | null>(null);
   const [filter, setFilter] = useState<"requested" | "paid" | "rejected">("requested");
+  const [pendingDecision, setPendingDecision] = useState<{
+    id: string;
+    decision: "paid" | "rejected";
+    amount: number;
+    method: string;
+    dest: string;
+  } | null>(null);
+  const [decisionInput, setDecisionInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const pager = usePage();
 
   const load = async () => {
@@ -42,26 +59,49 @@ export function WithdrawalQueue() {
     load();
   }, [filter, pager.page]);
 
-  const decide = async (id: string, decision: "paid" | "rejected") => {
-    const reference =
-      decision === "paid" ? window.prompt("Payment reference (UTR / transaction ID)") : null;
-    if (decision === "paid" && !reference?.trim()) {
-      if (reference !== null) toast.error("Enter the payment reference (UTR)"); // null: the admin cancelled
+  const openDecisionDialog = (w: any, decision: "paid" | "rejected", dest: string) => {
+    setDecisionInput("");
+    setPendingDecision({
+      id: w.id,
+      decision,
+      amount: Number(w.amount),
+      method: w.method,
+      dest,
+    });
+  };
+
+  const submitDecision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingDecision) return;
+    const trimmed = decisionInput.trim();
+    if (pendingDecision.decision === "paid" && !trimmed) {
+      toast.error("Enter the payment reference (UTR)");
       return;
     }
-    const note =
-      decision === "rejected"
-        ? (window.prompt("Reason shown to the provider (optional)") ?? undefined)
-        : undefined;
-    const { error } = await api.rpc("admin_decide_withdrawal", {
-      _withdrawal_id: id,
-      _decision: decision,
-      _reference: reference?.trim() || undefined,
-      _note: note || undefined,
-    });
-    if (error) return toast.error(error.message);
-    toast.success(decision === "paid" ? "Marked as paid" : "Rejected — amount returned to wallet");
-    load();
+
+    setSubmitting(true);
+    try {
+      const { error } = await api.rpc("admin_decide_withdrawal", {
+        _withdrawal_id: pendingDecision.id,
+        _decision: pendingDecision.decision,
+        _reference: pendingDecision.decision === "paid" ? trimmed : undefined,
+        _note: pendingDecision.decision === "rejected" && trimmed ? trimmed : undefined,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(
+        pendingDecision.decision === "paid"
+          ? "Marked as paid"
+          : "Rejected — amount returned to wallet",
+      );
+      setPendingDecision(null);
+      setDecisionInput("");
+      load();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const copy = (text: string) =>
@@ -135,13 +175,13 @@ export function WithdrawalQueue() {
                     </div>
                     {w.status === "requested" && (
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={() => decide(w.id, "paid")}>
+                        <Button size="sm" onClick={() => openDecisionDialog(w, "paid", dest)}>
                           Mark paid
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => decide(w.id, "rejected")}
+                          onClick={() => openDecisionDialog(w, "rejected", dest)}
                         >
                           Reject
                         </Button>
@@ -155,6 +195,84 @@ export function WithdrawalQueue() {
         </div>
       )}
       <ListPager {...pager} />
+
+      <Dialog
+        open={Boolean(pendingDecision)}
+        onOpenChange={(open) => {
+          if (!open && !submitting) {
+            setPendingDecision(null);
+            setDecisionInput("");
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-2xl bg-card border-border/80">
+          <form onSubmit={submitDecision} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold">
+                {pendingDecision?.decision === "paid"
+                  ? "Confirm Payout & Enter UTR"
+                  : "Reject Payout Request"}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {pendingDecision && (
+                  <>
+                    {currency(pendingDecision.amount)} ·{" "}
+                    <span className="uppercase">{pendingDecision.method}</span> ·{" "}
+                    <span className="break-all">{pendingDecision.dest}</span>
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="payout-decision-input" className="text-xs font-medium">
+                {pendingDecision?.decision === "paid"
+                  ? "Payment reference (UTR / transaction ID)"
+                  : "Reason shown to the provider (optional)"}
+              </Label>
+              <Input
+                id="payout-decision-input"
+                autoFocus
+                value={decisionInput}
+                onChange={(e) => setDecisionInput(e.target.value)}
+                placeholder={
+                  pendingDecision?.decision === "paid"
+                    ? "e.g. UTR432198765432"
+                    : "e.g. Invalid IFSC or bank account mismatch"
+                }
+                disabled={submitting}
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={submitting}
+                onClick={() => {
+                  setPendingDecision(null);
+                  setDecisionInput("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                variant={pendingDecision?.decision === "rejected" ? "destructive" : "default"}
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Saving…"
+                  : pendingDecision?.decision === "paid"
+                    ? "Confirm Paid"
+                    : "Reject Payout"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -526,7 +526,7 @@ function Browse() {
             {filters}
           </aside>
 
-          <div>
+          <div className="min-w-0">
             {!items && (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: PAGE_SIZE }).map((_, i) => (
