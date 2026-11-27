@@ -21,6 +21,7 @@ export interface InspectionPhotoUploaderProps {
   className?: string;
   recommendedTags?: string[];
   tagLabel?: string;
+  required?: boolean;
 }
 
 const DEFAULT_RECOMMENDED_ANGLES = [
@@ -42,6 +43,7 @@ export function InspectionPhotoUploader({
   className,
   recommendedTags,
   tagLabel = "Recommended:",
+  required = false,
 }: InspectionPhotoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -185,7 +187,14 @@ export function InspectionPhotoUploader({
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary dark:bg-primary/20">
             <Camera className="h-4 w-4" />
           </div>
-          <span className="font-medium text-sm text-foreground">{label}</span>
+          <span className="font-medium text-sm text-foreground">
+            {label}
+            {required && (
+              <span className="ml-0.5 text-destructive" aria-hidden="true">
+                *
+              </span>
+            )}
+          </span>
           <Badge
             variant={files.length > 0 ? "default" : "secondary"}
             className={cn(

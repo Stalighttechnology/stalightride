@@ -309,7 +309,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** The renter's check-in / check-out: five required photos, the odometer and the host's code. */
+/** The renter's check-in / check-out: nine required distinct photos, the odometer and the host's code. */
 function CheckForm({
   bookingId,
   phase,
@@ -330,9 +330,34 @@ function CheckForm({
   const uploaded = useRef(new Map<File, string>());
 
   const missing = SHOTS.filter((s) => !files[s.key]);
+  const uploadedCount = SHOTS.length - missing.length;
+
+  const fileFingerprint = (f: File) => `${f.name}:${f.size}:${f.lastModified}`;
+
+  const handlePickPhoto = (key: ShotKey, f: File) => {
+    const fp = fileFingerprint(f);
+    const duplicateSlot = SHOTS.find(
+      (s) => s.key !== key && files[s.key] && fileFingerprint(files[s.key]!) === fp,
+    );
+    if (duplicateSlot) {
+      toast.error(
+        `This photo is already uploaded for "${duplicateSlot.label}". Please upload a different photo for each angle.`,
+      );
+      return;
+    }
+    setFiles((prev) => ({ ...prev, [key]: f }));
+  };
 
   const submit = async () => {
-    if (missing.length) return toast.error(`Add the ${missing[0].label.toLowerCase()} photo`);
+    if (missing.length) {
+      return toast.error(
+        `All ${SHOTS.length} angle photos are mandatory. Missing: ${missing[0].label.toLowerCase()}`,
+      );
+    }
+    const fingerprints = SHOTS.map((s) => fileFingerprint(files[s.key]!));
+    if (new Set(fingerprints).size !== SHOTS.length) {
+      return toast.error("Please upload a different photo for each vehicle angle.");
+    }
     const odoNum = Number(odo);
     if (!odo || !Number.isInteger(odoNum) || odoNum < 0) return toast.error("Enter the odometer reading in km");
     if (minOdo != null && odoNum < minOdo) return toast.error(`Odometer can't be lower than ${minOdo} km`);
@@ -368,11 +393,16 @@ function CheckForm({
   return (
     <div className="grid gap-5">
       <div>
-        <Label className="flex items-center gap-2">
-          <Camera className="h-4 w-4" /> Car photos
-        </Label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label required className="flex items-center gap-2">
+            <Camera className="h-4 w-4" /> Car photos (all {SHOTS.length} angles mandatory)
+          </Label>
+          <Badge variant={missing.length === 0 ? "default" : "outline"} className="text-[11px]">
+            {uploadedCount}/{SHOTS.length} uploaded
+          </Badge>
+        </div>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Walk all the way round the car, clockwise from the front. The dashboard photo should show the odometer and the fuel gauge.
+          Walk all the way round the car, clockwise from the front, and upload a distinct photo for each angle. The dashboard photo must show the odometer and the fuel gauge.
         </p>
         <div className="mt-2 grid grid-cols-3 gap-2.5">
           {SHOTS.map((s) => (
@@ -381,20 +411,21 @@ function CheckForm({
               label={s.label}
               file={files[s.key]}
               disabled={busy}
-              onPick={(f) => setFiles((prev) => ({ ...prev, [s.key]: f }))}
+              onPick={(f) => handlePickPhoto(s.key, f)}
             />
           ))}
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor={`${phase}-odo`} className="flex items-center gap-2">
+          <Label htmlFor={`${phase}-odo`} required className="flex items-center gap-2">
             <Gauge className="h-4 w-4" /> Odometer (km)
           </Label>
           <Input
             id={`${phase}-odo`}
             type="number"
             inputMode="numeric"
+            required
             value={odo}
             onChange={(e) => setOdo(e.target.value)}
             placeholder={minOdo != null ? `At least ${minOdo}` : "e.g. 42315"}
@@ -402,7 +433,7 @@ function CheckForm({
           />
         </div>
         <div>
-          <Label htmlFor={`${phase}-code`} className="flex items-center gap-2">
+          <Label htmlFor={`${phase}-code`} required className="flex items-center gap-2">
             <KeyRound className="h-4 w-4" /> {phase === "pickup" ? "Check-in code" : "Check-out code"} from your host
           </Label>
           <Input
@@ -410,6 +441,7 @@ function CheckForm({
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={6}
+            required
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             placeholder="6 digits"
@@ -468,7 +500,7 @@ function PhotoSlot({
       <span
         className={`relative z-10 rounded-md px-1.5 py-0.5 font-medium ${preview ? "mt-auto mb-1.5 bg-black/60 text-white" : "text-muted-foreground"}`}
       >
-        {label}
+        {label} <span className="text-destructive">*</span>
       </span>
       <input
         type="file"

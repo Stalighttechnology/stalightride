@@ -131,6 +131,10 @@ function AuthPage() {
       toast.error("Please provide email and password");
       return;
     }
+    if (!fullName.trim()) {
+      toast.error("Please enter your full name");
+      return;
+    }
     if (password.length < 6) {
       toast.error("Password must be at least 6 characters long");
       return;
@@ -277,7 +281,7 @@ function AuthPage() {
               /* Forgot Password Form */
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="reset-email">Email Address</Label>
+                  <Label htmlFor="reset-email" required>Email Address</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -322,7 +326,7 @@ function AuthPage() {
                 <TabsContent value="signin">
                   <form onSubmit={handleSignIn} className="space-y-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="signin-email">Email Address</Label>
+                      <Label htmlFor="signin-email" required>Email Address</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -339,7 +343,7 @@ function AuthPage() {
 
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="signin-password">Password</Label>
+                        <Label htmlFor="signin-password" required>Password</Label>
                         <button
                           type="button"
                           onClick={() => setShowForgotPassword(true)}
@@ -393,12 +397,13 @@ function AuthPage() {
                       </div>
                     )}
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-name">Full Name</Label>
+                      <Label htmlFor="signup-name" required>Full Name</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="signup-name"
                           type="text"
+                          required
                           placeholder="John Doe"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
@@ -408,7 +413,7 @@ function AuthPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-email">Email Address</Label>
+                      <Label htmlFor="signup-email" required>Email Address</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -424,7 +429,7 @@ function AuthPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-password">Password</Label>
+                      <Label htmlFor="signup-password" required>Password</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input

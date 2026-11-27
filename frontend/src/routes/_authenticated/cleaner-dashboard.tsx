@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
 import { usePage, ListPager } from "@/components/list-pager";
+import { useConfirm } from "@/components/confirm-dialog";
 import {
   Sparkles,
   MapPin,
@@ -87,6 +88,7 @@ const DEFAULT_SERVICES = [
 
 function CleanerDashboard() {
   const { user } = useSession();
+  const confirm = useConfirm();
   const [profile, setProfile] = useState<CleanerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -310,11 +312,15 @@ function CleanerDashboard() {
     const hoursLeft = (slotStart.getTime() - Date.now()) / (3600 * 1000);
     const isLate = hoursLeft < 12;
 
-    const ok = window.confirm(
-      isLate
-        ? "Warning: This wash job starts in less than 12 hours. Releasing it now will count as a late strike (2 strikes in 30 days exclude you from priority Tier 1 dispatch). Do you want to release it?"
-        : "Are you sure you want to release this wash job back to the available job board?"
-    );
+    const ok = await confirm({
+      title: isLate ? "Release wash job with late strike?" : "Release wash job?",
+      description: isLate
+        ? "This wash job starts in less than 12 hours. Releasing it now will count as a late strike (2 strikes in 30 days exclude you from priority Tier 1 dispatch)."
+        : "Are you sure you want to release this wash job back to the available job board?",
+      confirmText: "Release job",
+      cancelText: "Keep job",
+      variant: isLate ? "destructive" : "default",
+    });
     if (!ok) return;
 
     setActiveJobId(job.id);
@@ -333,6 +339,12 @@ function CleanerDashboard() {
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!fullName.trim()) return toast.error("Full name is required");
+    if (!phone.trim()) return toast.error("Phone number is required");
+    if (!city.trim()) return toast.error("Operating city is required");
+    if (!serviceArea.trim()) return toast.error("Service areas / localities are required");
+    if (experience === "" || Number(experience) < 0)
+      return toast.error("Experience (years) is required");
     setSaving(true);
 
     const cleanerPayload = {
@@ -537,7 +549,7 @@ function CleanerDashboard() {
               <form onSubmit={saveProfile} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="c-name">Full name *</Label>
+                    <Label htmlFor="c-name" required>Full name</Label>
                     <Input
                       id="c-name"
                       value={fullName}
@@ -546,7 +558,7 @@ function CleanerDashboard() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="c-phone">Phone number *</Label>
+                    <Label htmlFor="c-phone" required>Phone number</Label>
                     <Input
                       id="c-phone"
                       value={phone}
@@ -559,15 +571,16 @@ function CleanerDashboard() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Operating city *</Label>
+                    <Label required>Operating city</Label>
                     <CityPicker value={city} onChange={setCity} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="c-exp">Experience (years)</Label>
+                    <Label htmlFor="c-exp" required>Experience (years)</Label>
                     <Input
                       id="c-exp"
                       type="number"
                       min="0"
+                      required
                       value={experience}
                       onChange={(e) => setExperience(e.target.value)}
                     />
@@ -575,7 +588,7 @@ function CleanerDashboard() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="c-area">Service areas / Localities *</Label>
+                  <Label htmlFor="c-area" required>Service areas / Localities</Label>
                   <Input
                     id="c-area"
                     value={serviceArea}

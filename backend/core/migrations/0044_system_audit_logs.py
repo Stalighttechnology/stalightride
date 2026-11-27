@@ -399,5 +399,5 @@ DROP TABLE IF EXISTS public.system_audit_logs;
 """
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0042_incident_and_storage_security")]
+    dependencies = [("core", "0043_driver_booked_ranges")]
     operations = [migrations.RunSQL(SQL, REVERSE)]

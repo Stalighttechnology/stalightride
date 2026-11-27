@@ -243,7 +243,12 @@ function WashCenterDashboard() {
   const saveCenterProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!centerName.trim()) return toast.error("Washing center name is required");
+    if (!city.trim()) return toast.error("City is required");
     if (!address.trim()) return toast.error("Add your facility address");
+    if (!phone.trim()) return toast.error("Contact phone is required");
+    if (!email.trim()) return toast.error("Business email is required");
+    if (!capacity || Number(capacity) < 1) return toast.error("Daily bay capacity is required");
     setSaving(true);
 
     const centerPayload = {
@@ -443,7 +448,7 @@ function WashCenterDashboard() {
               <form onSubmit={saveCenterProfile} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="w-name">Washing Center Name *</Label>
+                    <Label htmlFor="w-name" required>Washing Center Name</Label>
                     <Input
                       id="w-name"
                       value={centerName}
@@ -453,13 +458,13 @@ function WashCenterDashboard() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>City *</Label>
+                    <Label required>City</Label>
                     <CityPicker value={city} onChange={setCity} />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Full Facility Address *</Label>
+                  <Label required>Full Facility Address</Label>
                   <MapPicker
                     value={pin}
                     address={address}
@@ -474,7 +479,7 @@ function WashCenterDashboard() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="w-phone">Contact Phone *</Label>
+                    <Label htmlFor="w-phone" required>Contact Phone</Label>
                     <Input
                       id="w-phone"
                       value={phone}
@@ -484,10 +489,11 @@ function WashCenterDashboard() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="w-email">Business Email</Label>
+                    <Label htmlFor="w-email" required>Business Email</Label>
                     <Input
                       id="w-email"
                       type="email"
+                      required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="contact@autoshine.in"
@@ -497,7 +503,7 @@ function WashCenterDashboard() {
 
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="w-cap">Daily Bay Capacity (Cars/day)</Label>
+                    <Label htmlFor="w-cap" required>Daily Bay Capacity (Cars/day)</Label>
                     <Input
                       id="w-cap"
                       type="number"

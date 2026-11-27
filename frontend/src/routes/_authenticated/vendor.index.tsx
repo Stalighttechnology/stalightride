@@ -200,6 +200,7 @@ function formatTimeLeft(target: string | Date | null | undefined, now: number) {
 function VendorDashboard() {
   const { user } = useSession();
   const [vendor, setVendor] = useState<any>(null);
+  const [vendorLoaded, setVendorLoaded] = useState(false);
   const [stats, setStats] = useState<HostDashboardStats | null>(null);
   const [vehicles, setVehicles] = useState<any[] | null>(null);
   const [bookings, setBookings] = useState<any[] | null>(null);
@@ -304,11 +305,15 @@ function VendorDashboard() {
 
   const loadVendor = async () => {
     if (!user) return;
-    const { data: vend } = await api.from("vendors").select("*").eq("id", user.id).maybeSingle();
-    setVendor(vend);
-    if (vend) {
-      setBusinessName(vend.business_name);
-      setBio(vend.bio ?? "");
+    try {
+      const { data: vend } = await api.from("vendors").select("*").eq("id", user.id).maybeSingle();
+      setVendor(vend);
+      if (vend) {
+        setBusinessName(vend.business_name);
+        setBio(vend.bio ?? "");
+      }
+    } finally {
+      setVendorLoaded(true);
     }
   };
 
@@ -428,8 +433,10 @@ function VendorDashboard() {
   const saveVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return toast.error("Please sign in to register your host profile");
+    if (!businessName.trim()) return toast.error("Business or display name is required");
+    if (!bio.trim()) return toast.error("Host bio is required");
     setSaving(true);
-    const payload = { id: user.id, business_name: businessName, bio };
+    const payload = { id: user.id, business_name: businessName.trim(), bio: bio.trim() };
     const { error } = await api.from("vendors").upsert(payload);
     if (error) toast.error(error.message);
     else {
@@ -672,7 +679,11 @@ function VendorDashboard() {
       id: "kyc",
       label: "Host Verification",
       icon: ShieldCheck,
-      badge: isRegisteredHost && displayVendor.kyc_status === "approved" ? "Verified" : "Pending",
+      badge: !vendorLoaded
+        ? undefined
+        : isRegisteredHost && displayVendor.kyc_status === "approved"
+          ? "Verified"
+          : "Pending",
     },
   ] as const;
 
@@ -681,25 +692,21 @@ function VendorDashboard() {
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
-        {/* Onboarding Banner for Non-Registered Hosts */}
-        {!isRegisteredHost && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-brand/30 bg-brand/10">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-brand shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Host Profile Not Registered
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Register your host business and complete KYC verification to list vehicles and receive rental bookings.
-                </p>
-              </div>
+        {/* Onboarding Banner for Non-Registered Hosts (only after vendor query completes) */}
+        {vendorLoaded && !isRegisteredHost && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl border border-brand/30 bg-brand/10">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-semibold text-foreground leading-snug">
+                Host Profile Not Registered
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Register your host business and complete KYC verification to list vehicles and
+                receive rental bookings.
+              </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <Button asChild size="sm" className="rounded-xl">
-                <Link to="/earn">
-                  Get Started on /earn
-                </Link>
+                <Link to="/earn">Get Started on /earn</Link>
               </Button>
               <Button
                 size="sm"
@@ -753,7 +760,7 @@ function VendorDashboard() {
             <CardContent>
               <form onSubmit={saveVendor} className="space-y-4 max-w-xl">
                 <div>
-                  <Label className="text-xs">Business or Display Name</Label>
+                  <Label required className="text-xs">Business or Display Name</Label>
                   <Input
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
@@ -762,12 +769,13 @@ function VendorDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Host Bio</Label>
+                  <Label required className="text-xs">Host Bio</Label>
                   <Textarea
                     rows={3}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     placeholder="Tell renters about your vehicles and pickup location"
+                    required
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -795,18 +803,19 @@ function VendorDashboard() {
               <Badge variant="outline" className="border-brand/30 text-brand bg-brand/10">
                 <LayoutDashboard className="mr-1 h-3.5 w-3.5" /> Host Console
               </Badge>
-              {displayVendor.kyc_status === "approved" ? (
-                <Badge
-                  variant="secondary"
-                  className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                >
-                  <ShieldCheck className="mr-1 h-3 w-3" /> Verified Host
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-amber-600 border-amber-300">
-                  Verification Pending
-                </Badge>
-              )}
+              {vendorLoaded &&
+                (displayVendor.kyc_status === "approved" ? (
+                  <Badge
+                    variant="secondary"
+                    className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                  >
+                    <ShieldCheck className="mr-1 h-3 w-3" /> Verified Host
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-amber-600 border-amber-300">
+                    Verification Pending
+                  </Badge>
+                ))}
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight mt-1.5">
               {displayVendor.business_name}

@@ -32,7 +32,7 @@ DJANGO_TABLE = r"^(django_|auth_|accounts_|token_blacklist_)"
 
 def test_core_migration_graph_has_one_leaf():
     loader = MigrationLoader(connection)
-    assert loader.graph.leaf_nodes("core") == [("core", "0043_system_audit_logs")]
+    assert loader.graph.leaf_nodes("core") == [("core", "0044_system_audit_logs")]
 
 
 def test_schema_matches_the_original_migrations():
@@ -45,7 +45,7 @@ def test_schema_matches_the_original_migrations():
     0034's wash booking dispatch, 0035's pool booking windows, 0036's private vehicle location,
     0037's provider-only payment notifications, 0038's corporate accounts & approval windows,
     0039's trip handover codes (which drops 0028's complete_booking), 0040's booking host guard,
-    0041's driver review reply scope, 0042's incident and storage security, and 0043's system audit logs.
+    0041's driver review reply scope, 0042's incident and storage security, 0043's driver_booked_ranges, and 0044's system audit logs.
     A change here means the schema changed."""
     tables = q("SELECT count(*) FROM pg_tables WHERE schemaname = ANY(%s) AND NOT (schemaname = 'public' AND tablename ~ %s)",
                [APP_SCHEMAS, DJANGO_TABLE])[0][0]
@@ -57,7 +57,7 @@ def test_schema_matches_the_original_migrations():
     policies = q("SELECT count(*) FROM pg_policies")[0][0]
     grants = q("""SELECT count(*) FROM information_schema.role_table_grants
                   WHERE grantee IN ('anon', 'authenticated', 'service_role') AND table_name !~ %s""", [DJANGO_TABLE])[0][0]
-    assert (tables, functions, triggers, policies, grants) == (60, 140, 105, 160, 1128)
+    assert (tables, functions, triggers, policies, grants) == (60, 141, 105, 160, 1128)
 
 
 def test_signup_trigger_creates_profile_and_role():
