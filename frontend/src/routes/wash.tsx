@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import { Droplets, Clock, ShieldCheck, MapPin, CalendarClock, Sparkles, Wallet as WalletIcon, CreditCard, Building2 } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
-import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
 import { z } from "zod";
 import { MapPicker } from "@/components/map-picker";
 import {
@@ -506,25 +505,26 @@ function WashPage() {
                   placeholder="Hyundai i20 · KA01AB1234"
                 />
               </div>
-              <div className="pt-1">
-                <ZoomBookingCalendar
-                  startDate={form.slot_date}
-                  endDate={form.slot_date}
-                  startTime={form.slot_time}
-                  endTime={form.slot_time}
-                  onStartDateChange={(d) => setForm((prev) => ({ ...prev, slot_date: d }))}
-                  onStartTimeChange={(t) => setForm((prev) => ({ ...prev, slot_time: t }))}
-                  singleDateMode={true}
-                  startTimeLabel="Wash Slot Time"
-                  endTimeLabel="Slot Window"
-                  timeSlots={SLOTS}
-                  itemTitle={service?.title ? `${service.title} (${service.category.toUpperCase()})` : "Vehicle Doorstep Wash"}
-                  itemSubtitle={`₹${service?.price ?? 0} · Doorstep service in ${form.city || "your city"}`}
-                  continueButtonLabel="CONFIRM WASH SLOT"
-                  onContinue={() => {
-                    document.getElementById("wash-notes")?.focus();
-                  }}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Wash date</Label>
+                  <DatePicker
+                    value={form.slot_date}
+                    onChange={(d) => setForm((prev) => ({ ...prev, slot_date: d }))}
+                    minDate={new Date()}
+                    placeholder="Select wash date"
+                    className="h-9 rounded-xl text-xs"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Wash slot time</Label>
+                  <TimePicker
+                    value={form.slot_time}
+                    onChange={(t) => setForm((prev) => ({ ...prev, slot_time: t }))}
+                    slots={SLOTS}
+                    className="h-9 rounded-xl text-xs"
+                  />
+                </div>
               </div>
               <div className="grid gap-1.5 pt-2">
                 <Label htmlFor="wash-notes">Notes (optional)</Label>

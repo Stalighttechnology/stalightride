@@ -203,8 +203,7 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     max-width: 100%;
-    min-height: 100%;
-    overflow-x: clip;
+    min-height: 100dvh;
   }
   img, svg, video, canvas {
     max-width: 100%;

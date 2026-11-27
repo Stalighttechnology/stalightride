@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { parseCoord } from "@/lib/utils";
 import { Navigation, MapPin, ExternalLink, ShieldCheck } from "lucide-react";
 
 interface Props {
   query?: string;
-  lat?: number | null;
-  lng?: number | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
   className?: string;
 }
 
@@ -26,11 +27,11 @@ export function VehicleMap({ query, lat, lng, className }: Props) {
 
   // Compute resolved coordinates
   const coords = useMemo(() => {
-    const hasLat = typeof lat === "number" && !Number.isNaN(lat) && lat !== 0;
-    const hasLng = typeof lng === "number" && !Number.isNaN(lng) && lng !== 0;
+    const parsedLat = parseCoord(lat);
+    const parsedLng = parseCoord(lng);
 
-    if (hasLat && hasLng) {
-      return { lat: Number(lat), lng: Number(lng), isExact: true };
+    if (parsedLat !== null && parsedLng !== null && parsedLat !== 0 && parsedLng !== 0) {
+      return { lat: parsedLat, lng: parsedLng, isExact: true };
     }
 
     if (query) {

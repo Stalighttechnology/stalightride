@@ -4,7 +4,12 @@ import { z } from "zod";
 import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import {
+  CompactDateRangePicker,
+  formatIsoDate,
+  parseIsoDate,
+} from "@/components/CompactDateRangePicker";
 import { CityPicker } from "@/components/city-picker";
 import { CITIES, useSelectedCity } from "@/components/city-selector";
 
@@ -23,7 +28,6 @@ import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
 import { currency } from "@/lib/format";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
 import { useSavedVehicles } from "@/hooks/use-saved-items";
@@ -609,21 +613,33 @@ function Browse() {
       </div>
 
       <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogContent className="max-w-xl p-0 overflow-hidden bg-card border-border/80">
-          <div className="p-3 sm:p-5 max-h-[85vh] overflow-y-auto">
-            <ZoomBookingCalendar
-              startDate={params.from ?? ""}
-              endDate={params.to ?? ""}
-              startTime={params.pickupTime ?? "08:00"}
-              endTime={params.dropoffTime ?? "09:00"}
-              onStartDateChange={(d) => update({ from: d || undefined })}
-              onEndDateChange={(d) => update({ to: d || undefined })}
-              onStartTimeChange={(t) => update({ pickupTime: t || undefined })}
-              onEndTimeChange={(t) => update({ dropoffTime: t || undefined })}
-              continueButtonLabel="APPLY DATES & SLOTS"
-              onContinue={() => setCalendarOpen(false)}
-            />
-          </div>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[360px] sm:max-w-[680px] p-3 sm:p-4 bg-card border-border/80 rounded-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
+          <DialogHeader className="pb-1">
+            <DialogTitle className="text-sm font-bold flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-brand" />
+              Rental Dates &amp; Times
+            </DialogTitle>
+          </DialogHeader>
+          <CompactDateRangePicker
+            desktopMonths={2}
+            value={{
+              start: parseIsoDate(params.from),
+              end: parseIsoDate(params.to),
+            }}
+            onChange={(range) =>
+              update({
+                from: formatIsoDate(range.start) || undefined,
+                to: formatIsoDate(range.end) || undefined,
+              })
+            }
+            startTime={params.pickupTime ?? "08:00"}
+            endTime={params.dropoffTime ?? "09:00"}
+            onStartTimeChange={(t) => update({ pickupTime: t || undefined })}
+            onEndTimeChange={(t) => update({ dropoffTime: t || undefined })}
+            onContinue={() => setCalendarOpen(false)}
+            continueLabel="CONTINUE"
+            className="w-full max-w-none border-0 shadow-none"
+          />
         </DialogContent>
       </Dialog>
     </div>

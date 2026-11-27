@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  CompactDateRangePicker,
+  formatIsoDate,
+  parseIsoDate,
+} from "@/components/CompactDateRangePicker";
 import { CityPicker } from "@/components/city-picker";
 import { useSelectedCity } from "@/components/city-selector";
 import {
@@ -17,6 +23,7 @@ import {
   Wallet,
   Navigation,
   QrCode,
+  CalendarDays,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CategoryIcon } from "@/components/category-icon";
@@ -74,6 +81,7 @@ function Index() {
   const [pickupTime, setPickupTime] = useState("10:00");
   const [returnDate, setReturnDate] = useState("");
   const [returnTime, setReturnTime] = useState("10:00");
+  const [rentalDatesOpen, setRentalDatesOpen] = useState(false);
 
   useEffect(() => {
     if (savedCity && !city) {
@@ -198,44 +206,85 @@ function Index() {
                 </div>
 
                 {service === "rental" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs">
+                  <div className="space-y-2.5 text-xs">
                     <div className="space-y-1 min-w-0">
                       <label className="text-[11px] font-medium text-muted-foreground">
-                        Pickup
+                        Pickup &amp; Return dates
                       </label>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <DatePicker
-                          value={pickupDate}
-                          onChange={setPickupDate}
-                          minDate={new Date()}
-                          placeholder="Select date"
-                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium flex-1 min-w-0"
-                        />
+                      <Popover open={rentalDatesOpen} onOpenChange={setRentalDatesOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 sm:h-10 w-full justify-start gap-2 rounded-xl border-border/70 bg-background/90 px-3 text-left text-xs sm:text-sm font-medium hover:bg-background/95"
+                          >
+                            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-brand" />
+                            <span className="truncate flex-1 tabular-nums">
+                              {pickupDate ? (
+                                <>
+                                  {parseIsoDate(pickupDate)?.toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                  }) ?? pickupDate}
+                                  {" → "}
+                                  {returnDate
+                                    ? (parseIsoDate(returnDate)?.toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                      }) ?? returnDate)
+                                    : "Select return"}
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground font-normal">
+                                  Select pickup &amp; return dates
+                                </span>
+                              )}
+                            </span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-0 border-0 bg-transparent shadow-none"
+                          align="start"
+                          sideOffset={6}
+                        >
+                          <CompactDateRangePicker
+                            value={{
+                              start: parseIsoDate(pickupDate),
+                              end: parseIsoDate(returnDate),
+                            }}
+                            onChange={(range) => {
+                              setPickupDate(formatIsoDate(range.start));
+                              setReturnDate(formatIsoDate(range.end));
+                              if (range.start && range.end) {
+                                setRentalDatesOpen(false);
+                              }
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 min-w-0">
+                      <div className="space-y-1 min-w-0">
+                        <label className="text-[11px] font-medium text-muted-foreground">
+                          Pickup time
+                        </label>
                         <TimePicker
                           value={pickupTime}
                           onChange={setPickupTime}
-                          placeholder="Time"
-                          className="h-9 sm:h-10 rounded-xl px-2 sm:px-2.5 text-xs sm:text-sm font-medium w-auto min-w-[110px] sm:min-w-[118px] shrink-0"
+                          placeholder="Pickup time"
+                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm w-full"
                         />
                       </div>
-                    </div>
-                    <div className="space-y-1 min-w-0">
-                      <label className="text-[11px] font-medium text-muted-foreground">
-                        Return
-                      </label>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <DatePicker
-                          value={returnDate}
-                          onChange={setReturnDate}
-                          minDate={pickupDate || new Date()}
-                          placeholder="Select date"
-                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm font-medium flex-1 min-w-0"
-                        />
+                      <div className="space-y-1 min-w-0">
+                        <label className="text-[11px] font-medium text-muted-foreground">
+                          Return time
+                        </label>
                         <TimePicker
                           value={returnTime}
                           onChange={setReturnTime}
-                          placeholder="Time"
-                          className="h-9 sm:h-10 rounded-xl px-2 sm:px-2.5 text-xs sm:text-sm font-medium w-auto min-w-[110px] sm:min-w-[118px] shrink-0"
+                          placeholder="Return time"
+                          className="h-9 sm:h-10 rounded-xl px-2.5 text-xs sm:text-sm w-full"
                         />
                       </div>
                     </div>

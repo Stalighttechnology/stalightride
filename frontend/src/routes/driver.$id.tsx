@@ -18,7 +18,11 @@ import { calculateDriverPrice, type DriverRateType } from "@/lib/driver-pricing"
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
-import { ZoomBookingCalendar } from "@/components/zoom-booking-calendar";
+import {
+  CompactDateRangePicker,
+  formatIsoDate,
+  parseIsoDate,
+} from "@/components/CompactDateRangePicker";
 import { MapPicker } from "@/components/map-picker";
 import { toast } from "sonner";
 import {
@@ -600,28 +604,53 @@ function DriverProfile() {
                     </div>
                   </div>
 
-                  <div className="pt-1">
-                    <ZoomBookingCalendar
-                      startDate={startDate}
-                      endDate={rateType === "hourly" ? startDate : endDate}
-                      startTime={startTime}
-                      endTime={endTime}
-                      onStartDateChange={setStartDate}
-                      onEndDateChange={(d) => {
-                        if (rateType !== "hourly") setEndDate(d);
-                      }}
-                      onStartTimeChange={setStartTime}
-                      onEndTimeChange={setEndTime}
-                      singleDateMode={rateType === "hourly"}
-                      startTimeLabel="Start Time"
-                      endTimeLabel="End Time"
-                      itemTitle={`Hire ${driver.full_name}`}
-                      itemSubtitle={`${driver.city} · ${rateType === "hourly" ? "Hourly Service" : "Daily Service"}`}
-                      continueButtonLabel="CONFIRM SCHEDULE"
-                      onContinue={() => {
-                        document.getElementById("driver-pickup-address")?.scrollIntoView({ behavior: "smooth" });
-                      }}
-                    />
+                  <div className="space-y-3 pt-1">
+                    {rateType === "hourly" ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Service date</Label>
+                        <DatePicker
+                          value={startDate}
+                          onChange={setStartDate}
+                          minDate={new Date()}
+                          placeholder="Select date"
+                          className="h-9 rounded-xl text-xs"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center space-y-1.5">
+                        <Label className="w-full text-xs">Service dates</Label>
+                        <CompactDateRangePicker
+                          value={{
+                            start: parseIsoDate(startDate),
+                            end: parseIsoDate(endDate),
+                          }}
+                          onChange={(range) => {
+                            setStartDate(formatIsoDate(range.start));
+                            setEndDate(formatIsoDate(range.end));
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Start time</Label>
+                        <TimePicker
+                          value={startTime}
+                          onChange={setStartTime}
+                          className="h-9 rounded-xl text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">End time</Label>
+                        <TimePicker
+                          value={endTime}
+                          onChange={setEndTime}
+                          className="h-9 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div id="driver-pickup-address">
                     <Label className="text-xs">Pickup address</Label>
