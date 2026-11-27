@@ -333,6 +333,12 @@ function CleanerDashboard() {
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!fullName.trim()) return toast.error("Full name is required");
+    if (!phone.trim()) return toast.error("Phone number is required");
+    if (!city.trim()) return toast.error("Operating city is required");
+    if (!serviceArea.trim()) return toast.error("Service areas / localities are required");
+    if (experience === "" || Number(experience) < 0)
+      return toast.error("Experience (years) is required");
     setSaving(true);
 
     const cleanerPayload = {
@@ -537,7 +543,7 @@ function CleanerDashboard() {
               <form onSubmit={saveProfile} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="c-name">Full name *</Label>
+                    <Label htmlFor="c-name" required>Full name</Label>
                     <Input
                       id="c-name"
                       value={fullName}
@@ -546,7 +552,7 @@ function CleanerDashboard() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="c-phone">Phone number *</Label>
+                    <Label htmlFor="c-phone" required>Phone number</Label>
                     <Input
                       id="c-phone"
                       value={phone}
@@ -559,15 +565,16 @@ function CleanerDashboard() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Operating city *</Label>
+                    <Label required>Operating city</Label>
                     <CityPicker value={city} onChange={setCity} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="c-exp">Experience (years)</Label>
+                    <Label htmlFor="c-exp" required>Experience (years)</Label>
                     <Input
                       id="c-exp"
                       type="number"
                       min="0"
+                      required
                       value={experience}
                       onChange={(e) => setExperience(e.target.value)}
                     />
@@ -575,7 +582,7 @@ function CleanerDashboard() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="c-area">Service areas / Localities *</Label>
+                  <Label htmlFor="c-area" required>Service areas / Localities</Label>
                   <Input
                     id="c-area"
                     value={serviceArea}

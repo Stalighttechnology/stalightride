@@ -91,6 +91,9 @@ function Profile() {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!profile.full_name?.trim()) return toast.error("Full name is required");
+    if (!profile.phone?.trim()) return toast.error("Phone number is required");
+    if (!profile.city?.trim()) return toast.error("Primary city is required");
     setSaving(true);
     const { error } = await api.from("profiles").upsert({
       id: user.id,
@@ -385,11 +388,12 @@ function Profile() {
             <form onSubmit={save} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-medium">Full Name</Label>
+                  <Label required className="text-xs font-medium">Full Name</Label>
                   <Input
                     value={profile.full_name ?? ""}
                     onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
                     placeholder="Enter your full name"
+                    required
                     className="mt-1"
                   />
                 </div>
@@ -401,16 +405,17 @@ function Profile() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-medium">Phone Number</Label>
+                  <Label required className="text-xs font-medium">Phone Number</Label>
                   <Input
                     value={profile.phone ?? ""}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                     placeholder="+91 98765 43210"
+                    required
                     className="mt-1"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium">Primary City</Label>
+                  <Label required className="text-xs font-medium">Primary City</Label>
                   <div className="mt-1">
                     <CityPicker
                       value={profile.city ?? ""}
@@ -460,17 +465,18 @@ function Profile() {
             <form onSubmit={submitDl} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-medium">Licence Number</Label>
+                  <Label required className="text-xs font-medium">Licence Number</Label>
                   <Input
                     value={profile.dl_number ?? ""}
                     disabled={status === "approved" || status === "pending"}
                     onChange={(e) => setProfile({ ...profile, dl_number: e.target.value })}
                     placeholder="DL-XX-YYYY-NNNNNNN"
+                    required
                     className="mt-1"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-medium">Expiry Date</Label>
+                  <Label required className="text-xs font-medium">Expiry Date</Label>
                   <div className="mt-1">
                     <DatePicker
                       value={profile.dl_expiry ?? ""}
@@ -594,7 +600,7 @@ function DlUpload({
     <div>
       <div className="flex items-center justify-between">
         <label htmlFor={inputId} className="text-xs font-medium text-foreground cursor-pointer">
-          {label}
+          {label} <span className="text-destructive">*</span>
         </label>
         {path && (
           <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

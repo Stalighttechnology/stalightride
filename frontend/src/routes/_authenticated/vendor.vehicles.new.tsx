@@ -68,9 +68,30 @@ function NewVehicle() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!form.price_daily) return toast.error("Daily price is required");
+    if (!form.title.trim()) return toast.error("Vehicle title is required");
+    if (!form.category) return toast.error("Vehicle category is required");
+    if (!form.year || Number(form.year) < 1900) return toast.error("Valid manufacturing year is required");
+    if (!form.brand.trim()) return toast.error("Vehicle brand is required");
+    if (!form.model.trim()) return toast.error("Vehicle model is required");
+    if (!form.fuel) return toast.error("Fuel type is required");
+    if (!form.transmission) return toast.error("Transmission type is required");
+    if (!form.mileage_kmpl || Number(form.mileage_kmpl) <= 0)
+      return toast.error("Mileage (kmpl) is required");
+    if (!form.seats || Number(form.seats) < 1) return toast.error("Number of seats is required");
+    if (!form.city.trim()) return toast.error("City is required");
+    if (!form.address.trim()) return toast.error("Full pickup address is required");
     if (!pin.lat || !pin.lng)
       return toast.error("Drop a pickup pin on the map so renters can find your vehicle");
+    if (!form.price_hourly || Number(form.price_hourly) <= 0)
+      return toast.error("Hourly price is required");
+    if (!form.price_daily || Number(form.price_daily) <= 0)
+      return toast.error("Daily price is required");
+    if (!form.price_weekly || Number(form.price_weekly) <= 0)
+      return toast.error("Weekly price is required");
+    if (form.security_deposit === "" || Number(form.security_deposit) < 0)
+      return toast.error("Security deposit is required");
+    if (!form.description.trim()) return toast.error("Vehicle description is required");
+    if (files.length === 0) return toast.error("Upload at least one vehicle photo");
     if (!docs.rc || !docs.insurance || !docs.pollution)
       return toast.error("Upload RC, insurance and pollution certificate");
     setSaving(true);
@@ -168,7 +189,7 @@ function NewVehicle() {
           <CardContent className="p-6">
             <form onSubmit={submit} className="space-y-6">
               <Section title="Basics">
-                <Field label="Title">
+                <Field label="Title" required>
                   <Input
                     value={form.title}
                     onChange={(e) => set("title", e.target.value)}
@@ -177,7 +198,7 @@ function NewVehicle() {
                   />
                 </Field>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Category">
+                  <Field label="Category" required>
                     <Select value={form.category} onValueChange={(v) => set("category", v)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -190,7 +211,7 @@ function NewVehicle() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Year">
+                  <Field label="Year" required>
                     <Input
                       type="number"
                       value={form.year}
@@ -198,14 +219,14 @@ function NewVehicle() {
                       required
                     />
                   </Field>
-                  <Field label="Brand">
+                  <Field label="Brand" required>
                     <Input
                       value={form.brand}
                       onChange={(e) => set("brand", e.target.value)}
                       required
                     />
                   </Field>
-                  <Field label="Model">
+                  <Field label="Model" required>
                     <Input
                       value={form.model}
                       onChange={(e) => set("model", e.target.value)}
@@ -217,7 +238,7 @@ function NewVehicle() {
 
               <Section title="Specs">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Fuel">
+                  <Field label="Fuel" required>
                     <Select value={form.fuel} onValueChange={(v) => set("fuel", v)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -231,7 +252,7 @@ function NewVehicle() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Transmission">
+                  <Field label="Transmission" required>
                     <Select value={form.transmission} onValueChange={(v) => set("transmission", v)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -243,19 +264,23 @@ function NewVehicle() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Mileage (kmpl)">
+                  <Field label="Mileage (kmpl)" required>
                     <Input
                       type="number"
                       step="0.1"
+                      min="0.1"
                       value={form.mileage_kmpl}
                       onChange={(e) => set("mileage_kmpl", e.target.value)}
+                      required
                     />
                   </Field>
-                  <Field label="Seats">
+                  <Field label="Seats" required>
                     <Input
                       type="number"
+                      min="1"
                       value={form.seats}
                       onChange={(e) => set("seats", e.target.value)}
+                      required
                     />
                   </Field>
                 </div>
@@ -263,12 +288,12 @@ function NewVehicle() {
 
               <Section title="Pickup location">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="City">
+                  <Field label="City" required>
                     <CityPicker value={form.city} onChange={(c) => set("city", c)} />
                   </Field>
                 </div>
                 <div className="mt-2">
-                  <Label>Full address</Label>
+                  <Label required>Full address</Label>
                   <div className="mt-1">
                     <MapPicker
                       value={pin}
@@ -340,48 +365,57 @@ function NewVehicle() {
                     );
                   })()}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Hourly">
+                  <Field label="Hourly" required>
                     <Input
                       type="number"
                       step="1"
+                      min="1"
                       value={form.price_hourly}
                       onChange={(e) => set("price_hourly", e.target.value)}
+                      required
                     />
                   </Field>
-                  <Field label="Daily *">
+                  <Field label="Daily" required>
                     <Input
                       type="number"
                       step="1"
+                      min="1"
                       value={form.price_daily}
                       onChange={(e) => set("price_daily", e.target.value)}
                       required
                     />
                   </Field>
-                  <Field label="Weekly">
+                  <Field label="Weekly" required>
                     <Input
                       type="number"
                       step="1"
+                      min="1"
                       value={form.price_weekly}
                       onChange={(e) => set("price_weekly", e.target.value)}
+                      required
                     />
                   </Field>
-                  <Field label="Security deposit">
+                  <Field label="Security deposit" required>
                     <Input
                       type="number"
                       step="1"
+                      min="0"
                       value={form.security_deposit}
                       onChange={(e) => set("security_deposit", e.target.value)}
+                      required
                     />
                   </Field>
                 </div>
               </Section>
 
               <Section title="Description">
+                <Label required className="sr-only">Description</Label>
                 <Textarea
                   rows={4}
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
                   placeholder="Highlights, quirks, rules, included extras…"
+                  required
                 />
               </Section>
 
@@ -407,6 +441,7 @@ function NewVehicle() {
                   onChange={setFiles}
                   maxPhotos={12}
                   label="Vehicle photos"
+                  required
                   description="Upload clear photos of all sides, interior, and dashboard. You can select multiple at once and add more photos anytime."
                   recommendedTags={[
                     "Front view & bumper",
@@ -427,17 +462,20 @@ function NewVehicle() {
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DocPick
-                    label="RC (required)"
+                    label="RC"
+                    required
                     file={docs.rc}
                     onChange={(f) => setDocs({ ...docs, rc: f })}
                   />
                   <DocPick
-                    label="Insurance (required)"
+                    label="Insurance"
+                    required
                     file={docs.insurance}
                     onChange={(f) => setDocs({ ...docs, insurance: f })}
                   />
                   <DocPick
-                    label="Pollution certificate (required)"
+                    label="Pollution certificate"
+                    required
                     file={docs.pollution}
                     onChange={(f) => setDocs({ ...docs, pollution: f })}
                   />
@@ -475,20 +513,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <Label>{label}</Label>
+      <Label required={required}>{label}</Label>
       <div className="mt-1">{children}</div>
     </div>
   );
 }
 function DocPick({
   label,
+  required,
   file,
   onChange,
 }: {
   label: string;
+  required?: boolean;
   file?: File;
   onChange: (f?: File) => void;
 }) {
@@ -517,7 +565,9 @@ function DocPick({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs font-medium text-foreground">{label}</Label>
+        <Label required={required} className="text-xs font-medium text-foreground">
+          {label}
+        </Label>
         {file && (
           <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="h-3 w-3" /> Selected

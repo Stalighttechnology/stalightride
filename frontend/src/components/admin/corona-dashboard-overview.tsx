@@ -1,12 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownLeft,
   Car,
-  Award,
-  Sparkles,
   ShieldAlert,
   CalendarClock,
   CheckCircle2,
@@ -17,7 +12,6 @@ import {
   Trash2,
   Check,
   ChevronRight,
-  IndianRupee,
   Activity,
   FileCheck,
   Building2,
@@ -138,67 +132,37 @@ export function CoronaDashboardOverview({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* KPI 1: Total Gross Booking Volume */}
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-brand/40">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-2xl font-bold text-foreground">
-                  {currency(stats.totalRevenue || 128450)}
-                </h3>
-                <span className="inline-flex items-center text-xs font-semibold text-emerald-500">
-                  <ArrowUpRight className="h-3.5 w-3.5" /> +14.2%
-                </span>
-              </div>
-              <p className="text-xs font-medium text-muted-foreground mt-1">
-                Gross Booking Volume
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-brand/10 text-brand flex items-center justify-center shrink-0 border border-brand/20">
-              <TrendingUp className="h-5 w-5" />
-            </div>
+          <div>
+            <h3 className="font-display text-2xl font-bold text-foreground">
+              {currency(stats.totalRevenue || 128450)}
+            </h3>
+            <p className="text-xs font-medium text-muted-foreground mt-1">
+              Gross Booking Volume
+            </p>
           </div>
         </div>
 
         {/* KPI 2: Platform Net Commission */}
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-emerald-500/40">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-2xl font-bold text-foreground">
-                  {currency(stats.platformCommission || 28540)}
-                </h3>
-                <span className="inline-flex items-center text-xs font-semibold text-emerald-500">
-                  <ArrowUpRight className="h-3.5 w-3.5" /> +8.6%
-                </span>
-              </div>
-              <p className="text-xs font-medium text-muted-foreground mt-1">
-                Net Commission & Fees
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
-              <IndianRupee className="h-5 w-5" />
-            </div>
+          <div>
+            <h3 className="font-display text-2xl font-bold text-foreground">
+              {currency(stats.platformCommission || 28540)}
+            </h3>
+            <p className="text-xs font-medium text-muted-foreground mt-1">
+              Net Commission & Fees
+            </p>
           </div>
         </div>
 
         {/* KPI 3: Active Fleet & Rides */}
         <div className="rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-sky-500/40">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-2xl font-bold text-foreground">
-                  {stats.activeVehicles || 34} Vehicles
-                </h3>
-                <span className="inline-flex items-center text-xs font-semibold text-sky-500">
-                  <ArrowUpRight className="h-3.5 w-3.5" /> 94% Live
-                </span>
-              </div>
-              <p className="text-xs font-medium text-muted-foreground mt-1">
-                Active Fleet Online
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0 border border-sky-500/20">
-              <Car className="h-5 w-5" />
-            </div>
+          <div>
+            <h3 className="font-display text-2xl font-bold text-foreground">
+              {stats.activeVehicles || 34} Vehicles
+            </h3>
+            <p className="text-xs font-medium text-muted-foreground mt-1">
+              Active Fleet Online
+            </p>
           </div>
         </div>
 
@@ -207,23 +171,13 @@ export function CoronaDashboardOverview({
           onClick={() => onSelectTab("vehicles")}
           className="cursor-pointer rounded-2xl border border-amber-500/40 bg-card p-5 shadow-xs transition-all hover:scale-[1.02] hover:border-amber-500 hover:bg-amber-500/[0.03]"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-2xl font-bold text-foreground">
-                  {stats.pendingTotal} Queued
-                </h3>
-                <span className="inline-flex items-center text-xs font-semibold text-amber-500">
-                  <ArrowDownLeft className="h-3.5 w-3.5" /> Action
-                </span>
-              </div>
-              <p className="text-xs font-medium text-muted-foreground mt-1">
-                Verification Backlog
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
+          <div>
+            <h3 className="font-display text-2xl font-bold text-foreground">
+              {stats.pendingTotal} Queued
+            </h3>
+            <p className="text-xs font-medium text-muted-foreground mt-1">
+              Verification Backlog
+            </p>
           </div>
         </div>
       </div>
@@ -444,59 +398,35 @@ export function CoronaDashboardOverview({
       {/* 3. 3 Category Performance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="rounded-3xl border border-border bg-card p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">
-                Self-Drive Fleet
-              </p>
-              <h3 className="font-display text-xl font-bold text-foreground mt-1">
-                {currency(stats.totalRevenue ? stats.totalRevenue * 0.65 : 85000)}
-              </h3>
-              <p className="text-[11px] font-semibold text-emerald-500 mt-1">
-                +11.3% growth vs last week
-              </p>
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center border border-brand/20">
-              <Car className="h-6 w-6" />
-            </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">
+              Self-Drive Fleet
+            </p>
+            <h3 className="font-display text-xl font-bold text-foreground mt-1">
+              {currency(stats.totalRevenue ? stats.totalRevenue * 0.65 : 85000)}
+            </h3>
           </div>
         </div>
 
         <div className="rounded-3xl border border-border bg-card p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">
-                Chauffeur Services
-              </p>
-              <h3 className="font-display text-xl font-bold text-foreground mt-1">
-                {currency(stats.totalRevenue ? stats.totalRevenue * 0.22 : 28400)}
-              </h3>
-              <p className="text-[11px] font-semibold text-emerald-500 mt-1">
-                +9.6% hourly packages
-              </p>
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center border border-purple-500/20">
-              <Award className="h-6 w-6" />
-            </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">
+              Chauffeur Services
+            </p>
+            <h3 className="font-display text-xl font-bold text-foreground mt-1">
+              {currency(stats.totalRevenue ? stats.totalRevenue * 0.22 : 28400)}
+            </h3>
           </div>
         </div>
 
         <div className="rounded-3xl border border-border bg-card p-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">
-                Doorstep Detailing
-              </p>
-              <h3 className="font-display text-xl font-bold text-foreground mt-1">
-                {currency(stats.totalRevenue ? stats.totalRevenue * 0.13 : 15050)}
-              </h3>
-              <p className="text-[11px] font-semibold text-sky-500 mt-1">
-                +5.4% doorstep orders
-              </p>
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-sky-500/10 text-sky-500 flex items-center justify-center border border-sky-500/20">
-              <Sparkles className="h-6 w-6" />
-            </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">
+              Doorstep Detailing
+            </p>
+            <h3 className="font-display text-xl font-bold text-foreground mt-1">
+              {currency(stats.totalRevenue ? stats.totalRevenue * 0.13 : 15050)}
+            </h3>
           </div>
         </div>
       </div>

@@ -329,6 +329,10 @@ function DriverDashboard() {
     if (!user) return;
     if (!form.full_name.trim() || !form.city.trim())
       return toast.error("Name and city are required");
+    if (!form.phone?.trim()) return toast.error("Phone number is required");
+    if (form.experience_years === "" || Number(form.experience_years) < 0)
+      return toast.error("Years of experience is required");
+    if (Number(form.hourly_rate) <= 0) return toast.error("Set an hourly rate");
     if (Number(form.daily_rate) <= 0) return toast.error("Set a daily rate");
     if (!form.dl_number || !form.dl_expiry)
       return toast.error("Licence number and expiry are required");
@@ -687,7 +691,7 @@ function DriverDashboard() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label>Full name</Label>
+                  <Label required>Full name</Label>
                   <Input
                     value={form.full_name}
                     onChange={(e) => setForm({ ...form, full_name: e.target.value })}
@@ -695,39 +699,42 @@ function DriverDashboard() {
                   />
                 </div>
                 <div>
-                  <Label>Phone</Label>
+                  <Label required>Phone</Label>
                   <Input
                     value={form.phone ?? ""}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    required
                   />
                 </div>
                 <div>
-                  <Label>City</Label>
+                  <Label required>City</Label>
                   <CityPicker value={form.city} onChange={(c) => setForm({ ...form, city: c })} />
                 </div>
                 <div>
-                  <Label>Years of experience</Label>
+                  <Label required>Years of experience</Label>
                   <Input
                     type="number"
                     min={0}
+                    required
                     value={form.experience_years}
                     onChange={(e) => setForm({ ...form, experience_years: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label>Hourly rate (₹)</Label>
+                  <Label required>Hourly rate (₹)</Label>
                   <Input
                     type="number"
-                    min={0}
+                    min={1}
+                    required
                     value={form.hourly_rate}
                     onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label>Daily rate (₹)</Label>
+                  <Label required>Daily rate (₹)</Label>
                   <Input
                     type="number"
-                    min={0}
+                    min={1}
                     value={form.daily_rate}
                     onChange={(e) => setForm({ ...form, daily_rate: e.target.value })}
                     required
@@ -798,15 +805,16 @@ function DriverDashboard() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label>Licence number</Label>
+                  <Label required>Licence number</Label>
                   <Input
                     value={form.dl_number ?? ""}
                     disabled={locked}
+                    required
                     onChange={(e) => setForm({ ...form, dl_number: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label>Licence expiry</Label>
+                  <Label required>Licence expiry</Label>
                   <DatePicker
                     value={form.dl_expiry ?? ""}
                     disabled={locked}

@@ -132,7 +132,7 @@ function NewPoolTrip() {
           <Card>
             <CardContent className="grid gap-5 p-4 sm:p-6 lg:grid-cols-2">
               <div className="space-y-2">
-                <Label>Starting point</Label>
+                <Label required>Starting point</Label>
                 <MapPicker
                   value={origin}
                   address={originLabel}
@@ -145,7 +145,7 @@ function NewPoolTrip() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Destination</Label>
+                <Label required>Destination</Label>
                 <MapPicker
                   value={dest}
                   address={destLabel}
@@ -229,7 +229,7 @@ function NewPoolTrip() {
           <Card>
             <CardContent className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="depart">Departure date & time</Label>
+                <Label htmlFor="depart" required>Departure date & time</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <DatePicker
                     value={departDate}
@@ -245,16 +245,17 @@ function NewPoolTrip() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="vehicle">Vehicle</Label>
+                <Label htmlFor="vehicle" required>Vehicle</Label>
                 <Input
                   id="vehicle"
+                  required
                   value={vehicleLabel}
                   onChange={(e) => setVehicleLabel(e.target.value)}
                   placeholder="Hyundai Creta · White"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="seats" className="flex items-center gap-2">
+                <Label htmlFor="seats" required className="flex items-center gap-2">
                   <Users className="h-4 w-4" /> Seats offered
                 </Label>
                 <Input
@@ -262,17 +263,19 @@ function NewPoolTrip() {
                   type="number"
                   min={1}
                   max={8}
+                  required
                   value={seats}
                   onChange={(e) => setSeats(Number(e.target.value) || 0)}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="fare">Fare per passenger (₹)</Label>
+                <Label htmlFor="fare" required>Fare per passenger (₹)</Label>
                 <Input
                   id="fare"
                   type="number"
                   min={0}
                   step={10}
+                  required
                   value={fare}
                   onChange={(e) => setFare(Number(e.target.value))}
                 />
