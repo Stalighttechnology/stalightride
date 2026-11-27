@@ -58,6 +58,9 @@ export function PoolRouteMap({ route, pickup, drop, className }: Props) {
           });
         };
         pin(route[0]!, "Trip start", "#22c55e");
+        for (let i = 1; i < route.length - 1; i++) {
+          pin(route[i]!, `Via stop ${i}`, "#38bdf8");
+        }
         pin(route[route.length - 1]!, "Trip destination", "#ef4444");
         if (pickup) pin(pickup, "Your pickup", "#f59e0b");
         if (drop) pin(drop, "Your drop-off", "#a855f7");

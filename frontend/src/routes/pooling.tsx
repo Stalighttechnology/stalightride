@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currency } from "@/lib/format";
 import { toast } from "sonner";
-import { MATCH_THRESHOLD, matchScore, normalizeRoute, type MatchResult } from "@/lib/pool-match";
+import { MATCH_THRESHOLD, matchScore, normalizeRoute, getRouteStops, type MatchResult } from "@/lib/pool-match";
 import {
   Users,
   MapPin,
@@ -379,16 +379,55 @@ function PoolingPage() {
                           </div>
                           <Badge className="ml-auto rounded-full">{match.score}% route match</Badge>
                         </div>
-                        <div className="space-y-1.5 text-sm">
-                          <p className="flex items-start gap-2">
-                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-                            <span className="min-w-0 break-words">{trip.origin_label}</span>
-                          </p>
-                          <p className="flex items-start gap-2">
-                            <RouteIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 break-words">{trip.dest_label}</span>
-                          </p>
-                        </div>
+                        {(() => {
+                          const stops = getRouteStops(trip);
+                          if (stops.length === 4) {
+                            return (
+                              <div className="space-y-1.5 rounded-xl border border-border/70 bg-muted/40 p-3 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5 font-semibold text-brand">
+                                    <RouteIcon className="h-3.5 w-3.5" /> 4-Point Route Corridor
+                                  </span>
+                                  {match.pickupLegIndex != null && match.dropLegIndex != null && (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      Covers Leg {match.pickupLegIndex + 1} to {match.dropLegIndex + 1}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                                  <p className="flex items-center gap-1.5 truncate">
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-[10px] font-bold text-emerald-500">1</span>
+                                    <span className="truncate font-medium">{stops[0]?.label || trip.origin_label}</span>
+                                  </p>
+                                  <p className="flex items-center gap-1.5 truncate">
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-500">2</span>
+                                    <span className="truncate text-muted-foreground">{stops[1]?.label || "Via stop 1"}</span>
+                                  </p>
+                                  <p className="flex items-center gap-1.5 truncate">
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-500">3</span>
+                                    <span className="truncate text-muted-foreground">{stops[2]?.label || "Via stop 2"}</span>
+                                  </p>
+                                  <p className="flex items-center gap-1.5 truncate">
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rose-500/20 text-[10px] font-bold text-rose-500">4</span>
+                                    <span className="truncate font-medium">{stops[3]?.label || trip.dest_label}</span>
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="space-y-1.5 text-sm">
+                              <p className="flex items-start gap-2">
+                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                                <span className="min-w-0 break-words">{trip.origin_label}</span>
+                              </p>
+                              <p className="flex items-start gap-2">
+                                <RouteIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                <span className="min-w-0 break-words">{trip.dest_label}</span>
+                              </p>
+                            </div>
+                          );
+                        })()}
                         <div className="flex flex-wrap gap-2 text-xs">
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
                             <CalendarClock className="h-3.5 w-3.5" /> {whenLabel(trip.depart_at)}
