@@ -508,21 +508,29 @@ const auth = {
     return { data: { session: await validSession() }, error: null };
   },
   async getUser(): Promise<{ data: { user: User | null }; error: ApiError | null }> {
-    if (!(await validSession()))
-      return { data: { user: null }, error: { message: "Auth session missing!" } };
-    const res = await fetch(`${BASE}/api/auth/user/`, {
-      headers: { Authorization: `Bearer ${session!.access_token}` },
-    }).catch(() => null);
-    if (!res) return { data: { user: session?.user ?? null }, error: null }; // offline: trust the stored session
-    if (res.status === 401 || res.status === 403) {
-      setSession(null, "SIGNED_OUT");
-      return {
-        data: { user: null },
-        error: { message: "Auth session missing!", status: res.status },
-      };
+    const s = await validSession();
+    if (!s) return { data: { user: null }, error: { message: "Auth session missing!" } };
+    try {
+      const res = await fetch(`${BASE}/api/auth/user/`, {
+        headers: { Authorization: `Bearer ${s.access_token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        setSession(null, "SIGNED_OUT");
+        return {
+          data: { user: null },
+          error: { message: "Auth session missing!", status: res.status },
+        };
+      }
+      if (!res.ok) {
+        // Non-200 server response: fallback gracefully to stored session user
+        return { data: { user: s.user?.id ? s.user : null }, error: null };
+      }
+      const user = (await res.json()) as User;
+      return { data: { user: user?.id ? user : (s.user?.id ? s.user : null) }, error: null };
+    } catch {
+      // offline / network / parse error: trust stored session user
+      return { data: { user: s.user?.id ? s.user : null }, error: null };
     }
-    const user = (await res.json()) as User;
-    return { data: { user }, error: null };
   },
   async getClaims() {
     const s = await validSession();

@@ -58,15 +58,27 @@ function AuthPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
+    let hasNavigated = false;
+    const navigateToLanding = async (userId: string) => {
+      if (hasNavigated) return;
+      hasNavigated = true;
+      try {
+        const target = await landingPathForUser(userId);
+        navigate({ to: target as any });
+      } catch {
+        navigate({ to: "/browse" as any });
+      }
+    };
+
     api.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        navigate({ to: (await landingPathForUser(data.session.user.id)) as any });
+      if (data.session?.user?.id) {
+        navigateToLanding(data.session.user.id);
       }
     });
 
     const { data: authListener } = api.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        navigate({ to: (await landingPathForUser(session.user.id)) as any });
+      if (session?.user?.id) {
+        navigateToLanding(session.user.id);
       }
     });
 
@@ -98,7 +110,12 @@ function AuthPage() {
 
       if (data.user) {
         toast.success("Welcome back!");
-        navigate({ to: (await landingPathForUser(data.user.id)) as any });
+        try {
+          const target = await landingPathForUser(data.user.id);
+          navigate({ to: target as any });
+        } catch {
+          navigate({ to: "/browse" as any });
+        }
       }
     } catch (err: any) {
       toast.error(formatAuthError(err));
@@ -144,7 +161,12 @@ function AuthPage() {
 
       if (data.session) {
         toast.success("Account created successfully!");
-        navigate({ to: (await landingPathForUser(data.session.user.id)) as any });
+        try {
+          const target = await landingPathForUser(data.session.user.id);
+          navigate({ to: target as any });
+        } catch {
+          navigate({ to: "/browse" as any });
+        }
       } else if (data.user) {
         toast.success(
           "Account created! Please check your email inbox to verify your account before logging in.",

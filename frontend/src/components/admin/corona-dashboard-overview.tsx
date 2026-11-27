@@ -16,6 +16,7 @@ import {
   FileCheck,
   Building2,
   Search,
+  Terminal,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -329,14 +330,25 @@ export function CoronaDashboardOverview({
                   Real-time status of current self-drive hires, driver bookings, and wash orders.
                 </p>
               </div>
-              <Button
-                onClick={() => onSelectTab("bookings")}
-                variant="ghost"
-                size="sm"
-                className="text-xs font-semibold text-brand hover:text-brand/80"
-              >
-                View all monitor <ChevronRight className="h-3.5 w-3.5 ml-1" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => onSelectTab("logs")}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs font-semibold rounded-xl gap-1.5 border-border bg-card text-foreground hover:bg-muted cursor-pointer"
+                >
+                  <Terminal className="h-3.5 w-3.5 text-emerald-500" />
+                  Audit Logs
+                </Button>
+                <Button
+                  onClick={() => onSelectTab("bookings")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs font-semibold text-brand hover:text-brand/80"
+                >
+                  View all monitor <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </div>
             </div>
 
             {/* List of Recent Operations */}

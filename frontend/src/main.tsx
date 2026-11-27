@@ -4,11 +4,13 @@ import { createRoot } from "react-dom/client";
 
 import "./styles.css";
 import { routeTree } from "./routeTree.gen";
+import { ErrorComponent } from "./routes/__root";
 
 const queryClient = new QueryClient();
 const router = createRouter({
   routeTree,
   context: { queryClient },
+  defaultErrorComponent: ErrorComponent,
   scrollRestoration: true,
   defaultPreloadStaleTime: 0,
 });
