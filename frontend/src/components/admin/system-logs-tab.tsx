@@ -65,7 +65,6 @@ const PAGE_SIZE = 40;
 
 export function SystemLogsTab() {
   const [logs, setLogs] = useState<AuditLog[] | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -75,7 +74,7 @@ export function SystemLogsTab() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [levelFilter, setLevelFilter] = useState("all");
 
-  const [page, setPage] = usePage();
+  const pager = usePage(PAGE_SIZE);
 
   const loadLogs = useCallback(async (showToast = false) => {
     try {
@@ -83,7 +82,7 @@ export function SystemLogsTab() {
         .from("system_audit_logs")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+        .range(pager.from, pager.to);
 
       if (categoryFilter !== "all") {
         query = query.eq("category", categoryFilter);
@@ -105,7 +104,7 @@ export function SystemLogsTab() {
       }
 
       setLogs((data as AuditLog[]) ?? []);
-      setTotalCount(count ?? 0);
+      pager.setTotal(count ?? 0);
       if (showToast) {
         toast.success("Audit logs refreshed");
       }
@@ -114,11 +113,11 @@ export function SystemLogsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, categoryFilter, levelFilter, search]);
+  }, [pager.from, pager.to, pager.setTotal, categoryFilter, levelFilter, search]);
 
   useEffect(() => {
-    setPage(0);
-  }, [categoryFilter, levelFilter, search, setPage]);
+    pager.setPage(0);
+  }, [categoryFilter, levelFilter, search]);
 
   useEffect(() => {
     loadLogs();
@@ -137,7 +136,7 @@ export function SystemLogsTab() {
               if (!prev) return [payload.new as AuditLog];
               return [payload.new as AuditLog, ...prev.slice(0, PAGE_SIZE - 1)];
             });
-            setTotalCount((c) => c + 1);
+            pager.setTotal((c: number) => c + 1);
           }
         },
       )
@@ -161,13 +160,13 @@ export function SystemLogsTab() {
   const stats = useMemo(() => {
     const list = logs || [];
     return {
-      total: totalCount,
+      total: pager.total,
       auth: list.filter((l) => l.category === "auth" || l.event_type.startsWith("auth.")).length,
       bookings: list.filter((l) => l.category === "booking" || l.event_type.includes("booking")).length,
       payments: list.filter((l) => l.category === "payment" || l.event_type.includes("payment") || l.event_type.includes("payout")).length,
       errors: list.filter((l) => l.level === "error" || l.level === "warning").length,
     };
-  }, [logs, totalCount]);
+  }, [logs, pager.total]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
@@ -268,7 +267,7 @@ export function SystemLogsTab() {
               <Activity className="h-4 w-4 text-brand" />
             </div>
             <div className="mt-2 text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              {totalCount.toLocaleString()}
+              {pager.total.toLocaleString()}
             </div>
             <p className="mt-0.5 text-[10px] text-muted-foreground">All logged server events</p>
           </CardContent>
@@ -553,12 +552,7 @@ export function SystemLogsTab() {
 
         {/* Pager */}
         <div className="border-t border-border/70 p-3 bg-muted/20">
-          <ListPager
-            page={page}
-            totalCount={totalCount}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
+          <ListPager {...pager} />
         </div>
       </Card>
 
