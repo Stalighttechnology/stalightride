@@ -486,6 +486,10 @@ function VendorDashboard() {
   };
 
   const handleTogglePause = async (v: any) => {
+    if (v.is_deleted) {
+      toast.error("Deleted vehicles cannot be reactivated");
+      return;
+    }
     const nextStatus = v.status === "paused" ? "active" : "paused";
     const { error } = await api.from("vehicles").update({ status: nextStatus }).eq("id", v.id);
     if (error) {
@@ -1614,7 +1618,7 @@ function VehiclesGrid({
                   </div>
                 )}
                 <div className="flex items-center gap-1.5 w-full">
-                  {v.verification_status === "approved" && onTogglePause && (
+                  {v.verification_status === "approved" && !v.is_deleted && onTogglePause && (
                     <Button
                       variant="outline"
                       size="sm"

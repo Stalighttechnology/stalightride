@@ -6,6 +6,7 @@ the bucket policies in the schema decide who may upload, read or delete.
 """
 
 import mimetypes
+import shutil
 import time
 from pathlib import Path, PurePosixPath
 
@@ -142,11 +143,52 @@ def public_file(request, bucket, path):
     path = _clean(path)
     if path is None or _bucket(bucket) is not True:
         raise Http404
-    with connection.cursor() as c:
-        c.execute("SELECT 1 FROM storage.objects WHERE bucket_id = %s AND name = %s", [bucket, path])
-        if c.fetchone() is None:
-            raise Http404
+
+    # Enforce approval gating on vehicle images (FIX-01-SEC-02)
+    if bucket == "vehicle-images":
+        user_id = str(request.user.id) if getattr(request, "user", None) and request.user.is_authenticated else None
+        with connection.cursor() as c:
+            c.execute(
+                """
+                SELECT 1 FROM storage.objects o
+                JOIN public.vehicles v ON v.id::text = (storage.foldername(o.name))[2]
+                WHERE o.bucket_id = %s AND o.name = %s 
+                  AND (
+                    (v.status = 'active' AND v.verification_status = 'approved' AND NOT COALESCE(v.is_deleted, false))
+                    OR (%s IS NOT NULL AND (v.vendor_id::text = %s OR EXISTS (
+                        SELECT 1 FROM public.user_roles ur WHERE ur.user_id::text = %s AND ur.role = 'admin'
+                    )))
+                  )
+                """,
+                [bucket, path, user_id, user_id, user_id]
+            )
+            if c.fetchone() is None:
+                raise Http404
+    else:
+        with connection.cursor() as c:
+            c.execute("SELECT 1 FROM storage.objects WHERE bucket_id = %s AND name = %s", [bucket, path])
+            if c.fetchone() is None:
+                raise Http404
+
     return _serve(bucket, path)
+
+
+def purge_user_media(user_id):
+    """Purge all storage objects and disk files associated with a deleted account (FIX-01-SEC-03 / GDPR / DPDP)."""
+    user_str = str(user_id)
+    for bucket in ["kyc-docs", "verification-docs", "avatars", "vehicle-images"]:
+        user_disk_path = Path(settings.MEDIA_ROOT) / bucket / user_str
+        if user_disk_path.exists() and user_disk_path.is_dir():
+            shutil.rmtree(user_disk_path, ignore_errors=True)
+
+    from core.db import db_role
+    with transaction.atomic():
+        with db_role("service_role"):
+            with connection.cursor() as c:
+                c.execute(
+                    "DELETE FROM storage.objects WHERE (storage.foldername(name))[1] = %s",
+                    [user_str]
+                )
 
 
 def signed_file(request, token):
