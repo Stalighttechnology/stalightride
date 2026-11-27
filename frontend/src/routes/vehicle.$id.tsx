@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateRentalPrice, currency, rentalDurationHours } from "@/lib/format";
+import { haversineKm, parseCoord } from "@/lib/utils";
 import { formatWhen } from "@/lib/trip-window";
 import {
   type BookedRange,
@@ -26,8 +27,15 @@ import {
   validateBookingAgainstRanges,
 } from "@/lib/vehicle-availability";
 import { useSignedUrls } from "@/hooks/use-signed-urls";
-import { VehicleMap } from "@/components/vehicle-map";
 import { ChargeLines, CouponField, type AppliedCoupon } from "@/components/charges-summary";
+import { CancellationPolicyCard } from "@/components/cancellation-policy-card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { computeCharges } from "@/lib/charges";
 import { usePlatformSettings } from "@/hooks/use-platform-settings";
 import { SAVED_VEHICLES_EVENT } from "@/hooks/use-saved-items";
@@ -54,6 +62,13 @@ import {
   Crown,
   CheckCircle2,
   Zap,
+  ChevronRight,
+  IndianRupee,
+  CreditCard,
+  FileText,
+  ReceiptText,
+  ShieldAlert,
+  Car,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -169,6 +184,35 @@ function VehiclePage() {
     }
     return blocked;
   }, [bookedRanges]);
+  const [hostDialogOpen, setHostDialogOpen] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [ratingsInfoOpen, setRatingsInfoOpen] = useState(false);
+  const [similarVehicles, setSimilarVehicles] = useState<any[]>([]);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locatingUser, setLocatingUser] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
+
+  const requestUserLocation = () => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) return;
+    setLocatingUser(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationDenied(false);
+        setLocatingUser(false);
+      },
+      () => {
+        setLocationDenied(true);
+        setLocatingUser(false);
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300_000 },
+    );
+  };
+
+  useEffect(() => {
+    requestUserLocation();
+  }, []);
+
   const [hostStats, setHostStats] = useState<{
     response_rate: number | null;
     median_response_minutes: number | null;
@@ -317,6 +361,52 @@ function VehiclePage() {
           authorsById = Object.fromEntries((authors ?? []).map((a: any) => [a.id, a]));
         }
         setReviews(rows.map((x: any) => ({ ...x, profiles: authorsById[x.customer_id] ?? null })));
+
+        // Fetch similar vehicles dynamically (same category, body-type match, latest models first)
+        try {
+          const { data: simRows } = await api
+            .from("vehicles")
+            .select("id,title,brand,model,year,category,city,price_daily,transmission,fuel,avg_rating,review_count,description,vehicle_images(url,sort_order)")
+            .eq("is_deleted", false)
+            .eq("status", "active")
+            .eq("verification_status", "approved")
+            .eq("category", data.category)
+            .neq("id", data.id)
+            .order("year", { ascending: false })
+            .order("avg_rating", { ascending: false })
+            .limit(24);
+
+          const candidates = (simRows ?? []) as any[];
+          const textOf = (item: any) =>
+            `${item.title ?? ""} ${item.model ?? ""} ${item.description ?? ""}`.toLowerCase();
+          const BODY_TYPES = [
+            "sedan",
+            "suv",
+            "hatchback",
+            "muv",
+            "mpv",
+            "coupe",
+            "convertible",
+            "cruiser",
+            "sport",
+            "tourer",
+            "naked",
+          ];
+          const sourceText = textOf(data);
+          const matchedType = BODY_TYPES.find((t) => sourceText.includes(t));
+
+          const typeMatches = matchedType
+            ? candidates.filter((c) => textOf(c).includes(matchedType))
+            : candidates;
+
+          const pool = typeMatches.length > 0 ? typeMatches : candidates;
+          const minPreferredYear = (Number(data.year) || new Date().getFullYear()) - 2;
+          const latestPool = pool.filter((c) => Number(c.year) >= minPreferredYear);
+          const finalSimilar = (latestPool.length > 0 ? latestPool : pool).slice(0, 10);
+          setSimilarVehicles(finalSimilar);
+        } catch {
+          setSimilarVehicles([]);
+        }
       }
     })();
   }, [id]);
@@ -387,6 +477,19 @@ function VehiclePage() {
     "vehicle-images",
     images.map((im: any) => im.url),
   );
+  const similarImgPaths = useMemo(
+    () =>
+      similarVehicles
+        .map((sv) => {
+          const imgs = [...(sv.vehicle_images ?? [])].sort(
+            (a: any, b: any) => a.sort_order - b.sort_order,
+          );
+          return imgs[0]?.url;
+        })
+        .filter((u): u is string => Boolean(u)),
+    [similarVehicles],
+  );
+  const similarUrls = useSignedUrls("vehicle-images", similarImgPaths);
   const imgUrl = images[activeImg] ? urls[images[activeImg].url] : null;
 
   const rentalHours = useMemo(
@@ -888,52 +991,160 @@ function VehiclePage() {
               )}
             </section>
 
-            <section className="mt-6 rounded-2xl border border-border bg-card p-6">
-              <h2 className="font-display text-lg font-semibold">Pickup location</h2>
-              <div className="mt-2 flex items-start gap-2 text-sm">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-foreground pin-drop" />
-                <div>
-                  <p className="font-medium">{exactLocation ? exactLocation.address || v.city : pickupArea}</p>
-                  {exactLocation?.address && <p className="text-xs text-muted-foreground">{v.city}</p>}
-                  {!exactLocation && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      The exact address, map and directions appear here once the host confirms your booking.
-                    </p>
-                  )}
-                </div>
+            <section className="mt-6">
+              <h2 className="font-display text-lg font-semibold mb-3">Car Location</h2>
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
+                <p className="text-sm text-foreground leading-relaxed">
+                  {exactLocation?.address || pickupArea || v.city}
+                </p>
+                {(() => {
+                  const targetLat = parseCoord(exactLocation?.lat ?? v.lat);
+                  const targetLng = parseCoord(exactLocation?.lng ?? v.lng);
+                  const hasTarget = targetLat !== null && targetLng !== null;
+
+                  if (hasTarget && userCoords) {
+                    const km = haversineKm(userCoords.lat, userCoords.lng, targetLat, targetLng);
+                    return (
+                      <span className="mt-2.5 inline-flex items-center rounded-md bg-emerald-500/12 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300 tabular-nums">
+                        {km.toFixed(1)} Kms Away
+                      </span>
+                    );
+                  }
+
+                  if (hasTarget && locatingUser) {
+                    return (
+                      <span className="mt-2.5 inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                        Checking distance…
+                      </span>
+                    );
+                  }
+
+                  if (hasTarget) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={requestUserLocation}
+                        className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-emerald-500/12 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                      >
+                        <Navigation className="h-3 w-3 shrink-0" />
+                        {locationDenied ? "Enable location to see distance" : "Check distance from you"}
+                      </button>
+                    );
+                  }
+
+                  return null;
+                })()}
+                {!exactLocation && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    The exact street address and map pin appear once the host confirms your booking.
+                  </p>
+                )}
+                {exactLocation && (() => {
+                  const dirLat = parseCoord(exactLocation.lat);
+                  const dirLng = parseCoord(exactLocation.lng);
+                  const destination =
+                    dirLat !== null && dirLng !== null
+                      ? `${dirLat},${dirLng}`
+                      : exactAddress || exactLocation.address || v.city;
+                  if (!destination) return null;
+                  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+                  return (
+                    <div className="mt-3">
+                      <Button asChild size="sm" variant="outline" className="gap-1.5 rounded-xl">
+                        <a href={directionsUrl} target="_blank" rel="noopener noreferrer">
+                          <Navigation className="h-3.5 w-3.5" />
+                          Get Directions
+                        </a>
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
-              {exactLocation && (
-                <VehicleMap
-                  query={exactAddress}
-                  lat={exactLocation.lat}
-                  lng={exactLocation.lng}
-                  className="mt-4 aspect-[16/9] animate-fade-in"
-                />
-              )}
             </section>
 
-            <section className="mt-6 rounded-2xl border border-border bg-card p-6">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={vendorProfile?.avatar_url ?? undefined} />
-                  <AvatarFallback>
-                    {(vendorProfile?.full_name || vendor?.business_name || "H").charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-medium">
-                      {vendor?.business_name || vendorProfile?.full_name || "Host"}
-                    </p>
-                    {vendor?.kyc_status === "approved" && (
-                      <Badge variant="secondary" className="gap-1">
-                        <ShieldCheck className="h-3 w-3" />
-                        Verified
-                      </Badge>
-                    )}
+            <section className="mt-6">
+              <h2 className="font-display text-lg font-semibold mb-3">Meet your Host</h2>
+              <div className="rounded-2xl border border-border bg-gradient-to-r from-brand/12 via-brand/5 to-card p-4 sm:p-5 shadow-xs">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-14 w-14 border-2 border-brand/25 shrink-0">
+                    <AvatarImage src={vendorProfile?.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-brand/15 text-brand font-semibold text-lg">
+                      {(vendorProfile?.full_name || vendor?.business_name || "H").charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm sm:text-base font-semibold text-foreground">
+                        By {vendor?.business_name || vendorProfile?.full_name || "Host"}
+                      </p>
+                      {vendor?.kyc_status === "approved" && (
+                        <Badge
+                          variant="secondary"
+                          className="gap-1 bg-brand/15 text-brand border-0 text-[10px]"
+                        >
+                          <ShieldCheck className="h-3 w-3" />
+                          Verified
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
+                      <span>
+                        <strong className="font-semibold text-foreground">
+                          {hostStats?.request_count ?? 0}
+                        </strong>{" "}
+                        {hostStats?.request_count === 1 ? "Trip" : "Trips"}
+                      </span>
+                      <span>
+                        <strong className="font-semibold text-foreground">
+                          {Number(v.avg_rating || 0).toFixed(2)}
+                        </strong>{" "}
+                        Rating
+                      </span>
+                      <span>
+                        <strong className="font-semibold text-foreground">{reviewsTotal}</strong>{" "}
+                        {reviewsTotal === 1 ? "Review" : "Reviews"}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setHostDialogOpen(true)}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline cursor-pointer"
+                    >
+                      Meet your host
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Host Details Dialog */}
+            <Dialog open={hostDialogOpen} onOpenChange={setHostDialogOpen}>
+              <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-2xl bg-card border-border/80">
+                <DialogHeader>
+                  <DialogTitle className="text-base font-bold">
+                    {vendor?.business_name || vendorProfile?.full_name || "Host"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12 border border-brand/25">
+                      <AvatarImage src={vendorProfile?.avatar_url ?? undefined} />
+                      <AvatarFallback className="bg-brand/15 text-brand font-semibold">
+                        {(vendorProfile?.full_name || vendor?.business_name || "H").charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {vendor?.business_name || vendorProfile?.full_name || "Host"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{v.city}</p>
+                    </div>
                   </div>
                   {hostStats && hostStats.request_count > 0 && hostStats.response_rate != null && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Clock className="h-3.5 w-3.5 text-brand shrink-0" />
                       <span>
                         Responds to{" "}
@@ -945,29 +1156,134 @@ function VehiclePage() {
                       </span>
                     </p>
                   )}
-                  {vendor?.bio && (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">{vendor.bio}</p>
-                  )}
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {vendor?.bio || "Verified local host on Synchoo."}
+                  </p>
                 </div>
-              </div>
-            </section>
+              </DialogContent>
+            </Dialog>
 
-            <section className="mt-6 rounded-2xl border border-border bg-card p-6">
-              <h2 className="font-display text-lg font-semibold">Reviews</h2>
+            <CancellationPolicyCard
+              className="mt-6"
+              tripAmount={charges.base > 0 ? charges.base : Number(v.price_daily || 0)}
+              serviceFee={charges.service_fee}
+              pickupDate={start}
+              pickupTime={pickupTime}
+              membershipPlan={myProfile?.membership_plan}
+            />
+
+            <section className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-display text-lg font-semibold text-foreground">
+                  Ratings &amp; Reviews
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setRatingsInfoOpen(true)}
+                  className="text-xs font-medium text-brand hover:underline cursor-pointer"
+                >
+                  How are ratings calculated?
+                </button>
+              </div>
+
+              {/* Top Rating Summary Row */}
+              {(() => {
+                const avg = Number(v.avg_rating || 0);
+                const ratingLabel =
+                  avg >= 4.5
+                    ? "Excellent"
+                    : avg >= 4.0
+                      ? "Very Good"
+                      : avg >= 3.0
+                        ? "Good"
+                        : avg > 0
+                          ? "Fair"
+                          : "New";
+                const totalTrips = hostStats?.request_count ?? 0;
+                const recentTotal = Math.min(5, totalTrips);
+                const rawRate = hostStats?.response_rate ?? 0;
+                const normalizedRate = rawRate <= 1 ? rawRate : rawRate / 100;
+                const fulfilledCount =
+                  recentTotal > 0 ? Math.min(recentTotal, Math.round(recentTotal * normalizedRate)) : 0;
+
+                return (
+                  <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <Star
+                            key={n}
+                            className={`h-4 w-4 ${
+                              n <= Math.round(avg)
+                                ? "fill-brand text-brand"
+                                : "text-brand/40"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="inline-flex items-center rounded-md bg-brand px-2.5 py-0.5 text-sm font-bold text-brand-foreground tabular-nums">
+                          {avg.toFixed(2)}
+                        </span>
+                        <span className="text-sm font-semibold text-brand">{ratingLabel}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        Based on {totalTrips} {totalTrips === 1 ? "trip" : "trips"} | {reviewsTotal}{" "}
+                        {reviewsTotal === 1 ? "review" : "reviews"}
+                      </p>
+                    </div>
+
+                    {recentTotal > 0 && (
+                      <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 sm:min-w-[270px]">
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                          <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                          <span>
+                            {fulfilledCount} out of last {recentTotal}{" "}
+                            {recentTotal === 1 ? "trip" : "trips"} fulfilled (Latest First)
+                          </span>
+                        </p>
+                        <div className="mt-2 flex items-center gap-1.5">
+                          {Array.from({ length: recentTotal }).map((_, idx) => {
+                            const ok = idx < fulfilledCount;
+                            return (
+                              <span
+                                key={idx}
+                                className={`inline-flex h-6 w-6 items-center justify-center rounded-md border text-[11px] font-bold ${
+                                  ok
+                                    ? "border-brand/30 bg-brand/10 text-brand"
+                                    : "border-border bg-card text-muted-foreground/50"
+                                }`}
+                              >
+                                {ok ? "✓" : "–"}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {user && !isOwner && (
-                <WriteReviewBox
-                  vehicleId={id}
-                  userId={user.id}
-                  reviews={reviews}
-                  onCreated={(row) => {
-                    setReviews((prev) => [row, ...(prev ?? [])]);
-                    setReviewsTotal((t) => t + 1);
-                  }}
-                />
+                <div className="mt-4">
+                  <WriteReviewBox
+                    vehicleId={id}
+                    userId={user.id}
+                    reviews={reviews}
+                    onCreated={(row) => {
+                      setReviews((prev) => [row, ...(prev ?? [])]);
+                      setReviewsTotal((t) => t + 1);
+                    }}
+                  />
+                </div>
               )}
-              {!reviews && <Skeleton className="mt-3 h-16" />}
+
+              {!reviews && <Skeleton className="mt-4 h-24" />}
+
               {reviews && reviews.length === 0 && (
-                <div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-muted/20 p-8 text-center">
+                <div className="mt-5 rounded-2xl border border-dashed border-border/70 bg-muted/20 p-8 text-center">
                   <MessageSquareQuote className="mx-auto h-5 w-5 text-brand" />
                   <p className="mt-2 text-sm font-medium">No reviews yet</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -975,39 +1291,282 @@ function VehiclePage() {
                   </p>
                 </div>
               )}
+
               {reviews && reviews.length > 0 && (
                 <>
-                  <ul className="mt-4 space-y-4">
-                    {reviews.map((r: any) => (
-                      <ReviewItem
-                        key={r.id}
-                        r={r}
-                        isOwner={isOwner}
-                        userId={user?.id}
-                        onChange={(patch) =>
-                          setReviews(
-                            (prev) =>
-                              prev?.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) ?? null,
-                          )
-                        }
-                      />
-                    ))}
-                  </ul>
-                  {reviews.length < reviewsTotal && (
-                    <div className="mt-4 text-center">
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {(showAllReviews ? reviews : reviews.slice(0, 2)).map((r: any) => {
+                      const authorName = r.profiles?.full_name || "Verified Rider";
+                      const dateLabel = r.created_at
+                        ? new Date(r.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "";
+                      return (
+                        <div
+                          key={r.id}
+                          className="rounded-xl border border-border/80 bg-background/60 p-4 flex flex-col justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9 border border-brand/25 shrink-0">
+                              <AvatarImage src={r.profiles?.avatar_url ?? undefined} />
+                              <AvatarFallback className="bg-brand text-brand-foreground text-xs font-bold">
+                                {authorName.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-bold uppercase tracking-wide text-foreground">
+                                {authorName}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                Verified Synchoo rider
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <Star
+                                  key={n}
+                                  className={`h-3.5 w-3.5 ${
+                                    n <= Number(r.rating || 0)
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-muted-foreground/30"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            {dateLabel && <span>| {dateLabel}</span>}
+                          </div>
+
+                          {r.comment && (
+                            <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed">
+                              {r.comment}
+                            </p>
+                          )}
+
+                          {r.host_reply && (
+                            <div className="rounded-lg border-l-2 border-brand bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">Host reply: </span>
+                              {r.host_reply}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {(reviewsTotal > 2 || reviews.length < reviewsTotal) && (
+                    <div className="mt-4">
                       <Button
+                        type="button"
                         variant="outline"
-                        size="sm"
-                        onClick={loadMoreReviews}
                         disabled={loadingMoreReviews}
+                        onClick={() => {
+                          if (!showAllReviews) {
+                            setShowAllReviews(true);
+                          } else if (reviews.length < reviewsTotal) {
+                            loadMoreReviews();
+                          } else {
+                            setShowAllReviews(false);
+                          }
+                        }}
+                        className="w-full h-10 rounded-xl border-border/80 text-xs sm:text-sm font-semibold"
                       >
-                        {loadingMoreReviews ? "Loading reviews…" : "Show more reviews"}
+                        {loadingMoreReviews
+                          ? "Loading reviews…"
+                          : showAllReviews && reviews.length >= reviewsTotal
+                            ? "Show fewer reviews"
+                            : `View all ${reviewsTotal} reviews`}
                       </Button>
                     </div>
                   )}
                 </>
               )}
             </section>
+
+            {/* Inclusion/Exclusions */}
+            <section className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs">
+              <h2 className="font-display text-lg font-semibold text-foreground">
+                Inclusion/Exclusions
+              </h2>
+              <ul className="mt-4 space-y-3 text-xs sm:text-sm text-foreground/90">
+                <li className="flex items-start gap-3">
+                  <IndianRupee className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <span>
+                    Security deposit{" "}
+                    {Number(v.security_deposit) > 0
+                      ? `(${currency(Number(v.security_deposit))})`
+                      : "(if applied)"}{" "}
+                    will automatically be refunded within 2-3 days after the trip completion.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <span>Bring your original DL &amp; Aadhaar for pick-up.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <span>
+                    Crossing states? You may need a permit. Hosts can help with permits (please ask
+                    them!).
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <ReceiptText className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <span>A small, refundable Fastag advance may be asked by the host.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Fuel className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <span>
+                    Fuel not included. Guest should return the vehicle with the same fuel level as at
+                    start.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Navigation className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <span>
+                    Toll/Fastag charges not included. Check with host for Fastag recharge.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <span>
+                    Trip Protection: Invalid without check-in/out images. Also excludes off-road use,
+                    driving under influence, over-speeding, illegal use, restricted zones.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Car className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <span>
+                    Verified {v.category === "bike" ? "motorcycle" : v.category || "vehicle"} listing
+                    — please follow all local traffic and permit regulations.
+                  </span>
+                </li>
+              </ul>
+            </section>
+
+            {/* Similar Cars (Smooth Draggable Carousel) */}
+            {similarVehicles.length > 0 && (
+              <section className="mt-6">
+                <Carousel
+                  opts={{ align: "start", dragFree: true }}
+                  className="w-full"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                      <h2 className="font-display text-lg font-semibold text-foreground">
+                        Similar{" "}
+                        {v.category === "bike" || v.category === "motorcycle"
+                          ? "Motorcycles"
+                          : v.category === "scooter"
+                            ? "Scooters"
+                            : v.category === "ev"
+                              ? "EVs"
+                              : "Cars"}
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        Latest models matching this segment · drag or swipe to browse
+                      </p>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-1.5">
+                      <CarouselPrevious className="static translate-y-0 h-8 w-8 rounded-full border-border bg-card hover:bg-muted" />
+                      <CarouselNext className="static translate-y-0 h-8 w-8 rounded-full border-border bg-card hover:bg-muted" />
+                    </div>
+                  </div>
+
+                  <CarouselContent className="-ml-3 cursor-grab active:cursor-grabbing">
+                    {similarVehicles.map((sv) => {
+                      const imgs = [...(sv.vehicle_images ?? [])].sort(
+                        (a: any, b: any) => a.sort_order - b.sort_order,
+                      );
+                      const firstPath = imgs[0]?.url;
+                      const thumb = firstPath ? similarUrls[firstPath] : null;
+                      return (
+                        <CarouselItem
+                          key={sv.id}
+                          className="pl-3 basis-[80%] xs:basis-[62%] sm:basis-1/2 xl:basis-1/3"
+                        >
+                          <Link
+                            to="/vehicle/$id"
+                            params={{ id: sv.id }}
+                            search={{
+                              from: start || undefined,
+                              to: end || undefined,
+                              pickupTime: pickupTime || undefined,
+                              dropoffTime: dropoffTime || undefined,
+                            } as any}
+                            className="group block h-full"
+                          >
+                            <div className="h-full overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all duration-200 hover:border-brand/50 hover:shadow-md">
+                              <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                                {thumb ? (
+                                  <img
+                                    src={thumb}
+                                    alt={`${sv.brand} ${sv.model}`}
+                                    loading="lazy"
+                                    draggable={false}
+                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  />
+                                ) : (
+                                  <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">
+                                    No photo
+                                  </div>
+                                )}
+                                <span className="absolute left-2.5 top-2.5 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-foreground backdrop-blur">
+                                  {sv.year}
+                                </span>
+                                <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-semibold text-foreground backdrop-blur">
+                                  <Star className="h-3 w-3 fill-brand text-brand" />
+                                  {Number(sv.avg_rating || 0).toFixed(1)}
+                                </span>
+                              </div>
+                              <div className="p-3.5 space-y-1.5">
+                                <p className="truncate text-sm font-semibold text-foreground">
+                                  {sv.title}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground capitalize">
+                                  {sv.brand} {sv.model} · {sv.transmission}
+                                </p>
+                                <div className="flex items-center justify-between pt-1.5 border-t border-border/60">
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {sv.city}
+                                  </span>
+                                  <span className="text-sm font-bold text-brand tabular-nums shrink-0">
+                                    {currency(sv.price_daily)}
+                                    <span className="text-[10px] font-normal text-muted-foreground">
+                                      /day
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        </CarouselItem>
+                      );
+                    })}
+                  </CarouselContent>
+                </Carousel>
+              </section>
+            )}
+
+            {/* How Ratings Are Calculated Dialog */}
+            <Dialog open={ratingsInfoOpen} onOpenChange={setRatingsInfoOpen}>
+              <DialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-2xl bg-card border-border/80">
+                <DialogHeader>
+                  <DialogTitle className="text-base font-bold">
+                    How are ratings calculated?
+                  </DialogTitle>
+                </DialogHeader>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Overall ratings are calculated as the average of all verified rider reviews
+                  submitted after completed bookings on Synchoo. Trip fulfillment reflects the
+                  host&apos;s recent booking acceptance and completion rate.
+                </p>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <aside className="lg:sticky lg:top-20 lg:self-start lg:h-fit">
@@ -1358,14 +1917,14 @@ function VehiclePage() {
 
       {/* Expanded Modal Calendar Dialog */}
       <Dialog open={calendarDialogOpen} onOpenChange={setCalendarDialogOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-[366px] p-4 bg-card border-border/80 rounded-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[366px] sm:max-w-[680px] p-3 sm:p-4 bg-card border-border/80 rounded-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
           <DialogHeader className="pb-1">
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-brand" />
               Choose Rental Dates &amp; Times
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center space-y-3">
+          <div className="flex flex-col space-y-3">
             {/* Hub Pickup vs Home Delivery */}
             <div className="grid w-full grid-cols-2 gap-1.5 rounded-xl bg-muted/50 p-1 text-xs">
               <button
@@ -1408,6 +1967,7 @@ function VehiclePage() {
             )}
 
             <CompactDateRangePicker
+              desktopMonths={2}
               value={{
                 start: parseIsoDate(start),
                 end: parseIsoDate(end),
@@ -1421,50 +1981,24 @@ function VehiclePage() {
                 }
                 setEnd(nextEnd);
               }}
-              className="w-full"
+              startTime={pickupTime}
+              endTime={dropoffTime}
+              onStartTimeChange={(t) => setPickupTime(t)}
+              onEndTimeChange={(t) => setDropoffTime(t)}
+              isStartTimeDisabled={(t) => Boolean(start && isPickupSlotBlocked(start, t, bookedRanges))}
+              isEndTimeDisabled={(t) =>
+                Boolean(end && isDropoffSlotBlocked(end, t, start, pickupTime, bookedRanges))
+              }
+              onContinue={() => setCalendarDialogOpen(false)}
+              continueLabel="CONTINUE"
+              className="w-full max-w-none"
             />
-
-            <div className="grid w-full grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">
-                  Pickup time
-                </Label>
-                <TimePicker
-                  value={pickupTime}
-                  onChange={(t) => setPickupTime(t)}
-                  isTimeDisabled={(t) => Boolean(start && isPickupSlotBlocked(start, t, bookedRanges))}
-                  className="h-9 rounded-xl text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">
-                  Drop-off time
-                </Label>
-                <TimePicker
-                  value={dropoffTime}
-                  onChange={(t) => setDropoffTime(t)}
-                  isTimeDisabled={(t) =>
-                    Boolean(end && isDropoffSlotBlocked(end, t, start, pickupTime, bookedRanges))
-                  }
-                  className="h-9 rounded-xl text-xs"
-                />
-              </div>
-            </div>
 
             {scheduleConflict && (
               <p className="w-full rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive">
                 {scheduleConflict}
               </p>
             )}
-
-            <Button
-              type="button"
-              size="sm"
-              className="btn-gradient w-full h-9 rounded-xl text-xs font-semibold"
-              onClick={() => setCalendarDialogOpen(false)}
-            >
-              Apply Schedule
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

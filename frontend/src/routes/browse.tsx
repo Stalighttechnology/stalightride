@@ -613,78 +613,33 @@ function Browse() {
       </div>
 
       <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-[358px] p-4 bg-card border-border/80 rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[360px] sm:max-w-[680px] p-3 sm:p-4 bg-card border-border/80 rounded-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
           <DialogHeader className="pb-1">
             <DialogTitle className="text-sm font-bold flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-brand" />
               Rental Dates &amp; Times
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center space-y-3">
-            <CompactDateRangePicker
-              value={{
-                start: parseIsoDate(params.from),
-                end: parseIsoDate(params.to),
-              }}
-              onChange={(range) =>
-                update({
-                  from: formatIsoDate(range.start) || undefined,
-                  to: formatIsoDate(range.end) || undefined,
-                })
-              }
-              className="w-full"
-            />
-            <div className="grid w-full grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">
-                  Pickup time
-                </Label>
-                <TimePicker
-                  value={params.pickupTime ?? "08:00"}
-                  onChange={(t) => update({ pickupTime: t || undefined })}
-                  className="h-9 rounded-xl text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">
-                  Drop-off time
-                </Label>
-                <TimePicker
-                  value={params.dropoffTime ?? "09:00"}
-                  onChange={(t) => update({ dropoffTime: t || undefined })}
-                  className="h-9 rounded-xl text-xs"
-                />
-              </div>
-            </div>
-            <div className="flex w-full items-center gap-2 pt-1">
-              {(params.from || params.to) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-xl text-xs"
-                  onClick={() =>
-                    update({
-                      from: undefined,
-                      to: undefined,
-                      pickupTime: undefined,
-                      dropoffTime: undefined,
-                    })
-                  }
-                >
-                  Clear
-                </Button>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                className="btn-gradient flex-1 h-9 rounded-xl text-xs font-semibold"
-                onClick={() => setCalendarOpen(false)}
-              >
-                Apply dates &amp; times
-              </Button>
-            </div>
-          </div>
+          <CompactDateRangePicker
+            desktopMonths={2}
+            value={{
+              start: parseIsoDate(params.from),
+              end: parseIsoDate(params.to),
+            }}
+            onChange={(range) =>
+              update({
+                from: formatIsoDate(range.start) || undefined,
+                to: formatIsoDate(range.end) || undefined,
+              })
+            }
+            startTime={params.pickupTime ?? "08:00"}
+            endTime={params.dropoffTime ?? "09:00"}
+            onStartTimeChange={(t) => update({ pickupTime: t || undefined })}
+            onEndTimeChange={(t) => update({ dropoffTime: t || undefined })}
+            onContinue={() => setCalendarOpen(false)}
+            continueLabel="CONTINUE"
+            className="w-full max-w-none border-0 shadow-none"
+          />
         </DialogContent>
       </Dialog>
     </div>

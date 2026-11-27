@@ -1,6 +1,8 @@
 import * as React from "react";
-import { CalendarDays, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { TimePicker } from "@/components/ui/time-picker";
 
 export interface DateRangeValue {
   start: Date | null;
@@ -16,13 +18,23 @@ export interface CompactDateRangePickerProps {
   minDate?: Date;
   /** Specific dates that cannot be selected. */
   disabledDates?: Date[];
-  /** Number of months to render vertically (defaults to 6). */
-  monthsToRender?: number;
+  /** Number of months visible side-by-side on desktop (`1` for compact/sidebar, `2` for modal). */
+  desktopMonths?: 1 | 2;
+  /** Optional start/end time integration (uses @ncdai/wheel-picker TimePicker). */
+  startTime?: string;
+  endTime?: string;
+  onStartTimeChange?: (time: string) => void;
+  onEndTimeChange?: (time: string) => void;
+  isStartTimeDisabled?: (time: string) => boolean;
+  isEndTimeDisabled?: (time: string) => boolean;
+  /** Optional Continue button in the footer. */
+  onContinue?: () => void;
+  continueLabel?: string;
   /** Optional wrapper class overrides. */
   className?: string;
 }
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
+const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"] as const;
 const MS_PER_DAY = 86_400_000;
 
 function startOfDay(date: Date): Date {
@@ -76,12 +88,27 @@ function diffDaysInclusive(start: Date, end: Date): number {
   return Math.abs(Math.round((utcEnd - utcStart) / MS_PER_DAY)) + 1;
 }
 
-function formatMonthDay(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function formatSummaryDate(date: Date): string {
+  const day = date.getDate();
+  const month = date.toLocaleDateString("en-US", { month: "short" });
+  const year2 = String(date.getFullYear()).slice(-2);
+  return `${day} ${month}'${year2}`;
 }
 
-function formatMonthYear(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+function formatSummaryTime(timeStr?: string): string {
+  if (!timeStr) return "";
+  const [hStr, mStr] = timeStr.split(":");
+  const h = parseInt(hStr, 10);
+  if (Number.isNaN(h)) return timeStr;
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  return `${displayH}:${mStr || "00"} ${period}`;
+}
+
+function formatMonthTitle(date: Date): string {
+  const month = date.toLocaleDateString("en-US", { month: "long" });
+  const year2 = String(date.getFullYear()).slice(-2);
+  return `${month} '${year2}`;
 }
 
 interface MonthGrid {
@@ -91,44 +118,41 @@ interface MonthGrid {
   days: Date[];
 }
 
-function buildMonthGrids(baseDate: Date, count: number): MonthGrid[] {
-  const safeCount = Math.max(1, count);
-  const startYear = baseDate.getFullYear();
-  const startMonth = baseDate.getMonth();
-  const grids: MonthGrid[] = [];
+function buildMonthGrid(year: number, month: number): MonthGrid {
+  const firstOfMonth = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days: Date[] = [];
 
-  for (let i = 0; i < safeCount; i++) {
-    const firstOfMonth = new Date(startYear, startMonth + i, 1);
-    const year = firstOfMonth.getFullYear();
-    const month = firstOfMonth.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const days: Date[] = [];
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      days.push(new Date(year, month, d));
-    }
-
-    grids.push({
-      key: `${year}-${String(month + 1).padStart(2, "0")}`,
-      label: formatMonthYear(firstOfMonth),
-      leadingEmpty: firstOfMonth.getDay(),
-      days,
-    });
+  for (let d = 1; d <= daysInMonth; d++) {
+    days.push(new Date(year, month, d));
   }
 
-  return grids;
+  return {
+    key: `${year}-${String(month + 1).padStart(2, "0")}`,
+    label: formatMonthTitle(firstOfMonth),
+    leadingEmpty: firstOfMonth.getDay(),
+    days,
+  };
 }
 
 /**
- * Compact, vertically scrollable date-range picker with live hover preview,
- * sticky month headers, and inclusive day-count badge.
+ * Slideable 2-month (desktop) / 1-month (mobile) date-range calendar
+ * styled to match the website's brand palette, with optional wheel TimePickers.
  */
 export function CompactDateRangePicker({
   value,
   onChange,
   minDate,
   disabledDates,
-  monthsToRender = 6,
+  desktopMonths = 1,
+  startTime,
+  endTime,
+  onStartTimeChange,
+  onEndTimeChange,
+  isStartTimeDisabled,
+  isEndTimeDisabled,
+  onContinue,
+  continueLabel = "CONTINUE",
   className,
 }: CompactDateRangePickerProps) {
   const isControlled = value !== undefined;
@@ -144,6 +168,41 @@ export function CompactDateRangePicker({
     [minDate, today],
   );
 
+  const activeRange: DateRangeValue = React.useMemo(() => {
+    const raw = isControlled ? value : internalRange;
+    return {
+      start: raw?.start ? startOfDay(raw.start) : null,
+      end: raw?.end ? startOfDay(raw.end) : null,
+    };
+  }, [isControlled, value, internalRange]);
+
+  const minMonthAnchor = React.useMemo(
+    () => new Date(effectiveMinDate.getFullYear(), effectiveMinDate.getMonth(), 1),
+    [effectiveMinDate],
+  );
+
+  const [viewMonth, setViewMonth] = React.useState<Date>(() => {
+    if (activeRange.start) {
+      const s = new Date(activeRange.start.getFullYear(), activeRange.start.getMonth(), 1);
+      return s >= minMonthAnchor ? s : minMonthAnchor;
+    }
+    return minMonthAnchor;
+  });
+
+  const canGoPrev =
+    viewMonth.getFullYear() > minMonthAnchor.getFullYear() ||
+    (viewMonth.getFullYear() === minMonthAnchor.getFullYear() &&
+      viewMonth.getMonth() > minMonthAnchor.getMonth());
+
+  const handlePrevMonth = () => {
+    if (!canGoPrev) return;
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
   const disabledKeySet = React.useMemo(() => {
     const set = new Set<string>();
     if (disabledDates) {
@@ -156,18 +215,15 @@ export function CompactDateRangePicker({
     return set;
   }, [disabledDates]);
 
-  const activeRange: DateRangeValue = React.useMemo(() => {
-    const raw = isControlled ? value : internalRange;
-    return {
-      start: raw?.start ? startOfDay(raw.start) : null,
-      end: raw?.end ? startOfDay(raw.end) : null,
-    };
-  }, [isControlled, value, internalRange]);
-
-  const months = React.useMemo(
-    () => buildMonthGrids(effectiveMinDate, monthsToRender),
-    [effectiveMinDate, monthsToRender],
+  const primaryMonth = React.useMemo(
+    () => buildMonthGrid(viewMonth.getFullYear(), viewMonth.getMonth()),
+    [viewMonth],
   );
+
+  const secondaryMonth = React.useMemo(() => {
+    const next = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+    return buildMonthGrid(next.getFullYear(), next.getMonth());
+  }, [viewMonth]);
 
   const isDateDisabled = React.useCallback(
     (day: Date) => day < effectiveMinDate || disabledKeySet.has(toDayKey(day)),
@@ -209,7 +265,7 @@ export function CompactDateRangePicker({
     emitChange({ start, end: day });
   };
 
-  const handleClear = () => {
+  const handleReset = () => {
     setHoverDate(null);
     emitChange({ start: null, end: null });
   };
@@ -238,79 +294,15 @@ export function CompactDateRangePicker({
     return diffDaysInclusive(displayStart, displayEnd);
   }, [displayStart, displayEnd]);
 
-  const dayCountLabel =
-    displayDays === 0
-      ? "Select dates"
-      : displayDays === 1
-        ? "1 day"
-        : `${displayDays} days`;
+  const hasTimeSection = Boolean(onStartTimeChange || onEndTimeChange);
 
-  return (
-    <div
-      className={cn(
-        "w-[310px] max-w-full overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm select-none",
-        className,
-      )}
-    >
-      {/* Top Summary & Day-Count Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-border/80 bg-muted/25 px-3 py-2.5">
-        <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
-          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" />
-          {displayStart ? (
-            <div className="flex min-w-0 items-center gap-1 truncate tabular-nums">
-              <span className="font-semibold text-foreground">
-                {formatMonthDay(displayStart)}
-              </span>
-              <span className="text-muted-foreground">→</span>
-              <span
-                className={cn(
-                  "truncate",
-                  displayEnd
-                    ? isPreviewing
-                      ? "font-medium text-primary"
-                      : "font-semibold text-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                {displayEnd ? formatMonthDay(displayEnd) : "End"}
-              </span>
-            </div>
-          ) : (
-            <span className="truncate text-muted-foreground">Pick start &amp; end</span>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums transition-colors",
-              displayDays > 0
-                ? isPreviewing
-                  ? "bg-primary/15 text-primary"
-                  : "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground",
-            )}
-          >
-            {dayCountLabel}
-          </span>
-          {start && (
-            <button
-              type="button"
-              onClick={handleClear}
-              aria-label="Clear selected dates"
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Fixed Weekday Header (aligned with scrollable 7-column grid) */}
-      <div className="grid grid-cols-7 border-b border-border/60 bg-card px-3 py-1.5 text-center [scrollbar-gutter:stable]">
-        {WEEKDAYS.map((day) => (
+  const renderMonth = (month: MonthGrid, isSecondary = false) => (
+    <div key={month.key} className={cn("w-full", isSecondary && "hidden sm:block")}>
+      {/* Weekday header */}
+      <div className="grid grid-cols-7 border-b border-border/60 pb-2 text-center">
+        {WEEKDAYS.map((day, idx) => (
           <div
-            key={day}
+            key={`${month.key}-wd-${idx}`}
             className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
           >
             {day}
@@ -318,104 +310,251 @@ export function CompactDateRangePicker({
         ))}
       </div>
 
-      {/* Scrollable Months Container */}
+      {/* Day cells */}
       <div
-        className="max-h-[250px] overflow-y-auto scroll-smooth px-3 pb-3 [scrollbar-gutter:stable]"
+        className="mt-2 grid grid-cols-7 gap-y-1"
         onMouseLeave={() => setHoverDate(null)}
       >
-        {months.map((month) => (
-          <section key={month.key} aria-label={month.label}>
-            {/* Sticky Month Title */}
-            <div className="sticky top-0 z-20 bg-card/95 py-2 text-xs font-bold tracking-tight text-foreground backdrop-blur-xs">
-              {month.label}
-            </div>
-
-            <div className="grid grid-cols-7 gap-y-1">
-              {Array.from({ length: month.leadingEmpty }).map((_, idx) => (
-                <div key={`empty-${month.key}-${idx}`} className="h-9" aria-hidden="true" />
-              ))}
-
-              {month.days.map((day) => {
-                const disabled = isDateDisabled(day);
-                const isToday = isSameDay(day, today);
-
-                const isStart = isSameDay(day, displayStart);
-                const isEnd = isSameDay(day, displayEnd);
-                const isSingleDay = isStart && isEnd;
-
-                const hasRange = Boolean(displayStart && displayEnd && !isSingleDay);
-                const isStrictlyBetween = Boolean(
-                  hasRange && displayStart && displayEnd && day > displayStart && day < displayEnd,
-                );
-
-                const colIdx = day.getDay();
-                const isWeekStart = colIdx === 0;
-                const isWeekEnd = colIdx === 6;
-
-                return (
-                  <div
-                    key={toDayKey(day)}
-                    className="relative flex h-9 w-full items-center justify-center"
-                  >
-                    {/* Continuous soft range fill */}
-                    {hasRange && (isStart || isEnd || isStrictlyBetween) && (
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "pointer-events-none absolute inset-y-0.5 transition-colors",
-                          isPreviewing ? "bg-primary/10" : "bg-primary/15",
-                          isStart && "left-1/2 right-0",
-                          isEnd && "left-0 right-1/2",
-                          isStrictlyBetween && "inset-x-0",
-                          isStrictlyBetween && isWeekStart && "rounded-l-full",
-                          isStrictlyBetween && isWeekEnd && "rounded-r-full",
-                        )}
-                      />
-                    )}
-
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => handleDayClick(day)}
-                      onMouseEnter={() => {
-                        if (!disabled && start && !end) {
-                          setHoverDate(day);
-                        }
-                      }}
-                      aria-label={day.toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                      aria-pressed={isStart || isEnd}
-                      className={cn(
-                        "relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        disabled
-                          ? "cursor-not-allowed text-muted-foreground/35 line-through"
-                          : isStart || isEnd
-                            ? cn(
-                                "font-semibold shadow-xs",
-                                isPreviewing && isEnd && !isSameDay(day, start)
-                                  ? "bg-primary/80 text-primary-foreground"
-                                  : "bg-primary text-primary-foreground",
-                              )
-                            : isStrictlyBetween
-                              ? "text-foreground hover:bg-primary/20"
-                              : isToday
-                                ? "font-semibold text-primary ring-1 ring-primary/50 hover:bg-primary/10"
-                                : "text-foreground hover:bg-muted",
-                      )}
-                    >
-                      {day.getDate()}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+        {Array.from({ length: month.leadingEmpty }).map((_, idx) => (
+          <div key={`empty-${month.key}-${idx}`} className="h-9" aria-hidden="true" />
         ))}
+
+        {month.days.map((day) => {
+          const disabled = isDateDisabled(day);
+          const isToday = isSameDay(day, today);
+
+          const isStart = isSameDay(day, displayStart);
+          const isEnd = isSameDay(day, displayEnd);
+          const isSingleDay = isStart && isEnd;
+
+          const hasRange = Boolean(displayStart && displayEnd && !isSingleDay);
+          const isStrictlyBetween = Boolean(
+            hasRange && displayStart && displayEnd && day > displayStart && day < displayEnd,
+          );
+
+          const colIdx = day.getDay();
+          const isWeekStart = colIdx === 0;
+          const isWeekEnd = colIdx === 6;
+
+          return (
+            <div
+              key={toDayKey(day)}
+              className="relative flex h-9 w-full items-center justify-center"
+            >
+              {/* Continuous soft brand range fill */}
+              {hasRange && (isStart || isEnd || isStrictlyBetween) && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0.5 transition-colors",
+                    isPreviewing ? "bg-brand/10" : "bg-brand/15",
+                    isStart && "left-1/2 right-0",
+                    isEnd && "left-0 right-1/2",
+                    isStrictlyBetween && "inset-x-0",
+                    isStrictlyBetween && isWeekStart && "rounded-l-lg",
+                    isStrictlyBetween && isWeekEnd && "rounded-r-lg",
+                  )}
+                />
+              )}
+
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => handleDayClick(day)}
+                onMouseEnter={() => {
+                  if (!disabled && start && !end) {
+                    setHoverDate(day);
+                  }
+                }}
+                aria-label={day.toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+                aria-pressed={isStart || isEnd}
+                className={cn(
+                  "relative z-10 flex h-8 w-9 items-center justify-center rounded-lg text-xs font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  disabled
+                    ? "cursor-not-allowed text-muted-foreground/35 line-through"
+                    : isStart || isEnd
+                      ? cn(
+                          "font-semibold shadow-xs",
+                          isPreviewing && isEnd && !isSameDay(day, start)
+                            ? "bg-brand/80 text-brand-foreground"
+                            : "bg-brand text-brand-foreground",
+                        )
+                      : isStrictlyBetween
+                        ? "text-foreground hover:bg-brand/20"
+                        : isToday
+                          ? "font-semibold text-brand ring-1 ring-brand/50 hover:bg-brand/10"
+                          : "text-foreground hover:bg-muted",
+                )}
+              >
+                {day.getDate()}
+              </button>
+            </div>
+          );
+        })}
       </div>
+    </div>
+  );
+
+  return (
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm select-none",
+        desktopMonths === 1 ? "max-w-[340px]" : "max-w-[660px]",
+        className,
+      )}
+    >
+      {/* Top Summary & RESET Bar */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2 text-xs sm:text-sm font-medium text-foreground">
+          <CalendarDays className="h-4 w-4 shrink-0 text-brand" />
+          {displayStart ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 tabular-nums">
+              <span className="font-semibold">
+                {formatSummaryDate(displayStart)}
+                {startTime ? `, ${formatSummaryTime(startTime)}` : ""}
+              </span>
+              <span className="text-muted-foreground">-</span>
+              <span
+                className={cn(
+                  displayEnd ? "font-semibold" : "text-muted-foreground font-normal",
+                )}
+              >
+                {displayEnd
+                  ? `${formatSummaryDate(displayEnd)}${endTime ? `, ${formatSummaryTime(endTime)}` : ""}`
+                  : "Select return"}
+              </span>
+              {displayDays > 0 && (
+                <span className="ml-1 inline-flex items-center rounded-full bg-brand/15 px-2 py-0.5 text-[11px] font-semibold text-brand">
+                  {displayDays === 1 ? "1 day" : `${displayDays} days`}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="truncate text-muted-foreground">Select start &amp; end date</span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={!start && !end}
+          className="shrink-0 text-xs font-bold uppercase tracking-wider text-brand transition-opacity hover:underline disabled:opacity-35 disabled:no-underline cursor-pointer"
+        >
+          RESET
+        </button>
+      </div>
+
+      {/* Month Slide Navigation Row */}
+      <div className="px-4 pt-3 pb-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handlePrevMonth}
+            disabled={!canGoPrev}
+            aria-label="Previous month"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <div
+            className={cn(
+              "grid flex-1 items-center text-center",
+              desktopMonths === 2 ? "grid-cols-1 sm:grid-cols-2 sm:gap-6" : "grid-cols-1",
+            )}
+          >
+            <span className="text-sm font-semibold tracking-tight text-foreground">
+              {primaryMonth.label}
+            </span>
+            {desktopMonths === 2 && (
+              <span className="hidden text-sm font-semibold tracking-tight text-foreground sm:block">
+                {secondaryMonth.label}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleNextMonth}
+            aria-label="Next month"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* 1-month on mobile, 2-month side-by-side on desktop when desktopMonths === 2 */}
+        <div
+          className={cn(
+            "grid gap-6",
+            desktopMonths === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1",
+          )}
+        >
+          {renderMonth(primaryMonth, false)}
+          {desktopMonths === 2 && renderMonth(secondaryMonth, true)}
+        </div>
+      </div>
+
+      {/* Time Selection Section (uses @ncdai/wheel-picker TimePicker) */}
+      {hasTimeSection && (
+        <div className="border-t border-border/70 bg-muted/20 px-4 py-3.5 space-y-3">
+          <div>
+            <p className="text-xs sm:text-sm font-semibold text-foreground">
+              Select the start time &amp; end time
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              All times are shown in IST (UTC+5:30).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {onStartTimeChange && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-3 py-2">
+                <span className="text-xs font-semibold text-foreground shrink-0">
+                  Start Time
+                </span>
+                <TimePicker
+                  value={startTime ?? "08:00"}
+                  onChange={onStartTimeChange}
+                  isTimeDisabled={isStartTimeDisabled}
+                  className="h-8 w-32 rounded-lg text-xs"
+                />
+              </div>
+            )}
+
+            {onEndTimeChange && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-3 py-2">
+                <span className="text-xs font-semibold text-foreground shrink-0">
+                  End Time
+                </span>
+                <TimePicker
+                  value={endTime ?? "08:00"}
+                  onChange={onEndTimeChange}
+                  isTimeDisabled={isEndTimeDisabled}
+                  className="h-8 w-32 rounded-lg text-xs"
+                />
+              </div>
+            )}
+          </div>
+
+          {onContinue && (
+            <div className="flex justify-end pt-1">
+              <Button
+                type="button"
+                onClick={onContinue}
+                className="btn-gradient h-9 px-6 rounded-xl text-xs font-bold uppercase tracking-wider"
+              >
+                {continueLabel}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
