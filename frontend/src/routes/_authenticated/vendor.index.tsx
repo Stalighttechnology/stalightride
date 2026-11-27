@@ -433,8 +433,10 @@ function VendorDashboard() {
   const saveVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return toast.error("Please sign in to register your host profile");
+    if (!businessName.trim()) return toast.error("Business or display name is required");
+    if (!bio.trim()) return toast.error("Host bio is required");
     setSaving(true);
-    const payload = { id: user.id, business_name: businessName, bio };
+    const payload = { id: user.id, business_name: businessName.trim(), bio: bio.trim() };
     const { error } = await api.from("vendors").upsert(payload);
     if (error) toast.error(error.message);
     else {
@@ -758,7 +760,7 @@ function VendorDashboard() {
             <CardContent>
               <form onSubmit={saveVendor} className="space-y-4 max-w-xl">
                 <div>
-                  <Label className="text-xs">Business or Display Name</Label>
+                  <Label required className="text-xs">Business or Display Name</Label>
                   <Input
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
@@ -767,12 +769,13 @@ function VendorDashboard() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Host Bio</Label>
+                  <Label required className="text-xs">Host Bio</Label>
                   <Textarea
                     rows={3}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     placeholder="Tell renters about your vehicles and pickup location"
+                    required
                   />
                 </div>
                 <div className="flex items-center gap-2">

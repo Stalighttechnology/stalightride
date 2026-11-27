@@ -96,7 +96,7 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold">Subject / Issue Summary</Label>
+                <Label required className="text-xs font-semibold">Subject / Issue Summary</Label>
                 <Input
                   placeholder="e.g. Security deposit refund inquiry"
                   value={subject}
@@ -137,7 +137,7 @@ export function SupportTicketForm({ defaultCategory = "Other" }: { defaultCatego
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold">Detailed Description</Label>
+                <Label required className="text-xs font-semibold">Detailed Description</Label>
                 <Textarea
                   placeholder="Describe your issue with booking reference, dates, and what assistance you need..."
                   value={description}

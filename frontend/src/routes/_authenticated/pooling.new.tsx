@@ -174,7 +174,7 @@ function NewPoolTrip() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-bold text-emerald-500">
                       1
                     </span>
-                    <Label className="font-semibold">Starting Point (Pickup Location)</Label>
+                    <Label required className="font-semibold">Starting Point (Pickup Location)</Label>
                   </div>
                   {origin.lat != null && (
                     <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
@@ -201,7 +201,7 @@ function NewPoolTrip() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-xs font-bold text-sky-500">
                       2
                     </span>
-                    <Label className="font-semibold">Via Stop 1 (First Intermediate Milestone)</Label>
+                    <Label required className="font-semibold">Via Stop 1 (First Intermediate Milestone)</Label>
                   </div>
                   {leg1Km != null && (
                     <span className="text-xs text-muted-foreground">
@@ -228,7 +228,7 @@ function NewPoolTrip() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-xs font-bold text-sky-500">
                       3
                     </span>
-                    <Label className="font-semibold">Via Stop 2 (Second Intermediate Milestone)</Label>
+                    <Label required className="font-semibold">Via Stop 2 (Second Intermediate Milestone)</Label>
                   </div>
                   {leg2Km != null && (
                     <span className="text-xs text-muted-foreground">
@@ -255,7 +255,7 @@ function NewPoolTrip() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500/20 text-xs font-bold text-rose-500">
                       4
                     </span>
-                    <Label className="font-semibold">Destination (Final Drop-off Location)</Label>
+                    <Label required className="font-semibold">Destination (Final Drop-off Location)</Label>
                   </div>
                   {leg3Km != null && (
                     <span className="text-xs text-muted-foreground">
@@ -281,7 +281,7 @@ function NewPoolTrip() {
           <Card>
             <CardContent className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="depart">Departure date & time</Label>
+                <Label htmlFor="depart" required>Departure date & time</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <DatePicker
                     value={departDate}
@@ -297,16 +297,17 @@ function NewPoolTrip() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="vehicle">Vehicle</Label>
+                <Label htmlFor="vehicle" required>Vehicle</Label>
                 <Input
                   id="vehicle"
+                  required
                   value={vehicleLabel}
                   onChange={(e) => setVehicleLabel(e.target.value)}
                   placeholder="Hyundai Creta · White"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="seats" className="flex items-center gap-2">
+                <Label htmlFor="seats" required className="flex items-center gap-2">
                   <Users className="h-4 w-4" /> Seats offered
                 </Label>
                 <Input
@@ -314,17 +315,19 @@ function NewPoolTrip() {
                   type="number"
                   min={1}
                   max={8}
+                  required
                   value={seats}
                   onChange={(e) => setSeats(Number(e.target.value) || 0)}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="fare">Fare per passenger (₹)</Label>
+                <Label htmlFor="fare" required>Fare per passenger (₹)</Label>
                 <Input
                   id="fare"
                   type="number"
                   min={0}
                   step={10}
+                  required
                   value={fare}
                   onChange={(e) => setFare(Number(e.target.value))}
                 />
