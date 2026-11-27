@@ -169,5 +169,5 @@ WITH CHECK ((auth.uid() = reporter_id));
 """
 
 class Migration(migrations.Migration):
-    dependencies = [("core", "0040_review_reply_and_booking_host_integrity")]
+    dependencies = [("core", "0041_driver_review_reply_scope")]
     operations = [migrations.RunSQL(SQL, REVERSE)]

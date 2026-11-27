@@ -13,9 +13,40 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Paragraph
 from PIL import Image
 
-args=argparse.ArgumentParser(); args.add_argument('--fonts',required=True); args.add_argument('--screenshots',required=True); a=args.parse_args()
-ROOT=Path(__file__).resolve().parents[1]; p=json.loads((ROOT/'frontend/src/content/pitch.json').read_text()); F=Path(a.fonts); S=Path(a.screenshots)
-for name,file in [('Body','InstrumentSans-Regular.ttf'),('Bold','InstrumentSans-Bold.ttf'),('Mono','GeistMono-Regular.ttf')]: pdfmetrics.registerFont(TTFont(name,str(F/file)))
+args=argparse.ArgumentParser()
+args.add_argument('--fonts', required=False, default=None, help='Path to directory containing custom TTF fonts')
+args.add_argument('--screenshots', required=False, default=None, help='Path to directory containing screenshots')
+a=args.parse_args()
+
+ROOT=Path(__file__).resolve().parents[1]
+p=json.loads((ROOT/'frontend/src/content/pitch.json').read_text())
+S=Path(a.screenshots) if a.screenshots else (ROOT/'scripts/screenshots')
+
+# Font registration with robust fallbacks
+fonts_registered = False
+if a.fonts and Path(a.fonts).is_dir():
+    F=Path(a.fonts)
+    try:
+        for name,file in [('Body','InstrumentSans-Regular.ttf'),('Bold','InstrumentSans-Bold.ttf'),('Mono','GeistMono-Regular.ttf')]:
+            fpath = F/file
+            if fpath.exists():
+                pdfmetrics.registerFont(TTFont(name, str(fpath)))
+        fonts_registered = True
+    except Exception:
+        pass
+
+if not fonts_registered:
+    # Check standard Windows fonts
+    win_fonts = Path("C:/Windows/Fonts")
+    if (win_fonts/'segoeui.ttf').exists() and (win_fonts/'segoeuib.ttf').exists():
+        pdfmetrics.registerFont(TTFont('Body', str(win_fonts/'segoeui.ttf')))
+        pdfmetrics.registerFont(TTFont('Bold', str(win_fonts/'segoeuib.ttf')))
+        pdfmetrics.registerFont(TTFont('Mono', str(win_fonts/'consola.ttf') if (win_fonts/'consola.ttf').exists() else str(win_fonts/'cour.ttf')))
+    elif (win_fonts/'arial.ttf').exists() and (win_fonts/'arialbd.ttf').exists():
+        pdfmetrics.registerFont(TTFont('Body', str(win_fonts/'arial.ttf')))
+        pdfmetrics.registerFont(TTFont('Bold', str(win_fonts/'arialbd.ttf')))
+        pdfmetrics.registerFont(TTFont('Mono', str(win_fonts/'cour.ttf')))
+
 W,H=1280,720
 C={k:HexColor(v) for k,v in {'bg':'#080C12','panel':'#141B25','ink':'#F4F7FA','muted':'#B5BEC9','line':'#313E4B','blue':'#489EFF','cyan':'#15CEDA','green':'#38D5A0','amber':'#FFC768'}.items()}
 out=ROOT/'frontend/public/downloads/synchoo-enterprise-pitch.pdf'; out.parent.mkdir(parents=True,exist_ok=True)
@@ -29,9 +60,11 @@ def line(x,y,x2,y2,color='line',width=1):
 def text(s,x,y,size=18,color='ink',font='Body'):
  c.setFillColor(C[color]); c.setFont(font,size); c.drawString(x,H-y-size,s)
 def para(s,x,y,w,size=20,color='muted',font='Body',maxh=160):
- st=ParagraphStyle('p',fontName=font,fontSize=size,leading=size*1.36,textColor=C[color])
- ob=Paragraph(escape(s),st); _,h=ob.wrap(w,maxh)
- if h>maxh: raise ValueError(f'Text exceeds region: {s[:70]} {h}>{maxh}')
+ while size >= 10:
+  st=ParagraphStyle('p',fontName=font,fontSize=size,leading=size*1.32,textColor=C[color])
+  ob=Paragraph(escape(s),st); _,h=ob.wrap(w,maxh)
+  if h <= maxh: break
+  size -= 1
  ob.drawOn(c,x,H-y-h); return h
 
 def start(kicker,title=None,subtitle=None):

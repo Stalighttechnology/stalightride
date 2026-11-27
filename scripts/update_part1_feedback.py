@@ -28,7 +28,7 @@ updates = {
     'FIX-01-SEC-01': {
         'status': 'Passed',
         'result': 'Verified with automated test suite. Unauthorized cross-booking incident insert rejected by RLS with permission denied (error 42501). Authorized customer and host incidents accepted with real-time notifications created. SOS alert without booking_id allowed for emergency reporting.',
-        'comments': 'Verified via migration 0041_incident_and_storage_security and test suite scripts/test_part1_fixes.py. AP-07.8 fully remediated.'
+        'comments': 'Verified via migration 0042_incident_and_storage_security and test suite scripts/test_part1_fixes.py. AP-07.8 fully remediated.'
     },
     'FIX-01-SEC-02': {
         'status': 'Passed',

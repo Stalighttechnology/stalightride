@@ -376,9 +376,15 @@ function HiresPage() {
                           Refunded
                         </Badge>
                       )}
-                      {b.payment_status === "partially_refunded" && (
+                      {b.payment_status === "partially_refunded" && Number(b.refund_amount ?? 0) > 0 && (
                         <Badge variant="outline" className="border-amber-300 text-amber-700">
                           Partly refunded
+                        </Badge>
+                      )}
+                      {(b.payment_status === "no_refund" ||
+                        (b.status === "cancelled" && Number(b.refund_amount ?? 0) === 0 && b.paid_at)) && (
+                        <Badge variant="outline" className="border-rose-300 text-rose-700">
+                          Cancelled — Non-refundable
                         </Badge>
                       )}
                     </div>
