@@ -19,19 +19,17 @@ export interface TimePickerProps {
   slots?: string[];
   disabledSlots?: string[];
   isTimeDisabled?: (time: string) => boolean;
+  minTime?: string; // Format "HH:mm" (24-hour), e.g. "14:00"
 }
-
-const HOUR_OPTIONS: WheelPickerOption<string>[] = Array.from({ length: 12 }, (_, i) => {
-  const h = String(i + 1);
-  return { value: h, label: h.padStart(2, "0") };
-});
 
 const BASE_MINUTES = ["00", "15", "30", "45"];
 
-const PERIOD_OPTIONS: WheelPickerOption<"AM" | "PM">[] = [
-  { value: "AM", label: "AM" },
-  { value: "PM", label: "PM" },
-];
+function to24Hour(h12Str: string, p: "AM" | "PM") {
+  const h12 = parseInt(h12Str, 10) || 12;
+  let h24 = h12 % 12;
+  if (p === "PM") h24 += 12;
+  return String(h24).padStart(2, "0");
+}
 
 function formatTime12h(timeStr: string) {
   if (!timeStr) return "";
@@ -52,45 +50,90 @@ export function TimePicker({
   id,
   disabledSlots,
   isTimeDisabled,
+  minTime,
 }: TimePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  const [currentH, rawM] = (value || "10:00").split(":");
+  // Auto-correct to minTime if current value is in the past
+  React.useEffect(() => {
+    if (minTime && value && value < minTime) {
+      onChange?.(minTime);
+    }
+  }, [minTime, value, onChange]);
+
+  const effectiveValue = (minTime && value && value < minTime) ? minTime : (value || "10:00");
+  const [currentH, rawM] = effectiveValue.split(":");
   const parsedH = parseInt(currentH, 10);
   const hourNum = Number.isNaN(parsedH) ? 10 : parsedH;
   const currentM = rawM || "00";
-  const period: "AM" | "PM" = hourNum >= 12 ? "PM" : "AM";
+  const rawPeriod: "AM" | "PM" = hourNum >= 12 ? "PM" : "AM";
+  const period: "AM" | "PM" = (minTime && minTime >= "12:00" && rawPeriod === "AM") ? "PM" : rawPeriod;
   const hour12 = String(hourNum % 12 === 0 ? 12 : hourNum % 12);
+
+  const periodOptions = React.useMemo<WheelPickerOption<"AM" | "PM">[]>(() => {
+    return [
+      { value: "AM", label: "AM", disabled: Boolean(minTime && minTime >= "12:00") },
+      { value: "PM", label: "PM", disabled: Boolean(minTime && minTime >= "24:00") },
+    ];
+  }, [minTime]);
+
+  const hourOptions = React.useMemo<WheelPickerOption<string>[]>(() => {
+    const minH = minTime ? parseInt(minTime.split(":")[0], 10) : 0;
+    return Array.from({ length: 12 }, (_, i) => {
+      const h12 = String(i + 1);
+      const h24 = parseInt(to24Hour(h12, period), 10);
+      const isPast = Boolean(minTime && h24 < minH);
+      return {
+        value: h12,
+        label: h12.padStart(2, "0"),
+        disabled: isPast,
+      };
+    });
+  }, [minTime, period]);
 
   const minuteOptions = React.useMemo<WheelPickerOption<string>[]>(() => {
     const mins = BASE_MINUTES.includes(currentM)
       ? BASE_MINUTES
       : [...BASE_MINUTES, currentM].sort();
-    return mins.map((m) => ({ value: m, label: m }));
-  }, [currentM]);
-
-  const to24Hour = (h12Str: string, p: "AM" | "PM") => {
-    const h12 = parseInt(h12Str, 10) || 12;
-    let h24 = h12 % 12;
-    if (p === "PM") h24 += 12;
-    return String(h24).padStart(2, "0");
-  };
+    return mins.map((m) => {
+      const timeStr = `${String(hourNum).padStart(2, "0")}:${m}`;
+      const isPast = Boolean(minTime && timeStr < minTime);
+      return {
+        value: m,
+        label: m,
+        disabled: isPast,
+      };
+    });
+  }, [currentM, hourNum, minTime]);
 
   const setHour = (h12Str: string) => {
-    onChange?.(`${to24Hour(h12Str, period)}:${currentM}`);
+    let nextTime = `${to24Hour(h12Str, period)}:${currentM}`;
+    if (minTime && nextTime < minTime) {
+      nextTime = minTime;
+    }
+    onChange?.(nextTime);
   };
 
   const setMinute = (m: string) => {
-    onChange?.(`${String(hourNum).padStart(2, "0")}:${m}`);
+    let nextTime = `${String(hourNum).padStart(2, "0")}:${m}`;
+    if (minTime && nextTime < minTime) {
+      nextTime = minTime;
+    }
+    onChange?.(nextTime);
   };
 
   const setPeriod = (p: "AM" | "PM") => {
-    onChange?.(`${to24Hour(hour12, p)}:${currentM}`);
+    let nextTime = `${to24Hour(hour12, p)}:${currentM}`;
+    if (minTime && nextTime < minTime) {
+      nextTime = minTime;
+    }
+    onChange?.(nextTime);
   };
 
-  const timeUnavailable = isTimeDisabled
+  const isPastTime = Boolean(minTime && value && value < minTime);
+  const timeUnavailable = isPastTime || (isTimeDisabled
     ? isTimeDisabled(value)
-    : Boolean(disabledSlots?.includes(value));
+    : Boolean(disabledSlots?.includes(value)));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -108,7 +151,7 @@ export function TimePicker({
         >
           <Clock className="mr-1 sm:mr-1.5 h-3.5 w-3.5 shrink-0 opacity-70" />
           <span className="truncate flex-1 whitespace-nowrap tabular-nums">
-            {value ? formatTime12h(value) : placeholder}
+            {effectiveValue ? formatTime12h(effectiveValue) : placeholder}
           </span>
         </Button>
       </PopoverTrigger>
@@ -119,16 +162,16 @@ export function TimePicker({
               Select Time
             </span>
             <span className="font-mono text-sm font-bold text-foreground tabular-nums">
-              {formatTime12h(value || "10:00")}
+              {formatTime12h(effectiveValue)}
             </span>
           </div>
 
           <WheelPickerWrapper className="w-full border-border/80 bg-muted/20">
             <WheelPicker
-              options={HOUR_OPTIONS}
+              options={hourOptions}
               value={hour12}
               onValueChange={setHour}
-              infinite
+              infinite={!minTime}
               visibleCount={12}
               optionItemHeight={32}
             />
@@ -136,14 +179,15 @@ export function TimePicker({
               options={minuteOptions}
               value={currentM}
               onValueChange={setMinute}
-              infinite
+              infinite={!minTime}
               visibleCount={12}
               optionItemHeight={32}
             />
             <WheelPicker
-              options={PERIOD_OPTIONS}
+              options={periodOptions}
               value={period}
               onValueChange={setPeriod}
+              infinite={!minTime}
               visibleCount={12}
               optionItemHeight={32}
             />
@@ -151,7 +195,9 @@ export function TimePicker({
 
           {timeUnavailable && (
             <p className="text-center text-[11px] font-medium text-destructive">
-              This time slot is unavailable
+              {isPastTime
+                ? "Times in the past cannot be booked"
+                : "This time slot is unavailable"}
             </p>
           )}
 

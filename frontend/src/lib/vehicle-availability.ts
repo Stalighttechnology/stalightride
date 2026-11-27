@@ -32,6 +32,40 @@ export function toIsoDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Calculates the earliest allowed pickup time in "HH:mm" (24-hour) format
+ * if targetDate is today, according to the rule:
+ * time + 1 hour, rounded up to the next full hour:
+ * - 11:59 -> 13:00 (1 PM)
+ * - 12:00 -> 14:00 (2 PM)
+ * - 12:01 -> 14:00 (2 PM)
+ * - 12:30 -> 14:00 (2 PM)
+ *
+ * Formula: for any current time in hour H, the minimum selectable hour is H + 2.
+ * Returns undefined if targetDate is not today (or not specified).
+ */
+export function getEarliestBookingTimeForDate(
+  targetDate?: string | Date | null,
+  now = new Date(),
+): string | undefined {
+  if (!targetDate) return undefined;
+
+  const todayStr = toIsoDate(now);
+  const targetStr =
+    typeof targetDate === "string" ? targetDate.slice(0, 10) : toIsoDate(targetDate);
+
+  if (targetStr !== todayStr) {
+    return undefined;
+  }
+
+  const currentHour = now.getHours(); // 0..23
+  const minHour = currentHour + 2;
+  if (minHour >= 24) {
+    return "23:59";
+  }
+  return `${String(minHour).padStart(2, "0")}:00`;
+}
+
 export function parseDateTime(dateStr: string, timeStr?: string | null): number {
   const t = (timeStr || "10:00").slice(0, 5);
   return new Date(`${dateStr}T${t}:00`).getTime();
@@ -94,8 +128,14 @@ export function isPickupSlotBlocked(
   dateStr: string,
   slotTime: string,
   ranges: BookedRange[],
+  now = new Date(),
 ): boolean {
-  if (!ranges || ranges.length === 0 || !dateStr) return false;
+  if (!dateStr) return false;
+  const minAllowed = getEarliestBookingTimeForDate(dateStr, now);
+  if (minAllowed && slotTime < minAllowed) {
+    return true;
+  }
+  if (!ranges || ranges.length === 0) return false;
   const slotMs = parseDateTime(dateStr, slotTime);
 
   for (const r of ranges) {

@@ -11,6 +11,7 @@ import {
   bookingIntervalsOverlap,
   getSlotStatus,
   getDateAvailabilityState,
+  getEarliestBookingTimeForDate,
   type BookedRange,
 } from "../../lib/vehicle-availability";
 
@@ -172,5 +173,28 @@ describe("vehicle-availability helper", () => {
 
     // 2026-11-29 is the return day -> partially_booked
     expect(getDateAvailabilityState("2026-11-29", [ashaBooking], "2026-11-25", mockNow)).toBe("partially_booked");
+  });
+
+  test("getEarliestBookingTimeForDate limits time scroll strictly to future bookings for today", () => {
+    const today = "2026-11-27";
+
+    // 11:59 AM allows 1:00 PM (13:00)
+    const at1159 = new Date("2026-11-27T11:59:00");
+    expect(getEarliestBookingTimeForDate(today, at1159)).toBe("13:00");
+
+    // 12:00 PM must be 2:00 PM (14:00)
+    const at1200 = new Date("2026-11-27T12:00:00");
+    expect(getEarliestBookingTimeForDate(today, at1200)).toBe("14:00");
+
+    // 12:01 PM must be 2:00 PM (14:00)
+    const at1201 = new Date("2026-11-27T12:01:00");
+    expect(getEarliestBookingTimeForDate(today, at1201)).toBe("14:00");
+
+    // 12:30 PM must be 2:00 PM (14:00)
+    const at1230 = new Date("2026-11-27T12:30:00");
+    expect(getEarliestBookingTimeForDate(today, at1230)).toBe("14:00");
+
+    // Future date (e.g. tomorrow) has no restriction (undefined)
+    expect(getEarliestBookingTimeForDate("2026-11-28", at1230)).toBeUndefined();
   });
 });

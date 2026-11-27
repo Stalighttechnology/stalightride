@@ -418,8 +418,8 @@ function WashPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_360px]">
-        <div>
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold">Choose a package</h2>
           {!services && (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">

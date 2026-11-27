@@ -405,8 +405,8 @@ function DriverProfile() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="space-y-6 min-w-0">
             <Card>
               <CardContent className="p-6">
                 <div className="flex flex-wrap items-start gap-4">
