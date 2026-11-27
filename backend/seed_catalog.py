@@ -143,7 +143,7 @@ def main():
                 "active",
                 "approved",
                 True,
-                "honda activa scooter",
+                "Honda Activa 6G",
             ),
             (
                 "1d1bc0ad-c338-462c-93a7-e8a11d3b0d52",
@@ -168,7 +168,7 @@ def main():
                 "active",
                 "approved",
                 True,
-                "hatchback car silver",
+                "Suzuki Swift 2024",
             ),
             (
                 "c947cdf6-7e76-4e0b-b674-5a1c7b73a903",
@@ -193,7 +193,7 @@ def main():
                 "active",
                 "approved",
                 True,
-                "modern crossover suv car",
+                "Maruti Suzuki Fronx",
             ),
             (
                 "381bb6a3-999f-4bae-b0e8-4350e85c9008",
@@ -218,7 +218,7 @@ def main():
                 "active",
                 "approved",
                 True,
-                "white hatchback car",
+                "Suzuki Swift 2024",
             ),
         ]
 
@@ -268,7 +268,7 @@ def main():
                 18.4, 5, "Bengaluru", "Opp. EGL, Amarjyoti Layout, Domlur, Bengaluru, Karnataka 560071",
                 12.9507, 77.6416,
                 "Executive 2026 sedan with Honda Sensing ADAS, sunroof, leather upholstery, and spacious rear legroom.",
-                399, 2999, 17900, 4000, 4.78, 18, True, "sedan car silver"
+                399, 2999, 17900, 4000, 4.78, 18, True, "Honda City fifth generation"
             ),
             (
                 "11111111-aaaa-4000-8000-000000000002", v2,
@@ -276,7 +276,7 @@ def main():
                 20.0, 5, "Bengaluru", "1st Block, Koramangala, Bengaluru, Karnataka 560034",
                 12.9279, 77.6271,
                 "Sleek 2025 turbo sedan featuring ventilated seats, Bose audio, and digital cockpit.",
-                379, 2899, 17200, 4000, 4.72, 14, True, "modern black sedan car"
+                379, 2899, 17200, 4000, 4.72, 14, True, "Hyundai Verna BN7"
             ),
             (
                 "11111111-aaaa-4000-8000-000000000003", v1,
@@ -284,7 +284,7 @@ def main():
                 19.3, 5, "Bengaluru", "Outer Ring Rd, Bellandur, Bengaluru, Karnataka 560103",
                 12.9260, 77.6762,
                 "Refined European 2026 sedan with 5-star GNCAP safety, electric sunroof, and highway stability.",
-                389, 2950, 17600, 4000, 4.81, 11, True, "white sedan car"
+                389, 2950, 17600, 4000, 4.81, 11, True, "Skoda Slavia"
             ),
             (
                 "11111111-aaaa-4000-8000-000000000004", v2,
@@ -292,7 +292,7 @@ def main():
                 18.8, 5, "Mumbai", "Bandra West, Pali Hill, Mumbai, Maharashtra 400050",
                 19.0607, 72.8295,
                 "Performance-tuned 2025 GT sedan with DSG gearbox, wireless CarPlay, and cruise control.",
-                419, 3199, 19000, 5000, 4.85, 9, True, "red sedan car"
+                419, 3199, 19000, 5000, 4.85, 9, True, "Volkswagen Virtus"
             ),
             # SUVs
             (
@@ -301,7 +301,7 @@ def main():
                 16.5, 7, "Bengaluru", "Whitefield Main Rd, ITPL, Bengaluru, Karnataka 560066",
                 12.9850, 77.7366,
                 "7-seater flagship SUV with panoramic skyroof, dual HD screens, and ADAS.",
-                499, 3999, 24000, 6000, 4.88, 22, True, "black suv car"
+                499, 3999, 24000, 6000, 4.88, 22, True, "Mahindra XUV700"
             ),
             (
                 "11111111-aaaa-4000-8000-000000000006", v2,
@@ -309,7 +309,7 @@ def main():
                 17.4, 5, "Delhi", "Connaught Place, Block B, New Delhi, Delhi 110001",
                 28.6315, 77.2167,
                 "2026 Creta SUV with panoramic sunroof, ventilated front seats, and 360 surround camera.",
-                429, 3299, 19500, 5000, 4.74, 16, True, "white suv car"
+                429, 3299, 19500, 5000, 4.74, 16, True, "Hyundai Creta SU2"
             ),
             # EVs
             (
@@ -318,7 +318,7 @@ def main():
                 365.0, 5, "Bengaluru", "HSR Layout Sector 2, Bengaluru, Karnataka 560102",
                 12.9121, 77.6446,
                 "Long-range 2026 electric SUV (465 km certified) with fast DC charging and arcade display.",
-                349, 2699, 16000, 4000, 4.79, 13, True, "electric suv car"
+                349, 2699, 16000, 4000, 4.79, 13, True, "Tata Nexon EV"
             ),
             (
                 "11111111-aaaa-4000-8000-000000000008", v2,
@@ -326,7 +326,7 @@ def main():
                 461.0, 5, "Hyderabad", "Jubilee Hills Rd No 36, Hyderabad, Telangana 500033",
                 17.4326, 78.4071,
                 "Zero-emission 2025 electric SUV with panoramic sunroof and quiet cabin.",
-                399, 3099, 18500, 4000, 4.70, 8, True, "blue electric car"
+                399, 3099, 18500, 4000, 4.70, 8, True, "MG ZS EV Facelift"
             ),
             # Motorcycles & Scooters
             (
@@ -335,7 +335,7 @@ def main():
                 35.0, 2, "Bengaluru", "Jayanagar 4th Block, Bengaluru, Karnataka 560011",
                 12.9299, 77.5838,
                 "Iconic 2025 cruiser motorcycle with dual-channel ABS and comfortable touring ergonomics.",
-                179, 1199, 7200, 2000, 4.83, 19, True, "classic motorcycle cruiser"
+                179, 1199, 7200, 2000, 4.83, 19, True, "Royal Enfield Classic 350"
             ),
             (
                 "11111111-aaaa-4000-8000-000000000010", v2,
@@ -343,7 +343,7 @@ def main():
                 110.0, 2, "Bengaluru", "Malleshwaram 8th Cross, Bengaluru, Karnataka 560003",
                 13.0031, 77.5643,
                 "Zippy 2026 smart electric scooter with Google Maps dashboard and warp mode.",
-                129, 699, 4100, 1500, 4.76, 15, True, "modern electric scooter"
+                129, 699, 4100, 1500, 4.76, 15, True, "Ather 450X"
             ),
         ]
 

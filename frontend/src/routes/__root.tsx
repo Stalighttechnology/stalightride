@@ -142,7 +142,6 @@ function RootComponent() {
   }, [queryClient, router]);
 
   const isAdminRoute = pathname.startsWith("/admin");
-  const isHome = pathname === "/" || pathname === "";
 
   if (isAdminRoute) {
     return (
@@ -160,11 +159,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <HeadContent />
       <ConfirmDialogProvider>
-        <SidebarProvider defaultOpenMobile={isHome}>
+        <SidebarProvider defaultOpenMobile={false}>
           <div className="flex min-h-screen w-full">
             <AppSidebar />
-            <SidebarInset className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
-              <div className="flex-1">
+            <SidebarInset className="flex min-w-0 flex-1 flex-col overflow-x-clip pb-24 md:pb-0">
+              <div className="min-w-0 flex-1">
                 <Outlet />
               </div>
               <SiteFooter />

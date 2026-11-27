@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { createBackend, RuleError } from "../harness/fake-backend";
-import { matchScore, isMatch, MATCH_THRESHOLD, haversineKm } from "@/lib/pool-match";
+import {
+  matchScore,
+  isMatch,
+  MATCH_THRESHOLD,
+  haversineKm,
+  isFourPointRoute,
+  getFourPointRoute,
+  getRouteStops,
+} from "@/lib/pool-match";
 
 function setup(seats = 3) {
   const be = createBackend(new Date("2026-08-15T10:00:00Z"));
@@ -41,6 +49,96 @@ describe("pooling route matching", () => {
     const b = { lat: 13.35, lng: 77.1 };
     expect(haversineKm(a, a)).toBe(0);
     expect(haversineKm(a, b)).toBeCloseTo(haversineKm(b, a), 6);
+  });
+});
+
+describe("4-point route corridor matching", () => {
+  // Bangalore route corridor: Rajajinagar -> Majestic -> Lalbagh -> Jayanagar
+  const bangalore4PointTrip = {
+    origin_label: "Rajajinagar",
+    origin_lat: 12.9982,
+    origin_lng: 77.553,
+    dest_label: "Jayanagar",
+    dest_lat: 12.925,
+    dest_lng: 77.5938,
+    route: [
+      { lat: 12.9767, lng: 77.5713, label: "Majestic", order: 1 },
+      { lat: 12.9507, lng: 77.5848, label: "Lalbagh", order: 2 },
+    ],
+  };
+
+  test("validates 4-point routes correctly", () => {
+    expect(isFourPointRoute(bangalore4PointTrip)).toBe(true);
+    expect(isFourPointRoute({ ...bangalore4PointTrip, route: [] })).toBe(false);
+    expect(
+      isFourPointRoute({
+        ...bangalore4PointTrip,
+        route: [{ lat: 12.9767, lng: 77.5713, label: "Majestic", order: 1 }],
+      }),
+    ).toBe(false);
+
+    const stops = getRouteStops(bangalore4PointTrip);
+    expect(stops).toHaveLength(4);
+    expect(stops[0]?.label).toBe("Rajajinagar");
+    expect(stops[1]?.label).toBe("Majestic");
+    expect(stops[2]?.label).toBe("Lalbagh");
+    expect(stops[3]?.label).toBe("Jayanagar");
+
+    const fourPoint = getFourPointRoute(bangalore4PointTrip);
+    expect(fourPoint).not.toBeNull();
+    expect(fourPoint![0].lat).toBe(12.9982);
+    expect(fourPoint![3].lat).toBe(12.925);
+  });
+
+  test("passenger from Rajajinagar to South End Circle matches on the 4-point corridor", () => {
+    // South End Circle (lat 12.9363, lng 77.5802) is situated on the 3rd leg between Lalbagh and Jayanagar
+    const passengerPickup = { lat: 12.9982, lng: 77.553 }; // Rajajinagar
+    const passengerDrop = { lat: 12.9363, lng: 77.5802 }; // South End Circle
+
+    const result = matchScore(bangalore4PointTrip, passengerPickup, passengerDrop);
+
+    expect(result.sameDirection).toBe(true);
+    expect(result.pickupDistanceKm).toBeLessThan(1.0);
+    expect(result.dropDistanceKm).toBeLessThan(1.5);
+    expect(result.score).toBeGreaterThanOrEqual(90);
+    expect(isMatch(result)).toBe(true);
+    expect(result.pickupLegIndex).toBe(0);
+    expect(result.dropLegIndex).toBe(2);
+  });
+
+  test("intermediate sub-trip (Majestic to Lalbagh) matches on leg 1 of the corridor", () => {
+    const passengerPickup = { lat: 12.9767, lng: 77.5713 }; // Majestic
+    const passengerDrop = { lat: 12.9507, lng: 77.5848 }; // Lalbagh
+
+    const result = matchScore(bangalore4PointTrip, passengerPickup, passengerDrop);
+
+    expect(result.sameDirection).toBe(true);
+    expect(result.pickupDistanceKm).toBeLessThan(0.1);
+    expect(result.dropDistanceKm).toBeLessThan(0.1);
+    expect(result.score).toBe(100);
+    expect(isMatch(result)).toBe(true);
+  });
+
+  test("reversed travel direction along corridor fails (South End Circle to Rajajinagar)", () => {
+    const passengerPickup = { lat: 12.9363, lng: 77.5802 }; // South End Circle
+    const passengerDrop = { lat: 12.9982, lng: 77.553 }; // Rajajinagar
+
+    const result = matchScore(bangalore4PointTrip, passengerPickup, passengerDrop);
+
+    expect(result.sameDirection).toBe(false);
+    expect(result.score).toBe(0);
+    expect(isMatch(result)).toBe(false);
+  });
+
+  test("off-corridor passenger search does not match", () => {
+    // Whitefield to Electronic City is perpendicular/off the Rajajinagar-Jayanagar corridor
+    const passengerPickup = { lat: 12.9698, lng: 77.75 };
+    const passengerDrop = { lat: 12.8452, lng: 77.6602 };
+
+    const result = matchScore(bangalore4PointTrip, passengerPickup, passengerDrop);
+
+    expect(result.score).toBeLessThan(MATCH_THRESHOLD);
+    expect(isMatch(result)).toBe(false);
   });
 });
 

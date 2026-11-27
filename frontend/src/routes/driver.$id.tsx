@@ -111,6 +111,9 @@ function DriverProfile() {
   const [membershipPlan, setMembershipPlan] = useState<string>("free");
   const [corporateAccount, setCorporateAccount] = useState<{ companyId: string; companyName: string } | null>(null);
   const [billToCorporate, setBillToCorporate] = useState(false);
+  const [bookedRanges, setBookedRanges] = useState<
+    { start_date: string; end_date: string; start_time?: string; end_time?: string; rate_type?: string }[]
+  >([]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -153,9 +156,15 @@ function DriverProfile() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await api.from("public_drivers").select("*").eq("id", id).maybeSingle();
+      const [{ data }, { data: ranges }] = await Promise.all([
+        api.from("public_drivers").select("*").eq("id", id).maybeSingle(),
+        api.rpc("driver_booked_ranges", { _driver_id: id } as any),
+      ]);
       if (cancelled) return;
       setDriver(data ?? null);
+      if (Array.isArray(ranges)) {
+        setBookedRanges(ranges as any[]);
+      }
       const { data: rv, count } = await api
         .from("driver_reviews")
         .select("id,rating,comment,created_at,customer_id,driver_response,driver_response_at", {
@@ -231,6 +240,44 @@ function DriverProfile() {
       api.removeChannel(channel);
     };
   }, [id]);
+
+  const { disabledDriverDates, disabledDateKeySet } = useMemo(() => {
+    const dates: Date[] = [];
+    const keys = new Set<string>();
+    for (const r of bookedRanges) {
+      const s = parseIsoDate(r.start_date);
+      const e = parseIsoDate(r.end_date);
+      if (!s || !e) continue;
+      for (let d = new Date(s.getTime()); d <= e; d.setDate(d.getDate() + 1)) {
+        const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const key = formatIsoDate(copy);
+        if (!keys.has(key)) {
+          keys.add(key);
+          dates.push(copy);
+        }
+      }
+    }
+    return { disabledDriverDates: dates, disabledDateKeySet: keys };
+  }, [bookedRanges]);
+
+  // If the default initial `today()` date is already booked, clear selection so user picks an available date
+  useEffect(() => {
+    if (!search.startDate && startDate && disabledDateKeySet.has(startDate)) {
+      setStartDate("");
+      setEndDate("");
+    }
+  }, [disabledDateKeySet, search.startDate, startDate]);
+
+  const dateConflict = useMemo(() => {
+    if (!startDate) return null;
+    const effectiveEnd = rateType === "hourly" ? startDate : endDate || startDate;
+    for (const r of bookedRanges) {
+      if (startDate <= r.end_date && effectiveEnd >= r.start_date) {
+        return `Driver is already booked from ${r.start_date} to ${r.end_date}. Please choose available dates.`;
+      }
+    }
+    return null;
+  }, [bookedRanges, endDate, rateType, startDate]);
 
   useEffect(() => {
     if (rateType === "hourly") setEndDate(startDate);
@@ -612,6 +659,7 @@ function DriverProfile() {
                           value={startDate}
                           onChange={setStartDate}
                           minDate={new Date()}
+                          isDateDisabled={(d) => disabledDateKeySet.has(formatIsoDate(d))}
                           placeholder="Select date"
                           className="h-9 rounded-xl text-xs"
                         />
@@ -624,6 +672,7 @@ function DriverProfile() {
                             start: parseIsoDate(startDate),
                             end: parseIsoDate(endDate),
                           }}
+                          disabledDates={disabledDriverDates}
                           onChange={(range) => {
                             setStartDate(formatIsoDate(range.start));
                             setEndDate(formatIsoDate(range.end));
@@ -723,9 +772,15 @@ function DriverProfile() {
                   </div>
                 )}
 
+                {dateConflict && (
+                  <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    {dateConflict}
+                  </p>
+                )}
+
                 <Button
                   className="mt-4 w-full"
-                  disabled={submitting || !!price.error}
+                  disabled={submitting || !!price.error || !!dateConflict || !startDate}
                   onClick={hire}
                 >
                   {!user

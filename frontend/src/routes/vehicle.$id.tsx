@@ -62,6 +62,7 @@ import {
   Crown,
   CheckCircle2,
   Zap,
+  ChevronLeft,
   ChevronRight,
   IndianRupee,
   CreditCard,
@@ -854,7 +855,7 @@ function VehiclePage() {
               {Number(v.avg_rating).toFixed(1)} ({v.review_count})
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="mt-1 font-display text-3xl font-semibold">{v.title}</h1>
+              <h1 className="mt-1 font-display text-2xl sm:text-3xl font-semibold">{v.title}</h1>
               {v.instant_book && (
                 <Badge variant="secondary" className="mt-1 gap-1 border-brand/30 bg-brand/10 text-brand">
                   <Zap className="h-3.5 w-3.5 fill-current text-brand" />
@@ -972,9 +973,27 @@ function VehiclePage() {
                   )}
                 </div>
                 {images.length > 1 && (
-                  <span className="absolute bottom-4 right-4 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium backdrop-blur">
-                    {activeImg + 1} / {images.length}
-                  </span>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveImg((prev) => (prev - 1 + images.length) % images.length)}
+                      aria-label="Previous photo"
+                      className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-md backdrop-blur transition-all hover:bg-background hover:scale-105 cursor-pointer"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveImg((prev) => (prev + 1) % images.length)}
+                      aria-label="Next photo"
+                      className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-md backdrop-blur transition-all hover:bg-background hover:scale-105 cursor-pointer"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    <span className="absolute bottom-4 right-4 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-medium backdrop-blur">
+                      {activeImg + 1} / {images.length}
+                    </span>
+                  </>
                 )}
               </div>
 
@@ -987,7 +1006,7 @@ function VehiclePage() {
                         key={i}
                         onClick={() => setActiveImg(i)}
                         aria-label={`View photo ${i + 1}`}
-                        className={`group relative h-20 w-28 shrink-0 overflow-hidden rounded-2xl border-2 transition-all duration-200 ${
+                        className={`group relative h-16 w-24 sm:h-20 sm:w-28 shrink-0 overflow-hidden rounded-2xl border-2 transition-all duration-200 ${
                           i === activeImg
                             ? "border-brand shadow-glow ring-2 ring-brand/30"
                             : "border-border/60 opacity-70 hover:opacity-100 hover:border-brand/50"
